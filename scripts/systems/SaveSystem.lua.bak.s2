@@ -1,0 +1,3096 @@
+-- ============================================================================
+-- SaveSystem.lua - 云存档系统
+-- 支持多角色槽位、版本迁移、完整性校验、保存前安全检查
+-- ============================================================================
+
+local GameConfig = require("config.GameConfig")
+local GameState = require("core.GameState")
+local EventBus = require("core.EventBus")
+local CloudStorage = require("network.CloudStorage")
+local SaveSystemNet = require("network.SaveSystemNet")
+
+---@diagnostic disable-next-line: undefined-global
+local cjson = cjson  -- 引擎内置全局变量
+
+local SaveSystem = {}
+
+-- ============================================================================
+-- 常量
+-- ============================================================================
+
+SaveSystem.MAX_SLOTS = 4                -- 最大角色槽位数（含迁移恢复槽位）
+SaveSystem.NEW_CHAR_MAX = 2             -- 允许创建新角色的最大槽位号（1-2 可创角，3-4 预留恢复）
+SaveSystem.AUTO_SAVE_INTERVAL = 60      -- 每 1 分钟自动存档
+SaveSystem.CURRENT_SAVE_VERSION = 11    -- 当前存档数据版本
+SaveSystem.DEFAULT_CHARACTER_NAME = "修仙者"  -- 旧存档迁移时的默认角色名
+SaveSystem.CHECKPOINT_INTERVAL = 5      -- 每 N 次存档写一次定期备份（~10 分钟）
+
+-- ============================================================================
+-- 运行时状态
+-- ============================================================================
+
+SaveSystem.saveTimer = 0
+SaveSystem.loaded = false       -- 是否已成功加载存档（控制自动存档）
+SaveSystem.saving = false       -- 是否正在保存中（包括预检阶段）
+SaveSystem.activeSlot = nil     -- 当前活跃的角色槽位 (1 或 2)
+SaveSystem._saveCount = 0       -- 存档计数器（用于定期备份触发）
+SaveSystem._saveEpoch = 0       -- 存档纪元（每次 Init 递增，用于作废过期回调）
+SaveSystem._savingStartTime = 0 -- saving 设为 true 的时刻（用于超时自动解锁）
+SaveSystem._lastKnownCloudLevel = 0  -- 上次成功加载时的云端等级（本地安全阀用）
+SaveSystem._retryTimer = nil    -- 存档失败后的重试计时器
+SaveSystem._consecutiveFailures = 0  -- 连续存档失败次数
+SaveSystem._saveTimeoutElapsed = 0   -- 存档响应超时累计（dt 精度）
+SaveSystem._saveTimeoutActive = false -- 是否启动存档响应超时检测
+SaveSystem._cachedSlotsIndex = nil   -- 缓存的 slots_index（由 CharacterSelectScreen 设置）
+SaveSystem._cachedCharName = nil     -- 缓存的角色名（由 CharacterSelectScreen/main 设置）
+SaveSystem._lastKnownCollectionCount = 0  -- 上次已知的图鉴收录数量（退化检测用）
+SaveSystem._connCheckTimer = 0       -- 连接状态轮询计时器（W1）
+SaveSystem._lastConnState = true     -- 上次检测到的连接状态（W1）
+SaveSystem._disconnected = false     -- 断线暂停存档标志（W2）
+
+--- 初始化
+function SaveSystem.Init()
+    SaveSystem.saveTimer = 0
+    SaveSystem.loaded = false
+    SaveSystem.saving = false
+    SaveSystem.activeSlot = nil
+    SaveSystem._saveCount = 0
+    SaveSystem._saveEpoch = (SaveSystem._saveEpoch or 0) + 1  -- 递增纪元，作废所有飞行中的回调
+    SaveSystem._savingStartTime = 0
+    SaveSystem._lastKnownCloudLevel = 0
+    SaveSystem._retryTimer = nil
+    SaveSystem._consecutiveFailures = 0
+    SaveSystem._saveTimeoutElapsed = 0
+    SaveSystem._saveTimeoutActive = false
+    SaveSystem._connCheckTimer = 0
+    SaveSystem._lastConnState = true
+    SaveSystem._disconnected = false
+    -- 注意：_cachedSlotsIndex 和 _cachedCharName 由 CharacterSelectScreen 设置，
+    -- 跨越 Init 生命周期，此处不清除。清除会导致 DoSave 用空 slots 覆写索引，
+    -- 丢失其他槽位的元数据。
+
+    -- 监听 save_request 事件，供各子系统在关键操作后请求即时存档
+    EventBus.On("save_request", function()
+        if SaveSystem.loaded and SaveSystem.activeSlot then
+            SaveSystem.Save()
+        end
+    end)
+
+    -- W2: 断线暂停存档 + 恢复后立即补存
+    EventBus.On("connection_lost", function()
+        SaveSystem._disconnected = true
+        print("[SaveSystem] Connection lost — auto-save paused")
+    end)
+    EventBus.On("connection_restored", function()
+        SaveSystem._disconnected = false
+        print("[SaveSystem] Connection restored — triggering immediate save")
+        if SaveSystem.loaded and SaveSystem.activeSlot then
+            SaveSystem.Save()
+        end
+    end)
+
+    print("[SaveSystem] Initialized (epoch=" .. SaveSystem._saveEpoch .. ")")
+end
+
+-- ============================================================================
+-- 版本迁移管线
+-- ============================================================================
+
+--- 归一化装备中的百分比属性（旧存档可能以整数存储，如 3 表示 3%，应为 0.03）
+---@param item table
+local function NormalizePercentStats(item)
+    if not item then return end
+    local PERCENT_STATS = { critRate = 0.5, critDmg = 2.0 }
+
+    if item.mainStat then
+        for stat, threshold in pairs(PERCENT_STATS) do
+            if item.mainStat[stat] and item.mainStat[stat] > threshold then
+                item.mainStat[stat] = item.mainStat[stat] / 100
+            end
+        end
+    end
+
+    if item.subStats then
+        for _, sub in ipairs(item.subStats) do
+            local threshold = PERCENT_STATS[sub.stat]
+            if threshold and sub.value > threshold then
+                sub.value = sub.value / 100
+            end
+        end
+    end
+
+    if item.forgeStat then
+        local threshold = PERCENT_STATS[item.forgeStat.stat]
+        if threshold and item.forgeStat.value > threshold then
+            item.forgeStat.value = item.forgeStat.value / 100
+        end
+    end
+end
+
+-- 迁移函数注册表
+-- ⚠️ 重要依赖：MIGRATIONS 中的函数访问 data.inventory（含 equipment + backpack），
+-- 这要求调用 MigrateSaveData 之前，Load 已将三键/两键数据重组到 data.inventory 中。
+-- 调用顺序：Load 重组 inventory → ProcessLoadedData → MigrateSaveData → 使用数据
+local MIGRATIONS = {
+    -- v1 → v2：境界 ID 兼容 + 百分比属性归一化（已有逻辑集中管理）
+    [2] = function(data)
+        -- 境界兼容映射
+        if data.player and data.player.realm then
+            if GameConfig.REALM_COMPAT and GameConfig.REALM_COMPAT[data.player.realm] then
+                data.player.realm = GameConfig.REALM_COMPAT[data.player.realm]
+            end
+        end
+        -- 装备百分比归一化 + tier 补全
+        if data.inventory then
+            if data.inventory.equipment then
+                for _, itemData in pairs(data.inventory.equipment) do
+                    NormalizePercentStats(itemData)
+                    if itemData.slot and not itemData.tier then
+                        itemData.tier = 1
+                    end
+                end
+            end
+            if data.inventory.backpack then
+                for _, itemData in pairs(data.inventory.backpack) do
+                    NormalizePercentStats(itemData)
+                    if itemData.slot and not itemData.tier then
+                        itemData.tier = 1
+                    end
+                end
+            end
+        end
+        data.version = 2
+        return data
+    end,
+    -- v2 → v3：角色名字段（多槽位支持）
+    [3] = function(data)
+        -- 无需额外操作，角色名存在 slots_index 中，不在 save_data 内
+        data.version = 3
+        return data
+    end,
+
+    -- v3 → v4：装备属性公式对齐（baseValue 变更 + 独特装备覆写 + 法宝主属性查表）
+    [4] = function(data)
+        local EquipmentData = require("config.EquipmentData")
+
+        -- 副属性/洗练属性乘法修正系数（baseValue 变更）
+        local STAT_MULTIPLIERS = {
+            heavyHit = 4,      -- 旧 baseValue=2, 新=8
+            hpRegen  = 3.33,   -- 旧 baseValue=0.15, 新=0.5
+            critDmg  = 0.5,    -- 旧 baseValue=0.10, 新=0.05
+        }
+
+        --- 对副属性列表应用乘法修正
+        local function MigrateSubStats(subStats)
+            if not subStats then return end
+            for _, sub in ipairs(subStats) do
+                local mult = STAT_MULTIPLIERS[sub.stat]
+                if mult then
+                    sub.value = math.floor(sub.value * mult * 100 + 0.5) / 100
+                    if sub.value <= 0 then sub.value = 0.01 end
+                end
+            end
+        end
+
+        --- 对洗练属性应用乘法修正
+        local function MigrateForgeStat(forgeStat)
+            if not forgeStat then return end
+            local mult = STAT_MULTIPLIERS[forgeStat.stat]
+            if mult then
+                forgeStat.value = math.floor(forgeStat.value * mult * 100 + 0.5) / 100
+                if forgeStat.value <= 0 then forgeStat.value = 0.01 end
+            end
+        end
+
+        --- 迁移单件装备
+        local function MigrateItem(item)
+            if not item or not item.slot then return end
+
+            if item.isSpecial then
+                -- 独特装备：从模板覆写 mainStat + subStats
+                for _, tpl in pairs(EquipmentData.SpecialEquipment) do
+                    if tpl.name == item.name or
+                       (item.slot == "treasure" and tpl.slot == "treasure") then
+                        -- 覆写主属性
+                        item.mainStat = {}
+                        for k, v in pairs(tpl.mainStat) do
+                            item.mainStat[k] = v
+                        end
+                        -- 覆写副属性（深拷贝）
+                        item.subStats = {}
+                        if tpl.subStats then
+                            for _, sub in ipairs(tpl.subStats) do
+                                table.insert(item.subStats, {
+                                    stat = sub.stat,
+                                    name = sub.name,
+                                    value = sub.value,
+                                })
+                            end
+                        end
+                        break
+                    end
+                end
+                -- 洗练属性也需修正（独特装备也可能被洗练）
+                MigrateForgeStat(item.forgeStat)
+            else
+                -- 普通装备：对受影响的副属性和洗练属性做乘法修正
+                MigrateSubStats(item.subStats)
+                MigrateForgeStat(item.forgeStat)
+            end
+
+            -- 法宝迁移：从配置表同步主属性、品质、副属性
+            if item.slot == "treasure" and item.mainStat then
+                local tier = item.tier or 1
+                -- 主属性覆写
+                local gourdMain = EquipmentData.GOURD_MAIN_STAT[tier]
+                if gourdMain then
+                    item.mainStat.hpRegen = gourdMain
+                end
+                -- 品质和副属性从 GOURD_UPGRADE 表同步（T2+）
+                local upgradeData = EquipmentData.GOURD_UPGRADE[tier]
+                if upgradeData then
+                    local gourdStatNames = { maxHp = "生命值", fortune = "福缘", killHeal = "击杀回血" }
+                    item.quality = upgradeData.quality
+                    item.subStats = {}
+                    for _, sub in ipairs(upgradeData.subStats) do
+                        table.insert(item.subStats, {
+                            stat = sub.stat,
+                            name = gourdStatNames[sub.stat] or sub.stat,
+                            value = sub.value,
+                        })
+                    end
+                end
+            end
+        end
+
+        -- 遍历所有装备
+        if data.inventory then
+            if data.inventory.equipment then
+                for _, item in pairs(data.inventory.equipment) do
+                    MigrateItem(item)
+                end
+            end
+            if data.inventory.backpack then
+                for _, item in pairs(data.inventory.backpack) do
+                    if item.slot then  -- 只处理装备类物品
+                        MigrateItem(item)
+                    end
+                end
+            end
+        end
+
+        print("[SaveSystem] v3→v4 migration: equipment attributes realigned")
+        data.version = 4
+        return data
+    end,
+
+    -- ========================================================================
+    -- v4 → v5: boots speed 从整数改为百分比小数
+    -- 旧: speed = 1 × TIER_MULTIPLIER[tier] × qualityMult (整数，如 T5蓝=4)
+    -- 新: speed = 0.03 × PCT_TIER_MULTIPLIER[tier] × qualityMult (小数，如 T5蓝=0.11)
+    -- ========================================================================
+    [5] = function(data)
+        local EquipmentData = require("config.EquipmentData")
+
+        local function RecalcBootsSpeed(item)
+            if not item or item.slot ~= "boots" then return end
+            if not item.mainStat or not item.mainStat.speed then return end
+
+            local tier = item.tier or 1
+            local quality = item.quality or "white"
+            local qualityConfig = GameConfig.QUALITY[quality]
+            local qualityMult = qualityConfig and qualityConfig.multiplier or 1.0
+            local tierMult = EquipmentData.PCT_TIER_MULTIPLIER[tier] or 1.0
+
+            -- 重算：0.03 × PCT_TIER_MULTIPLIER × qualityMult，保留2位小数
+            local newSpeed = 0.03 * tierMult * qualityMult
+            newSpeed = math.floor(newSpeed * 100 + 0.5) / 100
+
+            item.mainStat.speed = newSpeed
+        end
+
+        if data.inventory then
+            if data.inventory.equipment then
+                for _, item in pairs(data.inventory.equipment) do
+                    RecalcBootsSpeed(item)
+                end
+            end
+            if data.inventory.backpack then
+                for _, item in pairs(data.inventory.backpack) do
+                    RecalcBootsSpeed(item)
+                end
+            end
+        end
+
+        print("[SaveSystem] v4→v5 migration: boots speed recalculated as percentage")
+        data.version = 5
+        return data
+    end,
+
+    -- ========================================================================
+    -- v5 → v6: cape dmgReduce 从整数改为百分比小数
+    -- 旧: dmgReduce = 2 × TIER_MULTIPLIER[tier] × qualityMult (整数，如 T3紫=7)
+    -- 新: dmgReduce = 0.02 × PCT_TIER_MULTIPLIER[tier] × qualityMult (小数，如 T3紫=0.05)
+    -- ========================================================================
+    [6] = function(data)
+        local EquipmentData = require("config.EquipmentData")
+
+        local function RecalcCapeDmgReduce(item)
+            if not item or item.slot ~= "cape" then return end
+            if not item.mainStat or not item.mainStat.dmgReduce then return end
+
+            -- 独特装备直接从模板覆写
+            if item.isSpecial then
+                for _, tpl in pairs(EquipmentData.SpecialEquipment) do
+                    if tpl.name == item.name and tpl.slot == "cape" then
+                        item.mainStat.dmgReduce = tpl.mainStat.dmgReduce
+                        return
+                    end
+                end
+            end
+
+            -- 普通披风按公式重算
+            local tier = item.tier or 1
+            local quality = item.quality or "white"
+            local qualityConfig = GameConfig.QUALITY[quality]
+            local qualityMult = qualityConfig and qualityConfig.multiplier or 1.0
+            local tierMult = EquipmentData.PCT_TIER_MULTIPLIER[tier] or 1.0
+
+            local newVal = 0.02 * tierMult * qualityMult
+            item.mainStat.dmgReduce = math.floor(newVal * 100 + 0.5) / 100
+        end
+
+        if data.inventory then
+            if data.inventory.equipment then
+                for _, item in pairs(data.inventory.equipment) do
+                    RecalcCapeDmgReduce(item)
+                end
+            end
+            if data.inventory.backpack then
+                for _, item in pairs(data.inventory.backpack) do
+                    RecalcCapeDmgReduce(item)
+                end
+            end
+        end
+
+        print("[SaveSystem] v5→v6 migration: cape dmgReduce recalculated as percentage")
+        data.version = 6
+        return data
+    end,
+
+    -- ========================================================================
+    -- v6 → v7: 多章节支持 — 玩家坐标绑定章节
+    -- 旧存档没有 chapter 字段，默认归属第一章
+    -- ========================================================================
+    [7] = function(data)
+        if data.player then
+            data.player.chapter = data.player.chapter or 1
+        end
+        print("[SaveSystem] v6→v7 migration: chapter field added (default=1)")
+        data.version = 7
+        return data
+    end,
+
+    -- ========================================================================
+    -- v7 → v8: 修正所有百分比主属性使用了错误倍率表的装备
+    -- QuestSystem/EquipShopUI 生成的项链(critRate)、鞋子(speed)、披风(dmgReduce)
+    -- 之前用 TIER_MULTIPLIER 而非 PCT_TIER_MULTIPLIER，导致数值虚高
+    -- 同时修正洗练副属性(critRate/critDmg)使用了错误倍率表的问题
+    -- ========================================================================
+    [8] = function(data)
+        local EquipmentData = require("config.EquipmentData")
+
+        --- 修正非特殊装备的百分比主属性
+        local function FixPctMainStat(item)
+            if not item or item.isSpecial then return end
+
+            local slot = item.slot
+            if not slot then return end
+
+            local mainStatType = EquipmentData.MAIN_STAT[slot]
+            if not mainStatType then return end
+            if not EquipmentData.PCT_MAIN_STATS[mainStatType] then return end
+            if not item.mainStat or not item.mainStat[mainStatType] then return end
+
+            local tier = item.tier or 1
+            local quality = item.quality or "white"
+            local qualityConfig = GameConfig.QUALITY[quality]
+            local qualityMult = qualityConfig and qualityConfig.multiplier or 1.0
+
+            local baseStat = EquipmentData.BASE_MAIN_STAT[slot]
+            if not baseStat then return end
+            local baseValue = baseStat[mainStatType] or 0
+
+            local pctTierMult = EquipmentData.PCT_TIER_MULTIPLIER[tier] or 1.0
+            local correctValue = baseValue * pctTierMult * qualityMult
+            correctValue = math.floor(correctValue * 100 + 0.5) / 100
+
+            local oldValue = item.mainStat[mainStatType]
+            if math.abs(oldValue - correctValue) > 0.005 then
+                item.mainStat[mainStatType] = correctValue
+                print(string.format("[SaveSystem] v8 fix: %s %s %.3f → %.3f",
+                    item.name or slot, mainStatType, oldValue, correctValue))
+            end
+        end
+
+        --- 修正洗练副属性中的百分比属性
+        local function FixForgePctStat(item)
+            if not item or not item.forgeStat then return end
+            local fs = item.forgeStat
+            if not EquipmentData.PCT_STATS[fs.stat] then return end
+
+            local tier = item.tier or 1
+            local pctTierMult = EquipmentData.PCT_SUB_TIER_MULT[tier] or 1.0
+            local sub = nil
+            for _, s in ipairs(EquipmentData.SUB_STATS) do
+                if s.stat == fs.stat then sub = s; break end
+            end
+            if not sub then return end
+
+            -- 正确值范围: baseValue × PCT_SUB_TIER_MULT × [0.8, 1.2]
+            local maxCorrect = sub.baseValue * pctTierMult * 1.2
+            if fs.value > maxCorrect * 1.05 then
+                -- 值超出正确范围上限5%以上，说明用了错误的倍率表，重新随机
+                local newValue = sub.baseValue * pctTierMult * (0.8 + math.random() * 0.4)
+                newValue = math.floor(newValue * 100 + 0.5) / 100
+                print(string.format("[SaveSystem] v8 fix forge: %s %s %.3f → %.3f",
+                    item.name or "?", fs.stat, fs.value, newValue))
+                fs.value = newValue
+            end
+        end
+
+        if data.inventory then
+            if data.inventory.equipment then
+                for _, item in pairs(data.inventory.equipment) do
+                    FixPctMainStat(item)
+                    FixForgePctStat(item)
+                end
+            end
+            if data.inventory.backpack then
+                for _, item in pairs(data.inventory.backpack) do
+                    FixPctMainStat(item)
+                    FixForgePctStat(item)
+                end
+            end
+        end
+
+        print("[SaveSystem] v7→v8 migration: PCT main/sub stats fixed")
+        data.version = 8
+        return data
+    end,
+
+    -- v8 → v9: 仙元属性系统 (skillDmg→wisdom, killGold→fortune)
+    [9] = function(data)
+        local EquipmentData = require("config.EquipmentData")
+
+        local TIER_MULT = EquipmentData.TIER_MULTIPLIER
+
+        --- 迁移单个装备
+        local function MigrateItem(item)
+            if not item then return end
+
+            -- 1) exclusive 主属性: skillDmg (百分比) → wisdom (整数)
+            --    新值 = floor(5 × TIER_MULTIPLIER[tier] × qualityMult)
+            if item.mainStat and item.mainStat.skillDmg then
+                local tier = item.tier or 1
+                local qualityCfg = GameConfig.QUALITY[item.quality or "white"]
+                local qualityMult = qualityCfg and qualityCfg.multiplier or 1.0
+                local tierMult = TIER_MULT[tier] or 1.0
+                local newWisdom = math.floor(5 * tierMult * qualityMult)
+                print(string.format("[SaveSystem] v9: mainStat skillDmg %.3f → wisdom %d (%s T%d)",
+                    item.mainStat.skillDmg, newWisdom, item.name or "?", tier))
+                item.mainStat.skillDmg = nil
+                item.mainStat.wisdom = newWisdom
+            end
+
+            -- 2) 副属性: killGold → fortune (重命名，值不变)
+            if item.subStats then
+                for _, sub in ipairs(item.subStats) do
+                    if sub.stat == "killGold" then
+                        sub.stat = "fortune"
+                        sub.name = "福缘"
+                        print(string.format("[SaveSystem] v9: subStat killGold → fortune (value=%s, %s)",
+                            tostring(sub.value), item.name or "?"))
+                    end
+                end
+            end
+
+            -- 3) 洗练属性: killGold → fortune
+            if item.forgeStat and item.forgeStat.stat == "killGold" then
+                item.forgeStat.stat = "fortune"
+                item.forgeStat.name = "福缘"
+                print(string.format("[SaveSystem] v9: forgeStat killGold → fortune (value=%s, %s)",
+                    tostring(item.forgeStat.value), item.name or "?"))
+            end
+        end
+
+        -- 遍历所有装备和背包
+        if data.inventory then
+            if data.inventory.equipment then
+                for _, item in pairs(data.inventory.equipment) do
+                    MigrateItem(item)
+                end
+            end
+            if data.inventory.backpack then
+                for _, item in pairs(data.inventory.backpack) do
+                    MigrateItem(item)
+                end
+            end
+        end
+
+        -- 图鉴加成: killGold → fortune
+        if data.collection and data.collection.totalBonus then
+            local bonus = data.collection.totalBonus
+            if bonus.killGold then
+                bonus.fortune = bonus.killGold
+                bonus.killGold = nil
+                print("[SaveSystem] v9: collection bonus killGold → fortune")
+            end
+        end
+
+        print("[SaveSystem] v8→v9 migration: 仙元属性系统迁移完成")
+        data.version = 9
+        return data
+    end,
+
+    -- ========================================================================
+    -- v9 → v10: 封魔任务替换除魔任务，添加体魄丹
+    -- ========================================================================
+    [10] = function(data)
+        -- 清除旧除魔任务数据
+        if data.exorcism then
+            data.exorcism = nil
+            print("[SaveSystem] v10: cleared old exorcism data")
+        end
+
+        -- 初始化新封魔任务数据
+        data.sealDemon = {
+            quests = {},
+        }
+
+        -- 初始化体魄丹累计（写入 player 子表）
+        if data.player then
+            data.player.pillPhysique = 0
+        end
+
+        print("[SaveSystem] v9→v10 migration: 封魔任务系统迁移完成")
+        data.version = 10
+        return data
+    end,
+
+    -- v10 → v11：存储格式变更（3键→1键），数据结构不变，无需数据迁移
+    -- 仅标记版本号，实际合并由 Load/DoSave 的读写路径完成
+    [11] = function(data)
+        print("[SaveSystem] v10→v11 migration: 存储格式升级（3键→1键），数据结构无变化")
+        data.version = 11
+        return data
+    end,
+
+    -- ========================================================================
+}
+
+--- 按版本号逐级迁移存档数据
+---@param data table 原始存档数据
+---@return table|nil 迁移后数据, string|nil 错误信息
+function SaveSystem.MigrateSaveData(data)
+    local ver = data.version or 1
+
+    -- 前向版本校验：存档版本 > 当前代码版本 → 旧代码读新存档，拒绝加载
+    if ver > SaveSystem.CURRENT_SAVE_VERSION then
+        local msg = "存档版本(v" .. ver .. ")高于当前代码(v"
+            .. SaveSystem.CURRENT_SAVE_VERSION .. ")，请更新游戏"
+        print("[SaveSystem] FORWARD VERSION CHECK FAILED: " .. msg)
+        return nil, msg
+    end
+
+    while ver < SaveSystem.CURRENT_SAVE_VERSION do
+        local nextVer = ver + 1
+        local migrator = MIGRATIONS[nextVer]
+        if not migrator then
+            return nil, "缺少 v" .. ver .. " → v" .. nextVer .. " 的迁移逻辑"
+        end
+        local ok, result = pcall(migrator, data)
+        if not ok then
+            return nil, "迁移到 v" .. nextVer .. " 失败: " .. tostring(result)
+        end
+        data = result
+        ver = nextVer
+    end
+    return data, nil
+end
+
+-- ============================================================================
+-- 完整性校验
+-- ============================================================================
+
+--- 校验加载后的游戏状态是否合理
+---@param cloudLevel number 云端记录的等级（反序列化前）
+---@return boolean 是否通过, string[] 错误列表
+function SaveSystem.ValidateLoadedState(cloudLevel)
+    local player = GameState.player
+    if not player then
+        return false, {"GameState.player 为 nil"}
+    end
+
+    local errors = {}
+
+    -- 1. 等级断崖检测：云端高级角色反序列化后变成1级 = 数据丢失
+    if cloudLevel and cloudLevel > 10 and player.level <= 1 then
+        table.insert(errors, "等级异常: 云端Lv." .. cloudLevel .. " → 当前Lv." .. player.level)
+    end
+
+    -- 2. 境界必须在配置表中
+    if not GameConfig.REALMS[player.realm] and player.realm ~= "mortal" then
+        table.insert(errors, "境界 '" .. tostring(player.realm) .. "' 不存在于配置表")
+    end
+
+    -- 3. 基础属性不能为 0 或负数
+    if player.maxHp <= 0 then
+        table.insert(errors, "maxHp=" .. player.maxHp)
+    end
+
+    return #errors == 0, errors
+end
+
+-- ============================================================================
+-- 自动存档计时
+-- ============================================================================
+
+--- 更新（自动存档计时 + 失败重试）
+---@param dt number
+function SaveSystem.Update(dt)
+    if not SaveSystem.loaded then return end
+    if not SaveSystem.activeSlot then return end
+
+    -- W1: 连接状态轮询（每 5s 检测一次，仅网络模式）
+    if CloudStorage.IsNetworkMode() then
+        SaveSystem._connCheckTimer = SaveSystem._connCheckTimer + dt
+        if SaveSystem._connCheckTimer >= 5 then
+            SaveSystem._connCheckTimer = 0
+            local connected = network:GetServerConnection() ~= nil
+            if connected ~= SaveSystem._lastConnState then
+                SaveSystem._lastConnState = connected
+                if not connected then
+                    EventBus.Emit("connection_lost")
+                else
+                    EventBus.Emit("connection_restored")
+                end
+            end
+        end
+    end
+
+    -- 存档响应超时检测（15s 无响应视为失败）
+    if SaveSystem._saveTimeoutActive and SaveSystem.saving then
+        SaveSystem._saveTimeoutElapsed = SaveSystem._saveTimeoutElapsed + dt
+        if SaveSystem._saveTimeoutElapsed >= 15 then
+            SaveSystem._saveTimeoutActive = false
+            SaveSystem.saving = false
+            SaveSystem._consecutiveFailures = SaveSystem._consecutiveFailures + 1
+            local retryDelay = math.min(10 * SaveSystem._consecutiveFailures, 60)
+            SaveSystem._retryTimer = retryDelay
+            print("[SaveSystem] Save TIMEOUT (no response in 15s), "
+                .. SaveSystem._consecutiveFailures .. " consecutive failures, retry in " .. retryDelay .. "s")
+            if SaveSystem._consecutiveFailures >= 2 then
+                EventBus.Emit("save_warning", { failures = SaveSystem._consecutiveFailures })
+            end
+            return
+        end
+    end
+
+    -- 失败重试计时（优先于常规自动存档）
+    if SaveSystem._retryTimer then
+        SaveSystem._retryTimer = SaveSystem._retryTimer - dt
+        if SaveSystem._retryTimer <= 0 then
+            SaveSystem._retryTimer = nil
+            print("[SaveSystem] Retrying save after failure...")
+            SaveSystem.Save()
+            return
+        end
+    end
+
+    SaveSystem.saveTimer = SaveSystem.saveTimer + dt
+    if SaveSystem.saveTimer >= SaveSystem.AUTO_SAVE_INTERVAL then
+        SaveSystem.saveTimer = 0
+        SaveSystem.Save()
+    end
+end
+
+-- ============================================================================
+-- 序列化
+-- ============================================================================
+
+--- 序列化玩家数据为可存储的 table
+---@return table
+function SaveSystem.SerializePlayer()
+    local player = GameState.player
+    if not player then return {} end
+
+    return {
+        level = player.level,
+        exp = player.exp,
+        hp = player.hp,
+        maxHp = player.maxHp,
+        atk = player.atk,
+        def = player.def,
+        hpRegen = player.hpRegen,
+        pillKillHeal = player.pillKillHeal or 0,
+        pillConstitution = player.pillConstitution or 0,
+        fruitFortune = player.fruitFortune or 0,
+        seaPillarDef = player.seaPillarDef or 0,
+        seaPillarAtk = player.seaPillarAtk or 0,
+        seaPillarMaxHp = player.seaPillarMaxHp or 0,
+        seaPillarHpRegen = player.seaPillarHpRegen or 0,
+        daoTreeWisdom = player.daoTreeWisdom or 0,
+        daoTreeWisdomPity = player.daoTreeWisdomPity or 0,
+        gold = player.gold,
+        lingYun = player.lingYun,
+        realm = player.realm,
+        x = math.floor(player.x * 10) / 10,
+        y = math.floor(player.y * 10) / 10,
+        chapter = GameState.currentChapter or 1,
+        pillPhysique = player.pillPhysique or 0,
+    }
+end
+
+--- 反序列化玩家数据（版本迁移已在外部完成，这里只做赋值）
+---@param data table
+function SaveSystem.DeserializePlayer(data)
+    local player = GameState.player
+    if not player or not data then return end
+
+    player.level = data.level or 1
+    player.exp = data.exp or 0
+    player.maxHp = data.maxHp or 100
+    player.atk = data.atk or 15
+    player.def = data.def or 5
+    player.hpRegen = data.hpRegen or 1.0
+    player.pillKillHeal = data.pillKillHeal or 0
+    player.pillConstitution = data.pillConstitution or 0
+    player.fruitFortune = data.fruitFortune or 0
+    player.seaPillarDef = data.seaPillarDef or 0
+    player.seaPillarAtk = data.seaPillarAtk or 0
+    player.seaPillarMaxHp = data.seaPillarMaxHp or 0
+    player.seaPillarHpRegen = data.seaPillarHpRegen or 0
+    player.daoTreeWisdom = data.daoTreeWisdom or 0
+    player.daoTreeWisdomPity = data.daoTreeWisdomPity or 0
+    player.pillPhysique = data.pillPhysique or 0
+    player.gold = data.gold or 0
+    player.lingYun = data.lingYun or 0
+    player.realm = data.realm or "mortal"
+
+    -- 旧存档兼容：映射旧境界 ID 到新 ID（迁移管线未覆盖的残留场景）
+    if GameConfig.REALM_COMPAT and GameConfig.REALM_COMPAT[player.realm] then
+        local oldRealm = player.realm
+        player.realm = GameConfig.REALM_COMPAT[player.realm]
+        print("[SaveSystem] Realm compat: " .. oldRealm .. " -> " .. player.realm)
+    end
+
+    local totalMaxHp = player:GetTotalMaxHp()
+    player.hp = math.min(data.hp or totalMaxHp, totalMaxHp)
+    -- 🔴 Bug H fix: 防止死亡状态存档后加载出现 alive=true 但 hp=0 的无效状态
+    -- Lua 中 0 是真值，所以 (0 or totalMaxHp) = 0，不会被 or 兜底
+    if player.hp <= 0 then
+        player.hp = totalMaxHp
+        print("[SaveSystem] Player hp was 0 on load, restored to full: " .. totalMaxHp)
+    end
+
+    if data.x and data.y then
+        player.x = data.x
+        player.y = data.y
+    end
+
+    -- 恢复章节信息
+    GameState.currentChapter = data.chapter or 1
+
+    local realmData = GameConfig.REALMS[player.realm]
+    if realmData then
+        player.realmAtkSpeedBonus = realmData.attackSpeedBonus or 0
+    end
+
+    print("[SaveSystem] Player data restored: Lv." .. player.level .. " " .. player.realm)
+end
+
+--- 序列化已装备物品（全字段，存入 coreData）
+---@return table equipment { [slotId] = itemData }
+function SaveSystem.SerializeEquipped()
+    local InventorySystem = require("systems.InventorySystem")
+    local mgr = InventorySystem.GetManager()
+    if not mgr then return {} end
+
+    local equipment = {}
+    local EquipmentData = require("config.EquipmentData")
+    for _, slotId in ipairs(EquipmentData.SLOTS) do
+        local item = mgr:GetEquipmentItem(slotId)
+        if item then
+            equipment[slotId] = SaveSystem.SerializeItemFull(item)
+        end
+    end
+    return equipment
+end
+
+--- 序列化背包物品，拆分为两个 bag（裁剪字段）
+---@return table bag1 背包 1~BAG_SPLIT
+---@return table bag2 背包 BAG_SPLIT+1~BACKPACK_SIZE
+--- v11: 序列化完整背包为单个 table（不再拆分 bag1/bag2）
+---@return table backpack 所有背包物品 { ["1"]=item, ["2"]=item, ... }
+function SaveSystem.SerializeBackpack()
+    local InventorySystem = require("systems.InventorySystem")
+    local mgr = InventorySystem.GetManager()
+    if not mgr then return {} end
+
+    local backpack = {}
+    for i = 1, GameConfig.BACKPACK_SIZE do
+        local item = mgr:GetInventoryItem(i)
+        if item then
+            backpack[tostring(i)] = SaveSystem.SerializeItemFull(item)
+        end
+    end
+
+    return backpack
+end
+
+--- 序列化完整 inventory（equipment + backpack）
+---@return table { equipment, backpack }
+function SaveSystem.SerializeInventory()
+    local equipment = SaveSystem.SerializeEquipped()
+    local backpack = SaveSystem.SerializeBackpack()
+    return { equipment = equipment, backpack = backpack }
+end
+
+--- 序列化单个物品（完整字段，不裁剪，用于身上已装备物品）
+--- 身上装备存入 coreData，是最核心的数据，保留全字段避免还原失败风险
+---@param item table
+---@return table
+function SaveSystem.SerializeItemFull(item)
+    return {
+        id = item.id,
+        name = item.name,
+        type = item.type,
+        slot = item.slot,
+        quality = item.quality,
+        tier = item.tier,
+        level = item.level,
+        mainStat = item.mainStat,
+        mainStatValue = item.mainStatValue,
+        subStats = item.subStats,  -- 保留完整 subStats（含 name）
+        setId = item.setId,
+        icon = item.icon,
+        sellPrice = item.sellPrice,
+        forgeStat = item.forgeStat,
+        spiritStat = item.spiritStat,  -- BUG fix: 灵韵属性之前遗漏序列化
+        isSpecial = item.isSpecial,
+        skillId = item.skillId,
+        equipId = item.equipId,  -- 特殊装备模板 ID
+        category = item.category,
+        consumableId = item.consumableId,
+        count = item.count,
+        petExp = item.petExp,
+        isSkillBook = item.isSkillBook,
+        bookTier = item.bookTier,
+    }
+end
+
+--- 反序列化背包数据
+---@param data table
+function SaveSystem.DeserializeInventory(data)
+    if not data then return end
+
+    local InventorySystem = require("systems.InventorySystem")
+    local mgr = InventorySystem.GetManager()
+    if not mgr then return end
+
+    local EquipmentData = require("config.EquipmentData")
+    local LootSystem = require("systems.LootSystem")
+
+    -- [Legacy] 补全旧 Trimmed 格式存档中省略的装备字段（name/icon/sellPrice/subStats[].name）
+    -- 新存档已统一使用 SerializeItemFull，此函数仅在加载旧存档时起兜底作用
+    local function fillEquipFields(itemData)
+        if not itemData.slot then return end
+        local tier = itemData.tier or 1
+        -- 特殊装备模板查找：优先 equipId 精确匹配，fallback skillId+slot（旧存档兼容）
+        local specialTpl = nil
+        if itemData.isSpecial then
+            if itemData.equipId then
+                -- 新格式：直接用 equipId 精确查找
+                specialTpl = EquipmentData.SpecialEquipment[itemData.equipId]
+            end
+            if not specialTpl and itemData.skillId then
+                -- 旧格式 fallback：用 skillId+slot+tier 匹配（仅当 skillId 非 nil 时才安全）
+                -- 🔴 必须加 tier 区分：blood_sea_lv1(T3) 和 lv2(T5) 共享同一 skillId+slot，
+                --    不加 tier 会导致 pairs 遍历顺序不确定，两件都匹配到同一模板
+                for _, tpl in pairs(EquipmentData.SpecialEquipment) do
+                    if tpl.skillId == itemData.skillId and tpl.slot == itemData.slot
+                        and tpl.tier == itemData.tier then
+                        specialTpl = tpl
+                        break
+                    end
+                end
+            end
+        end
+        -- name: 特殊装备从模板查，普通装备始终从 TIER_SLOT_NAMES 刷新（兼容改名）
+        if specialTpl then
+            itemData.name = specialTpl.name
+        else
+            local tierNames = EquipmentData.TIER_SLOT_NAMES[tier]
+            itemData.name = tierNames and tierNames[itemData.slot]
+                or EquipmentData.SLOT_NAMES[itemData.slot] or itemData.slot
+        end
+        -- icon
+        if not itemData.icon then
+            if specialTpl then
+                itemData.icon = specialTpl.icon
+            else
+                itemData.icon = LootSystem.GetSlotIcon(itemData.slot, tier)
+            end
+        end
+        -- sellPrice + sellCurrency
+        if specialTpl then
+            -- 特殊装备：始终从模板同步售价和货币类型（修复旧存档售价被错误标记为灵韵）
+            itemData.sellPrice = specialTpl.sellPrice or 100
+            itemData.sellCurrency = specialTpl.sellCurrency  -- nil=金币, "lingYun"=灵韵
+        elseif not itemData.sellPrice then
+            local qualityConfig = itemData.quality and GameConfig.QUALITY[itemData.quality]
+            local qualityMult = qualityConfig and qualityConfig.multiplier or 1.0
+            itemData.sellPrice = math.floor(10 * tier * qualityMult)
+        end
+        -- 非特殊装备：恢复青色+品质的灵韵货币（旧存档可能丢失 sellCurrency）
+        if not specialTpl and not itemData.sellCurrency then
+            local qOrder = itemData.quality and GameConfig.QUALITY_ORDER[itemData.quality] or 0
+            if qOrder >= 6 then  -- cyan=6 及以上用灵韵
+                itemData.sellCurrency = "lingYun"
+                itemData.sellPrice = math.max(1, tier - 4)
+            end
+        end
+        -- specialEffect（特殊装备从模板恢复）
+        if not itemData.specialEffect and specialTpl and specialTpl.specialEffect then
+            itemData.specialEffect = specialTpl.specialEffect
+        end
+        -- subStats[].name
+        if itemData.subStats then
+            for _, sub in ipairs(itemData.subStats) do
+                if not sub.name and sub.stat then
+                    for _, def in ipairs(EquipmentData.SUB_STATS) do
+                        if def.stat == sub.stat then
+                            sub.name = def.name
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if data.equipment then
+        for slotId, itemData in pairs(data.equipment) do
+            NormalizePercentStats(itemData)
+            if itemData.slot and not itemData.tier then
+                itemData.tier = 1
+            end
+            -- 补全 type 字段（防止 CanPlaceItem 类型检查静默拒绝）
+            if not itemData.type then
+                if slotId == "ring1" or slotId == "ring2" then
+                    itemData.type = "ring"
+                else
+                    itemData.type = slotId
+                end
+            end
+            fillEquipFields(itemData)
+            local ok, err = mgr:SetEquipmentItem(slotId, itemData)
+            if not ok then
+                print("[SaveSystem] WARNING: equipment restore failed for " .. slotId .. ": " .. tostring(err))
+            end
+        end
+    end
+
+    if data.backpack then
+        local PetSkillData = require("config.PetSkillData")
+        for indexStr, itemData in pairs(data.backpack) do
+            local index = tonumber(indexStr)
+            if index then
+                NormalizePercentStats(itemData)
+                -- 旧存档兼容：技能书缺少 isSkillBook/bookTier 时从配置补全
+                if itemData.consumableId and not itemData.isSkillBook then
+                    local bookData = PetSkillData.SKILL_BOOKS[itemData.consumableId]
+                    if bookData then
+                        itemData.isSkillBook = true
+                        itemData.skillId = itemData.skillId or bookData.skillId
+                        itemData.bookTier = itemData.bookTier or bookData.tier
+                    end
+                end
+                -- 从配置刷新 icon（防止存档中残留旧 emoji 图标）
+                if itemData.consumableId then
+                    if itemData.isSkillBook then
+                        local bookData = PetSkillData.SKILL_BOOKS[itemData.consumableId]
+                        if bookData then
+                            itemData.icon = bookData.icon
+                            itemData.name = bookData.name
+                        end
+                    else
+                        local cfgData = GameConfig.PET_FOOD[itemData.consumableId]
+                            or GameConfig.PET_MATERIALS[itemData.consumableId]
+                        if cfgData then
+                            itemData.icon = cfgData.icon
+                            itemData.name = cfgData.name
+                        end
+                    end
+                end
+                -- 堆叠上限修正：截断超出 MAX_STACK_COUNT 的异常数据
+                if itemData.count and itemData.count > GameConfig.MAX_STACK_COUNT then
+                    print("[SaveSystem] WARNING: consumable '" .. (itemData.consumableId or "?")
+                        .. "' count=" .. itemData.count .. " exceeds MAX_STACK("
+                        .. GameConfig.MAX_STACK_COUNT .. "), clamping")
+                    itemData.count = GameConfig.MAX_STACK_COUNT
+                end
+                if itemData.slot and not itemData.tier then
+                    itemData.tier = 1
+                end
+                fillEquipFields(itemData)
+                mgr:SetInventoryItem(index, itemData)
+            end
+        end
+    end
+
+    InventorySystem.RecalcEquipStats()
+    print("[SaveSystem] Inventory restored")
+end
+
+--- 序列化宠物数据
+---@return table
+function SaveSystem.SerializePet()
+    local pet = GameState.pet
+    if not pet then return {} end
+
+    local skillsData = {}
+    if pet.skills then
+        for i, skill in pairs(pet.skills) do
+            if skill then
+                skillsData[tostring(i)] = { id = skill.id, tier = skill.tier }
+            end
+        end
+    end
+
+    return {
+        name = pet.name,
+        level = pet.level,
+        exp = pet.exp,
+        tier = pet.tier,
+        hp = pet.hp,
+        alive = pet.alive,
+        deathTimer = pet.alive and 0 or pet.deathTimer,
+        skills = skillsData,
+    }
+end
+
+--- 反序列化宠物数据
+---@param data table
+function SaveSystem.DeserializePet(data)
+    local pet = GameState.pet
+    if not pet or not data then return end
+
+    pet.name = data.name or "小黄"
+    pet.level = data.level or 1
+    pet.exp = data.exp or 0
+    pet.tier = data.tier or 0
+
+    pet.skills = {}
+    if data.skills then
+        local seenIds = {}  -- BUG#3700 fix: 防止同一技能出现在多个槽位
+        for indexStr, skillData in pairs(data.skills) do
+            local index = tonumber(indexStr)
+            if index and skillData and skillData.id then
+                if seenIds[skillData.id] then
+                    print("[SaveSystem] WARNING: 宠物技能重复! slot=" .. index .. " id=" .. skillData.id .. " (已在slot " .. seenIds[skillData.id] .. ")")
+                else
+                    pet.skills[index] = { id = skillData.id, tier = skillData.tier or 1 }
+                    seenIds[skillData.id] = index
+                end
+            end
+        end
+    end
+
+    pet:RecalcStats()
+
+    if data.alive == false then
+        pet.alive = false
+        pet.hp = 0
+        pet.state = "dead"
+        pet.deathTimer = data.deathTimer or 0
+    else
+        pet.alive = true
+        pet.hp = math.min(data.hp or pet.maxHp, pet.maxHp)
+        pet.state = "follow"
+    end
+
+    print("[SaveSystem] Pet data restored: " .. pet.name .. " Tier " .. pet.tier .. " Lv." .. pet.level)
+end
+
+--- 序列化技能数据
+---@return table
+function SaveSystem.SerializeSkills()
+    local SkillSystem = require("systems.SkillSystem")
+    return {
+        skillBar = SkillSystem.GetSkillBarSlots(),
+    }
+end
+
+--- 反序列化技能数据
+---@param data table
+function SaveSystem.DeserializeSkills(data)
+    if not data then return end
+    local SkillSystem = require("systems.SkillSystem")
+    if data.skillBar then
+        SkillSystem.RestoreSkillBar(data.skillBar)
+    end
+    print("[SaveSystem] Skills restored")
+end
+
+--- 序列化图录数据
+---@return table
+function SaveSystem.SerializeCollection()
+    local CollectionSystem = require("systems.CollectionSystem")
+    return CollectionSystem.Serialize()
+end
+
+--- 反序列化图录数据
+---@param data table
+function SaveSystem.DeserializeCollection(data)
+    local CollectionSystem = require("systems.CollectionSystem")
+    CollectionSystem.Deserialize(data)
+end
+
+--- 序列化称号数据
+---@return table
+function SaveSystem.SerializeTitles()
+    local TitleSystem = require("systems.TitleSystem")
+    return TitleSystem.Serialize()
+end
+
+--- 反序列化称号数据
+---@param data table
+function SaveSystem.DeserializeTitles(data)
+    local TitleSystem = require("systems.TitleSystem")
+    TitleSystem.Deserialize(data)
+end
+
+--- 序列化商店数据（虎骨丹次数已迁移到炼丹炉）
+---@return table
+function SaveSystem.SerializeShop()
+    local AlchemyUI = require("ui.AlchemyUI")
+    return {
+        tigerPillCount = AlchemyUI.GetTigerPillCount(),
+        snakePillCount = AlchemyUI.GetSnakePillCount(),
+        diamondPillCount = AlchemyUI.GetDiamondPillCount(),
+        temperingPillEaten = AlchemyUI.GetTemperingPillEaten(),
+    }
+end
+
+--- 反序列化商店数据（兼容旧存档：tigerPillCount 迁移到 AlchemyUI）
+---@param data table
+function SaveSystem.DeserializeShop(data)
+    if not data then return end
+    local AlchemyUI = require("ui.AlchemyUI")
+    AlchemyUI.SetTigerPillCount(data.tigerPillCount or 0)
+    AlchemyUI.SetSnakePillCount(data.snakePillCount or 0)
+    AlchemyUI.SetDiamondPillCount(data.diamondPillCount or 0)
+    AlchemyUI.SetTemperingPillEaten(data.temperingPillEaten or 0)
+    print("[SaveSystem] Shop data restored: tigerPill=" .. (data.tigerPillCount or 0) .. " snakePill=" .. (data.snakePillCount or 0) .. " diamondPill=" .. (data.diamondPillCount or 0) .. " temperingPill=" .. (data.temperingPillEaten or 0))
+end
+
+-- ============================================================================
+-- 槽位索引管理
+-- ============================================================================
+
+-- ======== v11 统一 key 命名（S1 三键合并） ========
+
+--- 通用 key 生成函数（v11+）
+--- 所有存档 key 统一为 "{layer}_{slot}" 格式
+---@param layer string "save"|"login"|"prev"|"deleted"|"premigrate"
+---@param slot number 槽位号
+---@return string
+function SaveSystem.GetKey(layer, slot)
+    return layer .. "_" .. slot
+end
+
+--- 获取指定 slot 的所有旧格式 key（v10 三键架构）
+--- 用于迁移期 fallback 读取和旧 key 清理
+---@param slot number
+---@return table
+function SaveSystem.GetLegacyKeys(slot)
+    return {
+        save     = "save_data_" .. slot,
+        bag1     = "save_bag1_" .. slot,
+        bag2     = "save_bag2_" .. slot,
+        prev     = "save_prev_" .. slot,
+        prevBag1 = "prev_bag1_" .. slot,
+        prevBag2 = "prev_bag2_" .. slot,
+        login    = "save_login_backup_" .. slot,
+        loginBag1 = "login_bag1_" .. slot,
+        loginBag2 = "login_bag2_" .. slot,
+        backup   = "save_backup_" .. slot,
+        bakBag1  = "bak_bag1_" .. slot,
+        bakBag2  = "bak_bag2_" .. slot,
+    }
+end
+
+-- ======== 以下为 v10 旧 key 函数（S1 迁移期保留，逐步替换后删除） ========
+
+---@deprecated 使用 GetKey("save", slot) 或 GetLegacyKeys(slot).save
+function SaveSystem.GetSaveKey(slot)
+    return "save_data_" .. slot
+end
+
+---@deprecated 使用 GetKey("deleted", slot) 或 GetLegacyKeys(slot).backup
+function SaveSystem.GetBackupKey(slot)
+    return "save_backup_" .. slot
+end
+
+---@deprecated 使用 GetKey("prev", slot) 或 GetLegacyKeys(slot).prev
+function SaveSystem.GetPrevKey(slot)
+    return "save_prev_" .. slot
+end
+
+---@deprecated 使用 GetLegacyKeys(slot).bag1 — v11 后无 bag 分离
+function SaveSystem.GetBag1Key(slot)
+    return "save_bag1_" .. slot
+end
+
+---@deprecated
+function SaveSystem.GetBag2Key(slot)
+    return "save_bag2_" .. slot
+end
+
+---@deprecated
+function SaveSystem.GetPrevBag1Key(slot)
+    return "prev_bag1_" .. slot
+end
+
+---@deprecated
+function SaveSystem.GetPrevBag2Key(slot)
+    return "prev_bag2_" .. slot
+end
+
+---@deprecated
+function SaveSystem.GetLoginBag1Key(slot)
+    return "login_bag1_" .. slot
+end
+
+---@deprecated
+function SaveSystem.GetLoginBag2Key(slot)
+    return "login_bag2_" .. slot
+end
+
+---@deprecated
+function SaveSystem.GetBakBag1Key(slot)
+    return "bak_bag1_" .. slot
+end
+
+---@deprecated
+function SaveSystem.GetBakBag2Key(slot)
+    return "bak_bag2_" .. slot
+end
+
+---@param callback function|nil (slotsIndex: table|nil, error: string|nil)
+function SaveSystem.FetchSlots(callback)
+    -- 网络模式：通过 C2S_FetchSlots 远程事件路由到服务端
+    if CloudStorage.IsNetworkMode() then
+        return SaveSystemNet.FetchSlots(callback)
+    end
+
+    print("[SaveSystem] Fetching slots index...")
+
+    CloudStorage.BatchGet()
+        :Key("slots_index")
+        :Key("save_data")    -- 旧版 key，用于兼容迁移
+        :Key("save_data_1")  -- 验证槽位数据完整性
+        :Key("save_data_2")
+        :Key("save_data_3")
+        :Key("save_data_4")
+        :Key("account_bulletin")  -- 账号级公告数据（补偿领取等）
+        :Fetch({
+            ok = function(values, iscores)
+                -- 加载账号级公告数据（补偿领取记录）
+                if values.account_bulletin then
+                    local BulletinUI = require("ui.BulletinUI")
+                    BulletinUI.DeserializeAccount(values.account_bulletin)
+                end
+                if values.slots_index then
+                    local index = values.slots_index
+                    -- P0-D: 正向验证 — 索引有条目但数据丢失
+                    index.slots = index.slots or {}
+                    for slot = 1, SaveSystem.MAX_SLOTS do
+                        if index.slots[slot] then
+                            local saveKey = SaveSystem.GetSaveKey(slot)
+                            local hasData = values[saveKey] and type(values[saveKey]) == "table"
+                            if not hasData then
+                                -- 云端数据丢失：先检查本地缓存（Save 后云端尚未同步的数据）
+                                local cached = SaveSystem._lastSavedData and SaveSystem._lastSavedData[slot]
+                                if cached and type(cached) == "table" then
+                                    print("[SaveSystem] Slot " .. slot
+                                        .. " cloud data missing but LOCAL CACHE available (Lv."
+                                        .. (cached.player and cached.player.level or "?")
+                                        .. "), skipping dataLost")
+                                else
+                                    index.slots[slot].dataLost = true
+                                    print("[SaveSystem] WARNING: Slot " .. slot
+                                        .. " index exists but save data is MISSING!")
+                                end
+                            end
+                        end
+                    end
+
+                    -- P0-D: 反向验证 — 数据存在但索引无条目（孤儿存档自愈）
+                    local needRepair = false
+                    for slot = 1, SaveSystem.MAX_SLOTS do
+                        if not index.slots[slot] then
+                            local saveKey = SaveSystem.GetSaveKey(slot)
+                            local saveData = values[saveKey]
+                            if saveData and type(saveData) == "table" and saveData.player then
+                                -- 孤儿存档：从存档数据重建索引条目
+                                local p = saveData.player
+                                local realm = p.realm or "mortal"
+                                local realmCfg = GameConfig.REALMS[realm]
+                                local realmName = realmCfg and realmCfg.name or "凡人"
+                                index.slots[slot] = {
+                                    name = p.charName or SaveSystem.DEFAULT_CHARACTER_NAME,
+                                    level = p.level or 1,
+                                    realm = realm,
+                                    realmName = realmName,
+                                    chapter = p.chapter or 1,
+                                    lastSave = saveData.timestamp or os.time(),
+                                    saveVersion = saveData.version or 1,
+                                    recovered = true,  -- 标记为自愈恢复
+                                }
+                                needRepair = true
+                                print("[SaveSystem] RECOVERED orphan slot " .. slot
+                                    .. ": Lv." .. (p.level or 1) .. " " .. realmName)
+                            end
+                        end
+                    end
+
+                    -- 如果有孤儿槽位被修复，异步写回修复后的索引
+                    if needRepair then
+                        CloudStorage.BatchSet()
+                            :Set("slots_index", index)
+                            :Save("自愈修复slots_index", {
+                                ok = function()
+                                    print("[SaveSystem] Orphan slots repaired in cloud")
+                                end,
+                                error = function(code, reason)
+                                    print("[SaveSystem] Orphan repair write failed: " .. tostring(reason))
+                                end,
+                            })
+                    end
+
+                    -- 汇总 dataLost 状态
+                    local lostSlots = {}
+                    for slot = 1, SaveSystem.MAX_SLOTS do
+                        if index.slots[slot] and index.slots[slot].dataLost then
+                            table.insert(lostSlots, slot)
+                        end
+                    end
+
+                    if #lostSlots > 0 then
+                        print("[SaveSystem] dataLost remains for slot(s): " .. table.concat(lostSlots, ","))
+                    else
+                        print("[SaveSystem] Slots index found (all data intact)")
+                    end
+                    if callback then callback(index, nil) end
+                    return
+                end
+
+                -- 全新玩家
+                print("[SaveSystem] No save data found, new player")
+                if callback then callback({ version = 1, slots = {} }, nil) end
+            end,
+            error = function(code, reason)
+                print("[SaveSystem] Fetch slots failed: " .. tostring(reason))
+                if callback then callback(nil, reason) end
+            end,
+        })
+end
+
+--- 更新槽位索引（保存时同步更新摘要）
+---@param slot number
+---@param charName string
+---@param playerData table
+---@return table 新的 slot 摘要
+function SaveSystem.BuildSlotSummary(slot, charName, playerData)
+    local realm = playerData.realm or "mortal"
+    local realmCfg = GameConfig.REALMS[realm]
+    local realmName = realmCfg and realmCfg.name or "凡人"
+
+    return {
+        name = charName or SaveSystem.DEFAULT_CHARACTER_NAME,
+        level = playerData.level or 1,
+        realm = realm,
+        realmName = realmName,
+        chapter = playerData.chapter or 1,
+        lastSave = os.time(),
+        saveVersion = SaveSystem.CURRENT_SAVE_VERSION,
+    }
+end
+
+-- ============================================================================
+-- 保存（原子写入，零预检）
+-- ============================================================================
+
+--- 保存存档：本地安全检查 + 单次原子 BatchSet
+--- 改进：移除了保存前的 BatchGet 预检（减少 1 次网络请求），
+--- 将 save_data_X / slots_index / rank / checkpoint 合并到同一个 BatchSet（原子一致性）
+---@param callback function|nil (success: boolean, message: string|nil)
+function SaveSystem.Save(callback)
+    -- 超时自动解锁：如果 saving 卡死超过 30 秒，强制解锁并计入失败
+    if SaveSystem.saving then
+        local elapsed = os.time() - SaveSystem._savingStartTime
+        if elapsed > 30 then
+            print("[SaveSystem] saving flag stuck for " .. elapsed .. "s, force unlocking")
+            SaveSystem.saving = false
+            SaveSystem._saveTimeoutActive = false
+            -- 方案4: 计入连续失败，触发退避重试
+            SaveSystem._consecutiveFailures = SaveSystem._consecutiveFailures + 1
+            local retryDelay = math.min(10 * SaveSystem._consecutiveFailures, 60)
+            SaveSystem._retryTimer = retryDelay
+            print("[SaveSystem] 30s stuck unlock: "
+                .. SaveSystem._consecutiveFailures .. " consecutive failures, retry in " .. retryDelay .. "s")
+            if SaveSystem._consecutiveFailures >= 2 then
+                EventBus.Emit("save_warning", { failures = SaveSystem._consecutiveFailures })
+            end
+            return
+        else
+            print("[SaveSystem] Save already in progress, skipping")
+            return
+        end
+    end
+    if not SaveSystem.loaded then
+        print("[SaveSystem] Not loaded, save skipped")
+        return
+    end
+    if not SaveSystem.activeSlot then
+        print("[SaveSystem] No active slot, save skipped")
+        return
+    end
+    -- W2: 断线期间暂停存档（避免无意义的失败重试）
+    if SaveSystem._disconnected then
+        print("[SaveSystem] Save skipped: disconnected")
+        if callback then callback(false, "Disconnected") end
+        return
+    end
+
+    local currentLevel = GameState.player and GameState.player.level or 1
+    local slot = SaveSystem.activeSlot
+
+    -- 本地安全阀：防止内存中等级被意外清零后覆盖云端有效存档
+    -- 无需网络请求，使用上次成功加载时记录的云端等级作为参照
+    if SaveSystem._lastKnownCloudLevel > 10 and currentLevel < SaveSystem._lastKnownCloudLevel * 0.5 then
+        print("[SaveSystem] SAVE BLOCKED (local check): current Lv." .. currentLevel
+            .. " << known cloud Lv." .. SaveSystem._lastKnownCloudLevel)
+        EventBus.Emit("save_blocked", {
+            cloudLevel = SaveSystem._lastKnownCloudLevel,
+            currentLevel = currentLevel,
+        })
+        if callback then callback(false, "存档保护：数据异常") end
+        return
+    end
+
+    -- 方案6: serverConn 预检 —— 网络模式下若无连接，直接快速失败
+    if CloudStorage.IsNetworkMode() and not network:GetServerConnection() then
+        SaveSystem._consecutiveFailures = SaveSystem._consecutiveFailures + 1
+        local retryDelay = math.min(10 * SaveSystem._consecutiveFailures, 60)
+        SaveSystem._retryTimer = retryDelay
+        print("[SaveSystem] Save SKIPPED: no serverConn, "
+            .. SaveSystem._consecutiveFailures .. " consecutive failures, retry in " .. retryDelay .. "s")
+        if SaveSystem._consecutiveFailures >= 2 then
+            EventBus.Emit("save_warning", { failures = SaveSystem._consecutiveFailures })
+        end
+        if callback then callback(false, "No server connection") end
+        return
+    end
+
+    SaveSystem.saving = true
+    SaveSystem._savingStartTime = os.time()
+    -- 方案1补充: 网络模式下激活 15s 响应超时检测
+    SaveSystem._saveTimeoutElapsed = 0
+    SaveSystem._saveTimeoutActive = CloudStorage.IsNetworkMode()
+
+    local epoch = SaveSystem._saveEpoch  -- 捕获当前纪元
+    SaveSystem.DoSave(slot, callback, epoch)
+end
+
+--- 执行实际保存操作（单次原子 BatchSet）
+--- 将 save_data_X / slots_index / rank / checkpoint 全部合并到一个 BatchSet 请求
+--- 一次网络请求，全部成功或全部失败，杜绝 slots_index 与 save_data_X 不一致
+---@param slot number 槽位号
+---@param callback function|nil
+---@param epoch number 捕获的纪元
+function SaveSystem.DoSave(slot, callback, epoch)
+    -- 安全闸门：未正常加载存档时禁止写入（防旧代码覆写新存档）
+    if not SaveSystem.loaded then
+        print("[SaveSystem] DoSave BLOCKED: data not loaded (forward version check or load failure)")
+        if callback then callback(false, "存档未加载，禁止写入") end
+        return
+    end
+
+    -- 纪元检查
+    if epoch and epoch ~= SaveSystem._saveEpoch then
+        print("[SaveSystem] DoSave: stale epoch, aborting")
+        return
+    end
+
+    local playerData = SaveSystem.SerializePlayer()
+    -- v11 单键：equipment + backpack 全部嵌入 coreData
+    local equippedData = SaveSystem.SerializeEquipped()
+    local backpackData = SaveSystem.SerializeBackpack()
+    local skillData = SaveSystem.SerializeSkills()
+    local collectionData = SaveSystem.SerializeCollection()
+    local petData = SaveSystem.SerializePet()
+
+    local QuestSystem = require("systems.QuestSystem")
+    local questData = QuestSystem.Serialize()
+    local shopData = SaveSystem.SerializeShop()
+
+    local titlesData = SaveSystem.SerializeTitles()
+
+    local ChallengeSystem = require("systems.ChallengeSystem")
+    local challengeData = ChallengeSystem.Serialize()
+
+    local SealDemonSystem = require("systems.SealDemonSystem")
+    local sealDemonData = SealDemonSystem.Serialize()
+
+    local BulletinUI = require("ui.BulletinUI")
+    local bulletinData = BulletinUI.Serialize()
+    local accountBulletinData = BulletinUI.SerializeAccount()
+
+    -- 序列化BOSS击杀冷却（转换为相对剩余时间，与gameTime解耦）
+    local bossKillData = {}
+    for typeId, record in pairs(GameState.bossKillTimes) do
+        local killTime = type(record) == "table" and record.killTime or record
+        local respawnTime = type(record) == "table" and record.respawnTime or 180
+        local remaining = killTime + respawnTime - GameState.gameTime
+        if remaining > 0 then
+            bossKillData[typeId] = { remaining = remaining, respawnTime = respawnTime }
+        end
+    end
+
+    -- v11 单键架构：所有数据合并到一个 save_{slot} key（~16-19KB，上限 1MB）
+    local coreData = {
+        version = SaveSystem.CURRENT_SAVE_VERSION,
+        code_version = GameConfig.CODE_VERSION,
+        timestamp = os.time(),
+        player = playerData,
+        equipment = equippedData,  -- 已装备物品（全字段，最核心）
+        backpack = backpackData,   -- v11: 背包全量嵌入（不再拆分 bag1/bag2）
+        skills = skillData,
+        collection = collectionData,
+        pet = petData,
+        quests = questData,
+        shop = shopData,
+        titles = titlesData,
+        bossKillTimes = bossKillData,
+        bossKills = GameState.bossKills or 0,
+        _bossKillsMigrated = true,
+        bulletin = bulletinData,
+        challenges = challengeData,
+        sealDemon = sealDemonData,
+        trialTower = (function()
+            local TrialTowerSystem = require("systems.TrialTowerSystem")
+            return TrialTowerSystem.Serialize()
+        end)(),
+        artifact = (function()
+            local ArtifactSystem = require("systems.ArtifactSystem")
+            return ArtifactSystem.Serialize()
+        end)(),
+        fortuneFruits = (function()
+            local FortuneFruitSystem = require("systems.FortuneFruitSystem")
+            return FortuneFruitSystem.Serialize()
+        end)(),
+        seaPillar = (function()
+            local SeaPillarSystem = require("systems.SeaPillarSystem")
+            return SeaPillarSystem.Serialize()
+        end)(),
+    }
+
+    -- v11 新 key + 旧 key（迁移用）
+    local saveKey = SaveSystem.GetKey("save", slot)
+    local legacy = SaveSystem.GetLegacyKeys(slot)
+
+    -- 重组完整 saveData（供本地缓存和大小监控使用）
+    local saveData = {}
+    for k, v in pairs(coreData) do saveData[k] = v end
+    saveData.inventory = { equipment = equippedData, backpack = backpackData }
+
+    -- 数据大小监控（真实 JSON 序列化大小）
+    local function measureSize(label, data)
+        if cjson and cjson.encode then
+            local ok, json = pcall(cjson.encode, data)
+            if ok and json then
+                local bytes = #json
+                local kb = string.format("%.1f", bytes / 1024)
+                print("[SaveSystem] " .. label .. ": " .. kb .. "KB (" .. bytes .. " bytes)")
+                if bytes > 9 * 1024 then
+                    print("[SaveSystem] WARNING: " .. label .. " approaching 10KB limit!")
+                end
+                return bytes
+            end
+        end
+        return 0
+    end
+    local totalBytes = measureSize("saveData (" .. saveKey .. ")", coreData)
+
+    -- S3 审计：字段级大小分解（每 10 次存档输出一次详细报告）
+    SaveSystem._auditCounter = (SaveSystem._auditCounter or 0) + 1
+    if SaveSystem._auditCounter % 10 == 1 and cjson and cjson.encode then
+        local parts = {}
+        for field, value in pairs(coreData) do
+            if field ~= "version" and field ~= "timestamp" then
+                local fOk, fJson = pcall(cjson.encode, value)
+                if fOk and fJson then
+                    parts[#parts + 1] = { field = field, bytes = #fJson }
+                end
+            end
+        end
+        table.sort(parts, function(a, b) return a.bytes > b.bytes end)
+        local report = {}
+        for _, p in ipairs(parts) do
+            report[#report + 1] = string.format("  %s: %.1fKB", p.field, p.bytes / 1024)
+        end
+        print("[SaveSystem] === AUDIT: saveData field breakdown ===")
+        print(table.concat(report, "\n"))
+        print(string.format("[SaveSystem] === TOTAL: %.1fKB (single key) ===",
+            totalBytes / 1024))
+    end
+
+    -- 🔴 图鉴退化检测：如果当前图鉴数量比上次已知数量大幅减少，用缓存替代
+    local collectionCount = #collectionData
+    local prevCount = SaveSystem._lastKnownCollectionCount or 0
+    if prevCount > 2 and collectionCount < prevCount * 0.5 then
+        print("[SaveSystem] 🚨 COLLECTION DEGRADATION DETECTED! prev=" .. prevCount
+            .. " → current=" .. collectionCount .. " (>50% loss)")
+        -- 用缓存的完整图鉴数据替代退化数据
+        if SaveSystem._cachedCollectionData and #SaveSystem._cachedCollectionData >= prevCount then
+            saveData.collection = SaveSystem._cachedCollectionData
+            print("[SaveSystem] Collection replaced with cached data (" .. #SaveSystem._cachedCollectionData .. " entries)")
+        else
+            print("[SaveSystem] WARNING: no cached collection data, saving degraded data as-is")
+        end
+    else
+        -- 正常情况：更新缓存（值拷贝，防止外部修改污染缓存）
+        SaveSystem._lastKnownCollectionCount = collectionCount
+        if collectionCount > 0 then
+            local cached = {}
+            for i, v in ipairs(collectionData) do cached[i] = v end
+            SaveSystem._cachedCollectionData = cached
+        end
+    end
+
+    -- 构建 slots_index 更新（使用缓存的角色名，无需网络读取）
+    local charName = SaveSystem._cachedCharName or SaveSystem.DEFAULT_CHARACTER_NAME
+    local updatedIndex = SaveSystem._cachedSlotsIndex  -- 不再 fallback 空表！
+
+    -- 🔴 在发送 BatchSet 之前就缓存 saveData（不依赖异步回调）
+    -- 原因：Save 的 ok 回调可能在 Init() 增加 epoch 之后才返回，
+    -- 导致纪元检查 return，缓存永远不会被设置。
+    -- 而 FetchSlots/Load 需要此缓存来应对云端同步延迟。
+    SaveSystem._lastSavedData = SaveSystem._lastSavedData or {}
+    SaveSystem._lastSavedData[slot] = saveData
+
+    -- 🔴 v11 迁移前快照：首次 Save 时将旧格式原始数据写入 premigrate key
+    -- _rawOldData[slot] 由 Load 检测到旧三键格式时缓存（见 Step 4）
+    local needPreMigrate = false
+    SaveSystem._preMigrateWritten = SaveSystem._preMigrateWritten or {}
+    if not SaveSystem._preMigrateWritten[slot]
+        and SaveSystem._rawOldData
+        and SaveSystem._rawOldData[slot] then
+        needPreMigrate = true
+    end
+
+    --- 向 batch 中添加迁移清理条目（新旧 key 切换 + 可选的 premigrate 快照）
+    local function addMigrationOps(batch)
+        -- 删除旧三键
+        batch:Delete(legacy.save)
+        batch:Delete(legacy.bag1)
+        batch:Delete(legacy.bag2)
+        -- 首次迁移：写入 premigrate 快照（与 delete 在同一原子 batch）
+        if needPreMigrate then
+            local raw = SaveSystem._rawOldData[slot]
+            batch:Set(SaveSystem.GetKey("premigrate", slot), raw.coreData)
+            batch:Set("premigrate_bag1_" .. slot, raw.bag1)
+            batch:Set("premigrate_bag2_" .. slot, raw.bag2)
+            print("[SaveSystem] Pre-migrate snapshot added to batch for slot " .. slot)
+        end
+        return batch
+    end
+
+    --- 首次迁移完成后的清理
+    local function onMigrateComplete()
+        if needPreMigrate then
+            SaveSystem._preMigrateWritten[slot] = true
+            SaveSystem._rawOldData[slot] = nil
+            print("[SaveSystem] Pre-migrate snapshot committed for slot " .. slot)
+        end
+    end
+
+    -- 纵深防御：如果缓存为 nil，说明 Init 与 CharacterSelectScreen 之间存在时序问题
+    -- 此时只写 save_{slot}，不触碰 slots_index 和排行（避免覆写丢失其他槽位）
+    if not updatedIndex then
+        print("[SaveSystem] WARNING: _cachedSlotsIndex is nil! Saving data only (no index/rank update)")
+
+        -- v11 单键写入 + 迁移清理旧 key
+        local batch = CloudStorage.BatchSet()
+            :Set(saveKey, coreData)
+        addMigrationOps(batch)
+
+        -- 定期备份计数（checkpoint 拆分为独立请求，不再搭车主 batch）
+        SaveSystem._saveCount = SaveSystem._saveCount + 1
+        local isCheckpoint = SaveSystem._saveCount == 1
+            or SaveSystem._saveCount % SaveSystem.CHECKPOINT_INTERVAL == 0
+
+        batch:Save("存档(仅数据)", {
+            ok = function()
+                if epoch and epoch ~= SaveSystem._saveEpoch then return end
+                SaveSystem.saving = false
+                SaveSystem._saveTimeoutActive = false
+                SaveSystem._consecutiveFailures = 0
+                SaveSystem._retryTimer = nil
+                SaveSystem._lastKnownCloudLevel = playerData.level or 1
+                EventBus.Emit("save_warning_clear")
+                onMigrateComplete()
+                print("[SaveSystem] Slot " .. slot .. " saved (data only, no index) [v11]")
+                EventBus.Emit("game_saved")
+                if callback then callback(true) end
+
+                -- checkpoint 独立写入（fire-and-forget，不影响主存档流程）
+                if isCheckpoint then
+                    SaveSystem.ExportToLocalFile(slot, coreData, nil)
+                    local prevKey = SaveSystem.GetKey("prev", slot)
+                    CloudStorage.BatchSet()
+                        :Set(prevKey, coreData)
+                        :Delete(legacy.prev)
+                        :Delete(legacy.prevBag1)
+                        :Delete(legacy.prevBag2)
+                        :Save("checkpoint(仅数据)", {
+                            ok = function()
+                                print("[SaveSystem] Checkpoint written (data only): " .. prevKey .. " [v11]")
+                            end,
+                            error = function(code, reason)
+                                print("[SaveSystem] Checkpoint write failed (data only): " .. tostring(reason))
+                            end,
+                        })
+                end
+            end,
+            error = function(code, reason)
+                if epoch and epoch ~= SaveSystem._saveEpoch then return end
+                SaveSystem.saving = false
+                SaveSystem._saveTimeoutActive = false
+                SaveSystem._consecutiveFailures = SaveSystem._consecutiveFailures + 1
+                local retryDelay = math.min(10 * SaveSystem._consecutiveFailures, 60)
+                SaveSystem._retryTimer = retryDelay
+                print("[SaveSystem] Save FAILED (data only): " .. tostring(reason))
+                if SaveSystem._consecutiveFailures >= 2 then
+                    EventBus.Emit("save_warning", { failures = SaveSystem._consecutiveFailures })
+                end
+                if callback then callback(false, reason) end
+            end,
+        })
+        return
+    end
+
+    updatedIndex.slots = updatedIndex.slots or {}
+    updatedIndex.slots[slot] = SaveSystem.BuildSlotSummary(slot, charName, playerData)
+
+    -- 构建排行数据
+    local realmCfg = GameConfig.REALMS[playerData.realm or "mortal"]
+    local realmOrder = realmCfg and realmCfg.order or 0
+    local rankScore = realmOrder * 1000 + (playerData.level or 1)
+    local rankScoreKey = "rank_score_" .. slot
+    local rankInfoKey = "rank_info_" .. slot
+
+    -- v11 单键写入 + 迁移清理旧 key（原子 BatchSet）
+    local batch = CloudStorage.BatchSet()
+        :Set(saveKey, coreData)
+        :Set("slots_index", updatedIndex)
+        :SetInt("player_level", playerData.level or 1)
+        :Set("account_bulletin", accountBulletinData)
+    addMigrationOps(batch)
+
+    -- 排行榜（等级 > 5 时写入）
+    local bossKillsCount = GameState.bossKills or 0
+    local rankTimeKey = "rank_time_" .. slot
+    if (playerData.level or 1) > 5 then
+        batch:SetInt(rankScoreKey, rankScore)
+        batch:SetInt("boss_kills_" .. slot, bossKillsCount)
+        -- 达成时间：仅在分数提升时更新（同分时先达成者排前）
+        local lastScore = GameState.lastRankScore or 0
+        if rankScore > lastScore then
+            local achieveTime = os.time()
+            batch:SetInt(rankTimeKey, achieveTime)
+            GameState.lastRankScore = rankScore
+            GameState.lastRankTime = achieveTime
+        end
+        batch:Set(rankInfoKey, {
+            name = charName,
+            realm = playerData.realm or "mortal",
+            level = playerData.level or 1,
+            bossKills = bossKillsCount,
+        })
+    end
+
+    -- 定期备份计数（checkpoint 拆分为独立请求，不再搭车主 batch）
+    SaveSystem._saveCount = SaveSystem._saveCount + 1
+    local isCheckpoint = SaveSystem._saveCount == 1
+        or SaveSystem._saveCount % SaveSystem.CHECKPOINT_INTERVAL == 0
+
+    batch:Save("存档", {
+        ok = function()
+            -- 纪元检查
+            if epoch and epoch ~= SaveSystem._saveEpoch then
+                print("[SaveSystem] Save ok: stale epoch, discarding")
+                return
+            end
+            SaveSystem.saving = false
+            SaveSystem._saveTimeoutActive = false
+            SaveSystem._consecutiveFailures = 0
+            SaveSystem._retryTimer = nil
+            EventBus.Emit("save_warning_clear")
+
+            -- 更新缓存的 slots_index（供下次 Save 使用）
+            SaveSystem._cachedSlotsIndex = updatedIndex
+
+            -- 更新本地安全阀参照等级
+            SaveSystem._lastKnownCloudLevel = playerData.level or 1
+            onMigrateComplete()
+
+            local checkpointMsg = isCheckpoint and " [+checkpoint]" or ""
+            print("[SaveSystem] Slot " .. slot .. " saved! [v11]" .. checkpointMsg)
+            EventBus.Emit("game_saved")
+            if callback then callback(true) end
+
+            -- checkpoint 独立写入（fire-and-forget，不影响主存档流程）
+            if isCheckpoint then
+                SaveSystem.ExportToLocalFile(slot, coreData, updatedIndex)
+                local prevKey = SaveSystem.GetKey("prev", slot)
+                CloudStorage.BatchSet()
+                    :Set(prevKey, coreData)
+                    :Delete(legacy.prev)
+                    :Delete(legacy.prevBag1)
+                    :Delete(legacy.prevBag2)
+                    :Save("checkpoint", {
+                        ok = function()
+                            print("[SaveSystem] Checkpoint written: " .. prevKey .. " [v11]")
+                        end,
+                        error = function(code, reason)
+                            print("[SaveSystem] Checkpoint write failed: " .. tostring(reason))
+                        end,
+                    })
+            end
+        end,
+        error = function(code, reason)
+            -- 纪元检查
+            if epoch and epoch ~= SaveSystem._saveEpoch then
+                print("[SaveSystem] Save error: stale epoch, ignoring")
+                return
+            end
+            SaveSystem.saving = false
+            SaveSystem._saveTimeoutActive = false
+            SaveSystem._consecutiveFailures = SaveSystem._consecutiveFailures + 1
+
+            -- 失败重试：指数退避，最长 60 秒
+            local retryDelay = math.min(10 * SaveSystem._consecutiveFailures, 60)
+            SaveSystem._retryTimer = retryDelay
+            print("[SaveSystem] Save FAILED (" .. SaveSystem._consecutiveFailures
+                .. " consecutive): " .. tostring(code) .. " - " .. tostring(reason)
+                .. ", retry in " .. retryDelay .. "s")
+            if SaveSystem._consecutiveFailures >= 2 then
+                EventBus.Emit("save_warning", { failures = SaveSystem._consecutiveFailures })
+            end
+
+            if callback then callback(false, reason) end
+        end,
+    })
+end
+
+-- ============================================================================
+-- 存档导出到本地文件（迁移中转用）
+-- ============================================================================
+
+--- 将存档数据导出到本地文件，供 Phase 2（enabled=true）读取并上传 serverCloud
+--- v11: coreData 已包含 backpack，不再需要 bag1/bag2 参数
+---@param slot number 槽位号
+---@param coreData table 完整存档数据（含 equipment + backpack）
+---@param slotsIndex table|nil 槽位索引（可能为 nil）
+function SaveSystem.ExportToLocalFile(slot, coreData, slotsIndex)
+    local exportData = {
+        export_version = 2,   -- v11 格式
+        export_time = os.time(),
+        slot = slot,
+        save_data = coreData,
+        slots_index = slotsIndex,
+    }
+    local ok, json = pcall(cjson.encode, exportData)
+    if not ok then
+        print("[SaveSystem] Export encode FAILED: " .. tostring(json))
+        return
+    end
+    local f = File("save_export_" .. slot .. ".json", FILE_WRITE)
+    if f:IsOpen() then
+        f:WriteString(json)
+        f:Close()
+        print("[SaveSystem] Export OK: slot " .. slot .. " (" .. #json .. " bytes)")
+
+        -- 非 PC 平台（文件可持久化）：写 clientCloud 标记，供 PC 端检测
+        local platform = GetPlatform()
+        if platform ~= "Web" and platform ~= "Windows" then
+            if clientCloud then
+                clientCloud:SetInt("migration_backup_done", 1, {
+                    ok = function()
+                        print("[SaveSystem] migration_backup_done flag set in cloud")
+                    end,
+                    ng = function()
+                        print("[SaveSystem] migration_backup_done flag set FAILED (non-critical)")
+                    end,
+                })
+            end
+        end
+    else
+        print("[SaveSystem] Export FAILED: cannot open file for slot " .. slot)
+    end
+end
+
+-- ============================================================================
+-- 加载（带 pcall + 完整性校验 + 丢失恢复）
+-- ============================================================================
+
+--- 处理已获取的存档数据（版本迁移 + 反序列化 + 完整性校验）
+--- 由 Load 和 TryRecoverSave 共同调用
+---@param slot number 槽位号
+---@param saveData table 原始存档数据
+---@param recoverySource string|nil 恢复来源描述（nil 表示正常加载）
+---@param callback function(success: boolean, message: string)
+function SaveSystem.ProcessLoadedData(slot, saveData, recoverySource, callback)
+    local cloudLevel = saveData.player and saveData.player.level or 0
+
+    local ok, err = pcall(function()
+        -- 版本迁移
+        local migrated, migErr = SaveSystem.MigrateSaveData(saveData)
+        if not migrated then
+            error(migErr)
+        end
+        saveData = migrated
+
+        -- 反序列化各模块
+        if saveData.player then
+            SaveSystem.DeserializePlayer(saveData.player)
+
+            -- 🔴 修正 exp 最低值：确保 exp >= EXP_TABLE[level]，否则经验条显示 0%
+            local player = GameState.player
+            if player then
+                local minExp = GameConfig.EXP_TABLE[player.level] or 0
+                if player.exp < minExp then
+                    print("[SaveSystem] Fixing exp: " .. player.exp .. " < EXP_TABLE[" .. player.level .. "]=" .. minExp .. ", setting to " .. minExp)
+                    player.exp = minExp
+                end
+            end
+        end
+        if saveData.inventory then
+            SaveSystem.DeserializeInventory(saveData.inventory)
+        end
+        if saveData.skills and saveData.skills.skillBar then
+            SaveSystem.DeserializeSkills(saveData.skills)
+        else
+            -- 恢复路径：skills 为空（元数据重建/旧版存档），根据当前等级重新解锁
+            local SkillSystem = require("systems.SkillSystem")
+            SkillSystem.unlockedSkills = {}
+            SkillSystem.equippedSkills = {}
+            SkillSystem.CheckUnlocks()
+            print("[SaveSystem] Skills re-unlocked based on player level (no saved skillBar)")
+        end
+        if saveData.collection then
+            SaveSystem.DeserializeCollection(saveData.collection)
+            -- 🔴 图鉴退化检测：初始化缓存基准
+            local collCount = #saveData.collection
+            SaveSystem._lastKnownCollectionCount = collCount
+            if collCount > 0 then
+                -- 深拷贝一份用于退化检测缓存
+                local cached = {}
+                for i, v in ipairs(saveData.collection) do cached[i] = v end
+                SaveSystem._cachedCollectionData = cached
+            end
+        end
+
+        if saveData.pet then
+            SaveSystem.DeserializePet(saveData.pet)
+        end
+        if saveData.quests then
+            local QuestSystem = require("systems.QuestSystem")
+            QuestSystem.Deserialize(saveData.quests)
+        end
+        if saveData.shop then
+            SaveSystem.DeserializeShop(saveData.shop)
+        end
+
+        -- 迁移：老版本千锤百炼丹加的是生命/攻击/防御，新版改为根骨
+        -- 老存档 pillConstitution 不存在(=0)，但 temperingPillEaten 有值
+        do
+            local AlchemyUI = require("ui.AlchemyUI")
+            local eaten = AlchemyUI.GetTemperingPillEaten()
+            local p = GameState.player
+            if p and eaten > 0 and (p.pillConstitution or 0) == 0 then
+                p.pillConstitution = eaten
+                print("[SaveSystem] Migration: tempering pill constitution fix, eaten=" .. eaten .. " -> pillConstitution=" .. eaten)
+            end
+        end
+
+        if saveData.titles then
+            SaveSystem.DeserializeTitles(saveData.titles)
+        end
+        if saveData.bulletin then
+            local BulletinUI = require("ui.BulletinUI")
+            BulletinUI.Deserialize(saveData.bulletin)
+        end
+        if saveData.challenges then
+            local ChallengeSystem = require("systems.ChallengeSystem")
+            ChallengeSystem.Deserialize(saveData.challenges)
+        end
+
+        -- ================================================================
+        -- B3 热修：丹药计数反推校验
+        -- 效果已烘焙进 player 属性，计数存在 shop/challenges 中。
+        -- 若计数全部为 0 但属性明显高于 base+realm → 反推恢复计数，
+        -- 防止玩家重复购买导致属性翻倍。
+        -- ================================================================
+        do
+            local p = GameState.player
+            local AlchemyUI = require("ui.AlchemyUI")
+            local ChallengeSystem = require("systems.ChallengeSystem")
+
+            -- 从配置源获取丹药参数（避免硬编码）
+            local shopPillCfg = AlchemyUI.GetShopPillConfigs()
+            local xueshaCfg = ChallengeSystem.GetPillConfig("xuesha_dan")
+            local haoqiCfg  = ChallengeSystem.GetPillConfig("haoqi_dan")
+            local function findBonus(cfg, stat)
+                for _, b in ipairs(cfg.bonuses) do
+                    if b.stat == stat then return b.bonus end
+                end
+                return 0
+            end
+
+            if p then
+                local tiger  = AlchemyUI.GetTigerPillCount()
+                local snake  = AlchemyUI.GetSnakePillCount()
+                local diamond = AlchemyUI.GetDiamondPillCount()
+                local xuesha = ChallengeSystem.xueshaDanCount or 0
+                local haoqi  = ChallengeSystem.haoqiDanCount or 0
+
+                local allShopZero = (tiger == 0 and snake == 0 and diamond == 0)
+                local allChallengeZero = (xuesha == 0 and haoqi == 0)
+
+                if allShopZero or allChallengeZero then
+                    -- 计算基础属性 = 初始 + 等级成长
+                    local level = p.level or 1
+                    local baseMaxHp  = 100 + (level - 1) * 15
+                    local baseAtk    = 15  + (level - 1) * 3
+                    local baseDef    = 5   + (level - 1) * 2
+                    local baseRegen  = 1.0 + (level - 1) * 0.2
+
+                    -- 累计境界突破奖励（遍历到当前境界之前的所有境界）
+                    local realmHp, realmAtk, realmDef, realmRegen = 0, 0, 0, 0
+                    local currentRealm = p.realm or "mortal"
+                    for _, rid in ipairs(GameConfig.REALM_LIST) do
+                        if rid == currentRealm then break end
+                        local rd = GameConfig.REALMS[rid]
+                        if rd and rd.rewards then
+                            realmHp    = realmHp    + (rd.rewards.maxHp   or 0)
+                            realmAtk   = realmAtk   + (rd.rewards.atk     or 0)
+                            realmDef   = realmDef   + (rd.rewards.def     or 0)
+                            realmRegen = realmRegen + (rd.rewards.hpRegen or 0)
+                        end
+                    end
+
+                    local expectedMaxHp = baseMaxHp + realmHp
+                    local expectedAtk   = baseAtk   + realmAtk
+                    local expectedDef   = baseDef   + realmDef
+                    local expectedRegen = baseRegen + realmRegen
+
+                    local actualMaxHp = p.maxHp or expectedMaxHp
+                    local actualAtk   = p.atk   or expectedAtk
+                    local actualDef   = p.def   or expectedDef
+                    local actualRegen = p.hpRegen or expectedRegen
+                    local actualKillHeal = p.pillKillHeal or 0
+
+                    -- 只要有任一属性溢出，就执行反推
+                    local hasExcess = (actualMaxHp > expectedMaxHp)
+                        or (actualAtk > expectedAtk)
+                        or (actualDef > expectedDef)
+
+                    if hasExcess then
+                        local fixed = false
+
+                        -- ── 挑战丹药反推（仅当 allChallengeZero 且有溢出时）──
+                        if allChallengeZero then
+                            -- 血煞丹反推：pillKillHeal 唯一来源
+                            local xueshaPKH = findBonus(xueshaCfg, "pillKillHeal")
+                            local calcXuesha = math.max(0, math.min(
+                                math.floor(actualKillHeal / xueshaPKH + 0.5), xueshaCfg.maxUse))
+                            -- 浩气丹反推：hpRegen 溢出
+                            local haoqiRegen = findBonus(haoqiCfg, "hpRegen")
+                            local regenDiff = actualRegen - expectedRegen
+                            local calcHaoqi = math.max(0, math.min(
+                                math.floor(regenDiff / haoqiRegen + 0.5), haoqiCfg.maxUse))
+
+                            if calcXuesha > 0 or calcHaoqi > 0 then
+                                ChallengeSystem.xueshaDanCount = calcXuesha
+                                ChallengeSystem.haoqiDanCount = calcHaoqi
+                                fixed = true
+                                print("[SaveSystem][B3-Fix] Challenge pill counts restored:"
+                                    .. " xuesha=" .. calcXuesha
+                                    .. " haoqi=" .. calcHaoqi)
+                            end
+                        end
+
+                        -- ── 商店丹药反推（仅当 allShopZero 且有溢出时）──
+                        if allShopZero then
+                            -- 已知挑战丹药贡献（用已恢复或已有的计数）
+                            local knownXuesha = ChallengeSystem.xueshaDanCount or 0
+                            local knownHaoqi  = ChallengeSystem.haoqiDanCount or 0
+
+                            -- 金刚丹反推（唯一 def 丹药来源）
+                            local defDiff = actualDef - expectedDef
+                            local calcDiamond = math.max(0, math.min(
+                                math.floor(defDiff / shopPillCfg.diamond.defBonus + 0.5), shopPillCfg.diamond.maxBuy))
+
+                            -- 灵蛇丹反推：先扣除血煞丹贡献的 atk
+                            local xueshaAtk = findBonus(xueshaCfg, "atk")
+                            local atkFromXuesha = knownXuesha * xueshaAtk
+                            local atkDiff = actualAtk - expectedAtk - atkFromXuesha
+                            local calcSnake = math.max(0, math.min(
+                                math.floor(atkDiff / shopPillCfg.snake.atkBonus + 0.5), shopPillCfg.snake.maxBuy))
+
+                            -- 虎骨丹反推：先扣除浩气丹贡献的 maxHp
+                            local haoqiHp = findBonus(haoqiCfg, "maxHp")
+                            local hpFromHaoqi = knownHaoqi * haoqiHp
+                            local hpDiff = actualMaxHp - expectedMaxHp - hpFromHaoqi
+                            local calcTiger = math.max(0, math.min(
+                                math.floor(hpDiff / shopPillCfg.tiger.hpBonus + 0.5), shopPillCfg.tiger.maxBuy))
+
+                            if calcTiger > 0 or calcSnake > 0 or calcDiamond > 0 then
+                                AlchemyUI.SetTigerPillCount(calcTiger)
+                                AlchemyUI.SetSnakePillCount(calcSnake)
+                                AlchemyUI.SetDiamondPillCount(calcDiamond)
+                                fixed = true
+                                print("[SaveSystem][B3-Fix] Shop pill counts restored:"
+                                    .. " tiger=" .. calcTiger
+                                    .. " snake=" .. calcSnake
+                                    .. " diamond=" .. calcDiamond)
+                            end
+                        end
+
+                        if fixed then
+                            print("[SaveSystem][B3-Fix] Attribute baseline:"
+                                .. " expectedHp=" .. expectedMaxHp
+                                .. " actualHp=" .. actualMaxHp
+                                .. " expectedAtk=" .. expectedAtk
+                                .. " actualAtk=" .. actualAtk
+                                .. " expectedDef=" .. expectedDef
+                                .. " actualDef=" .. actualDef)
+                        end
+                    end
+                end
+            end
+        end
+
+        if saveData.sealDemon then
+            local SealDemonSystem = require("systems.SealDemonSystem")
+            SealDemonSystem.Deserialize(saveData.sealDemon, saveData.player and saveData.player.pillPhysique or 0)
+        end
+
+        if saveData.artifact then
+            local ArtifactSystem = require("systems.ArtifactSystem")
+            ArtifactSystem.Deserialize(saveData.artifact)
+        end
+
+        if saveData.fortuneFruits then
+            local FortuneFruitSystem = require("systems.FortuneFruitSystem")
+            FortuneFruitSystem.Deserialize(saveData.fortuneFruits)
+        end
+
+        if saveData.seaPillar then
+            local SeaPillarSystem = require("systems.SeaPillarSystem")
+            SeaPillarSystem.Deserialize(saveData.seaPillar)
+        end
+
+        if saveData.trialTower then
+            local TrialTowerSystem = require("systems.TrialTowerSystem")
+            TrialTowerSystem.Deserialize(saveData.trialTower)
+        end
+
+        -- 恢复BOSS击杀冷却（从相对剩余时间转换回绝对killTime）
+        GameState.bossKillTimes = {}
+        if saveData.bossKillTimes then
+            for typeId, value in pairs(saveData.bossKillTimes) do
+                -- 兼容旧格式（纯数字）和新格式（{remaining, respawnTime}）
+                local remaining, respawnTime
+                if type(value) == "table" then
+                    remaining = value.remaining or 0
+                    respawnTime = value.respawnTime or 180
+                else
+                    remaining = value  -- 旧格式：直接是数字
+                    respawnTime = 180
+                end
+                if remaining > 0 then
+                    -- 安全校验：remaining 不应超过 respawnTime（异常数据保护）
+                    if remaining > respawnTime then
+                        print("[SaveSystem] WARNING: Boss " .. typeId
+                            .. " remaining=" .. string.format("%.0f", remaining)
+                            .. " > respawnTime=" .. respawnTime .. ", clamping to respawnTime")
+                        remaining = respawnTime
+                    end
+                    -- 安全校验：gameTime 应为 0（加载时尚未开始计时）
+                    if GameState.gameTime ~= 0 then
+                        print("[SaveSystem] WARNING: gameTime=" .. string.format("%.1f", GameState.gameTime)
+                            .. " at boss cooldown restore, forcing to 0 for correct calculation")
+                        GameState.gameTime = 0
+                    end
+                    -- 将剩余时间转为 killTime = gameTime - (respawnTime - remaining)
+                    -- 即 killTime = gameTime - elapsed，使得 elapsed + remaining = respawnTime
+                    GameState.bossKillTimes[typeId] = {
+                        killTime = GameState.gameTime - (respawnTime - remaining),
+                        respawnTime = respawnTime,
+                    }
+                    print("[SaveSystem] Boss cooldown restored: " .. typeId
+                        .. " (" .. string.format("%.0f", remaining) .. "s remaining)")
+                end
+            end
+        end
+
+        -- 恢复BOSS累计击杀数（含历史迁移）
+        if saveData._bossKillsMigrated then
+            GameState.bossKills = saveData.bossKills or 0
+        else
+            -- 首次迁移：从 TitleSystem.killStats 统计历史 BOSS/王者击杀数
+            local MonsterData = require("config.MonsterData")
+            local TitleSystem = require("systems.TitleSystem")
+            local histBossKills = 0
+            for typeId, count in pairs(TitleSystem.killStats or {}) do
+                local mType = MonsterData.Types[typeId]
+                if mType and GameConfig.BOSS_CATEGORIES[mType.category] then
+                    histBossKills = histBossKills + count
+                end
+            end
+            GameState.bossKills = histBossKills
+            print("[SaveSystem] Migrated historical BOSS kills: " .. histBossKills)
+        end
+    end)
+
+    if not ok then
+        print("[SaveSystem] Deserialization CRASHED: " .. tostring(err))
+        SaveSystem.loaded = false
+        if callback then callback(false, "存档解析失败: " .. tostring(err)) end
+        return
+    end
+
+    -- 完整性校验
+    local valid, errors = SaveSystem.ValidateLoadedState(cloudLevel)
+    if not valid then
+        local errMsg = table.concat(errors, "; ")
+        print("[SaveSystem] Validation failed: " .. errMsg)
+        SaveSystem.loaded = false
+        if callback then callback(false, "存档校验失败: " .. errMsg) end
+        return
+    end
+
+    -- 全部通过
+    SaveSystem.loaded = true
+    SaveSystem.activeSlot = slot
+
+    -- 缓存云端等级（供本地安全阀使用）
+    local player = GameState.player
+    if player then
+        SaveSystem._lastKnownCloudLevel = player.level
+    end
+
+    -- 从已有 realm+level 反算排行榜分数（不修改存档结构）
+    do
+        local pData = saveData.player or {}
+        local rCfg = GameConfig.REALMS[pData.realm or "mortal"]
+        local rOrder = rCfg and rCfg.order or 0
+        GameState.lastRankScore = rOrder * 1000 + (pData.level or 1)
+    end
+
+    -- [诊断] 属性分解日志 —— 排查宠物攻击力异常（BUG#3700）
+    do
+        local p = GameState.player
+        local pet = GameState.pet
+        if p then
+            local totalAtk = p:GetTotalAtk()
+            print("[DIAG] ======== 属性诊断 ========")
+            print("[DIAG] player.level=" .. p.level .. " realm=" .. tostring(p.realm))
+            print("[DIAG] player.atk(base)=" .. p.atk)
+            print("[DIAG] player.equipAtk=" .. (p.equipAtk or 0))
+            print("[DIAG] player.collectionAtk=" .. (p.collectionAtk or 0))
+            print("[DIAG] player.titleAtk=" .. (p.titleAtk or 0))
+            print("[DIAG] player.titleAtkBonus=" .. (p.titleAtkBonus or 0))
+            print("[DIAG] player.GetTotalAtk()=" .. totalAtk)
+
+            -- 装备逐件atk分解
+            local InventorySystem = require("systems.InventorySystem")
+            local mgr = InventorySystem.GetManager()
+            if mgr then
+                local equipped = mgr:GetAllEquipment()
+                local equipAtkSum = 0
+                for slotId, item in pairs(equipped) do
+                    local mainAtk = (item.mainStat and item.mainStat.atk) or 0
+                    local subAtk = 0
+                    if item.subStats then
+                        for _, sub in ipairs(item.subStats) do
+                            if sub.stat == "atk" then subAtk = subAtk + (sub.value or 0) end
+                        end
+                    end
+                    local forgeAtk = (item.forgeStat and item.forgeStat.stat == "atk") and item.forgeStat.value or 0
+                    local spiritAtk = (item.spiritStat and item.spiritStat.stat == "atk") and item.spiritStat.value or 0
+                    local itemTotal = mainAtk + subAtk + forgeAtk + spiritAtk
+                    equipAtkSum = equipAtkSum + itemTotal
+                    if itemTotal > 0 then
+                        print("[DIAG] equip[" .. slotId .. "] " .. (item.name or "?")
+                            .. " q=" .. tostring(item.quality) .. " t=" .. tostring(item.tier)
+                            .. " main=" .. mainAtk .. " sub=" .. subAtk
+                            .. " forge=" .. forgeAtk .. " spirit=" .. spiritAtk
+                            .. " sum=" .. itemTotal)
+                    end
+                end
+                print("[DIAG] equipAtk recalc sum=" .. equipAtkSum .. " vs player.equipAtk=" .. (p.equipAtk or 0))
+            end
+
+            -- 宠物属性分解
+            if pet then
+                local syncRate = pet:GetSyncRate()
+                local tierData = pet:GetTierData()
+                local bd = pet:GetStatBreakdown()
+                print("[DIAG] pet.level=" .. pet.level .. " tier=" .. pet.tier
+                    .. " tierSyncRate=" .. tierData.syncRate
+                    .. " totalSyncRate=" .. string.format("%.4f", syncRate))
+                print("[DIAG] pet.atk=" .. pet.atk)
+                if bd and bd.atk then
+                    print("[DIAG] pet.atk breakdown: base=" .. bd.atk.base
+                        .. " growth=" .. bd.atk.growth
+                        .. " sync=" .. bd.atk.sync
+                        .. " skillPct=" .. (bd.atk.skillPct or 0)
+                        .. " total=" .. bd.atk.total)
+                end
+                -- 宠物技能详情（排查重复技能BUG#3700）
+                local skillIds = {}
+                for i = 1, (pet.GetSkillSlotCount and pet:GetSkillSlotCount() or 10) do
+                    local sk = pet.skills[i]
+                    if sk then
+                        print("[DIAG] pet.skill[" .. i .. "] id=" .. sk.id .. " tier=" .. sk.tier)
+                        skillIds[#skillIds + 1] = sk.id
+                    end
+                end
+                local dupCheck = {}
+                for _, sid in ipairs(skillIds) do
+                    if dupCheck[sid] then
+                        print("[DIAG] ⚠️ WARNING: 宠物技能重复! id=" .. sid .. " 出现多次！这是BUG#3700的根因！")
+                    end
+                    dupCheck[sid] = true
+                end
+                local skillBonuses = pet:GetSkillBonuses()
+                print("[DIAG] pet.skillPct.atk=" .. (skillBonuses.atk or 0) .. " maxHp=" .. (skillBonuses.maxHp or 0) .. " def=" .. (skillBonuses.def or 0))
+
+                -- 异常检测
+                if pet.atk > 1500 then
+                    print("[DIAG] ⚠️ WARNING: pet.atk=" .. pet.atk .. " 异常偏高！playerTotalAtk=" .. totalAtk .. " syncRate=" .. string.format("%.4f", syncRate))
+                end
+            end
+
+            -- player.atk 合理性校验
+            local expectedBaseAtk = GameConfig.PLAYER_INITIAL.atk + (p.level - 1) * GameConfig.LEVEL_GROWTH.atk
+            print("[DIAG] player.atk expected(lv+init)=" .. expectedBaseAtk .. " actual=" .. p.atk .. " diff=" .. (p.atk - expectedBaseAtk))
+            if p.atk > expectedBaseAtk + 1000 then
+                print("[DIAG] ⚠️ WARNING: player.atk=" .. p.atk .. " 远超等级成长值" .. expectedBaseAtk .. "！差值含境界+丹药，但差" .. (p.atk - expectedBaseAtk) .. "仍需确认")
+            end
+            print("[DIAG] =============================")
+        end
+    end
+
+    EventBus.Emit("game_loaded")
+
+    -- 登录备份：加载成功后将这份已验证的数据写入独立 key
+    -- 这是独立于 save_prev（存档管线产生）的第二道防线
+    -- v11: 单键写入 login_{slot}，包含完整数据（equipment + backpack 嵌入）
+    -- 🔴 防御改进：降级保护 — 先读取已有备份，防止恢复后的最小数据覆盖完整备份
+    local loginKey = SaveSystem.GetKey("login", slot)
+    local legacyKeys = SaveSystem.GetLegacyKeys(slot)
+    local currentLevel = saveData.player and saveData.player.level or 0
+    local hasInventory = saveData.inventory and (saveData.inventory.equipment or saveData.inventory.backpack)
+
+    -- v11: 构建单键备份数据（equipment + backpack 嵌入顶层）
+    local backupData = {}
+    for k, v in pairs(saveData) do
+        if k ~= "inventory" then backupData[k] = v end
+    end
+    local bkpInv = saveData.inventory or {}
+    backupData.equipment = bkpInv.equipment or {}
+    backupData.backpack = bkpInv.backpack or {}
+
+    -- 🔴 防御改进 3：恢复标记保护 — 元数据重建的最小存档绝不覆盖登录备份
+    if saveData._recoveredFromMeta then
+        print("[SaveSystem] Login backup SKIPPED: data is recovered from metadata rebuild, preserving existing backup")
+        saveData._recoveredFromMeta = nil
+        goto skip_login_backup
+    end
+
+    CloudStorage.BatchGet()
+        :Key(loginKey)
+        :Fetch({
+            ok = function(existingValues)
+                local existing = existingValues[loginKey]
+                local existingLevel = 0
+                local existingHasInventory = false
+                if existing and type(existing) == "table" and existing.player then
+                    existingLevel = existing.player.level or 0
+                    existingHasInventory = existing.equipment or existing.backpack
+                        or (existing.inventory and (existing.inventory.equipment or existing.inventory.backpack))
+                end
+
+                -- 降级保护：如果已有备份等级更高且有装备数据，而当前数据没有装备
+                if existingLevel > currentLevel + 5 and existingHasInventory and not hasInventory then
+                    print("[SaveSystem] Login backup PRESERVED: existing Lv." .. existingLevel
+                        .. " > current Lv." .. currentLevel .. " (recovery data, skipping overwrite)")
+                    return
+                end
+
+                -- v11 单键写入 + 清理旧登录备份 key
+                CloudStorage.BatchSet()
+                    :Set(loginKey, backupData)
+                    :Delete(legacyKeys.login)
+                    :Delete(legacyKeys.loginBag1)
+                    :Delete(legacyKeys.loginBag2)
+                    :Save("登录备份", {
+                        ok = function()
+                            print("[SaveSystem] Login backup saved for slot " .. slot
+                                .. " (Lv." .. currentLevel .. ") [v11]")
+                        end,
+                        error = function(code, reason)
+                            print("[SaveSystem] Login backup failed: " .. tostring(reason))
+                        end,
+                    })
+            end,
+            error = function(code, reason)
+                print("[SaveSystem] Login backup read failed, writing anyway: " .. tostring(reason))
+                CloudStorage.BatchSet()
+                    :Set(loginKey, backupData)
+                    :Delete(legacyKeys.login)
+                    :Delete(legacyKeys.loginBag1)
+                    :Delete(legacyKeys.loginBag2)
+                    :Save("登录备份(降级)", {
+                        ok = function()
+                            print("[SaveSystem] Login backup saved (fallback) for slot " .. slot .. " [v11]")
+                        end,
+                        error = function(code2, reason2)
+                            print("[SaveSystem] Login backup failed: " .. tostring(reason2))
+                        end,
+                    })
+            end,
+        })
+
+    ::skip_login_backup::
+
+    local msg = "读档成功"
+    if recoverySource then
+        msg = "已从" .. recoverySource .. "恢复（可能丢失部分进度）"
+        print("[SaveSystem] Slot " .. slot .. " RECOVERED from " .. recoverySource
+            .. "! Version: " .. tostring(saveData.version))
+    else
+        print("[SaveSystem] Slot " .. slot .. " loaded! Version: " .. tostring(saveData.version))
+    end
+    if callback then callback(true, msg) end
+end
+
+--- 尝试从备份源恢复丢失的存档
+--- 优先级：save_login_backup_X（登录备份）→ save_prev_X（定期备份）→ save_backup_X（删除备份）→ save_data/slots_index 取等级高者
+---@param slot number 槽位号
+---@param callback function(success: boolean, message: string)
+function SaveSystem.TryRecoverSave(slot, callback)
+    print("[SaveSystem] Attempting recovery for slot " .. slot .. "...")
+
+    -- v11 新格式备份 key
+    local newLoginKey = SaveSystem.GetKey("login", slot)
+    local newPrevKey = SaveSystem.GetKey("prev", slot)
+    local newDeletedKey = SaveSystem.GetKey("deleted", slot)
+    -- v10 旧格式备份 key（兼容窗口）
+    local legacy = SaveSystem.GetLegacyKeys(slot)
+
+    CloudStorage.BatchGet()
+        :Key(newLoginKey)         -- v11 登录备份
+        :Key(newPrevKey)          -- v11 定期备份
+        :Key(newDeletedKey)       -- v11 删除备份
+        :Key(legacy.login)        -- v10 登录备份
+        :Key(legacy.loginBag1)    -- v10 登录备份 - bag1
+        :Key(legacy.loginBag2)    -- v10 登录备份 - bag2
+        :Key(legacy.prev)         -- v10 定期备份
+        :Key(legacy.prevBag1)     -- v10 定期备份 - bag1
+        :Key(legacy.prevBag2)     -- v10 定期备份 - bag2
+        :Key(legacy.backup)       -- v10 删除备份
+        :Key(legacy.bakBag1)      -- v10 删除备份 - bag1
+        :Key(legacy.bakBag2)      -- v10 删除备份 - bag2
+        :Key("slots_index")       -- 元数据兜底
+        :Fetch({
+            ok = function(values)
+                --- 从备份数据重建 inventory
+                --- v11 格式：backpack 已嵌入 coreData，直接提取
+                --- v10 格式：从 bag1/bag2 键合并
+                local function rebuildInventory(data, bag1KeyName, bag2KeyName)
+                    if not data then return data end
+                    -- v11 检测：backpack 已嵌入在 data 中
+                    if data.backpack and type(data.backpack) == "table" then
+                        data.inventory = {
+                            equipment = data.equipment or {},
+                            backpack = data.backpack,
+                        }
+                        data.equipment = nil
+                        data.backpack = nil
+                        return data
+                    end
+                    -- v10 fallback：从外部 bag key 合并
+                    local b1 = values[bag1KeyName]
+                    local b2 = values[bag2KeyName]
+                    local backpack = {}
+                    -- 兼容旧版删除备份：bag 键可能被包装为 { data = ..., deletedAt = ... }
+                    if b1 and type(b1) == "table" then
+                        local realB1 = (b1.data and type(b1.data) == "table" and b1.deletedAt) and b1.data or b1
+                        for k, v in pairs(realB1) do backpack[k] = v end
+                    end
+                    if b2 and type(b2) == "table" then
+                        local realB2 = (b2.data and type(b2.data) == "table" and b2.deletedAt) and b2.data or b2
+                        for k, v in pairs(realB2) do backpack[k] = v end
+                    end
+                    data.inventory = {
+                        equipment = data.equipment or {},
+                        backpack = backpack,
+                    }
+                    data.equipment = nil
+                    return data
+                end
+
+                -- 🔴 改进：收集所有候选恢复源，取等级最高者（防止降级循环）
+                local candidates = {}
+
+                -- 候选: v11 login_{slot}（新格式登录备份）
+                if values[newLoginKey] and type(values[newLoginKey]) == "table" then
+                    local lb = rebuildInventory(values[newLoginKey], nil, nil)
+                    if lb and lb.player then
+                        local lv = lb.player.level or 1
+                        table.insert(candidates, { data = lb, source = "v11登录备份", level = lv, key = newLoginKey })
+                        print("[SaveSystem] Recovery candidate: " .. newLoginKey .. " Lv." .. lv)
+                    end
+                end
+
+                -- 候选: v10 save_login_backup_X（旧格式登录备份）
+                if values[legacy.login] and type(values[legacy.login]) == "table" then
+                    local lb = rebuildInventory(values[legacy.login], legacy.loginBag1, legacy.loginBag2)
+                    if lb and lb.player then
+                        local lv = lb.player.level or 1
+                        table.insert(candidates, { data = lb, source = "v10登录备份", level = lv, key = legacy.login })
+                        print("[SaveSystem] Recovery candidate: " .. legacy.login .. " Lv." .. lv)
+                    end
+                end
+
+                -- 候选: v11 prev_{slot}（新格式定期备份）
+                if values[newPrevKey] and type(values[newPrevKey]) == "table" then
+                    local prev = rebuildInventory(values[newPrevKey], nil, nil)
+                    if prev and prev.player then
+                        local lv = prev.player.level or 1
+                        table.insert(candidates, { data = prev, source = "v11定期备份", level = lv, key = newPrevKey })
+                        print("[SaveSystem] Recovery candidate: " .. newPrevKey .. " Lv." .. lv)
+                    end
+                end
+
+                -- 候选: v10 save_prev_X（旧格式定期备份）
+                if values[legacy.prev] and type(values[legacy.prev]) == "table" then
+                    local prev = rebuildInventory(values[legacy.prev], legacy.prevBag1, legacy.prevBag2)
+                    if prev and prev.player then
+                        local lv = prev.player.level or 1
+                        table.insert(candidates, { data = prev, source = "v10定期备份", level = lv, key = legacy.prev })
+                        print("[SaveSystem] Recovery candidate: " .. legacy.prev .. " Lv." .. lv)
+                    end
+                end
+
+                -- 候选: v11 deleted_{slot}（新格式删除备份）
+                if values[newDeletedKey] and type(values[newDeletedKey]) == "table" then
+                    local backup = values[newDeletedKey]
+                    local bkData = (backup.data and type(backup.data) == "table") and backup.data or backup
+                    if bkData.player then
+                        rebuildInventory(bkData, nil, nil)
+                        local lv = bkData.player.level or 1
+                        table.insert(candidates, { data = bkData, source = "v11删除备份", level = lv, key = newDeletedKey })
+                        print("[SaveSystem] Recovery candidate: " .. newDeletedKey .. " Lv." .. lv)
+                    end
+                end
+
+                -- 候选: v10 save_backup_X（旧格式删除备份）
+                if values[legacy.backup] and type(values[legacy.backup]) == "table" then
+                    local backup = values[legacy.backup]
+                    if backup.data and type(backup.data) == "table" and backup.data.player then
+                        rebuildInventory(backup.data, legacy.bakBag1, legacy.bakBag2)
+                        local lv = backup.data.player.level or 1
+                        table.insert(candidates, { data = backup.data, source = "v10删除备份", level = lv, key = legacy.backup })
+                        print("[SaveSystem] Recovery candidate: " .. legacy.backup .. " Lv." .. lv)
+                    end
+                end
+
+                -- 从所有候选中选出等级最高的
+                local recoveredData = nil
+                local recoverySource = nil
+                local bestLevel = 0
+                for _, c in ipairs(candidates) do
+                    if c.level > bestLevel then
+                        bestLevel = c.level
+                        recoveredData = c.data
+                        recoverySource = c.source
+                    end
+                end
+                if recoveredData then
+                    print("[SaveSystem] Best recovery source: " .. recoverySource .. " (Lv." .. bestLevel .. ")")
+                end
+
+                -- 最后手段：从 slots_index 元数据重建最小存档
+                if not recoveredData then
+                    local rebuildData = nil
+                    local rebuildLevel = 0
+                    local slotsIndex = values["slots_index"]
+                    if slotsIndex and slotsIndex.slots and slotsIndex.slots[slot] then
+                        local meta = slotsIndex.slots[slot]
+                        rebuildLevel = meta.level or 1
+                        local rebuildRealm = meta.realm or "mortal"
+                        local rebuildChapter = meta.chapter or 1
+
+                        local baseHp = 100 + (rebuildLevel - 1) * 15
+                        local baseAtk = 15 + (rebuildLevel - 1) * 3
+                        local baseDef = 5 + (rebuildLevel - 1) * 2
+
+                        -- 计算与等级匹配的 hpRegen（基础 1.0 + 每级 0.2）
+                        local baseHpRegen = 1.0 + (rebuildLevel - 1) * 0.2
+
+                        -- 计算累计境界突破属性奖励
+                        local realmBonusHp, realmBonusAtk, realmBonusDef, realmBonusRegen = 0, 0, 0, 0
+                        for _, rid in ipairs(GameConfig.REALM_LIST) do
+                            if rid == rebuildRealm then break end
+                            local rd = GameConfig.REALMS[rid]
+                            if rd and rd.rewards then
+                                realmBonusHp = realmBonusHp + (rd.rewards.maxHp or 0)
+                                realmBonusAtk = realmBonusAtk + (rd.rewards.atk or 0)
+                                realmBonusDef = realmBonusDef + (rd.rewards.def or 0)
+                                realmBonusRegen = realmBonusRegen + (rd.rewards.hpRegen or 0)
+                            end
+                        end
+
+                        -- 设置与等级匹配的最低经验值（否则经验条显示负数/0%）
+                        local rebuildExp = GameConfig.EXP_TABLE[rebuildLevel] or 0
+
+                        rebuildData = {
+                            version = SaveSystem.CURRENT_SAVE_VERSION,
+                            timestamp = os.time(),
+                            player = {
+                                level = rebuildLevel,
+                                exp = rebuildExp,
+                                hp = baseHp + realmBonusHp,
+                                maxHp = baseHp + realmBonusHp,
+                                atk = baseAtk + realmBonusAtk,
+                                def = baseDef + realmBonusDef,
+                                hpRegen = baseHpRegen + realmBonusRegen,
+                                gold = 1000,
+                                lingYun = 0,
+                                realm = rebuildRealm,
+                                chapter = rebuildChapter,
+                                -- B4-S4.1: 补全缺失的 player 字段（零值安全默认）
+                                pillKillHeal = 0,
+                                pillConstitution = 0,
+                                fruitFortune = 0,
+                                daoTreeWisdom = 0,
+                                daoTreeWisdomPity = 0,
+                                pillPhysique = 0,
+                                x = 0,
+                                y = 0,
+                                -- B4-S4.1 补丁：海神柱属性加成（与 SerializePlayer 对齐）
+                                seaPillarDef = 0,
+                                seaPillarAtk = 0,
+                                seaPillarMaxHp = 0,
+                                seaPillarHpRegen = 0,
+                            },
+                            inventory = {},
+                            skills = {},
+                            collection = {},
+                            pet = {},
+                            quests = {},
+                            shop = {},
+                            titles = {},
+                            -- B4-S4.1: 补全缺失的子系统空结构
+                            challenges = {},
+                            sealDemon = { quests = {} },
+                            bulletin = {},
+                            artifact = {},
+                            fortuneFruits = { collected = {} },
+                            trialTower = {},
+                            bossKillTimes = {},
+                            -- B4-S4.1 补丁：与 SerializeAll 对齐的顶层字段
+                            code_version = GameConfig.CODE_VERSION,
+                            bossKills = 0,
+                            _bossKillsMigrated = true,
+                            seaPillar = {},
+                        }
+                    end
+
+                    if rebuildData then
+                        recoveredData = rebuildData
+                        recoveredData._recoveredFromMeta = true  -- 标记为元数据重建的最小存档
+                        recoverySource = "元数据重建(仅保留等级境界)"
+                        print("[SaveSystem] Last resort: rebuilding from slots_index meta — Lv."
+                            .. rebuildLevel)
+                    end
+                end
+
+                if not recoveredData then
+                    print("[SaveSystem] No recovery source found for slot " .. slot)
+                    SaveSystem.loaded = false
+                    if callback then callback(false, "存档数据丢失，未找到可恢复的备份") end
+                    return
+                end
+
+                -- 将恢复的数据写回（v11 单 key 格式），同时同步 slots_index
+                -- ⚠️ 必须同步 slots_index！否则安全阀会因等级落差永久阻止存档
+                local recSaveKey = SaveSystem.GetKey("save", slot)
+                local recoveredPlayer = recoveredData.player or {}
+                local recoveredLevel = recoveredPlayer.level or 1
+                local recoveredRealm = recoveredPlayer.realm or "mortal"
+                local realmCfg = GameConfig.REALMS[recoveredRealm]
+                local realmName = realmCfg and realmCfg.name or "凡人"
+
+                -- v11 单 key 格式：equipment + backpack 提升到顶层
+                local recInv = recoveredData.inventory or {}
+                local recCoreData = {}
+                for k, v in pairs(recoveredData) do
+                    if k ~= "inventory" then recCoreData[k] = v end
+                end
+                recCoreData.equipment = recInv.equipment or {}
+                recCoreData.backpack = recInv.backpack or {}
+
+                -- 读取当前 slots_index 并更新对应槽位
+                CloudStorage.BatchGet()
+                    :Key("slots_index")
+                    :Fetch({
+                        ok = function(idxValues)
+                            local updatedIndex = idxValues.slots_index or { version = 1, slots = {} }
+                            updatedIndex.slots = updatedIndex.slots or {}
+                            local oldName = SaveSystem.DEFAULT_CHARACTER_NAME
+                            if updatedIndex.slots[slot] then
+                                oldName = updatedIndex.slots[slot].name or oldName
+                            end
+                            -- 用恢复数据的实际等级覆写 slots_index
+                            updatedIndex.slots[slot] = {
+                                name = oldName,
+                                level = recoveredLevel,
+                                realm = recoveredRealm,
+                                realmName = realmName,
+                                chapter = recoveredPlayer.chapter or 1,
+                                lastSave = os.time(),
+                                saveVersion = recoveredData.version or 1,
+                            }
+                            local batch = CloudStorage.BatchSet()
+                                :Set(recSaveKey, recCoreData)
+                                :Set("slots_index", updatedIndex)
+                            -- 清理旧格式 key（如存在）
+                            batch:Delete(legacy.save)
+                            batch:Delete(legacy.bag1)
+                            batch:Delete(legacy.bag2)
+                            batch:Save("恢复存档+同步索引", {
+                                    ok = function()
+                                        print("[SaveSystem] Recovery: data + slots_index synced for slot " .. slot .. " [single-key]")
+                                    end,
+                                    error = function(code, reason)
+                                        print("[SaveSystem] Recovery write-back failed: " .. tostring(reason))
+                                    end,
+                                })
+                        end,
+                        error = function(code, reason)
+                            -- 即使读索引失败，也要写回存档数据
+                            print("[SaveSystem] Recovery: slots_index read failed, writing data only: " .. tostring(reason))
+                            local batch = CloudStorage.BatchSet()
+                                :Set(recSaveKey, recCoreData)
+                            batch:Delete(legacy.save)
+                            batch:Delete(legacy.bag1)
+                            batch:Delete(legacy.bag2)
+                            batch:Save("恢复存档", {
+                                    ok = function()
+                                        print("[SaveSystem] Recovery data written back to " .. recSaveKey .. " [single-key]")
+                                    end,
+                                    error = function(code2, reason2)
+                                        print("[SaveSystem] Recovery write-back failed: " .. tostring(reason2))
+                                    end,
+                                })
+                        end,
+                    })
+
+                -- 立即用恢复的数据进行反序列化（不等写回完成）
+                SaveSystem.ProcessLoadedData(slot, recoveredData, recoverySource, callback)
+            end,
+            error = function(code, reason)
+                print("[SaveSystem] Recovery query failed: " .. tostring(reason))
+                SaveSystem.loaded = false
+                if callback then callback(false, "存档数据为空，备份查询失败: " .. tostring(reason)) end
+            end,
+        })
+end
+
+--- 加载指定槽位的存档
+---@param slot number 槽位号 (1 或 2)
+---@param callback function(success: boolean, message: string)
+function SaveSystem.Load(slot, callback)
+    -- 网络模式：通过 C2S_LoadGame 远程事件路由到服务端
+    if CloudStorage.IsNetworkMode() then
+        return SaveSystemNet.Load(slot, callback)
+    end
+
+    print("[SaveSystem] Loading slot " .. slot .. "...")
+
+    -- v11 新 key + 旧 key（兼容窗口）
+    local newKey = SaveSystem.GetKey("save", slot)
+    local legacy = SaveSystem.GetLegacyKeys(slot)
+
+    CloudStorage.BatchGet()
+        :Key(newKey)
+        :Key(legacy.save)
+        :Key(legacy.bag1)
+        :Key(legacy.bag2)
+        :Fetch({
+            ok = function(values)
+                local newData = values[newKey]
+                local oldData = values[legacy.save]
+                local bag1 = values[legacy.bag1]
+                local bag2 = values[legacy.bag2]
+
+                local saveData = nil
+
+                -- 优先使用 v11 新格式
+                if newData and type(newData) == "table" then
+                    -- v11 格式：backpack 已嵌入 coreData
+                    saveData = newData
+                    saveData.inventory = {
+                        equipment = saveData.equipment or {},
+                        backpack = saveData.backpack or {},
+                    }
+                    saveData.equipment = nil
+                    saveData.backpack = nil
+                    print("[SaveSystem] Loaded from v11 key: " .. newKey)
+
+                elseif oldData and type(oldData) == "table" then
+                    -- v10 旧格式 fallback：三键合并
+                    saveData = oldData
+                    local backpack = {}
+                    if bag1 and type(bag1) == "table" then
+                        for k, v in pairs(bag1) do backpack[k] = v end
+                    end
+                    if bag2 and type(bag2) == "table" then
+                        for k, v in pairs(bag2) do backpack[k] = v end
+                    end
+                    saveData.inventory = {
+                        equipment = saveData.equipment or {},
+                        backpack = backpack,
+                    }
+                    saveData.equipment = nil
+                    print("[SaveSystem] Loaded from legacy 3-key format (fallback)")
+
+                    -- 🔴 缓存旧格式原始数据，供 DoSave 首次迁移时写入 premigrate 快照
+                    SaveSystem._rawOldData = SaveSystem._rawOldData or {}
+                    SaveSystem._rawOldData[slot] = {
+                        coreData = oldData,  -- 注意：此时 oldData.equipment 已被清除
+                        bag1 = bag1 or {},
+                        bag2 = bag2 or {},
+                    }
+                    -- 补回 equipment 到快照（因为上面 saveData.equipment = nil 会影响 oldData 引用）
+                    if not SaveSystem._rawOldData[slot].coreData.equipment then
+                        SaveSystem._rawOldData[slot].coreData.equipment = saveData.inventory.equipment
+                    end
+                else
+                    -- 云端数据丢失：优先使用本地缓存
+                    local cached = SaveSystem._lastSavedData and SaveSystem._lastSavedData[slot]
+                    if cached and type(cached) == "table" then
+                        print("[SaveSystem] Cloud data nil but LOCAL CACHE available for slot " .. slot
+                            .. " (Lv." .. (cached.player and cached.player.level or "?") .. "), using cached data")
+                        saveData = cached
+                    else
+                        print("[SaveSystem] Slot " .. slot .. " is empty, attempting recovery...")
+                        SaveSystem.TryRecoverSave(slot, callback)
+                        return
+                    end
+                end
+
+                SaveSystem.ProcessLoadedData(slot, saveData, nil, callback)
+            end,
+            error = function(code, reason)
+                print("[SaveSystem] Load failed: " .. tostring(reason))
+                SaveSystem.loaded = false
+                if callback then callback(false, reason) end
+            end,
+        })
+end
+
+-- ============================================================================
+-- 创建新角色
+-- ============================================================================
+
+--- 在指定槽位创建新角色存档
+---@param slot number 槽位号
+---@param charName string 角色名
+---@param slotsIndex table 当前的 slots_index
+---@param callback function(success: boolean, message: string|nil)
+function SaveSystem.CreateCharacter(slot, charName, slotsIndex, callback)
+    -- 网络模式：通过 C2S_CreateChar 远程事件路由到服务端
+    if CloudStorage.IsNetworkMode() then
+        return SaveSystemNet.CreateCharacter(slot, charName, slotsIndex, callback)
+    end
+
+    print("[SaveSystem] Creating character '" .. charName .. "' in slot " .. slot)
+
+    -- 构建初始存档数据
+    local initialPlayer = {
+        level = GameConfig.PLAYER_INITIAL.level,
+        exp = GameConfig.PLAYER_INITIAL.exp,
+        hp = GameConfig.PLAYER_INITIAL.hp,
+        maxHp = GameConfig.PLAYER_INITIAL.maxHp,
+        atk = GameConfig.PLAYER_INITIAL.atk,
+        def = GameConfig.PLAYER_INITIAL.def,
+        hpRegen = GameConfig.PLAYER_INITIAL.hpRegen,
+        gold = GameConfig.PLAYER_INITIAL.gold,
+        lingYun = GameConfig.PLAYER_INITIAL.lingYun,
+        realm = GameConfig.PLAYER_INITIAL.realm,
+    }
+
+    -- v11 单 key 架构：equipment + backpack 嵌入顶层
+    local coreData = {
+        version = SaveSystem.CURRENT_SAVE_VERSION,
+        timestamp = os.time(),
+        player = initialPlayer,
+        equipment = {},  -- 初始无装备
+        backpack = {},   -- 初始背包为空
+        skills = {},
+        collection = {},
+        pet = {},
+        quests = {},
+    }
+
+    -- 更新索引
+    local updatedIndex = slotsIndex or { version = 1, slots = {} }
+    updatedIndex.slots = updatedIndex.slots or {}
+    updatedIndex.slots[slot] = SaveSystem.BuildSlotSummary(slot, charName, initialPlayer)
+
+    local saveKey = SaveSystem.GetKey("save", slot)
+
+    CloudStorage.BatchSet()
+        :Set(saveKey, coreData)
+        :Set("slots_index", updatedIndex)
+        :Save("创建角色", {
+            ok = function()
+                print("[SaveSystem] Character '" .. charName .. "' created in slot " .. slot .. " [single-key]")
+                if callback then callback(true) end
+            end,
+            error = function(code, reason)
+                print("[SaveSystem] Create character failed: " .. tostring(reason))
+                if callback then callback(false, reason) end
+            end,
+        })
+end
+
+-- ============================================================================
+-- 删除角色
+-- ============================================================================
+
+--- 删除指定槽位的角色
+---@param slot number 槽位号
+---@param slotsIndex table 当前的 slots_index
+---@param callback function(success: boolean, message: string|nil)
+function SaveSystem.DeleteCharacter(slot, slotsIndex, callback)
+    -- 网络模式：通过 C2S_DeleteChar 远程事件路由到服务端
+    if CloudStorage.IsNetworkMode() then
+        return SaveSystemNet.DeleteCharacter(slot, slotsIndex, callback)
+    end
+
+    print("[SaveSystem] Deleting character in slot " .. slot)
+
+    local newSaveKey = SaveSystem.GetKey("save", slot)
+    local newDeletedKey = SaveSystem.GetKey("deleted", slot)
+    local legacy = SaveSystem.GetLegacyKeys(slot)
+
+    -- 读取 v11 + v10 存档数据做备份
+    CloudStorage.BatchGet()
+        :Key(newSaveKey)
+        :Key(legacy.save)
+        :Key(legacy.bag1)
+        :Key(legacy.bag2)
+        :Fetch({
+            ok = function(values)
+                local newData = values[newSaveKey]
+                local oldData = values[legacy.save]
+                local b1Data = values[legacy.bag1]
+                local b2Data = values[legacy.bag2]
+
+                -- 更新索引：移除该槽位
+                local updatedIndex = slotsIndex or { version = 1, slots = {} }
+                updatedIndex.slots = updatedIndex.slots or {}
+                updatedIndex.slots[slot] = nil
+
+                local rankScoreKey = "rank_score_" .. slot
+                local rankInfoKey = "rank_info_" .. slot
+
+                local batch = CloudStorage.BatchSet()
+                    :Set("slots_index", updatedIndex)
+                    :Delete(newSaveKey)
+                    :Delete(rankScoreKey)
+                    :Delete(rankInfoKey)
+                -- 清理旧格式 key
+                batch:Delete(legacy.save)
+                batch:Delete(legacy.bag1)
+                batch:Delete(legacy.bag2)
+
+                -- 合并出完整的备份数据（v11 单 key 格式）
+                local backupData = nil
+                if newData and type(newData) == "table" then
+                    -- v11 格式直接使用
+                    backupData = newData
+                elseif oldData and type(oldData) == "table" then
+                    -- v10 格式：合并 bag
+                    backupData = oldData
+                    local backpack = {}
+                    if b1Data and type(b1Data) == "table" then
+                        for k, v in pairs(b1Data) do backpack[k] = v end
+                    end
+                    if b2Data and type(b2Data) == "table" then
+                        for k, v in pairs(b2Data) do backpack[k] = v end
+                    end
+                    backupData.backpack = backpack
+                end
+
+                -- 如果有存档数据，备份到 deleted_{slot}（v11 单 key 格式）
+                if backupData then
+                    batch:Set(newDeletedKey, {
+                        data = backupData,
+                        deletedAt = os.time(),
+                    })
+                end
+
+                batch:Save("删除角色", {
+                    ok = function()
+                        print("[SaveSystem] Character in slot " .. slot .. " deleted (backup saved) [single-key]")
+                        if callback then callback(true) end
+                    end,
+                    error = function(code, reason)
+                        print("[SaveSystem] Delete character failed: " .. tostring(reason))
+                        if callback then callback(false, reason) end
+                    end,
+                })
+            end,
+            error = function(code, reason)
+                print("[SaveSystem] Cannot read save for backup: " .. tostring(reason))
+                if callback then callback(false, reason) end
+            end,
+        })
+end
+
+return SaveSystem

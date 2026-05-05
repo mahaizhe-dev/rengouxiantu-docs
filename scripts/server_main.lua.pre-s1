@@ -1,0 +1,2343 @@
+-- ============================================================================
+-- server_main.lua - 人狗仙途 服务端入口
+--
+-- 职责：
+--   1. 接收客户端连接，获取 userId（ClientIdentity）
+--   2. 代理存档 CRUD（FetchSlots / Load / Save / CreateChar / DeleteChar）
+--   3. 代理排行榜查询（GetRankList）
+--   4. 接收 clientScore 迁移数据并写入 serverCloud
+--   5. 版本握手（检查客户端 CODE_VERSION）
+-- ============================================================================
+
+local SaveProtocol = require("network.SaveProtocol")
+local GameConfig = require("config.GameConfig")
+local SealDemonConfig = require("config.SealDemonConfig")
+
+require "LuaScripts/Utilities/Sample"
+
+---@diagnostic disable-next-line: undefined-global
+local cjson = cjson
+
+-- ============================================================================
+-- Mock graphics for headless mode
+-- ============================================================================
+
+if GetGraphics() == nil then
+    local mockGraphics = {
+        SetWindowIcon = function() end,
+        SetWindowTitleAndIcon = function() end,
+        GetWidth = function() return 1920 end,
+        GetHeight = function() return 1080 end,
+    }
+    function GetGraphics() return mockGraphics end
+    graphics = mockGraphics
+    console = { background = {} }
+    function GetConsole() return console end
+    debugHud = {}
+    function GetDebugHud() return debugHud end
+end
+
+-- ============================================================================
+-- 连接管理
+-- ============================================================================
+
+--- connKey -> Connection
+local connections_ = {}
+--- connKey -> userId (int64)
+local userIds_ = {}
+--- connKey -> slot (当前加载的角色槽位，HandleLoadGame 时记录)
+local connSlots_ = {}
+
+--- 获取 connKey
+---@param connection userdata
+---@return string
+local function ConnKey(connection)
+    return tostring(connection)
+end
+
+--- 根据 connKey 获取 userId
+---@param connKey string
+---@return integer|nil
+local function GetUserId(connKey)
+    return userIds_[connKey]
+end
+
+-- ============================================================================
+-- 工具函数
+-- ============================================================================
+
+--- 安全发送远程事件（连接可能已断开）
+---@param connection userdata
+---@param eventName string
+---@param data userdata VariantMap
+local function SafeSend(connection, eventName, data)
+    local ok, err = pcall(function()
+        connection:SendRemoteEvent(eventName, true, data)
+    end)
+    if not ok then
+        print("[Server] SafeSend failed for " .. eventName .. ": " .. tostring(err))
+    end
+end
+
+--- 归一化 slots_index 的 slots key（JSON 反序列化后数字 key 可能变成字符串）
+---@param slotsIndex table
+---@return table
+local function NormalizeSlotsIndex(slotsIndex)
+    if not slotsIndex or not slotsIndex.slots then return slotsIndex end
+    local normalized = {}
+    for k, v in pairs(slotsIndex.slots) do
+        local numKey = tonumber(k)
+        if numKey and type(v) == "table" then
+            normalized[numKey] = v
+        end
+    end
+    slotsIndex.slots = normalized
+    return slotsIndex
+end
+
+-- ============================================================================
+-- 排行榜：服务端权威计算（P0 防作弊 + P1 存档校验）
+-- ============================================================================
+
+--- 从存档数据中提取并计算排行榜信息（服务端权威计算，不信任客户端）
+--- P0: rankScore 由服务端从 coreData.player 计算，杜绝分数伪造
+--- P1: 校验 realm 合法性、level 范围，拒绝/修正异常数据
+---@param coreData table 存档核心数据
+---@return table|nil rankInfo 排行榜信息，nil 表示不满足排行条件或数据异常
+---@return string|nil reason 拒绝原因（仅 nil 时有值）
+local function ComputeRankFromSaveData(coreData)
+    if not coreData or not coreData.player then
+        return nil, "no_player_data"
+    end
+    local player = coreData.player
+    local level = player.level
+    if not level or type(level) ~= "number" then
+        return nil, "invalid_level_type"
+    end
+
+    -- P1: 等级基本范围
+    if level < 1 or level > 999 then
+        return nil, "level_out_of_range"
+    end
+
+    -- 等级 <= 5 不上榜（正常业务规则）
+    if level <= 5 then
+        return nil, "level_too_low"
+    end
+
+    local realm = player.realm or "mortal"
+    local realmCfg = GameConfig.REALMS[realm]
+
+    -- P1: 境界必须在 GameConfig.REALMS 中存在
+    if not realmCfg then
+        print("[Server][AntiCheat] Invalid realm: " .. tostring(realm))
+        return nil, "invalid_realm"
+    end
+
+    -- P1: 等级不得超过当前境界的 maxLevel
+    local maxLevel = realmCfg.maxLevel or 999
+    if level > maxLevel then
+        print("[Server][AntiCheat] Level " .. level .. " exceeds maxLevel "
+            .. maxLevel .. " for realm " .. realm .. ", capping")
+        level = maxLevel
+    end
+
+    -- P1: 等级不得低于当前境界的 requiredLevel（如果有）
+    local requiredLevel = realmCfg.requiredLevel or 0
+    if level < requiredLevel then
+        print("[Server][AntiCheat] Level " .. level .. " below requiredLevel "
+            .. requiredLevel .. " for realm " .. realm)
+        return nil, "level_below_required"
+    end
+
+    local realmOrder = realmCfg.order or 0
+    local rankScore = realmOrder * 1000 + level
+    local bossKills = coreData.bossKills
+    if type(bossKills) ~= "number" then bossKills = 0 end
+
+    return {
+        rankScore = rankScore,
+        level = level,
+        realm = realm,
+        realmOrder = realmOrder,
+        bossKills = bossKills,
+        charName = player.charName or "修仙者",
+    }
+end
+
+--- 发送简单结果（ok/error + 可选 message）
+---@param connection userdata
+---@param eventName string
+---@param success boolean
+---@param message string|nil
+local function SendResult(connection, eventName, success, message)
+    local data = VariantMap()
+    data["ok"] = Variant(success)
+    if message then
+        data["message"] = Variant(message)
+    end
+    SafeSend(connection, eventName, data)
+end
+
+-- ============================================================================
+-- 入口
+-- ============================================================================
+
+function Start()
+    SampleStart()
+
+    -- 初始化随机种子（服务端独立 Lua VM，必须单独设置）
+    math.randomseed(os.time and os.time() or os.clock())
+
+    -- 注册所有远程事件
+    SaveProtocol.RegisterAll()
+
+    -- 订阅引擎连接事件
+    SubscribeToEvent("ClientIdentity", "HandleClientIdentity")
+    SubscribeToEvent("ClientDisconnected", "HandleClientDisconnected")
+
+    -- 订阅游戏协议事件
+    SubscribeToEvent(SaveProtocol.C2S_FetchSlots, "HandleFetchSlots")
+    SubscribeToEvent(SaveProtocol.C2S_CreateChar, "HandleCreateChar")
+    SubscribeToEvent(SaveProtocol.C2S_DeleteChar, "HandleDeleteChar")
+    SubscribeToEvent(SaveProtocol.C2S_LoadGame, "HandleLoadGame")
+    SubscribeToEvent(SaveProtocol.C2S_SaveGame, "HandleSaveGame")
+    SubscribeToEvent(SaveProtocol.C2S_MigrateData, "HandleMigrateData")
+    SubscribeToEvent(SaveProtocol.C2S_GetRankList, "HandleGetRankList")
+    SubscribeToEvent(SaveProtocol.C2S_VersionHandshake, "HandleVersionHandshake")
+    SubscribeToEvent(SaveProtocol.C2S_DaoTreeStart, "HandleDaoTreeStart")
+    SubscribeToEvent(SaveProtocol.C2S_DaoTreeComplete, "HandleDaoTreeComplete")
+    SubscribeToEvent(SaveProtocol.C2S_GMResetDaily, "HandleGMResetDaily")
+    SubscribeToEvent(SaveProtocol.C2S_DaoTreeQuery, "HandleDaoTreeQuery")
+    SubscribeToEvent(SaveProtocol.C2S_SealDemonAccept, "HandleSealDemonAccept")
+    SubscribeToEvent(SaveProtocol.C2S_SealDemonBossKilled, "HandleSealDemonBossKilled")
+    SubscribeToEvent(SaveProtocol.C2S_SealDemonAbandon, "HandleSealDemonAbandon")
+    SubscribeToEvent(SaveProtocol.C2S_TrialClaimDaily, "HandleTrialClaimDaily")
+
+    print("[Server] 人狗仙途 服务端已启动")
+    print("[Server] serverCloud available: " .. tostring(serverCloud ~= nil))
+    print("[Server] CODE_VERSION=" .. GameConfig.CODE_VERSION)
+end
+
+function Stop()
+    print("[Server] 服务端关闭")
+end
+
+-- ============================================================================
+-- 连接事件
+-- ============================================================================
+
+--- ClientIdentity：userId 可用的时机
+function HandleClientIdentity(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+
+    local userId = connection.identity["user_id"]:GetInt64()
+
+    -- 清理同一 userId 的旧连接记录（引擎会自动踢掉旧连接）
+    -- 注意：不能给旧连接 SafeSend，引擎踢人与发消息存在竞态会导致崩溃
+    for oldKey, oldUid in pairs(userIds_) do
+        if oldUid == userId and oldKey ~= connKey then
+            print("[Server] Duplicate login userId=" .. tostring(userId) .. " oldConn=" .. oldKey .. " (engine auto-kicks)")
+            connections_[oldKey] = nil
+            userIds_[oldKey] = nil
+            break
+        end
+    end
+
+    connections_[connKey] = connection
+    userIds_[connKey] = userId
+
+    print("[Server] ClientIdentity: connKey=" .. connKey .. " userId=" .. tostring(userId))
+end
+
+function HandleClientDisconnected(eventType, eventData)
+    local connection = eventData:GetPtr("Connection", "Connection")
+    local connKey = ConnKey(connection)
+    local userId = userIds_[connKey]
+
+    connections_[connKey] = nil
+    userIds_[connKey] = nil
+    connSlots_[connKey] = nil
+
+    print("[Server] ClientDisconnected: userId=" .. tostring(userId))
+end
+
+-- ============================================================================
+-- C2S_VersionHandshake — 版本握手
+-- ============================================================================
+
+function HandleVersionHandshake(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    local clientVersion = eventData["CodeVersion"]:GetInt()
+    print("[Server] VersionHandshake: userId=" .. tostring(userId)
+        .. " clientVer=" .. clientVersion
+        .. " serverVer=" .. GameConfig.CODE_VERSION)
+
+    if clientVersion < GameConfig.CODE_VERSION then
+        -- 客户端版本过旧 → 强制更新
+        local data = VariantMap()
+        data["requiredVersion"] = Variant(GameConfig.CODE_VERSION)
+        SafeSend(connection, SaveProtocol.S2C_ForceUpdate, data)
+        print("[Server] ForceUpdate sent to userId=" .. tostring(userId))
+    end
+    -- 如果客户端版本 >= 服务端，无需响应（正常继续）
+end
+
+-- ============================================================================
+-- C2S_FetchSlots — 获取槽位列表
+-- ============================================================================
+
+function HandleFetchSlots(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    print("[Server] FetchSlots: userId=" .. tostring(userId))
+
+    -- 读取 slots_index + save_data_1~4 + account_bulletin + rank_score_1~4（排行榜修复用）
+    serverCloud:BatchGet(userId)
+        :Key("slots_index")
+        :Key("save_data_1")
+        :Key("save_data_2")
+        :Key("save_data_3")
+        :Key("save_data_4")
+        :Key("account_bulletin")
+        :Key("rank_score_1")
+        :Key("rank_score_2")
+        :Key("rank_score_3")
+        :Key("rank_score_4")
+        :Fetch({
+            ok = function(scores, iscores, sscores)
+                local slotsIndex = scores["slots_index"]
+                local bulletin = scores["account_bulletin"]
+
+                -- 如果没有 slots_index，返回空（新玩家）
+                if not slotsIndex then
+                    slotsIndex = { version = 1, slots = {} }
+                end
+
+                -- 归一化 slots key（serverCloud JSON 反序列化可能将数字 key 变成字符串）
+                NormalizeSlotsIndex(slotsIndex)
+
+                -- 正向验证：索引有条目但数据丢失（检查全部 4 槽）
+                slotsIndex.slots = slotsIndex.slots or {}
+                for slot = 1, 4 do
+                    if slotsIndex.slots[slot] then
+                        local saveKey = "save_data_" .. slot
+                        local hasData = scores[saveKey] and type(scores[saveKey]) == "table"
+                        if not hasData then
+                            slotsIndex.slots[slot].dataLost = true
+                            print("[Server] WARNING: Slot " .. slot
+                                .. " index exists but save data MISSING for userId=" .. tostring(userId))
+                        end
+                    end
+                end
+
+                -- 反向验证：孤儿存档自愈（检查全部 4 槽）
+                local needRepair = false
+                for slot = 1, 4 do
+                    if not slotsIndex.slots[slot] then
+                        local saveKey = "save_data_" .. slot
+                        local saveData = scores[saveKey]
+                        if saveData and type(saveData) == "table" and saveData.player then
+                            local p = saveData.player
+                            local realm = p.realm or "mortal"
+                            slotsIndex.slots[slot] = {
+                                name = p.charName or "修仙者",
+                                level = p.level or 1,
+                                realm = realm,
+                                chapter = p.chapter or 1,
+                                lastSave = saveData.timestamp or os.time(),
+                                saveVersion = saveData.version or 1,
+                                recovered = true,
+                            }
+                            needRepair = true
+                            print("[Server] RECOVERED orphan slot " .. slot
+                                .. " for userId=" .. tostring(userId))
+                        end
+                    end
+                end
+
+                -- 自愈写回
+                if needRepair then
+                    serverCloud:BatchSet(userId)
+                        :Set("slots_index", slotsIndex)
+                        :Save("自愈修复slots_index", {
+                            ok = function()
+                                print("[Server] Orphan repair written for userId=" .. tostring(userId))
+                            end,
+                            error = function(code, reason)
+                                print("[Server] Orphan repair failed: " .. tostring(reason))
+                            end,
+                        })
+                end
+
+                -- P0: v2 排行榜 —— 登录时无条件从存档重建排行（全新 rank2_ key）
+                -- 使用顶层 SetInt 确保更新全局排行索引
+
+                -- 先查 TapTap 昵称（服务端同步读取，入榜时玩家必在线）
+                local taptapNick = nil
+                GetUserNickname({
+                    userIds = { userId },
+                    onSuccess = function(nicknames)
+                        if nicknames and #nicknames > 0 then
+                            taptapNick = nicknames[1].nickname or ""
+                            print("[Server] RankV2: got taptapNick for userId=" .. tostring(userId) .. " nick=" .. taptapNick)
+                        end
+                    end,
+                })
+
+                local rankRepairBatch = nil
+                for slot = 1, 4 do
+                    local saveKey = "save_data_" .. slot
+                    local saveData = scores[saveKey]
+
+                    -- 有有效存档就无条件入榜（不检查是否已存在）
+                    if saveData and type(saveData) == "table"
+                        and saveData.player then
+                        local rankInfo = ComputeRankFromSaveData(saveData)
+                        if rankInfo then
+                            -- 角色名优先从 slotsIndex 取（save_data.player.charName 大多数存档为 nil）
+                            local slotMeta = slotsIndex.slots and slotsIndex.slots[slot]
+                            if slotMeta and slotMeta.name and slotMeta.name ~= "" then
+                                rankInfo.charName = slotMeta.name
+                            end
+
+                            -- 顶层 SetInt 写排行分数（确保排行索引更新）
+                            serverCloud:SetInt(userId, "rank2_score_" .. slot, rankInfo.rankScore, {
+                                error = function(code, reason)
+                                    print("[Server] RankV2 login SetInt rank2_score FAILED: userId=" .. tostring(userId)
+                                        .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
+                                end,
+                            })
+                            serverCloud:SetInt(userId, "rank2_kills_" .. slot, rankInfo.bossKills, {
+                                error = function(code, reason)
+                                    print("[Server] RankV2 login SetInt rank2_kills FAILED: userId=" .. tostring(userId)
+                                        .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
+                                end,
+                            })
+                            serverCloud:SetInt(userId, "rank2_time_" .. slot, os.time(), {
+                                error = function(code, reason)
+                                    print("[Server] RankV2 login SetInt rank2_time FAILED: userId=" .. tostring(userId)
+                                        .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
+                                end,
+                            })
+
+                            -- batch 写附加 scores 信息（含 TapTap 昵称）
+                            if not rankRepairBatch then
+                                rankRepairBatch = serverCloud:BatchSet(userId)
+                            end
+                            rankRepairBatch:Set("rank2_info_" .. slot, {
+                                name = rankInfo.charName,
+                                realm = rankInfo.realm,
+                                level = rankInfo.level,
+                                bossKills = rankInfo.bossKills,
+                                taptapNick = taptapNick,
+                            })
+                            print("[Server] RankV2: enrolled userId="
+                                .. tostring(userId) .. " slot=" .. slot
+                                .. " score=" .. rankInfo.rankScore
+                                .. " name=" .. rankInfo.charName
+                                .. " taptapNick=" .. tostring(taptapNick))
+                        end
+                    end
+                end
+
+                -- ═══ 青云试炼排行榜修复（per-user，取全部角色中最高层）═══
+                local bestTrialFloor = 0
+                local bestTrialSlotData = nil
+                local bestTrialSlot = 0
+                for rSlot = 1, 4 do
+                    local rSaveKey = "save_data_" .. rSlot
+                    local rSaveData = scores[rSaveKey]
+                    if rSaveData and type(rSaveData) == "table"
+                        and rSaveData.trialTower and type(rSaveData.trialTower) == "table" then
+                        local hf = rSaveData.trialTower.highestFloor
+                        if hf and type(hf) == "number" and hf > bestTrialFloor then
+                            bestTrialFloor = hf
+                            bestTrialSlot = rSlot
+                            bestTrialSlotData = rSaveData
+                        end
+                    end
+                end
+                if bestTrialFloor > 0 then
+                    local TRIAL_TIME_BASE = 10000000000
+                    local trialComposite = bestTrialFloor * TRIAL_TIME_BASE
+                        + (TRIAL_TIME_BASE - 1 - os.time())
+                    serverCloud:SetInt(userId, "trial_floor", trialComposite, {
+                        error = function(code, reason)
+                            print("[Server] Trial login SetInt FAILED: userId=" .. tostring(userId)
+                                .. " err=" .. tostring(code) .. " " .. tostring(reason))
+                        end,
+                    })
+                    local trialCharName = "修仙者"
+                    local trialSlotMeta = slotsIndex.slots and slotsIndex.slots[bestTrialSlot]
+                    if trialSlotMeta and trialSlotMeta.name and trialSlotMeta.name ~= "" then
+                        trialCharName = trialSlotMeta.name
+                    elseif bestTrialSlotData.player and bestTrialSlotData.player.charName then
+                        trialCharName = bestTrialSlotData.player.charName
+                    end
+                    if not rankRepairBatch then
+                        rankRepairBatch = serverCloud:BatchSet(userId)
+                    end
+                    rankRepairBatch:Set("trial_info", {
+                        floor = bestTrialFloor,
+                        name = trialCharName,
+                        realm = bestTrialSlotData.player and bestTrialSlotData.player.realm or "mortal",
+                        level = bestTrialSlotData.player and bestTrialSlotData.player.level or 1,
+                        taptapNick = taptapNick,
+                    })
+                    print("[Server] Trial: login repair userId=" .. tostring(userId)
+                        .. " bestFloor=" .. bestTrialFloor .. " slot=" .. bestTrialSlot)
+                end
+
+                -- 附加信息写回（fire-and-forget，不阻塞登录流程）
+                if rankRepairBatch then
+                    rankRepairBatch:Save("v2排行榜入榜", {
+                        ok = function()
+                            print("[Server] RankV2 info saved for userId=" .. tostring(userId))
+                        end,
+                        error = function(code, reason)
+                            print("[Server] RankV2 info save FAILED: " .. tostring(code)
+                                .. " " .. tostring(reason))
+                        end,
+                    })
+                end
+
+                -- 检查是否需要迁移（serverCloud 全部 4 槽无数据 → 可能 clientScore 有数据）
+                local isEmpty = true
+                for slot = 1, 4 do
+                    if slotsIndex.slots[slot] then
+                        isEmpty = false
+                        break
+                    end
+                end
+
+                -- 发送结果
+                local resultData = VariantMap()
+                resultData["ok"] = Variant(true)
+                resultData["slotsIndex"] = Variant(cjson.encode(slotsIndex))
+                resultData["needMigration"] = Variant(isEmpty)
+                resultData["userId"] = Variant(tostring(userId))
+                if bulletin then
+                    resultData["bulletin"] = Variant(cjson.encode(bulletin))
+                end
+                SafeSend(connection, SaveProtocol.S2C_SlotsData, resultData)
+
+                print("[Server] FetchSlots sent: userId=" .. tostring(userId)
+                    .. " needMigration=" .. tostring(isEmpty))
+            end,
+            error = function(code, reason)
+                print("[Server] FetchSlots ERROR: " .. tostring(code) .. " " .. tostring(reason))
+                SendResult(connection, SaveProtocol.S2C_SlotsData, false, tostring(reason))
+            end,
+        })
+end
+
+-- ============================================================================
+-- C2S_CreateChar — 创建角色
+-- ============================================================================
+
+function HandleCreateChar(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    local slot = eventData["slot"]:GetInt()
+    local charName = eventData["charName"]:GetString()
+
+    print("[Server] CreateChar: userId=" .. tostring(userId)
+        .. " slot=" .. slot .. " name=" .. charName)
+
+    -- 槽位范围限制：只允许在 1-2 槽创角（3-4 预留给迁移恢复）
+    if slot < 1 or slot > 2 then
+        print("[Server] CreateChar REJECTED: slot " .. slot .. " out of allowed range (1-2)")
+        SendResult(connection, SaveProtocol.S2C_CharResult, false, "该槽位不允许创建角色")
+        return
+    end
+
+    -- 先读取当前 slots_index
+    serverCloud:Get(userId, "slots_index", {
+        ok = function(scores)
+            local slotsIndex = scores["slots_index"] or { version = 1, slots = {} }
+            slotsIndex.slots = slotsIndex.slots or {}
+            NormalizeSlotsIndex(slotsIndex)
+
+            -- 检查槽位是否已被占用
+            if slotsIndex.slots[slot] then
+                SendResult(connection, SaveProtocol.S2C_CharResult, false, "槽位已被占用")
+                return
+            end
+
+            -- 构建初始存档（与 SaveSystem.CreateCharacter 保持一致）
+            local coreData = {
+                version = 9,  -- CURRENT_SAVE_VERSION（此处硬编码，与客户端一致）
+                timestamp = os.time(),
+                player = {
+                    level = 1, exp = 0, hp = 100, maxHp = 100,
+                    atk = 15, def = 5, hpRegen = 1.0,
+                    gold = 0, lingYun = 0, realm = "mortal",
+                },
+                equipment = {},
+                skills = {},
+                collection = {},
+                pet = {},
+                quests = {},
+            }
+
+            -- 更新 slots_index
+            slotsIndex.slots[slot] = {
+                name = charName,
+                level = 1,
+                realm = "mortal",
+                realmName = "凡人",
+                chapter = 1,
+                lastSave = os.time(),
+                saveVersion = coreData.version,
+            }
+
+            local saveKey = "save_data_" .. slot
+            local bag1Key = "save_bag1_" .. slot
+            local bag2Key = "save_bag2_" .. slot
+
+            serverCloud:BatchSet(userId)
+                :Set(saveKey, coreData)
+                :Set(bag1Key, {})
+                :Set(bag2Key, {})
+                :Set("slots_index", slotsIndex)
+                :Save("创建角色", {
+                    ok = function()
+                        print("[Server] Character created: userId=" .. tostring(userId)
+                            .. " slot=" .. slot .. " name=" .. charName)
+                        local data = VariantMap()
+                        data["ok"] = Variant(true)
+                        data["slot"] = Variant(slot)
+                        data["slotsIndex"] = Variant(cjson.encode(slotsIndex))
+                        SafeSend(connection, SaveProtocol.S2C_CharResult, data)
+                    end,
+                    error = function(code, reason)
+                        print("[Server] CreateChar failed: " .. tostring(reason))
+                        SendResult(connection, SaveProtocol.S2C_CharResult, false, tostring(reason))
+                    end,
+                })
+        end,
+        error = function(code, reason)
+            print("[Server] CreateChar read index failed: " .. tostring(reason))
+            SendResult(connection, SaveProtocol.S2C_CharResult, false, tostring(reason))
+        end,
+    })
+end
+
+-- ============================================================================
+-- C2S_DeleteChar — 删除角色
+-- ============================================================================
+
+function HandleDeleteChar(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    local slot = eventData["slot"]:GetInt()
+
+    print("[Server] DeleteChar: userId=" .. tostring(userId) .. " slot=" .. slot)
+
+    -- 读取存档做备份 + 读取 slots_index
+    local saveKey = "save_data_" .. slot
+    local bag1Key = "save_bag1_" .. slot
+    local bag2Key = "save_bag2_" .. slot
+
+    serverCloud:BatchGet(userId)
+        :Key(saveKey)
+        :Key(bag1Key)
+        :Key(bag2Key)
+        :Key("slots_index")
+        :Fetch({
+            ok = function(scores)
+                local slotsIndex = scores["slots_index"] or { version = 1, slots = {} }
+                slotsIndex.slots = slotsIndex.slots or {}
+                NormalizeSlotsIndex(slotsIndex)
+
+                local coreData = scores[saveKey]
+                local b1Data = scores[bag1Key]
+                local b2Data = scores[bag2Key]
+
+                -- 移除槽位
+                slotsIndex.slots[slot] = nil
+
+                local backupKey = "save_backup_" .. slot
+                local bakBag1Key = "bak_bag1_" .. slot
+                local bakBag2Key = "bak_bag2_" .. slot
+
+                local batch = serverCloud:BatchSet(userId)
+                    :Set("slots_index", slotsIndex)
+                    :Delete(saveKey)
+                    :Delete(bag1Key)
+                    :Delete(bag2Key)
+                    -- 删除旧版排行 key
+                    :Delete("rank_score_" .. slot)
+                    :Delete("rank_info_" .. slot)
+                    -- 删除 v2 排行 key
+                    :Delete("rank2_info_" .. slot)
+
+                -- 备份存档数据
+                if coreData and type(coreData) == "table" then
+                    batch:Set(backupKey, {
+                        data = coreData,
+                        deletedAt = os.time(),
+                    })
+                end
+                if b1Data and type(b1Data) == "table" then
+                    batch:Set(bakBag1Key, b1Data)
+                end
+                if b2Data and type(b2Data) == "table" then
+                    batch:Set(bakBag2Key, b2Data)
+                end
+
+                batch:Save("删除角色", {
+                    ok = function()
+                        print("[Server] Character deleted: userId=" .. tostring(userId) .. " slot=" .. slot)
+
+                        -- 清除 v2 排行索引（顶层 SetInt 置 0，从排行榜移除）
+                        serverCloud:SetInt(userId, "rank2_score_" .. slot, 0, {
+                            error = function(code, reason)
+                                print("[Server] DeleteChar SetInt rank2_score clear FAILED: userId=" .. tostring(userId)
+                                    .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
+                            end,
+                        })
+                        serverCloud:SetInt(userId, "rank2_kills_" .. slot, 0, {
+                            error = function(code, reason)
+                                print("[Server] DeleteChar SetInt rank2_kills clear FAILED: userId=" .. tostring(userId)
+                                    .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
+                            end,
+                        })
+                        serverCloud:SetInt(userId, "rank2_time_" .. slot, 0, {
+                            error = function(code, reason)
+                                print("[Server] DeleteChar SetInt rank2_time clear FAILED: userId=" .. tostring(userId)
+                                    .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
+                            end,
+                        })
+
+                        local data = VariantMap()
+                        data["ok"] = Variant(true)
+                        data["slot"] = Variant(slot)
+                        data["slotsIndex"] = Variant(cjson.encode(slotsIndex))
+                        SafeSend(connection, SaveProtocol.S2C_CharResult, data)
+                    end,
+                    error = function(code, reason)
+                        print("[Server] DeleteChar failed: " .. tostring(reason))
+                        SendResult(connection, SaveProtocol.S2C_CharResult, false, tostring(reason))
+                    end,
+                })
+            end,
+            error = function(code, reason)
+                print("[Server] DeleteChar read failed: " .. tostring(reason))
+                SendResult(connection, SaveProtocol.S2C_CharResult, false, tostring(reason))
+            end,
+        })
+end
+
+-- ============================================================================
+-- C2S_LoadGame — 加载存档
+-- ============================================================================
+
+function HandleLoadGame(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    local slot = eventData["slot"]:GetInt()
+    connSlots_[connKey] = slot  -- 记录当前连接的活跃角色槽位
+
+    print("[Server] LoadGame: userId=" .. tostring(userId) .. " slot=" .. slot)
+
+    local saveKey = "save_data_" .. slot
+    local bag1Key = "save_bag1_" .. slot
+    local bag2Key = "save_bag2_" .. slot
+
+    serverCloud:BatchGet(userId)
+        :Key(saveKey)
+        :Key(bag1Key)
+        :Key(bag2Key)
+        :Fetch({
+            ok = function(scores)
+                local saveData = scores[saveKey]
+                local bag1 = scores[bag1Key]
+                local bag2 = scores[bag2Key]
+
+                if not saveData or type(saveData) ~= "table" then
+                    -- 数据丢失 → 尝试恢复
+                    print("[Server] LoadGame: save data missing for slot " .. slot
+                        .. " userId=" .. tostring(userId))
+                    SendResult(connection, SaveProtocol.S2C_LoadResult, false, "存档数据丢失")
+                    return
+                end
+
+                -- 发送存档数据（JSON 编码）
+                local resultData = VariantMap()
+                resultData["ok"] = Variant(true)
+                resultData["slot"] = Variant(slot)
+                resultData["saveData"] = Variant(cjson.encode(saveData))
+                if bag1 and type(bag1) == "table" then
+                    resultData["bag1"] = Variant(cjson.encode(bag1))
+                end
+                if bag2 and type(bag2) == "table" then
+                    resultData["bag2"] = Variant(cjson.encode(bag2))
+                end
+                SafeSend(connection, SaveProtocol.S2C_LoadResult, resultData)
+
+                print("[Server] LoadGame sent: userId=" .. tostring(userId) .. " slot=" .. slot)
+            end,
+            error = function(code, reason)
+                print("[Server] LoadGame ERROR: " .. tostring(code) .. " " .. tostring(reason))
+                SendResult(connection, SaveProtocol.S2C_LoadResult, false, tostring(reason))
+            end,
+        })
+end
+
+-- ============================================================================
+-- C2S_SaveGame — 保存存档
+-- ============================================================================
+
+function HandleSaveGame(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    local slot = eventData["slot"]:GetInt()
+    connSlots_[connKey] = slot  -- 同步更新活跃槽位（冗余保护）
+    local coreDataJson = eventData["coreData"]:GetString()
+    local bag1Json = eventData["bag1"]:GetString()
+    local bag2Json = eventData["bag2"]:GetString()
+    local slotsIndexJson = eventData["slotsIndex"]:GetString()
+    local rankDataJson = eventData["rankData"]:GetString()
+    -- 读取客户端传来的 requestId（用于回调精确匹配）
+    local requestId = 0
+    pcall(function() requestId = eventData["requestId"]:GetInt() end)
+
+    print("[Server] SaveGame: userId=" .. tostring(userId) .. " slot=" .. slot)
+
+    -- 解码 JSON
+    local ok1, coreData = pcall(cjson.decode, coreDataJson)
+    local ok2, bag1 = pcall(cjson.decode, bag1Json)
+    local ok3, bag2 = pcall(cjson.decode, bag2Json)
+    local ok4, slotsIndex = pcall(cjson.decode, slotsIndexJson)
+    local ok5, rankData = pcall(cjson.decode, rankDataJson)
+
+    if not ok1 or not coreData then
+        print("[Server] SaveGame: coreData decode failed")
+        SendResult(connection, SaveProtocol.S2C_SaveResult, false, "数据格式错误")
+        return
+    end
+
+    -- ================================================================
+    -- B4-S2 硬校验 V1~V4：服务端权威修正关键数值
+    -- 不拒绝存档，而是 clamp 到合法范围后继续保存
+    -- ================================================================
+    if coreData.player then
+        local cp = coreData.player
+
+        -- V1: level 不得超过当前境界 maxLevel
+        if cp.level and type(cp.level) == "number" then
+            local realm = cp.realm or "mortal"
+            local rCfg = GameConfig.REALMS[realm]
+            if rCfg then
+                local maxLv = rCfg.maxLevel or 999
+                if cp.level > maxLv then
+                    print("[Server][V1] Level clamped: " .. cp.level .. " -> " .. maxLv
+                        .. " (realm=" .. realm .. ") userId=" .. tostring(userId))
+                    cp.level = maxLv
+                end
+            end
+            if cp.level < 1 then cp.level = 1 end
+        end
+
+        -- V2: exp 不得为负，不得超过当前等级经验表上限
+        if cp.exp and type(cp.exp) == "number" then
+            if cp.exp < 0 then
+                print("[Server][V2] Exp clamped from " .. cp.exp .. " -> 0"
+                    .. " userId=" .. tostring(userId))
+                cp.exp = 0
+            end
+            -- 经验上限：下一级所需经验（如已是最高级则用当前级）
+            local nextLvExp = GameConfig.EXP_TABLE[cp.level + 1]
+                or GameConfig.EXP_TABLE[cp.level]
+                or cp.exp
+            if nextLvExp and cp.exp > nextLvExp * 2 then
+                -- 允许 2 倍余量（存档可能在升级瞬间），超过 2 倍视为异常
+                print("[Server][V2] Exp suspicious: " .. cp.exp
+                    .. " > 2x nextLvExp=" .. nextLvExp
+                    .. " userId=" .. tostring(userId))
+                cp.exp = nextLvExp
+            end
+        end
+
+        -- V3: gold 不得为负
+        if cp.gold and type(cp.gold) == "number" then
+            if cp.gold < 0 then
+                print("[Server][V3] Gold clamped from " .. cp.gold .. " -> 0"
+                    .. " userId=" .. tostring(userId))
+                cp.gold = 0
+            end
+        end
+
+        -- V4: lingYun 不得为负
+        if cp.lingYun and type(cp.lingYun) == "number" then
+            if cp.lingYun < 0 then
+                print("[Server][V4] LingYun clamped from " .. cp.lingYun .. " -> 0"
+                    .. " userId=" .. tostring(userId))
+                cp.lingYun = 0
+            end
+        end
+    end
+
+    -- V5: 丹药计数上限校验（shop + challenges + player 直存丹药）
+    -- 仅记日志 + clamp，不拒绝存档
+    if coreData.shop then
+        local pillLimits = {
+            { field = "tigerPillCount",    max = 5,  name = "虎骨丹" },
+            { field = "snakePillCount",    max = 5,  name = "灵蛇丹" },
+            { field = "diamondPillCount",  max = 5,  name = "金刚丹" },
+            { field = "temperingPillEaten", max = 50, name = "千锤百炼丹" },
+        }
+        for _, pill in ipairs(pillLimits) do
+            local v = coreData.shop[pill.field]
+            if v and type(v) == "number" and v > pill.max then
+                print("[Server][V5] " .. pill.name .. " clamped: "
+                    .. v .. " -> " .. pill.max
+                    .. " userId=" .. tostring(userId))
+                coreData.shop[pill.field] = pill.max
+            end
+        end
+    end
+    if coreData.challenges then
+        local chPillLimits = {
+            { field = "xueshaDanCount", max = 9, name = "血煞丹" },
+            { field = "haoqiDanCount",  max = 9, name = "浩气丹" },
+        }
+        for _, pill in ipairs(chPillLimits) do
+            local v = coreData.challenges[pill.field]
+            if v and type(v) == "number" and v > pill.max then
+                print("[Server][V5] " .. pill.name .. " clamped: "
+                    .. v .. " -> " .. pill.max
+                    .. " userId=" .. tostring(userId))
+                coreData.challenges[pill.field] = pill.max
+            end
+        end
+    end
+    if coreData.player then
+        local playerPillLimits = {
+            { field = "pillConstitution", max = 50, name = "根骨(千锤)" },
+            { field = "pillPhysique",     max = SealDemonConfig.PHYSIQUE_PILL.maxCount, name = "体魄丹" },
+            { field = "pillKillHeal",     max = 45, name = "击杀回血(血煞)" }, -- 9×5=45
+            { field = "daoTreeWisdom",    max = 50, name = "悟道" },
+            { field = "fruitFortune",     max = 30, name = "福缘果" },
+            { field = "seaPillarDef",     max = 20, name = "海神柱防御" },
+            { field = "seaPillarAtk",     max = 30, name = "海神柱攻击" },
+            { field = "seaPillarMaxHp",   max = 300, name = "海神柱生命" },
+            { field = "seaPillarHpRegen", max = 30, name = "海神柱恢复" },
+        }
+        for _, pill in ipairs(playerPillLimits) do
+            local v = coreData.player[pill.field]
+            if v and type(v) == "number" and v > pill.max then
+                print("[Server][V5] " .. pill.name .. " clamped: "
+                    .. v .. " -> " .. pill.max
+                    .. " userId=" .. tostring(userId))
+                coreData.player[pill.field] = pill.max
+            end
+        end
+    end
+
+    -- V5b: 海神柱等级校验（每根柱子 level 0~10）
+    if coreData.seaPillar then
+        local pillarIds = { "xuanbing", "youyuan", "lieyan", "liusha" }
+        for _, pid in ipairs(pillarIds) do
+            local p = coreData.seaPillar[pid]
+            if p and type(p) == "table" then
+                if p.level and type(p.level) == "number" then
+                    if p.level < 0 then p.level = 0 end
+                    if p.level > 10 then
+                        print("[Server][V5b] SeaPillar " .. pid .. " level clamped: "
+                            .. p.level .. " -> 10 userId=" .. tostring(userId))
+                        p.level = 10
+                    end
+                end
+            end
+        end
+    end
+
+    local saveKey = "save_data_" .. slot
+    local bag1Key = "save_bag1_" .. slot
+    local bag2Key = "save_bag2_" .. slot
+
+    local batch = serverCloud:BatchSet(userId)
+        :Set(saveKey, coreData)
+
+    if ok2 and bag1 then
+        batch:Set(bag1Key, bag1)
+    end
+    if ok3 and bag2 then
+        batch:Set(bag2Key, bag2)
+    end
+    if ok4 and slotsIndex then
+        NormalizeSlotsIndex(slotsIndex)
+        batch:Set("slots_index", slotsIndex)
+    end
+
+    -- 账号级数据
+    local bulletinJson = eventData["bulletin"]:GetString()
+    if bulletinJson and bulletinJson ~= "" then
+        local ok6, bulletin = pcall(cjson.decode, bulletinJson)
+        if ok6 and bulletin then
+            batch:Set("account_bulletin", bulletin)
+        end
+    end
+
+    -- player_level
+    local playerLevel = eventData["playerLevel"]:GetInt()
+    if playerLevel and playerLevel > 0 then
+        batch:SetInt("player_level", playerLevel)
+    end
+
+    -- 排行榜数据（P0: 服务端权威计算，不信任客户端 rankData）
+    -- 使用 rank2_ 前缀的全新排行 key（v2 排行榜）
+    local rankInfo, rankRejectReason = ComputeRankFromSaveData(coreData)
+
+    -- 查 TapTap 昵称（服务端同步读取，排行榜多处复用）
+    local taptapNick = nil
+    GetUserNickname({
+        userIds = { userId },
+        onSuccess = function(nicknames)
+            if nicknames and #nicknames > 0 then
+                taptapNick = nicknames[1].nickname or ""
+            end
+        end,
+    })
+
+    if rankInfo then
+        -- 角色名优先从 slotsIndex 取（save_data.player.charName 大多数存档为 nil）
+        if ok4 and slotsIndex and slotsIndex.slots then
+            local slotMeta = slotsIndex.slots[slot]
+            if slotMeta and slotMeta.name and slotMeta.name ~= "" then
+                rankInfo.charName = slotMeta.name
+            end
+        end
+
+        -- 附加信息通过 batch 写入 scores（rank2_info 是 Set 类型，含 TapTap 昵称）
+        batch:Set("rank2_info_" .. slot, {
+            name = rankInfo.charName,
+            realm = rankInfo.realm,
+            level = rankInfo.level,
+            bossKills = rankInfo.bossKills,
+            taptapNick = taptapNick,
+        })
+    elseif rankRejectReason and rankRejectReason ~= "level_too_low"
+        and rankRejectReason ~= "no_player_data" then
+        print("[Server][AntiCheat] Rank write rejected for userId="
+            .. tostring(userId) .. " slot=" .. slot
+            .. " reason=" .. rankRejectReason)
+    end
+
+    -- _code_ver（版本守卫）
+    local codeVersion = eventData["codeVersion"]:GetInt()
+    if codeVersion and codeVersion > 0 then
+        batch:SetInt("_code_ver", codeVersion)
+    end
+
+    -- P0 排行榜修复：排行分数提前写入，不依赖 batch:Save 成功
+    -- 原因：batch:Save 失败时 ok 回调不执行，导致 rank2_score 永远不更新
+    -- SetInt 是独立的轻量写操作，成功率远高于复杂 batch 写入
+    if rankInfo then
+        serverCloud:SetInt(userId, "rank2_score_" .. slot, rankInfo.rankScore, {
+            error = function(code, reason)
+                print("[Server] RankV2 SetInt rank2_score FAILED: userId=" .. tostring(userId)
+                    .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
+            end,
+        })
+        serverCloud:SetInt(userId, "rank2_kills_" .. slot, rankInfo.bossKills, {
+            error = function(code, reason)
+                print("[Server] RankV2 SetInt rank2_kills FAILED: userId=" .. tostring(userId)
+                    .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
+            end,
+        })
+        if ok5 and rankData and rankData.achieveTime then
+            serverCloud:SetInt(userId, "rank2_time_" .. slot, rankData.achieveTime, {
+                error = function(code, reason)
+                    print("[Server] RankV2 SetInt rank2_time FAILED: userId=" .. tostring(userId)
+                        .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
+                end,
+            })
+        end
+    end
+
+    -- ═══ 青云试炼排行榜（trial_floor，per-user，取当前存档最高层）═══
+    local trialTower = coreData.trialTower
+    if trialTower and type(trialTower) == "table" then
+        local highestFloor = trialTower.highestFloor
+        if highestFloor and type(highestFloor) == "number" and highestFloor > 0 then
+            local TRIAL_TIME_BASE = 10000000000 -- 10^10
+            local trialComposite = highestFloor * TRIAL_TIME_BASE
+                + (TRIAL_TIME_BASE - 1 - os.time())
+            serverCloud:SetInt(userId, "trial_floor", trialComposite, {
+                error = function(code, reason)
+                    print("[Server] Trial SetInt trial_floor FAILED: userId=" .. tostring(userId)
+                        .. " err=" .. tostring(code) .. " " .. tostring(reason))
+                end,
+            })
+            -- 角色名
+            local trialCharName = "修仙者"
+            if ok4 and slotsIndex and slotsIndex.slots then
+                local slotMeta = slotsIndex.slots[slot]
+                if slotMeta and slotMeta.name and slotMeta.name ~= "" then
+                    trialCharName = slotMeta.name
+                end
+            elseif coreData.player and coreData.player.charName then
+                trialCharName = coreData.player.charName
+            end
+            batch:Set("trial_info", {
+                floor = highestFloor,
+                name = trialCharName,
+                realm = coreData.player and coreData.player.realm or "mortal",
+                level = coreData.player and coreData.player.level or 1,
+                taptapNick = taptapNick,
+            })
+            print("[Server] Trial: enrolled userId=" .. tostring(userId)
+                .. " floor=" .. highestFloor .. " composite=" .. trialComposite)
+        end
+    end
+
+    batch:Save("存档", {
+        ok = function()
+            print("[Server] SaveGame OK: userId=" .. tostring(userId) .. " slot=" .. slot)
+
+            local resultData = VariantMap()
+            resultData["ok"] = Variant(true)
+            resultData["requestId"] = Variant(requestId)
+            SafeSend(connection, SaveProtocol.S2C_SaveResult, resultData)
+        end,
+        error = function(code, reason)
+            print("[Server] SaveGame FAILED: " .. tostring(code) .. " " .. tostring(reason))
+            local resultData = VariantMap()
+            resultData["ok"] = Variant(false)
+            resultData["message"] = Variant(tostring(reason))
+            resultData["requestId"] = Variant(requestId)
+            SafeSend(connection, SaveProtocol.S2C_SaveResult, resultData)
+        end,
+    })
+end
+
+-- ============================================================================
+-- C2S_MigrateData — clientScore → serverCloud 迁移
+-- ============================================================================
+
+function HandleMigrateData(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    local payloadJson = eventData["payload"]:GetString()
+    local ok, payload = pcall(cjson.decode, payloadJson)
+    if not ok or not payload then
+        print("[Server] MigrateData: payload decode failed")
+        SendResult(connection, SaveProtocol.S2C_MigrateResult, false, "数据格式错误")
+        return
+    end
+
+    local source = payload._migrationSource or "clientCloud"
+    print("[Server] MigrateData: userId=" .. tostring(userId) .. " source=" .. source)
+
+    -- _migrationSource 不写入存储
+    payload._migrationSource = nil
+
+    -- ========================================================================
+    -- 槽位映射规则：
+    --   clientCloud 直写（原样搬运 slot 1→1, 2→2）
+    --   local_file  重映射（slot 1→3, 2→4，预留恢复槽位）
+    -- ========================================================================
+
+    local slotMap = {}
+    if source == "local_file" then
+        slotMap = { [1] = 3, [2] = 4 }
+    else
+        slotMap = { [1] = 1, [2] = 2 }
+    end
+
+    -- 先读取现有数据，检查目标槽位是否已有内容（幂等保护）
+    serverCloud:BatchGet(userId)
+        :Key("slots_index")
+        :Key("save_data_" .. slotMap[1])
+        :Key("save_data_" .. slotMap[2])
+        :Fetch({
+            ok = function(existingScores)
+                local existingSlotsIndex = existingScores["slots_index"] or { version = 1, slots = {} }
+                existingSlotsIndex.slots = existingSlotsIndex.slots or {}
+                NormalizeSlotsIndex(existingSlotsIndex)
+
+                -- 幂等检查：目标槽位已有数据 → 跳过
+                local alreadyMigrated = true
+                for origSlot = 1, 2 do
+                    local targetSlot = slotMap[origSlot]
+                    local targetKey = "save_data_" .. targetSlot
+                    local srcKey = "save_data_" .. origSlot
+                    if payload[srcKey] and type(payload[srcKey]) == "table" then
+                        if not existingScores[targetKey] or type(existingScores[targetKey]) ~= "table" then
+                            alreadyMigrated = false
+                            break
+                        end
+                    end
+                end
+
+                if alreadyMigrated then
+                    print("[Server] MigrateData: target slots already have data, skipping (idempotent)")
+                    SendResult(connection, SaveProtocol.S2C_MigrateResult, true)
+                    return
+                end
+
+                -- G4: 迁移前备份完整 payload（安全网）
+                local batch = serverCloud:BatchSet(userId)
+                batch:Set("save_migrate_backup_" .. source, {
+                    payload = payload,
+                    migratedAt = os.time(),
+                    source = source,
+                })
+
+                -- 处理 slots_index 合并
+                local payloadSlotsIndex = payload.slots_index
+                if payloadSlotsIndex and type(payloadSlotsIndex) == "table" then
+                    payloadSlotsIndex.slots = payloadSlotsIndex.slots or {}
+                    NormalizeSlotsIndex(payloadSlotsIndex)
+                    for origSlot = 1, 2 do
+                        local targetSlot = slotMap[origSlot]
+                        if payloadSlotsIndex.slots[origSlot] then
+                            local slotInfo = payloadSlotsIndex.slots[origSlot]
+                            if source == "local_file" then
+                                slotInfo.migrated = true
+                                slotInfo.migratedFrom = "local_file"
+                                slotInfo.migratedAt = os.time()
+                            end
+                            existingSlotsIndex.slots[targetSlot] = slotInfo
+                        end
+                    end
+                    batch:Set("slots_index", existingSlotsIndex)
+                end
+
+                -- 重映射每个槽位的数据 key
+                local slotDataKeys = { "save_data_", "save_bag1_", "save_bag2_", "rank_info_" }
+                local slotIntKeys = { "rank_score_", "rank_time_", "boss_kills_" }
+
+                for origSlot = 1, 2 do
+                    local targetSlot = slotMap[origSlot]
+                    -- table 类型数据
+                    for _, prefix in ipairs(slotDataKeys) do
+                        local srcKey = prefix .. origSlot
+                        local dstKey = prefix .. targetSlot
+                        if payload[srcKey] and type(payload[srcKey]) == "table" then
+                            batch:Set(dstKey, payload[srcKey])
+                        end
+                    end
+                    -- integer 类型数据
+                    for _, prefix in ipairs(slotIntKeys) do
+                        local srcKey = prefix .. origSlot
+                        local dstKey = prefix .. targetSlot
+                        if payload[srcKey] and type(payload[srcKey]) == "number" then
+                            batch:SetInt(dstKey, math.floor(payload[srcKey]))
+                        end
+                    end
+                end
+
+                -- 非槽位相关的全局 key（account_bulletin, player_level, _code_ver 等）
+                local globalTableKeys = { "account_bulletin", "save_data" }
+                for _, key in ipairs(globalTableKeys) do
+                    if payload[key] and type(payload[key]) == "table" then
+                        batch:Set(key, payload[key])
+                    end
+                end
+                local globalIntKeys = { "player_level", "_code_ver" }
+                for _, key in ipairs(globalIntKeys) do
+                    if payload[key] and type(payload[key]) == "number" then
+                        batch:SetInt(key, math.floor(payload[key]))
+                    end
+                end
+
+                batch:Save(source .. "迁移", {
+                    ok = function()
+                        print("[Server] MigrateData OK: userId=" .. tostring(userId)
+                            .. " source=" .. source
+                            .. " slotMap=" .. slotMap[1] .. "," .. slotMap[2])
+                        SendResult(connection, SaveProtocol.S2C_MigrateResult, true)
+                    end,
+                    error = function(code, reason)
+                        print("[Server] MigrateData FAILED: " .. tostring(code) .. " " .. tostring(reason))
+                        SendResult(connection, SaveProtocol.S2C_MigrateResult, false, tostring(reason))
+                    end,
+                })
+            end,
+            error = function(code, reason)
+                print("[Server] MigrateData pre-check failed: " .. tostring(code) .. " " .. tostring(reason))
+                SendResult(connection, SaveProtocol.S2C_MigrateResult, false, tostring(reason))
+            end,
+        })
+end
+
+-- ============================================================================
+-- C2S_GetRankList — 排行榜查询
+-- ============================================================================
+
+function HandleGetRankList(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    local rankKey = eventData["rankKey"]:GetString()
+    local start = eventData["start"]:GetInt()
+    local count = eventData["count"]:GetInt()
+    local extraKeysJson = eventData["extraKeys"]:GetString()
+    -- 读取客户端传来的 requestId（用于回调精确匹配）
+    local requestId = 0
+    pcall(function() requestId = eventData["requestId"]:GetInt() end)
+
+    print("[Server] GetRankList: userId=" .. tostring(userId)
+        .. " key=" .. rankKey .. " start=" .. start .. " count=" .. count
+        .. " reqId=" .. requestId)
+
+    -- 解析附加字段
+    local extraKeys = {}
+    if extraKeysJson and extraKeysJson ~= "" then
+        local ok, decoded = pcall(cjson.decode, extraKeysJson)
+        if ok and type(decoded) == "table" then
+            extraKeys = decoded
+        end
+    end
+
+    -- serverCloud:GetRankList 的 start 是 1-based，客户端传来的是 0-based，需要 +1
+    local adjustedStart = start + 1
+
+    -- serverCloud:GetRankList 不支持附加 key 参数（与 clientCloud 不同）
+    -- 需要先拿排名，再用 BatchGet 补查附加字段
+    serverCloud:GetRankList(rankKey, adjustedStart, count, {
+        ok = function(rankList)
+            -- 无附加字段或无结果 → 直接返回
+            if #extraKeys == 0 or #rankList == 0 then
+                local resultData = VariantMap()
+                resultData["ok"] = Variant(true)
+                resultData["rankKey"] = Variant(rankKey)
+                resultData["rankList"] = Variant(cjson.encode(rankList))
+                resultData["requestId"] = Variant(requestId)
+                SafeSend(connection, SaveProtocol.S2C_RankListData, resultData)
+                print("[Server] RankList sent (no extras): key=" .. rankKey .. " entries=" .. #rankList)
+                return
+            end
+
+            -- 用单人 BatchGet 逐个补查附加字段
+            -- （多人 BatchGet():Player() 模式返回空结果，改用单人模式）
+            local uniqueUserIds = {}
+            local uidSet = {}
+            for _, item in ipairs(rankList) do
+                local uidStr = tostring(item.userId)
+                if not uidSet[uidStr] then
+                    uidSet[uidStr] = true
+                    table.insert(uniqueUserIds, item.userId)
+                end
+            end
+
+            local extraMap = {}
+            local fetchDone = 0
+            local fetchTotal = #uniqueUserIds
+
+            local function onAllFetched()
+                -- 合并附加字段到 rankList
+                for _, item in ipairs(rankList) do
+                    local extra = extraMap[tostring(item.userId)]
+                    if extra then
+                        if extra.iscore then
+                            if not item.iscore then item.iscore = {} end
+                            for k, v in pairs(extra.iscore) do
+                                if item.iscore[k] == nil then
+                                    item.iscore[k] = v
+                                end
+                            end
+                        end
+                        if extra.score then
+                            if not item.score then item.score = {} end
+                            for k, v in pairs(extra.score) do
+                                if item.score[k] == nil then
+                                    item.score[k] = v
+                                end
+                            end
+                        end
+                    end
+                end
+
+                local resultData = VariantMap()
+                resultData["ok"] = Variant(true)
+                resultData["rankKey"] = Variant(rankKey)
+                resultData["rankList"] = Variant(cjson.encode(rankList))
+                resultData["requestId"] = Variant(requestId)
+                SafeSend(connection, SaveProtocol.S2C_RankListData, resultData)
+                print("[Server] RankList sent (with extras): key=" .. rankKey
+                    .. " entries=" .. #rankList .. " extraKeys=" .. #extraKeys)
+            end
+
+            for _, uid in ipairs(uniqueUserIds) do
+                local bg = serverCloud:BatchGet(uid)
+                for _, ek in ipairs(extraKeys) do
+                    bg:Key(ek)
+                end
+                bg:Fetch({
+                    ok = function(scores, iscores)
+                        extraMap[tostring(uid)] = { score = scores, iscore = iscores }
+                        print("[Server] BatchGet(single) uid=" .. tostring(uid)
+                            .. " scores=" .. (scores and cjson.encode(scores) or "nil")
+                            .. " iscores=" .. (iscores and cjson.encode(iscores) or "nil"))
+                        fetchDone = fetchDone + 1
+                        if fetchDone >= fetchTotal then onAllFetched() end
+                    end,
+                    error = function(code, reason)
+                        print("[Server] BatchGet(single) FAILED uid=" .. tostring(uid)
+                            .. " code=" .. tostring(code) .. " reason=" .. tostring(reason))
+                        fetchDone = fetchDone + 1
+                        if fetchDone >= fetchTotal then onAllFetched() end
+                    end,
+                })
+            end
+        end,
+        error = function(code, reason)
+            print("[Server] GetRankList ERROR: " .. tostring(code) .. " " .. tostring(reason))
+            local resultData = VariantMap()
+            resultData["ok"] = Variant(false)
+            resultData["rankKey"] = Variant(rankKey)
+            resultData["message"] = Variant(tostring(reason))
+            resultData["requestId"] = Variant(requestId)
+            SafeSend(connection, SaveProtocol.S2C_RankListData, resultData)
+        end,
+    })
+end
+
+-- ============================================================================
+-- 封魔任务系统
+-- ============================================================================
+
+--- 封魔任务进行中状态（connKey → { questId?, dailyChapter?, bossTypeId }）
+local sealDemonActive_ = {}
+
+--- 体魄丹上限
+local PHYSIQUE_PILL_CAP = SealDemonConfig.PHYSIQUE_PILL.maxCount
+
+-- ============================================================================
+-- 悟道树系统
+-- ============================================================================
+
+--- 悟道树参悟中状态（connKey → { treeId, startTime }）
+local daoTreeMeditating_ = {}
+
+--- 合法的悟道树 ID 列表
+local VALID_TREE_IDS = {
+    dao_tree_ch1 = true,
+    dao_tree_ch2 = true,
+    dao_tree_ch3 = true,
+}
+
+--- 悟道树经验公式: reward = level³
+--- 锚点: Lv.10 = 1,000, Lv.100 = 1,000,000
+---@param level number 玩家等级
+---@return number 经验奖励（取整）
+local function CalcDaoTreeExp(level)
+    if level < 10 then level = 10 end
+    return math.floor(level ^ 3)
+end
+
+--- 悟道树悟性上限
+local DAO_TREE_WISDOM_CAP = 50
+
+-- ============================================================================
+-- C2S_DaoTreeStart — 请求开始参悟（先查后加方案）
+-- ============================================================================
+
+function HandleDaoTreeStart(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    local treeId = eventData["treeId"]:GetString()
+
+    print("[Server] DaoTreeStart: userId=" .. tostring(userId) .. " treeId=" .. treeId)
+
+    -- 验证 treeId 合法性
+    if not VALID_TREE_IDS[treeId] then
+        print("[Server] DaoTreeStart: invalid treeId=" .. treeId)
+        local data = VariantMap()
+        data["ok"] = Variant(false)
+        data["reason"] = Variant("invalid_tree")
+        SafeSend(connection, SaveProtocol.S2C_DaoTreeStartResult, data)
+        return
+    end
+
+    -- 先查后加方案：查询两个 Quota（单树 + 每日总次数）
+    local slot = connSlots_[connKey] or 1
+    local treeQuotaKey = "dao_tree_" .. treeId .. "_s" .. slot
+    local dailyQuotaKey = "dao_tree_daily_s" .. slot
+
+    -- 查询单树配额
+    serverCloud.quota:Get(userId, treeQuotaKey, {
+        ok = function(treeDatas)
+            local treeUsed = 0
+            if #treeDatas > 0 then
+                treeUsed = treeDatas[1].value or 0
+            end
+
+            if treeUsed >= 1 then
+                print("[Server] DaoTreeStart: tree already used today, treeId=" .. treeId)
+                -- 查询每日已用次数一起返回，让客户端同步缓存
+                serverCloud.quota:Get(userId, dailyQuotaKey, {
+                    ok = function(dailyDatas)
+                        local dailyUsed = 0
+                        if #dailyDatas > 0 then
+                            dailyUsed = dailyDatas[1].value or 0
+                        end
+                        local data = VariantMap()
+                        data["ok"] = Variant(false)
+                        data["reason"] = Variant("tree_used")
+                        data["dailyUsed"] = Variant(dailyUsed)
+                        SafeSend(connection, SaveProtocol.S2C_DaoTreeStartResult, data)
+                    end,
+                    error = function()
+                        local data = VariantMap()
+                        data["ok"] = Variant(false)
+                        data["reason"] = Variant("tree_used")
+                        data["dailyUsed"] = Variant(0)
+                        SafeSend(connection, SaveProtocol.S2C_DaoTreeStartResult, data)
+                    end,
+                })
+                return
+            end
+
+            -- 查询每日总配额
+            serverCloud.quota:Get(userId, dailyQuotaKey, {
+                ok = function(dailyDatas)
+                    local dailyUsed = 0
+                    if #dailyDatas > 0 then
+                        dailyUsed = dailyDatas[1].value or 0
+                    end
+
+                    if dailyUsed >= 3 then
+                        print("[Server] DaoTreeStart: daily limit reached")
+                        local data = VariantMap()
+                        data["ok"] = Variant(false)
+                        data["reason"] = Variant("daily_limit")
+                        data["dailyUsed"] = Variant(dailyUsed)
+                        SafeSend(connection, SaveProtocol.S2C_DaoTreeStartResult, data)
+                        return
+                    end
+
+                    -- 两个都通过 → 记录参悟中状态，允许开始读条
+                    daoTreeMeditating_[connKey] = {
+                        treeId = treeId,
+                        startTime = os.time(),
+                    }
+
+                    local data = VariantMap()
+                    data["ok"] = Variant(true)
+                    data["treeId"] = Variant(treeId)
+                    data["dailyUsed"] = Variant(dailyUsed)
+                    SafeSend(connection, SaveProtocol.S2C_DaoTreeStartResult, data)
+
+                    print("[Server] DaoTreeStart: approved, dailyUsed=" .. dailyUsed)
+                end,
+                error = function(code, reason)
+                    print("[Server] DaoTreeStart: daily quota get failed: " .. tostring(reason))
+                    local data = VariantMap()
+                    data["ok"] = Variant(false)
+                    data["reason"] = Variant("server_error")
+                    SafeSend(connection, SaveProtocol.S2C_DaoTreeStartResult, data)
+                end,
+            })
+        end,
+        error = function(code, reason)
+            print("[Server] DaoTreeStart: tree quota get failed: " .. tostring(reason))
+            local data = VariantMap()
+            data["ok"] = Variant(false)
+            data["reason"] = Variant("server_error")
+            SafeSend(connection, SaveProtocol.S2C_DaoTreeStartResult, data)
+        end,
+    })
+end
+
+-- ============================================================================
+-- C2S_DaoTreeComplete — 完成10秒读条，发放奖励
+-- ============================================================================
+
+function HandleDaoTreeComplete(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    local treeId = eventData["treeId"]:GetString()
+    local slot = connSlots_[connKey] or 1  -- 使用服务端权威 slot，不信任客户端传值
+
+    print("[Server] DaoTreeComplete: userId=" .. tostring(userId) .. " treeId=" .. treeId .. " slot=" .. slot)
+
+    -- 验证参悟中状态
+    local meditateState = daoTreeMeditating_[connKey]
+    if not meditateState or meditateState.treeId ~= treeId then
+        print("[Server] DaoTreeComplete: not meditating or treeId mismatch")
+        local data = VariantMap()
+        data["ok"] = Variant(false)
+        data["reason"] = Variant("not_meditating")
+        SafeSend(connection, SaveProtocol.S2C_DaoTreeReward, data)
+        return
+    end
+
+    -- 清除参悟状态
+    daoTreeMeditating_[connKey] = nil
+
+    -- 读取存档获取玩家等级和当前悟道树悟性
+    local saveKey = "save_data_" .. slot
+
+    serverCloud:Get(userId, saveKey, {
+        ok = function(scores)
+            local saveData = scores[saveKey]
+            if not saveData or type(saveData) ~= "table" or not saveData.player then
+                print("[Server] DaoTreeComplete: save data not found")
+                local data = VariantMap()
+                data["ok"] = Variant(false)
+                data["reason"] = Variant("save_not_found")
+                SafeSend(connection, SaveProtocol.S2C_DaoTreeReward, data)
+                return
+            end
+
+            local playerData = saveData.player
+            local level = playerData.level or 1
+            local currentWisdom = playerData.daoTreeWisdom or 0
+
+            -- 计算经验奖励
+            local expReward = CalcDaoTreeExp(level)
+
+            -- 判定悟性（25% 概率，保底：连续5次未获得则第6次必出）
+            local gotWisdom = false
+            local currentPity = playerData.daoTreeWisdomPity or 0
+            if currentWisdom < DAO_TREE_WISDOM_CAP then
+                if currentPity >= 5 then
+                    -- 保底触发：连续5次未获得，第6次必出
+                    gotWisdom = true
+                elseif math.random() < 0.25 then
+                    gotWisdom = true
+                end
+            end
+
+            -- 更新保底计数器
+            if gotWisdom then
+                playerData.daoTreeWisdomPity = 0   -- 获得悟性，重置计数器
+            else
+                playerData.daoTreeWisdomPity = currentPity + 1
+            end
+
+            -- 使用 BatchCommit 原子提交：Quota扣次数 + 经验写入存档 + 悟性写入存档
+            local treeQuotaKey = "dao_tree_" .. treeId .. "_s" .. slot
+            local dailyQuotaKey = "dao_tree_daily_s" .. slot
+
+            -- 更新存档数据
+            playerData.exp = (playerData.exp or 0) + expReward
+            if gotWisdom then
+                playerData.daoTreeWisdom = currentWisdom + 1
+            end
+            saveData.timestamp = os.time()
+
+            -- BatchCommit：原子提交配额 + 存档
+            local commit = serverCloud:BatchCommit("悟道树参悟奖励")
+            commit:QuotaAdd(userId, treeQuotaKey, 1, 1, "day", 1)
+            commit:QuotaAdd(userId, dailyQuotaKey, 1, 3, "day", 1)
+            commit:ScoreSet(userId, saveKey, saveData)
+            commit:Commit({
+                ok = function()
+                    local newWisdom = playerData.daoTreeWisdom or currentWisdom
+
+                    -- 查询每日已用次数（扣完后）
+                    serverCloud.quota:Get(userId, dailyQuotaKey, {
+                        ok = function(dailyDatas)
+                            local dailyUsed = 3
+                            if #dailyDatas > 0 then
+                                dailyUsed = dailyDatas[1].value or 0
+                            end
+
+                            local data = VariantMap()
+                            data["ok"] = Variant(true)
+                            data["treeId"] = Variant(treeId)
+                            data["exp"] = Variant(expReward)
+                            data["gotWisdom"] = Variant(gotWisdom)
+                            data["wisdomTotal"] = Variant(newWisdom)
+                            data["dailyUsed"] = Variant(dailyUsed)
+                            SafeSend(connection, SaveProtocol.S2C_DaoTreeReward, data)
+
+                            print("[Server] DaoTreeReward: userId=" .. tostring(userId)
+                                .. " exp=" .. expReward
+                                .. " gotWisdom=" .. tostring(gotWisdom)
+                                .. " wisdomTotal=" .. newWisdom
+                                .. " dailyUsed=" .. dailyUsed)
+                        end,
+                        error = function()
+                            -- 即使查询失败，奖励已发放，仍然通知客户端
+                            local data = VariantMap()
+                            data["ok"] = Variant(true)
+                            data["treeId"] = Variant(treeId)
+                            data["exp"] = Variant(expReward)
+                            data["gotWisdom"] = Variant(gotWisdom)
+                            data["wisdomTotal"] = Variant(newWisdom)
+                            data["dailyUsed"] = Variant(3)  -- 保守估计
+                            SafeSend(connection, SaveProtocol.S2C_DaoTreeReward, data)
+                        end,
+                    })
+                end,
+                error = function(code, reason)
+                    print("[Server] DaoTreeComplete BatchCommit FAILED: "
+                        .. tostring(code) .. " " .. tostring(reason))
+                    local data = VariantMap()
+                    data["ok"] = Variant(false)
+                    data["reason"] = Variant("commit_failed")
+                    SafeSend(connection, SaveProtocol.S2C_DaoTreeReward, data)
+                end,
+            })
+        end,
+        error = function(code, reason)
+            print("[Server] DaoTreeComplete: save read failed: " .. tostring(reason))
+            local data = VariantMap()
+            data["ok"] = Variant(false)
+            data["reason"] = Variant("server_error")
+            SafeSend(connection, SaveProtocol.S2C_DaoTreeReward, data)
+        end,
+    })
+end
+
+-- ============================================================================
+-- C2S_GMResetDaily — GM: 重置所有日常配额（悟道树等）
+-- ============================================================================
+
+function HandleGMResetDaily(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    local slot = connSlots_[connKey] or 1
+    print("[Server][GM] ResetDaily: userId=" .. tostring(userId) .. " slot=" .. slot)
+
+    -- 重置所有悟道树相关配额（使用 _s{slot} 后缀，与角色隔离一致）
+    local keysToReset = { "dao_tree_daily_s" .. slot }
+    for treeId, _ in pairs(VALID_TREE_IDS) do
+        table.insert(keysToReset, "dao_tree_" .. treeId .. "_s" .. slot)
+    end
+    -- 同时重置试炼塔每日供奉配额
+    table.insert(keysToReset, "trial_daily_offering_s" .. slot)
+
+    local remaining = #keysToReset
+    local failed = false
+
+    for _, key in ipairs(keysToReset) do
+        serverCloud.quota:Reset(userId, key, {
+            ok = function()
+                remaining = remaining - 1
+                if remaining <= 0 and not failed then
+                    print("[Server][GM] ResetDaily: all quotas reset for userId=" .. tostring(userId))
+                    local data = VariantMap()
+                    data["ok"] = Variant(true)
+                    data["msg"] = Variant("日常已重置")
+                    SafeSend(connection, SaveProtocol.S2C_GMResetDailyResult, data)
+                end
+            end,
+            error = function(code, reason)
+                if not failed then
+                    failed = true
+                    print("[Server][GM] ResetDaily: failed key=" .. key .. " reason=" .. tostring(reason))
+                    local data = VariantMap()
+                    data["ok"] = Variant(false)
+                    data["msg"] = Variant("重置失败: " .. tostring(reason))
+                    SafeSend(connection, SaveProtocol.S2C_GMResetDailyResult, data)
+                end
+            end,
+        })
+    end
+end
+
+-- ============================================================================
+-- C2S_DaoTreeQuery — 查询悟道树每日状态（客户端重连后同步缓存）
+-- ============================================================================
+
+function HandleDaoTreeQuery(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    local slot = connSlots_[connKey] or 1
+    print("[Server] DaoTreeQuery: userId=" .. tostring(userId) .. " slot=" .. slot)
+
+    local dailyQuotaKey = "dao_tree_daily_s" .. slot
+
+    -- 查询每日总次数
+    serverCloud.quota:Get(userId, dailyQuotaKey, {
+        ok = function(dailyDatas)
+            local dailyUsed = 0
+            if #dailyDatas > 0 then
+                dailyUsed = dailyDatas[1].value or 0
+            end
+
+            -- 查询每棵树的使用状态
+            local treeIds = {}
+            for treeId, _ in pairs(VALID_TREE_IDS) do
+                table.insert(treeIds, treeId)
+            end
+
+            local usedTreeList = {}
+            local remaining = #treeIds
+
+            for _, treeId in ipairs(treeIds) do
+                local treeQuotaKey = "dao_tree_" .. treeId .. "_s" .. slot
+                serverCloud.quota:Get(userId, treeQuotaKey, {
+                    ok = function(treeDatas)
+                        local treeUsed = 0
+                        if #treeDatas > 0 then
+                            treeUsed = treeDatas[1].value or 0
+                        end
+                        if treeUsed >= 1 then
+                            table.insert(usedTreeList, treeId)
+                        end
+                        remaining = remaining - 1
+                        if remaining <= 0 then
+                            local data = VariantMap()
+                            data["ok"] = Variant(true)
+                            data["dailyUsed"] = Variant(dailyUsed)
+                            data["usedTrees"] = Variant(cjson.encode(usedTreeList))
+                            SafeSend(connection, SaveProtocol.S2C_DaoTreeQueryResult, data)
+                            print("[Server] DaoTreeQuery result: dailyUsed=" .. dailyUsed
+                                .. " usedTrees=" .. #usedTreeList)
+                        end
+                    end,
+                    error = function()
+                        remaining = remaining - 1
+                        if remaining <= 0 then
+                            local data = VariantMap()
+                            data["ok"] = Variant(true)
+                            data["dailyUsed"] = Variant(dailyUsed)
+                            data["usedTrees"] = Variant(cjson.encode(usedTreeList))
+                            SafeSend(connection, SaveProtocol.S2C_DaoTreeQueryResult, data)
+                        end
+                    end,
+                })
+            end
+        end,
+        error = function(code, reason)
+            print("[Server] DaoTreeQuery failed: " .. tostring(reason))
+            local data = VariantMap()
+            data["ok"] = Variant(false)
+            SafeSend(connection, SaveProtocol.S2C_DaoTreeQueryResult, data)
+        end,
+    })
+end
+
+-- ============================================================================
+-- C2S_SealDemonAccept — 接取封魔任务
+-- ============================================================================
+
+function HandleSealDemonAccept(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    local questId = eventData["questId"]:GetString()       -- 一次性任务ID（或空串）
+    local dailyChapter = eventData["dailyChapter"]:GetInt() -- 日常章节（0=非日常）
+
+    local isDaily = (dailyChapter > 0)
+
+    print("[Server] SealDemonAccept: userId=" .. tostring(userId)
+        .. " questId=" .. questId .. " dailyChapter=" .. dailyChapter)
+
+    -- 已有进行中的封魔任务
+    if sealDemonActive_[connKey] then
+        local data = VariantMap()
+        data["ok"] = Variant(false)
+        data["reason"] = Variant("already_active")
+        SafeSend(connection, SaveProtocol.S2C_SealDemonAcceptResult, data)
+        return
+    end
+
+    -- 读取存档验证
+    local slot = connSlots_[connKey] or 1
+    local saveKey = "save_data_" .. slot
+
+    serverCloud:Get(userId, saveKey, {
+        ok = function(scores)
+            local saveData = scores[saveKey]
+            if not saveData then
+                print("[Server] SealDemonAccept: save data not found")
+                local data = VariantMap()
+                data["ok"] = Variant(false)
+                data["reason"] = Variant("no_save")
+                SafeSend(connection, SaveProtocol.S2C_SealDemonAcceptResult, data)
+                return
+            end
+
+            local playerLevel = (saveData.player and saveData.player.level) or 1
+            local sealDemon = saveData.sealDemon or { quests = {} }
+
+            if isDaily then
+                -- 日常任务验证
+                local daily = SealDemonConfig.DAILY[dailyChapter]
+                if not daily then
+                    local data = VariantMap()
+                    data["ok"] = Variant(false)
+                    data["reason"] = Variant("invalid_chapter")
+                    SafeSend(connection, SaveProtocol.S2C_SealDemonAcceptResult, data)
+                    return
+                end
+
+                -- 检查前置：该章4个一次性任务全部完成
+                for _, reqId in ipairs(daily.requiredQuests) do
+                    if sealDemon.quests[reqId] ~= "completed" then
+                        local data = VariantMap()
+                        data["ok"] = Variant(false)
+                        data["reason"] = Variant("prereq_incomplete")
+                        SafeSend(connection, SaveProtocol.S2C_SealDemonAcceptResult, data)
+                        return
+                    end
+                end
+
+                -- Quota 检查：每日1次（三章共享，按角色隔离）
+                serverCloud.quota:Add(userId, "seal_demon_daily_s" .. slot, 1, 1, "day", {
+                    ok = function()
+                        -- 随机选择 BOSS
+                        local pool = daily.bossPool
+                        local chosen = pool[math.random(1, #pool)]
+
+                        -- 检查低阶警告
+                        local highestCh = 0
+                        for ch = 1, 3 do
+                            local dCfg = SealDemonConfig.DAILY[ch]
+                            if dCfg then
+                                local allDone = true
+                                for _, rid in ipairs(dCfg.requiredQuests) do
+                                    if sealDemon.quests[rid] ~= "completed" then
+                                        allDone = false
+                                        break
+                                    end
+                                end
+                                if allDone then highestCh = ch end
+                            end
+                        end
+
+                        sealDemonActive_[connKey] = {
+                            dailyChapter = dailyChapter,
+                            bossTypeId = chosen.sourceBoss,
+                        }
+
+                        local data = VariantMap()
+                        data["ok"] = Variant(true)
+                        data["bossId"] = Variant(chosen.sourceBoss)
+                        data["bossLevel"] = Variant(chosen.level)
+                        data["bossCategory"] = Variant(chosen.category)
+                        data["bossRealm"] = Variant(chosen.realm)
+                        data["spawnX"] = Variant(chosen.spawnX)
+                        data["spawnY"] = Variant(chosen.spawnY)
+                        if dailyChapter < highestCh then
+                            data["warning"] = Variant("low_tier")
+                        end
+                        SafeSend(connection, SaveProtocol.S2C_SealDemonAcceptResult, data)
+
+                        print("[Server] SealDemonAccept daily OK: ch=" .. dailyChapter
+                            .. " boss=" .. chosen.sourceBoss)
+                    end,
+                    error = function(code, reason)
+                        if tostring(reason):find("limit") then
+                            local data = VariantMap()
+                            data["ok"] = Variant(false)
+                            data["reason"] = Variant("daily_limit")
+                            SafeSend(connection, SaveProtocol.S2C_SealDemonAcceptResult, data)
+                        else
+                            print("[Server] SealDemonAccept daily quota error: " .. tostring(reason))
+                            local data = VariantMap()
+                            data["ok"] = Variant(false)
+                            data["reason"] = Variant("server_error")
+                            SafeSend(connection, SaveProtocol.S2C_SealDemonAcceptResult, data)
+                        end
+                    end,
+                })
+            else
+                -- 一次性任务验证
+                local questDef = SealDemonConfig.QUEST_BY_ID[questId]
+                if not questDef then
+                    local data = VariantMap()
+                    data["ok"] = Variant(false)
+                    data["reason"] = Variant("invalid_quest")
+                    SafeSend(connection, SaveProtocol.S2C_SealDemonAcceptResult, data)
+                    return
+                end
+
+                -- 等级检查
+                if playerLevel < questDef.requiredLevel then
+                    local data = VariantMap()
+                    data["ok"] = Variant(false)
+                    data["reason"] = Variant("level_too_low")
+                    SafeSend(connection, SaveProtocol.S2C_SealDemonAcceptResult, data)
+                    return
+                end
+
+                -- 已完成检查
+                if sealDemon.quests[questId] == "completed" then
+                    local data = VariantMap()
+                    data["ok"] = Variant(false)
+                    data["reason"] = Variant("already_completed")
+                    SafeSend(connection, SaveProtocol.S2C_SealDemonAcceptResult, data)
+                    return
+                end
+
+                sealDemonActive_[connKey] = {
+                    questId = questId,
+                    bossTypeId = questDef.sourceBoss,
+                }
+
+                local data = VariantMap()
+                data["ok"] = Variant(true)
+                data["questId"] = Variant(questId)
+                data["bossId"] = Variant(questDef.sourceBoss)
+                data["spawnX"] = Variant(questDef.spawnX)
+                data["spawnY"] = Variant(questDef.spawnY)
+                SafeSend(connection, SaveProtocol.S2C_SealDemonAcceptResult, data)
+
+                print("[Server] SealDemonAccept quest OK: " .. questId)
+            end
+        end,
+        error = function(code, reason)
+            print("[Server] SealDemonAccept save read failed: " .. tostring(reason))
+            local data = VariantMap()
+            data["ok"] = Variant(false)
+            data["reason"] = Variant("server_error")
+            SafeSend(connection, SaveProtocol.S2C_SealDemonAcceptResult, data)
+        end,
+    })
+end
+
+-- ============================================================================
+-- C2S_SealDemonBossKilled — 封魔BOSS击杀上报
+-- ============================================================================
+
+function HandleSealDemonBossKilled(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    print("[Server] SealDemonBossKilled: userId=" .. tostring(userId))
+
+    local activeState = sealDemonActive_[connKey]
+    if not activeState then
+        print("[Server] SealDemonBossKilled: no active seal demon task")
+        local data = VariantMap()
+        data["ok"] = Variant(false)
+        data["reason"] = Variant("no_active_task")
+        SafeSend(connection, SaveProtocol.S2C_SealDemonReward, data)
+        return
+    end
+
+    -- 清除活跃状态
+    sealDemonActive_[connKey] = nil
+
+    local slot = connSlots_[connKey] or 1
+    local saveKey = "save_data_" .. slot
+
+    serverCloud:Get(userId, saveKey, {
+        ok = function(scores)
+            local saveData = scores[saveKey]
+            if not saveData then
+                print("[Server] SealDemonBossKilled: save data not found")
+                local data = VariantMap()
+                data["ok"] = Variant(false)
+                data["reason"] = Variant("no_save")
+                SafeSend(connection, SaveProtocol.S2C_SealDemonReward, data)
+                return
+            end
+
+            -- 确保 sealDemon 结构存在
+            if not saveData.sealDemon then
+                saveData.sealDemon = { quests = {} }
+            end
+            if not saveData.player then
+                saveData.player = {}
+            end
+
+            local rewardData = VariantMap()
+            rewardData["ok"] = Variant(true)
+
+            if activeState.questId then
+                -- 一次性任务完成
+                local questDef = SealDemonConfig.QUEST_BY_ID[activeState.questId]
+                saveData.sealDemon.quests[activeState.questId] = "completed"
+
+                if questDef and questDef.reward then
+                    rewardData["lingYun"] = Variant(questDef.reward.lingYun or 0)
+                    rewardData["petFood"] = Variant(questDef.reward.petFood or "")
+                end
+                rewardData["questId"] = Variant(activeState.questId)
+                rewardData["type"] = Variant("quest")
+
+                print("[Server] SealDemonReward quest: " .. activeState.questId)
+
+            elseif activeState.dailyChapter then
+                -- 日常任务完成
+                local daily = SealDemonConfig.DAILY[activeState.dailyChapter]
+
+                if daily and daily.reward then
+                    rewardData["lingYun"] = Variant(daily.reward.lingYun or 0)
+                    rewardData["petFood"] = Variant(daily.reward.petFood or "")
+
+                    -- 体魄丹
+                    if daily.reward.physiquePill and daily.reward.physiquePill > 0 then
+                        local current = saveData.player.pillPhysique or 0
+                        if current < PHYSIQUE_PILL_CAP then
+                            saveData.player.pillPhysique = math.min(
+                                current + daily.reward.physiquePill,
+                                PHYSIQUE_PILL_CAP
+                            )
+                            rewardData["physiquePill"] = Variant(daily.reward.physiquePill)
+                            rewardData["pillTotal"] = Variant(saveData.player.pillPhysique)
+                        else
+                            rewardData["physiquePill"] = Variant(0)
+                            rewardData["pillTotal"] = Variant(PHYSIQUE_PILL_CAP)
+                        end
+                    end
+                end
+                rewardData["type"] = Variant("daily")
+                rewardData["dailyChapter"] = Variant(activeState.dailyChapter)
+
+                print("[Server] SealDemonReward daily: ch=" .. activeState.dailyChapter)
+            end
+
+            -- 保存存档
+            local batch = serverCloud:BatchSet(userId)
+                :Set(saveKey, saveData)
+
+            batch:Save("封魔奖励", {
+                ok = function()
+                    SafeSend(connection, SaveProtocol.S2C_SealDemonReward, rewardData)
+                    print("[Server] SealDemonReward saved OK")
+                end,
+                error = function(code, reason)
+                    print("[Server] SealDemonReward save FAILED: " .. tostring(reason))
+                    rewardData["ok"] = Variant(false)
+                    rewardData["reason"] = Variant("save_failed")
+                    SafeSend(connection, SaveProtocol.S2C_SealDemonReward, rewardData)
+                end,
+            })
+        end,
+        error = function(code, reason)
+            print("[Server] SealDemonBossKilled save read failed: " .. tostring(reason))
+            local data = VariantMap()
+            data["ok"] = Variant(false)
+            data["reason"] = Variant("server_error")
+            SafeSend(connection, SaveProtocol.S2C_SealDemonReward, data)
+        end,
+    })
+end
+
+-- ============================================================================
+-- C2S_SealDemonAbandon — 放弃封魔任务
+-- ============================================================================
+
+function HandleSealDemonAbandon(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    print("[Server] SealDemonAbandon: userId=" .. tostring(userId))
+
+    local activeState = sealDemonActive_[connKey]
+    if not activeState then
+        local data = VariantMap()
+        data["ok"] = Variant(true)  -- 幂等：无活跃任务也算成功
+        SafeSend(connection, SaveProtocol.S2C_SealDemonAbandonResult, data)
+        return
+    end
+
+    -- 如果是日常任务放弃，不退还 Quota（失败可重新接取由客户端控制）
+    -- 注：Quota.Add 已在 Accept 时扣除，放弃不退还
+    -- 但需要允许重新接取 → 实际设计是击杀成功才扣 Quota
+    -- 所以这里需要退还：通过不在 Accept 时扣 Quota，而在 BossKilled 时扣
+    -- 当前实现：Accept 时已扣 Quota，放弃不退。次日重置。
+
+    sealDemonActive_[connKey] = nil
+
+    local data = VariantMap()
+    data["ok"] = Variant(true)
+    SafeSend(connection, SaveProtocol.S2C_SealDemonAbandonResult, data)
+
+    print("[Server] SealDemonAbandon OK")
+end
+
+-- ============================================================================
+-- C2S_TrialClaimDaily — 试炼塔领取每日供奉（服务端校验）
+-- ============================================================================
+
+function HandleTrialClaimDaily(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    print("[Server] TrialClaimDaily: userId=" .. tostring(userId))
+
+    local slot = connSlots_[connKey] or 1
+    local saveKey = "save_data_" .. slot
+
+    serverCloud:Get(userId, saveKey, {
+        ok = function(scores)
+            local saveData = scores[saveKey]
+            if not saveData then
+                print("[Server] TrialClaimDaily: save data not found")
+                local data = VariantMap()
+                data["ok"] = Variant(false)
+                data["msg"] = Variant("存档未找到")
+                SafeSend(connection, SaveProtocol.S2C_TrialClaimDailyResult, data)
+                return
+            end
+
+            local trialTower = saveData.trialTower or {}
+            local highestFloor = trialTower.highestFloor or 0
+            local dailyClaimedTier = trialTower.dailyClaimedTier or 0
+
+            -- 内联 TrialTowerConfig 常量和计算（服务端无法 require 客户端模块）
+            local DAILY_UNLOCK_FLOOR = 10
+            local MAX_DAILY_TIER = 12
+
+            local currentTier = 0
+            if highestFloor >= DAILY_UNLOCK_FLOOR then
+                currentTier = math.min(math.floor(highestFloor / 10), MAX_DAILY_TIER)
+            end
+
+            if currentTier <= 0 then
+                local data = VariantMap()
+                data["ok"] = Variant(false)
+                data["msg"] = Variant("通关第10层后解锁每日奖励")
+                SafeSend(connection, SaveProtocol.S2C_TrialClaimDailyResult, data)
+                return
+            end
+
+            --- 内联 CalcDailyRewardByTier
+            local function calcReward(tier)
+                if tier <= 0 or tier > MAX_DAILY_TIER then return 0, 0 end
+                local lingYun = (tier * 2 + 4) * 2
+                local goldBar = math.max(1, math.floor((tier * 500 + 1000) / 1000 + 0.5)) * 2
+                return lingYun, goldBar
+            end
+
+            local serverToday = os.date("%Y-%m-%d")
+
+            if dailyClaimedTier < currentTier then
+                -- ══════ 里程碑领取（逐档，无需 quota）══════
+                local nextTier = dailyClaimedTier + 1
+                local lingYun, goldBar = calcReward(nextTier)
+
+                trialTower.dailyClaimedTier = nextTier
+                -- 领到最高档时标记今日完成，同时消耗每日 quota 防止同日重复
+                if nextTier >= currentTier then
+                    trialTower.dailyDate = serverToday
+                    -- 消耗 quota（不阻塞里程碑发放，仅预防同日再领）
+                    serverCloud.quota:Add(userId, "trial_daily_offering_s" .. slot, 1, 1, "day", {
+                        ok = function() end,
+                        error = function() end,
+                    })
+                end
+
+                saveData.trialTower = trialTower
+                local batch = serverCloud:BatchSet(userId):Set(saveKey, saveData)
+                batch:Save("试炼供奉里程碑", {
+                    ok = function()
+                        local data = VariantMap()
+                        data["ok"] = Variant(true)
+                        data["type"] = Variant("milestone")
+                        data["lingYun"] = Variant(lingYun)
+                        data["goldBar"] = Variant(goldBar)
+                        data["claimedTier"] = Variant(nextTier)
+                        data["serverDate"] = Variant(serverToday)
+                        SafeSend(connection, SaveProtocol.S2C_TrialClaimDailyResult, data)
+                        print("[Server] TrialClaimDaily milestone OK: tier=" .. nextTier
+                            .. " lingYun=" .. lingYun .. " goldBar=" .. goldBar)
+                    end,
+                    error = function(code, reason)
+                        print("[Server] TrialClaimDaily milestone save FAILED: " .. tostring(reason))
+                        local data = VariantMap()
+                        data["ok"] = Variant(false)
+                        data["msg"] = Variant("保存失败，请重试")
+                        SafeSend(connection, SaveProtocol.S2C_TrialClaimDailyResult, data)
+                    end,
+                })
+            else
+                -- ══════ 每日重复领取（用 quota 做服务端日限，按角色隔离）══════
+                serverCloud.quota:Add(userId, "trial_daily_offering_s" .. slot, 1, 1, "day", {
+                    ok = function()
+                        local lingYun, goldBar = calcReward(currentTier)
+                        trialTower.dailyDate = serverToday
+                        saveData.trialTower = trialTower
+
+                        local batch = serverCloud:BatchSet(userId):Set(saveKey, saveData)
+                        batch:Save("试炼每日供奉", {
+                            ok = function()
+                                local data = VariantMap()
+                                data["ok"] = Variant(true)
+                                data["type"] = Variant("daily")
+                                data["lingYun"] = Variant(lingYun)
+                                data["goldBar"] = Variant(goldBar)
+                                data["claimedTier"] = Variant(currentTier)
+                                data["serverDate"] = Variant(serverToday)
+                                SafeSend(connection, SaveProtocol.S2C_TrialClaimDailyResult, data)
+                                print("[Server] TrialClaimDaily daily OK: tier=" .. currentTier
+                                    .. " lingYun=" .. lingYun .. " goldBar=" .. goldBar)
+                            end,
+                            error = function(code, reason)
+                                print("[Server] TrialClaimDaily daily save FAILED: " .. tostring(reason))
+                                local data = VariantMap()
+                                data["ok"] = Variant(false)
+                                data["msg"] = Variant("保存失败，请重试")
+                                SafeSend(connection, SaveProtocol.S2C_TrialClaimDailyResult, data)
+                            end,
+                        })
+                    end,
+                    error = function(code, reason)
+                        local errStr = tostring(reason)
+                        if errStr:find("limit") then
+                            local data = VariantMap()
+                            data["ok"] = Variant(false)
+                            data["msg"] = Variant("今日已领取")
+                            SafeSend(connection, SaveProtocol.S2C_TrialClaimDailyResult, data)
+                        else
+                            print("[Server] TrialClaimDaily quota error: " .. tostring(reason))
+                            local data = VariantMap()
+                            data["ok"] = Variant(false)
+                            data["msg"] = Variant("服务器错误，请重试")
+                            SafeSend(connection, SaveProtocol.S2C_TrialClaimDailyResult, data)
+                        end
+                    end,
+                })
+            end
+        end,
+        error = function(code, reason)
+            print("[Server] TrialClaimDaily save read failed: " .. tostring(reason))
+            local data = VariantMap()
+            data["ok"] = Variant(false)
+            data["msg"] = Variant("服务器错误，请重试")
+            SafeSend(connection, SaveProtocol.S2C_TrialClaimDailyResult, data)
+        end,
+    })
+end
+
