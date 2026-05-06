@@ -47,6 +47,8 @@ local C_PILLAR_BLOOM   = {255, 210, 120}
 local nvgCtx_        = nil       -- NanoVG 上下文
 local fontId_        = nil       -- 字体句柄
 local inkImg_        = nil       -- 水墨云气纹理句柄
+local bgImg_         = nil       -- 背景 PNG 句柄
+local btnImg_        = nil       -- 按钮 PNG 句柄
 local state_         = STATE_INACTIVE
 local stateTime_     = 0         -- 当前状态已持续时间
 local globalTime_    = 0         -- 全局累计时间（用于粒子/呼吸动画）
@@ -168,28 +170,40 @@ end
 -- 布局计算
 -- ============================================================================
 
-local function getIntroPos(w, h)
-    return w * 0.5, h * 0.35
+local function getTitlePos(w, h)
+    return w * 0.5, h * 0.28
+end
+
+local function getSubtitlePos(w, h)
+    return w * 0.5, h * 0.36
 end
 
 local function getOptionAPos(w, h)
-    return w * 0.28, h * 0.58
+    return w * 0.28, h * 0.60
 end
 
 local function getOptionBPos(w, h)
-    return w * 0.72, h * 0.58
+    return w * 0.72, h * 0.60
 end
 
 -- ============================================================================
 -- 绘制函数
 -- ============================================================================
 
---- 绘制虚空底色
+--- 绘制虚空底色（优先使用 PNG，回退到纯色）
 local function drawVoidBg(vg, w, h, alpha)
-    nvgBeginPath(vg)
-    nvgRect(vg, 0, 0, w, h)
-    nvgFillColor(vg, nvgRGBA(C_VOID[1], C_VOID[2], C_VOID[3], math.floor(alpha * 255)))
-    nvgFill(vg)
+    if bgImg_ then
+        local paint = nvgImagePattern(vg, 0, 0, w, h, 0, bgImg_, alpha)
+        nvgBeginPath(vg)
+        nvgRect(vg, 0, 0, w, h)
+        nvgFillPaint(vg, paint)
+        nvgFill(vg)
+    else
+        nvgBeginPath(vg)
+        nvgRect(vg, 0, 0, w, h)
+        nvgFillColor(vg, nvgRGBA(C_VOID[1], C_VOID[2], C_VOID[3], math.floor(alpha * 255)))
+        nvgFill(vg)
+    end
 end
 
 --- 绘制水墨云气背景层
@@ -219,18 +233,17 @@ local function drawInkCloudBg(vg, time, cx, cy, screenW, screenH)
     nvgRestore(vg)
 end
 
---- 绘制逐字浮现文本
-local function drawIntroText(vg, elapsed, text, cx, cy)
+--- 绘制主标题逐字浮现（大号醒目）
+local function drawTitleText(vg, elapsed, text, cx, cy)
     local chars = utf8Chars(text)
-    local charInterval = 0.12
-    local charFadeDur  = 0.25
+    local charInterval = 0.15
+    local charFadeDur  = 0.3
 
     nvgFontFaceId(vg, fontId_)
-    nvgFontSize(vg, 28)
-    nvgTextLetterSpacing(vg, 6)
+    nvgFontSize(vg, 42)
+    nvgTextLetterSpacing(vg, 12)
     nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
 
-    -- 测量总宽度以居中
     local totalW = 0
     local charWidths = {}
     for i, ch in ipairs(chars) do
@@ -242,31 +255,20 @@ local function drawIntroText(vg, elapsed, text, cx, cy)
     local startX = cx - totalW * 0.5
     local x = startX
 
-    -- 找到破折号位置，让"——"同时出现
-    local dashStart = nil
     for i, ch in ipairs(chars) do
-        if ch == "—" and not dashStart then
-            dashStart = i
-        end
-    end
-
-    for i, ch in ipairs(chars) do
-        -- 破折号整体同时出现（共享第一个破折号的 charStart）
-        local effectiveI = i
-        if dashStart and i > dashStart and ch == "—" then
-            effectiveI = dashStart
-        end
-
-        local charStart = (effectiveI - 1) * charInterval
+        local charStart = (i - 1) * charInterval
         local t = math.max(0, math.min(1, (elapsed - charStart) / charFadeDur))
         local alpha = easeOutCubic(t)
 
         if alpha > 0.001 then
-            local offsetY = (1 - alpha) * 8
-            nvgFillColor(vg, nvgRGBA(
-                C_INTRO_TEXT[1], C_INTRO_TEXT[2], C_INTRO_TEXT[3],
-                math.floor(alpha * 220)
-            ))
+            local offsetY = (1 - alpha) * 12
+            -- 发光描边
+            nvgFillColor(vg, nvgRGBA(255, 235, 180, math.floor(alpha * 60)))
+            nvgFontBlur(vg, 6)
+            nvgText(vg, x + charWidths[i] * 0.5, cy + offsetY, ch, nil)
+            -- 主体文字
+            nvgFontBlur(vg, 0)
+            nvgFillColor(vg, nvgRGBA(255, 245, 220, math.floor(alpha * 255)))
             nvgText(vg, x + charWidths[i] * 0.5, cy + offsetY, ch, nil)
         end
 
@@ -274,25 +276,80 @@ local function drawIntroText(vg, elapsed, text, cx, cy)
     end
 end
 
---- 绘制引语文字（完全显示，带淡出）
-local function drawIntroTextFull(vg, text, cx, cy, alpha)
+--- 绘制副标题（主标题完成后淡入）
+local function drawSubtitleText(vg, elapsed, titleText, subtitleText, cx, cy)
+    local titleChars = utf8Chars(titleText)
+    local titleDur = (#titleChars - 1) * 0.15 + 0.3
+    local delay = titleDur + 0.2
+    local fadeT = math.max(0, math.min(1, (elapsed - delay) / 0.5))
+    if fadeT <= 0 then return end
+    local alpha = easeOutCubic(fadeT)
+    local offsetY = (1 - alpha) * 6
+
+    nvgFontFaceId(vg, fontId_)
+    nvgFontSize(vg, 22)
+    nvgTextLetterSpacing(vg, 4)
+    nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+    nvgFillColor(vg, nvgRGBA(
+        C_INTRO_TEXT[1], C_INTRO_TEXT[2], C_INTRO_TEXT[3],
+        math.floor(alpha * 200)
+    ))
+    nvgText(vg, cx, cy + offsetY, subtitleText, nil)
+end
+
+--- 绘制主标题（完全显示，带淡出）
+local function drawTitleFull(vg, text, cx, cy, alpha)
     if alpha <= 0 then return end
     nvgFontFaceId(vg, fontId_)
-    nvgFontSize(vg, 28)
-    nvgTextLetterSpacing(vg, 6)
+    nvgFontSize(vg, 42)
+    nvgTextLetterSpacing(vg, 12)
     nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
-    nvgFillColor(vg, nvgRGBA(C_INTRO_TEXT[1], C_INTRO_TEXT[2], C_INTRO_TEXT[3],
-        math.floor(alpha * 220)))
+    -- 发光描边
+    nvgFillColor(vg, nvgRGBA(255, 235, 180, math.floor(alpha * 60)))
+    nvgFontBlur(vg, 6)
+    nvgText(vg, cx, cy, text, nil)
+    -- 主体
+    nvgFontBlur(vg, 0)
+    nvgFillColor(vg, nvgRGBA(255, 245, 220, math.floor(alpha * 255)))
     nvgText(vg, cx, cy, text, nil)
 end
 
---- 引语总显示时长
-local function getIntroDuration(text)
-    local chars = utf8Chars(text)
-    return (#chars - 1) * 0.12 + 0.25 + 0.6
+--- 绘制副标题（完全显示，带淡出）
+local function drawSubtitleFull(vg, text, cx, cy, alpha)
+    if alpha <= 0 then return end
+    nvgFontFaceId(vg, fontId_)
+    nvgFontSize(vg, 22)
+    nvgTextLetterSpacing(vg, 4)
+    nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+    nvgFillColor(vg, nvgRGBA(
+        C_INTRO_TEXT[1], C_INTRO_TEXT[2], C_INTRO_TEXT[3],
+        math.floor(alpha * 200)
+    ))
+    nvgText(vg, cx, cy, text, nil)
 end
 
---- 绘制选项出现动画
+--- 引语总显示时长（基于主标题 + 副标题淡入延迟）
+local function getIntroDuration(titleText)
+    local chars = utf8Chars(titleText)
+    local titleDur = (#chars - 1) * 0.15 + 0.3
+    return titleDur + 0.2 + 0.5 + 0.4  -- 主标题 + 延迟 + 副标题淡入 + 停留
+end
+
+--- 绘制毛笔横扫按钮 PNG
+local BTN_W = 200  -- 按钮宽度（逻辑像素）
+local BTN_H = 56   -- 按钮高度（逻辑像素）
+local function drawBtnImage(vg, x, y, alpha)
+    if not btnImg_ then return end
+    local hw = BTN_W * 0.5
+    local hh = BTN_H * 0.5
+    local paint = nvgImagePattern(vg, x - hw, y - hh, BTN_W, BTN_H, 0, btnImg_, alpha)
+    nvgBeginPath(vg)
+    nvgRect(vg, x - hw, y - hh, BTN_W, BTN_H)
+    nvgFillPaint(vg, paint)
+    nvgFill(vg)
+end
+
+--- 绘制选项出现动画（带按钮 PNG）
 local function drawOptionsAppear(vg, elapsed, optA, optB, optAx, optBx, cy)
     local t = math.min(1, elapsed / 0.8)
     local eased = easeOutBack(t)
@@ -300,39 +357,50 @@ local function drawOptionsAppear(vg, elapsed, optA, optB, optAx, optBx, cy)
     local slideOffset = 120
     local axCurrent = optAx - slideOffset * (1 - eased)
     local bxCurrent = optBx + slideOffset * (1 - eased)
-    local alpha = math.floor(eased * 240)
+    local alpha = eased
 
+    -- 按钮背景
+    drawBtnImage(vg, axCurrent, cy, alpha * 0.85)
+    drawBtnImage(vg, bxCurrent, cy, alpha * 0.85)
+
+    -- 文字
     nvgFontFaceId(vg, fontId_)
-    nvgFontSize(vg, 40)
-    nvgTextLetterSpacing(vg, 8)
+    nvgFontSize(vg, 30)
+    nvgTextLetterSpacing(vg, 1)
     nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
 
-    nvgFillColor(vg, nvgRGBA(C_OPTION_NORMAL[1], C_OPTION_NORMAL[2], C_OPTION_NORMAL[3], alpha))
+    nvgFillColor(vg, nvgRGBA(245, 240, 220, math.floor(alpha * 255)))
     nvgText(vg, axCurrent, cy, optA, nil)
 
-    nvgFillColor(vg, nvgRGBA(C_OPTION_NORMAL[1], C_OPTION_NORMAL[2], C_OPTION_NORMAL[3], alpha))
+    nvgFillColor(vg, nvgRGBA(245, 240, 220, math.floor(alpha * 255)))
     nvgText(vg, bxCurrent, cy, optB, nil)
 end
 
---- 绘制选项呼吸光晕
+--- 绘制选项呼吸光晕（带按钮 PNG）
 local function drawOptionGlow(vg, time, x, y, text)
     local breath = 0.5 + 0.5 * math.sin(time * math.pi * 2 / 2.5)
 
-    local glowRadius = 60 + breath * 20
-    local glowAlpha = 0.04 + breath * 0.06
+    -- 按钮背景（呼吸透明度）
+    drawBtnImage(vg, x, y, 0.75 + breath * 0.15)
+
+    -- 光晕（椭圆形，匹配横向按钮）
+    local glowW = BTN_W * 0.5 + 20 + breath * 10
+    local glowH = BTN_H * 0.5 + 15 + breath * 8
+    local glowAlpha = 0.04 + breath * 0.05
 
     nvgBeginPath(vg)
-    nvgCircle(vg, x, y, glowRadius)
-    local grad = nvgRadialGradient(vg, x, y, 10, glowRadius,
+    nvgEllipse(vg, x, y, glowW, glowH)
+    local grad = nvgRadialGradient(vg, x, y, 10, glowW,
         nvgRGBAf(C_OPTION_GLOW[1]/255, C_OPTION_GLOW[2]/255, C_OPTION_GLOW[3]/255, glowAlpha),
         nvgRGBAf(C_OPTION_GLOW[1]/255, C_OPTION_GLOW[2]/255, C_OPTION_GLOW[3]/255, 0))
     nvgFillPaint(vg, grad)
     nvgFill(vg)
 
+    -- 文字（暖白色，在深色水墨按钮上醒目）
     nvgFontFaceId(vg, fontId_)
-    nvgFillColor(vg, nvgRGBA(C_OPTION_NORMAL[1], C_OPTION_NORMAL[2], C_OPTION_NORMAL[3], 240))
-    nvgFontSize(vg, 40)
-    nvgTextLetterSpacing(vg, 8)
+    nvgFillColor(vg, nvgRGBA(245, 240, 220, 245))
+    nvgFontSize(vg, 30)
+    nvgTextLetterSpacing(vg, 1)
     nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
     nvgText(vg, x, y, text, nil)
 end
@@ -356,16 +424,19 @@ local function drawSelectBloom(vg, elapsed, x, y)
     end
 end
 
---- 选中项文字（闪白→金色）
+--- 选中项文字（闪白→金色 + 按钮放大）
 local function drawSelectedText(vg, elapsed, x, y, text)
     local flashT = math.min(1, elapsed / 0.15)
     local r = math.floor(255 - flashT * (255 - C_SELECT_FLASH[1]))
     local g = math.floor(255 - flashT * (255 - C_SELECT_FLASH[2]))
     local b = math.floor(255 - flashT * (255 - C_SELECT_FLASH[3]))
 
+    -- 按钮背景
+    drawBtnImage(vg, x, y, 0.9)
+
     nvgFontFaceId(vg, fontId_)
-    nvgFontSize(vg, 40)
-    nvgTextLetterSpacing(vg, 8)
+    nvgFontSize(vg, 30)
+    nvgTextLetterSpacing(vg, 1)
     nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
     nvgFillColor(vg, nvgRGBA(r, g, b, 255))
     nvgText(vg, x, y, text, nil)
@@ -381,17 +452,19 @@ local function drawUnselectedFade(vg, elapsed, x, y, text)
 
     if alpha > 0 then
         local driftY = eased * -30
+        -- 按钮淡出
+        drawBtnImage(vg, x, y + driftY, alpha / 255 * 0.5)
         nvgFontFaceId(vg, fontId_)
-        nvgFontSize(vg, 40)
-        nvgTextLetterSpacing(vg, 8)
+        nvgFontSize(vg, 30)
+        nvgTextLetterSpacing(vg, 1)
         nvgTextAlign(vg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
         nvgFillColor(vg, nvgRGBA(C_UNSELECT_FADE[1], C_UNSELECT_FADE[2], C_UNSELECT_FADE[3], alpha))
         nvgText(vg, x, y + driftY, text, nil)
     end
 end
 
---- 引语淡出（选中后 0.4s~1.0s）
-local function drawIntroFade(vg, elapsed, text, cx, cy)
+--- 标题+副标题淡出（选中后 0.4s~1.0s）
+local function drawTitleSubtitleFade(vg, elapsed, title, subtitle, titleCx, titleCy, subtCx, subtCy)
     local fadeStart = 0.4
     local fadeDur = 0.6
     local t = math.max(0, math.min(1, (elapsed - fadeStart) / fadeDur))
@@ -400,19 +473,23 @@ local function drawIntroFade(vg, elapsed, text, cx, cy)
 
     if alpha > 0 then
         local driftY = eased * -15
-        drawIntroTextFull(vg, text, cx, cy + driftY, alpha)
+        drawTitleFull(vg, title, titleCx, titleCy + driftY, alpha)
+        drawSubtitleFull(vg, subtitle, subtCx, subtCy + driftY, alpha)
     end
 end
 
---- 点击检测
+--- 点击检测（横向按钮区域）
 local function hitTestOptions(mx, my, optAx, optBx, cy)
-    local hitW, hitH = 180, 70
-    if mx >= optAx - hitW/2 and mx <= optAx + hitW/2
-       and my >= cy - hitH/2 and my <= cy + hitH/2 then
+    local hw = BTN_W * 0.5 + 10  -- 比按钮稍大的容错区
+    local hh = BTN_H * 0.5 + 10
+    -- A 按钮
+    if mx >= optAx - hw and mx <= optAx + hw
+       and my >= cy - hh and my <= cy + hh then
         return "A"
     end
-    if mx >= optBx - hitW/2 and mx <= optBx + hitW/2
-       and my >= cy - hitH/2 and my <= cy + hitH/2 then
+    -- B 按钮
+    if mx >= optBx - hw and mx <= optBx + hw
+       and my >= cy - hh and my <= cy + hh then
         return "B"
     end
     return nil
@@ -533,7 +610,8 @@ function HandleDaoQuestionRender(eventType, eventData)
 
     local cx = logW_ * 0.5
     local cy = logH_ * 0.5
-    local introCx, introCy = getIntroPos(logW_, logH_)
+    local titleCx, titleCy = getTitlePos(logW_, logH_)
+    local subtCx, subtCy = getSubtitlePos(logW_, logH_)
     local optAx, optAy = getOptionAPos(logW_, logH_)
     local optBx, optBy = getOptionBPos(logW_, logH_)
     local q = getCurrentQuestion()
@@ -581,8 +659,9 @@ function HandleDaoQuestionRender(eventType, eventData)
         updateAndDrawParticles(vg, dt, globalTime_, logW_, logH_)
 
         if q then
-            drawIntroText(vg, stateTime_, q.intro, introCx, introCy)
-            local dur = getIntroDuration(q.intro)
+            drawTitleText(vg, stateTime_, q.title, titleCx, titleCy)
+            drawSubtitleText(vg, stateTime_, q.title, q.subtitle, subtCx, subtCy)
+            local dur = getIntroDuration(q.title)
             if stateTime_ >= dur then
                 setState(STATE_OPTIONS_APPEAR)
             end
@@ -594,7 +673,8 @@ function HandleDaoQuestionRender(eventType, eventData)
         updateAndDrawParticles(vg, dt, globalTime_, logW_, logH_)
 
         if q then
-            drawIntroTextFull(vg, q.intro, introCx, introCy, 1.0)
+            drawTitleFull(vg, q.title, titleCx, titleCy, 1.0)
+            drawSubtitleFull(vg, q.subtitle, subtCx, subtCy, 1.0)
             drawOptionsAppear(vg, stateTime_, q.optA, q.optB, optAx, optBx, optAy)
         end
 
@@ -608,12 +688,26 @@ function HandleDaoQuestionRender(eventType, eventData)
         updateAndDrawParticles(vg, dt, globalTime_, logW_, logH_)
 
         if q then
-            drawIntroTextFull(vg, q.intro, introCx, introCy, 1.0)
+            drawTitleFull(vg, q.title, titleCx, titleCy, 1.0)
+            drawSubtitleFull(vg, q.subtitle, subtCx, subtCy, 1.0)
             drawOptionGlow(vg, globalTime_, optAx, optAy, q.optA)
             drawOptionGlow(vg, globalTime_, optBx, optBy, q.optB)
         end
 
-        -- 点击检测在 HandleUpdate 中处理
+        -- 点击检测（内联，避免全局 SubscribeToEvent("Update") 覆盖主游戏循环的 HandleUpdate）
+        if input:GetMouseButtonPress(MOUSEB_LEFT) then
+            local mx = input.mousePosition.x / dpr_
+            local my = input.mousePosition.y / dpr_
+            local hit = hitTestOptions(mx, my, optAx, optBx, optAy)
+            if hit then
+                selectedChoice_ = hit
+                DaoQuestionSystem.RecordAnswer(questionIndex_, hit)
+                local selX = (hit == "A") and optAx or optBx
+                selectedPositions_[questionIndex_] = { x = selX, y = optAy }
+                print(string.format("[DaoQuestionUI] Q%d selected: %s", questionIndex_, hit))
+                setState(STATE_SELECTED)
+            end
+        end
 
     elseif state_ == STATE_SELECTED then
         drawVoidBg(vg, logW_, logH_, 1.0)
@@ -633,8 +727,8 @@ function HandleDaoQuestionRender(eventType, eventData)
             drawSelectedText(vg, stateTime_, selX, selY, selText)
             -- 未选项淡出
             drawUnselectedFade(vg, stateTime_, unselX, selY, unselText)
-            -- 引语淡出
-            drawIntroFade(vg, stateTime_, q.intro, introCx, introCy)
+            -- 标题+副标题淡出
+            drawTitleSubtitleFade(vg, stateTime_, q.title, q.subtitle, titleCx, titleCy, subtCx, subtCy)
         end
 
         if stateTime_ >= 1.2 then
@@ -714,17 +808,15 @@ function HandleDaoQuestionRender(eventType, eventData)
 
         if t >= 1 then
             setState(STATE_INACTIVE)
-            if GameState.uiOpen == "dao_question" then
-                GameState.uiOpen = nil
-            end
-            -- 必须在回调前销毁 NanoVG 上下文，否则透明覆盖层会拦截所有输入
+            -- 先结束当前帧，再触发回调（上下文保留复用，不销毁）
+            nvgEndFrame(vg)
             local cb = onFinished_
             onFinished_ = nil
-            DaoQuestionUI.Destroy()
+            DaoQuestionUI.Destroy()  -- 隐藏（重置 state + 清理 uiOpen）
             if cb then
                 cb()
             end
-            return  -- nvgCtx_ 已销毁，不能再调用 nvgEndFrame
+            return  -- 已 EndFrame，不要再执行下方的 nvgEndFrame
         end
     end
 
@@ -732,40 +824,10 @@ function HandleDaoQuestionRender(eventType, eventData)
 end
 
 -- ============================================================================
--- Update（点击检测）
--- ============================================================================
-
-function HandleDaoQuestionUpdate(eventType, eventData)
-    if state_ ~= STATE_WAIT_SELECT then return end
-
-    -- 检测点击（引擎自动将触摸映射为鼠标事件，无需单独处理触摸）
-    if not input:GetMouseButtonPress(MOUSEB_LEFT) then return end
-
-    local mx = input.mousePosition.x / dpr_
-    local my = input.mousePosition.y / dpr_
-
-    local optAx, optAy = getOptionAPos(logW_, logH_)
-    local optBx, optBy = getOptionBPos(logW_, logH_)
-
-    local hit = hitTestOptions(mx, my, optAx, optBx, optAy)
-    if hit then
-        selectedChoice_ = hit
-        DaoQuestionSystem.RecordAnswer(questionIndex_, hit)
-
-        -- 记录选中位置（终幕汇聚用）
-        local selX = (hit == "A") and optAx or optBx
-        selectedPositions_[questionIndex_] = { x = selX, y = optAy }
-
-        print(string.format("[DaoQuestionUI] Q%d selected: %s", questionIndex_, hit))
-        setState(STATE_SELECTED)
-    end
-end
-
--- ============================================================================
 -- 公开 API
 -- ============================================================================
 
---- 初始化 NanoVG 上下文（幂等）
+--- 初始化 NanoVG 上下文（幂等，只创建一次，后续 Show/hide 复用）
 function DaoQuestionUI.Init()
     if nvgCtx_ then return end
 
@@ -774,7 +836,9 @@ function DaoQuestionUI.Init()
     nvgSetRenderOrder(nvgCtx_, 999998)
 
     SubscribeToEvent(nvgCtx_, "NanoVGRender", "HandleDaoQuestionRender")
-    SubscribeToEvent("Update", "HandleDaoQuestionUpdate")
+    -- 🔴 不要用全局 SubscribeToEvent("Update", ...) ！
+    -- 它会覆盖 main.lua 的 HandleUpdate 订阅，导致主游戏循环停止、画面定格。
+    -- 点击检测已内联到 HandleDaoQuestionRender 的 STATE_WAIT_SELECT 分支中。
 
     fontId_ = nvgCreateFont(nvgCtx_, "dao", "Fonts/MiSans-Regular.ttf")
 
@@ -788,9 +852,29 @@ function DaoQuestionUI.Init()
         print("[DaoQuestionUI] void_ink_cloud.png not found, skipping ink cloud layer")
     end
 
+    -- 加载背景 PNG
+    local ok2, img2 = pcall(nvgCreateImage, nvgCtx_, "Textures/dao_void_bg.png", 0)
+    if ok2 and img2 and img2 > 0 then
+        bgImg_ = img2
+        print("[DaoQuestionUI] Background PNG loaded")
+    else
+        bgImg_ = nil
+        print("[DaoQuestionUI] dao_void_bg.png not found, using fallback color")
+    end
+
+    -- 加载毛笔横扫按钮 PNG
+    local ok3, img3 = pcall(nvgCreateImage, nvgCtx_, "Textures/dao_btn_brush.png", 0)
+    if ok3 and img3 and img3 > 0 then
+        btnImg_ = img3
+        print("[DaoQuestionUI] Brush button PNG loaded")
+    else
+        btnImg_ = nil
+        print("[DaoQuestionUI] dao_btn_brush.png not found, buttons will be text-only")
+    end
+
     lastTime_ = time.elapsedTime
 
-    print("[DaoQuestionUI] Initialized")
+    print("[DaoQuestionUI] Initialized (context created)")
 end
 
 --- 启动问心流程（由外部调用 TryEnter 成功后调用）
@@ -831,24 +915,40 @@ end
 function DaoQuestionUI.Abort()
     if state_ ~= STATE_INACTIVE then
         DaoQuestionSystem.AbortSession()
-        DaoQuestionUI.Destroy()  -- 销毁 NanoVG 上下文 + 取消事件订阅 + 清理 uiOpen
+        DaoQuestionUI.Destroy()  -- 隐藏 + 清理 uiOpen（保留上下文复用）
         print("[DaoQuestionUI] Aborted")
     end
 end
 
---- 清理资源
+--- 隐藏并重置状态（不销毁 NanoVG 上下文，下次 Show 复用）
 function DaoQuestionUI.Destroy()
+    -- 🔴 不要销毁 nvgCtx_！字体和图片句柄绑定在上下文上，
+    -- 反复 nvgDelete + nvgCreate + nvgCreateFont/Image 会导致 GPU 显存泄漏，
+    -- 表现为每次答题动画越来越卡。
+    -- 只需将 state_ 设为 INACTIVE，HandleDaoQuestionRender 首行会 early return。
+    state_ = STATE_INACTIVE
+    if GameState.uiOpen == "dao_question" then
+        GameState.uiOpen = nil
+    end
+    print("[DaoQuestionUI] Hidden (context preserved for reuse)")
+end
+
+--- 彻底销毁 NanoVG 上下文（仅在不再需要问心系统时调用）
+function DaoQuestionUI.Shutdown()
     if nvgCtx_ then
         UnsubscribeFromEvent(nvgCtx_, "NanoVGRender")
         nvgDelete(nvgCtx_)
         nvgCtx_ = nil
     end
-    UnsubscribeFromEvent("Update")
     state_ = STATE_INACTIVE
+    fontId_ = nil
+    bgImg_ = nil
+    btnImg_ = nil
+    inkImg_ = nil
     if GameState.uiOpen == "dao_question" then
         GameState.uiOpen = nil
     end
-    print("[DaoQuestionUI] Destroyed")
+    print("[DaoQuestionUI] Shutdown (context destroyed)")
 end
 
 return DaoQuestionUI

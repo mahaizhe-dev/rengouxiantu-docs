@@ -845,6 +845,26 @@ local GM_COMMANDS = {
             ShowLog("P0回归: 有失败项，请查看控制台", {255, 100, 100, 255})
         end
     end },
+    { label = "战斗管线回归", action = function()
+        package.loaded["tests.test_battle_pipeline_regression"] = nil
+        local TestBP = require("tests.test_battle_pipeline_regression")
+        local passed, failed = TestBP.RunAll()
+        if failed == 0 then
+            ShowLog("战斗管线: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
+        else
+            ShowLog("战斗管线: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
+        end
+    end },
+    { label = "目标选择器回归", action = function()
+        package.loaded["tests.test_target_selector"] = nil
+        local TestTS = require("tests.test_target_selector")
+        local passed, failed = TestTS.RunAll()
+        if failed == 0 then
+            ShowLog("目标选择器: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
+        else
+            ShowLog("目标选择器: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
+        end
+    end },
 }
 
 -- ============================================================================
@@ -903,7 +923,7 @@ local GM_CATEGORIES = {
             "P0-1钩子自测", "P0-2回调自测", "P1P2P3重构自测",
             "P1回归自测",
             "法宝挑战自测", "批量消耗品自测", "P0回归自测",
-            "问心自测",
+            "问心自测", "战斗管线回归", "目标选择器回归",
         },
     },
     {

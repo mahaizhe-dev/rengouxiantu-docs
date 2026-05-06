@@ -8,6 +8,7 @@ local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
 local Utils = require("core.Utils")
 local CombatSystem = require("systems.CombatSystem")
+local TargetSelector = require("systems.combat.TargetSelector")
 
 local SkillSystem = {}
 
@@ -446,39 +447,12 @@ function SkillSystem.CastDamageSkill(skill, player)
     -- 以玩家到目标的实际角度作为技能释放方向（而非二值左右朝向）
     local targetAngle = math.atan(player.target.y - player.y, player.target.x - player.x)
 
-    -- 判定中心：有 centerOffset 的技能沿朝向偏移，其他技能以玩家为中心
-    local cx, cy = player.x, player.y
-    if skill.centerOffset then
-        local offsetDist = skill.centerOffset == true and skill.range or skill.centerOffset
-        cx = player.x + math.cos(targetAngle) * offsetDist
-        cy = player.y + math.sin(targetAngle) * offsetDist
-    end
-
-    local targets = GameState.GetMonstersInRange(cx, cy, skill.range)
-    -- 按形状过滤
-    targets = SkillSystem.FilterByShape(targets, skill, player, targetAngle)
-
-    -- 确保普攻目标在命中列表中，否则技能无法释放
-    local primaryInRange = false
-    for _, m in ipairs(targets) do
-        if m == player.target then primaryInRange = true; break end
-    end
-    if not primaryInRange then
+    -- 目标选择（Pattern A: 主目标保底 + 主目标优先排序）
+    local targets, hitCount = TargetSelector.SelectWithPrimary(player, skill, targetAngle)
+    if not targets then
         player._killHealMultiplier = nil
         return false
     end
-
-    -- 限制最大目标数
-    local hitCount = math.min(#targets, skill.maxTargets or 3)
-
-    -- 普攻目标排首位，其余按距离排序
-    table.sort(targets, function(a, b)
-        if a == player.target then return true end
-        if b == player.target then return false end
-        local distA = Utils.Distance(player.x, player.y, a.x, a.y)
-        local distB = Utils.Distance(player.x, player.y, b.x, b.y)
-        return distA < distB
-    end)
 
     local totalAtk = player:GetTotalAtk()
     -- 技能伤害百分比加成（装备 + 悟性派生：每5点+1%）
@@ -590,29 +564,12 @@ function SkillSystem.CastLifestealSkill(skill, player)
     -- 必须有普攻目标才能释放
     if not player.target or not player.target.alive then return false end
 
-    local targets = GameState.GetMonstersInRange(player.x, player.y, skill.range)
     -- 以玩家到目标的实际角度作为技能释放方向（而非二值左右朝向）
     local targetAngle = math.atan(player.target.y - player.y, player.target.x - player.x)
-    -- 按形状过滤
-    targets = SkillSystem.FilterByShape(targets, skill, player, targetAngle)
 
-    -- 确保普攻目标在命中列表中
-    local primaryInRange = false
-    for _, m in ipairs(targets) do
-        if m == player.target then primaryInRange = true; break end
-    end
-    if not primaryInRange then return false end
-
-    local hitCount = math.min(#targets, skill.maxTargets or 3)
-
-    -- 普攻目标排首位
-    table.sort(targets, function(a, b)
-        if a == player.target then return true end
-        if b == player.target then return false end
-        local distA = Utils.Distance(player.x, player.y, a.x, a.y)
-        local distB = Utils.Distance(player.x, player.y, b.x, b.y)
-        return distA < distB
-    end)
+    -- 目标选择（Pattern A: 主目标保底 + 主目标优先排序）
+    local targets, hitCount = TargetSelector.SelectWithPrimary(player, skill, targetAngle)
+    if not targets then return false end
 
     local totalAtk = player:GetTotalAtk()
     -- 技能伤害百分比加成（装备 + 悟性派生：每5点+1%）
@@ -810,19 +767,16 @@ end
 ---@param player table Player instance
 ---@return boolean
 function SkillSystem.CastAoeDotSkill(skill, player)
-    -- 以玩家为中心的范围攻击
-    local targets = GameState.GetMonstersInRange(player.x, player.y, skill.range)
-    if #targets == 0 then return false end
+    -- 目标选择（Pattern B: 无主目标要求，按距离排序）
+    -- 注：排序在 SelectAoE 内部完成，后续无需再 sort
+    local targets, hitCount = TargetSelector.SelectAoE(player, skill, 6)
+    if hitCount == 0 then return false end
 
-    -- 计算朝向角度（面向当前目标）
+    -- 计算朝向角度（面向当前目标，用于特效和连击）
     local targetAngle = player.facingRight and 0 or math.pi
     if player.target then
         targetAngle = math.atan(player.target.y - player.y, player.target.x - player.x)
     end
-
-    -- 按形状过滤（扇形等）
-    targets = SkillSystem.FilterByShape(targets, skill, player, targetAngle)
-    if #targets == 0 then return false end
 
     -- 获取专属装备 tier 以查表覆盖参数
     local damageMultiplier = skill.damageMultiplier or 0.8
@@ -840,18 +794,10 @@ function SkillSystem.CastAoeDotSkill(skill, player)
         end
     end
 
-    local hitCount = math.min(#targets, skill.maxTargets or 6)
     local totalAtk = player:GetTotalAtk()
     -- 技能伤害百分比加成（悟性派生：每5点+1%）
     local skillDmgPercent = (player.equipSkillDmg or 0) + player:GetSkillDmgPercent()
     local effectiveAtk = totalAtk * (1 + skillDmgPercent)
-
-    -- 按距离排序
-    table.sort(targets, function(a, b)
-        local distA = Utils.Distance(player.x, player.y, a.x, a.y)
-        local distB = Utils.Distance(player.x, player.y, b.x, b.y)
-        return distA < distB
-    end)
 
     -- 第一轮（立即执行）
     for i = 1, hitCount do
@@ -991,19 +937,15 @@ end
 ---@param player table Player instance
 ---@return boolean
 function SkillSystem.CastXianyuanConeAoeSkill(skill, player)
-    -- 以玩家为中心的范围攻击
-    local targets = GameState.GetMonstersInRange(player.x, player.y, skill.range)
-    if #targets == 0 then return false end
+    -- 目标选择（Pattern B: 无主目标要求，按距离排序）
+    local targets, hitCount = TargetSelector.SelectAoE(player, skill, 8)
+    if hitCount == 0 then return false end
 
-    -- 计算朝向角度（面向当前目标）
+    -- 计算朝向角度（用于特效和连击）
     local targetAngle = player.facingRight and 0 or math.pi
     if player.target then
         targetAngle = math.atan(player.target.y - player.y, player.target.x - player.x)
     end
-
-    -- 按形状过滤（扇形 cone）
-    targets = SkillSystem.FilterByShape(targets, skill, player, targetAngle)
-    if #targets == 0 then return false end
 
     -- 计算仙缘四属性之和
     local xianyuanSum = player:GetTotalWisdom()
@@ -1017,15 +959,6 @@ function SkillSystem.CastXianyuanConeAoeSkill(skill, player)
     -- 技能伤害百分比加成（悟性派生：每5点+1%）
     local skillDmgPercent = (player.equipSkillDmg or 0) + player:GetSkillDmgPercent()
     rawDmg = math.floor(rawDmg * (1 + skillDmgPercent))
-
-    local hitCount = math.min(#targets, skill.maxTargets or 8)
-
-    -- 按距离排序
-    table.sort(targets, function(a, b)
-        local distA = Utils.Distance(player.x, player.y, a.x, a.y)
-        local distB = Utils.Distance(player.x, player.y, b.x, b.y)
-        return distA < distB
-    end)
 
     -- 对命中目标造成伤害
     for i = 1, hitCount do
@@ -1619,30 +1552,22 @@ function SkillSystem.CastMeleeAoeDotSkill(skill, player)
     -- 以玩家到目标的角度作为释放方向
     local targetAngle = math.atan(player.target.y - player.y, player.target.x - player.x)
 
-    -- 判定中心：身前偏移（与原巨剑一致）
+    -- 目标选择（Pattern A: 主目标保底 + 身前偏移，原代码硬编码 centerOffset=range）
+    local targets, hitCount = TargetSelector.Select(player, {
+        range          = skill.range,
+        maxTargets     = skill.maxTargets or 5,
+        shape          = skill.shape,
+        coneAngle      = skill.coneAngle,
+        centerOffset   = true,  -- 硬编码身前偏移 = range
+        requirePrimary = true,
+        primaryFirst   = true,
+        facingAngle    = targetAngle,
+    })
+    if not targets then return false end
+
+    -- 剑阵 DOT 放置点（身前偏移 = range）
     local cx = player.x + math.cos(targetAngle) * skill.range
     local cy = player.y + math.sin(targetAngle) * skill.range
-
-    local targets = GameState.GetMonstersInRange(cx, cy, skill.range)
-    targets = SkillSystem.FilterByShape(targets, skill, player, targetAngle)
-
-    -- 确保普攻目标在命中列表中
-    local primaryInRange = false
-    for _, m in ipairs(targets) do
-        if m == player.target then primaryInRange = true; break end
-    end
-    if not primaryInRange then return false end
-
-    local hitCount = math.min(#targets, skill.maxTargets or 5)
-
-    -- 普攻目标排首位
-    table.sort(targets, function(a, b)
-        if a == player.target then return true end
-        if b == player.target then return false end
-        local distA = Utils.Distance(player.x, player.y, a.x, a.y)
-        local distB = Utils.Distance(player.x, player.y, b.x, b.y)
-        return distA < distB
-    end)
 
     local totalAtk = player:GetTotalAtk()
     local skillDmgPercent = (player.equipSkillDmg or 0) + player:GetSkillDmgPercent()
@@ -2040,18 +1965,15 @@ function SkillSystem.CastHpDamageSkill(skill, player)
         player._bloodAccumulator = (player._bloodAccumulator or 0) + hpCost
     end
 
-    -- 判定中心：有 centerOffset 的技能沿朝向偏移（身前圆形区域），其他技能以玩家为中心
+    -- 目标选择（Pattern C: 圆形范围，有 centerOffset，无排序无形状过滤）
     local targetAngle = math.atan(player.target.y - player.y, player.target.x - player.x)
-    local cx, cy = player.x, player.y
-    if skill.centerOffset then
-        local offsetDist = skill.centerOffset == true and (skill.range or 1.5) or skill.centerOffset
-        cx = player.x + math.cos(targetAngle) * offsetDist
-        cy = player.y + math.sin(targetAngle) * offsetDist
-    end
-
-    -- 获取范围内目标
-    local targets = GameState.GetMonstersInRange(cx, cy, skill.range or 1.5)
-    local hitCount = math.min(#targets, skill.maxTargets or 5)
+    local targets, hitCount = TargetSelector.Select(player, {
+        range        = skill.range or 1.5,
+        maxTargets   = skill.maxTargets or 5,
+        centerOffset = skill.centerOffset,
+        noSort       = true,
+        facingAngle  = targetAngle,
+    })
 
     -- 基础伤害 = maxHP × hpCoefficient
     local rawDmg = maxHp * (skill.hpCoefficient or 0.10)
@@ -2128,23 +2050,18 @@ function SkillSystem.CastHpHealDamageSkill(skill, player)
     player.hp = math.min(maxHp, player.hp + healAmount)
     CombatSystem.AddFloatingText(player.x, player.y - 0.8, "+" .. healAmount, {80, 255, 120, 255}, 1.2)
 
-    -- 判定中心：有 centerOffset 的技能沿朝向偏移（身前推波），否则以玩家为中心
-    local cx, cy = player.x, player.y
-    if skill.centerOffset and targetAngle then
-        local offsetDist = skill.centerOffset == true and (skill.range or 1.5) or skill.centerOffset
-        cx = player.x + math.cos(targetAngle) * offsetDist
-        cy = player.y + math.sin(targetAngle) * offsetDist
-    end
-
-    -- 获取范围内目标
-    local targets = GameState.GetMonstersInRange(cx, cy, skill.range or 1.5)
-
-    -- 形状过滤（rect/cone）
-    if skill.shape and targetAngle then
-        targets = SkillSystem.FilterByShape(targets, skill, player, targetAngle)
-    end
-
-    local hitCount = math.min(#targets, skill.maxTargets or 5)
+    -- 目标选择（Pattern C: 条件形状过滤 + centerOffset，无排序）
+    local targets, hitCount = TargetSelector.Select(player, {
+        range        = skill.range or 1.5,
+        maxTargets   = skill.maxTargets or 5,
+        shape        = skill.shape,       -- 有形状才过滤（nil 则跳过）
+        coneAngle    = skill.coneAngle,
+        rectLength   = skill.rectLength,
+        rectWidth    = skill.rectWidth,
+        centerOffset = skill.centerOffset,
+        noSort       = true,
+        facingAngle  = targetAngle,       -- 无形状时为 nil，Select 内部自动推导
+    })
 
     -- 基础伤害 = maxHP × hpCoefficient
     local rawDmg = maxHp * (skill.hpCoefficient or 0.15)
@@ -2306,8 +2223,13 @@ function SkillSystem.AccumulateTriggerTick(skill, player, skillId, dt)
 
     if accumulated < threshold then return end
 
-    -- 达到阈值：引爆！
-    player[field] = 0  -- 重置累计器
+    -- 达到阈值：先检查范围内是否有目标，没有则等待（不空放）
+    local targets = GameState.GetMonstersInRange(player.x, player.y, skill.aoeRange or 2)
+    local hitCount = math.min(#targets, skill.maxTargets or 5)
+    if hitCount == 0 then return end
+
+    -- 有目标，引爆！重置累计器
+    player[field] = 0
 
     -- 基础伤害 = maxHP × damagePercent
     local baseDmg = math.floor(maxHp * (skill.damagePercent or 0.10))
@@ -2317,10 +2239,6 @@ function SkillSystem.AccumulateTriggerTick(skill, player, skillId, dt)
         local bloodRageValue = player:GetPhysiqueBloodRageValue() or 0
         baseDmg = math.floor(baseDmg * (1 + bloodRageValue))
     end
-
-    -- AoE 真实伤害
-    local targets = GameState.GetMonstersInRange(player.x, player.y, skill.aoeRange or 2)
-    local hitCount = math.min(#targets, skill.maxTargets or 5)
 
     for i = 1, hitCount do
         local m = targets[i]

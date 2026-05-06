@@ -5,7 +5,7 @@
 local GameConfig = {}
 
 -- GM 调试开关（发布正式版前改为 false）
-GameConfig.GM_ENABLED = true
+GameConfig.GM_ENABLED = false
 GameConfig.GM_SHOW_COORDS = false  -- GM：鼠标悬停显示瓦片坐标
 
 -- 多人副本功能总开关（Kill Switch）
@@ -15,7 +15,7 @@ GameConfig.DUNGEON_ENABLED = false
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
 GameConfig.CODE_VERSION = 4
-GameConfig.DISPLAY_VERSION = "v1.9.1"
+GameConfig.DISPLAY_VERSION = "v1.9.3"
 
 -- 地图设置
 GameConfig.TILE_SIZE = 128         -- 每个瓦片的逻辑像素大小（基准值，不要直接用于渲染）
