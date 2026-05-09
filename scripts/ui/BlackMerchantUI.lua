@@ -27,7 +27,7 @@ local BlackMerchantUI = {}
 local PORTRAIT_SIZE = 64
 local NPC_NAME = "大黑无天"
 local NPC_TITLE = "无所不能的神秘商人"
-local NPC_DIALOGUE = "欢迎来到万界商行。\n万物皆有价，买卖凭仙石。\n商店库存全部来自其他修士的寄售，无官方补货，售空即止。\n灵韵可兑仙石，仙石亦可换灵韵（折损五成）。"
+local NPC_DIALOGUE = "欢迎来到万界商行。\n万物皆有价，买卖凭仙石。\n商店库存全部来自其他修士的寄售，无官方补货，售空即止。\n大黑无天每天也会采购货物，满库存的商品可能被收走。\n灵韵可兑仙石，仙石亦可换灵韵（折损五成）。"
 
 -- ============================================================================
 -- 状态
@@ -55,9 +55,10 @@ local tabBtnBagua_ = nil
 local tabBtnTiandi_ = nil
 local tabBtnLingyu_ = nil
 local tabBtnSpecialEquip_ = nil
+local tabBtnSkillBook_ = nil
 local tabBtnHistory_ = nil
 
-local activeTab_ = "material"   -- "material" | "rake" | "bagua" | "tiandi" | "lingyu" | "special_equip" | "history"
+local activeTab_ = "material"   -- "material" | "rake" | "bagua" | "tiandi" | "lingyu" | "special_equip" | "skill_book" | "history"
 
 -- 轮询
 local POLL_INTERVAL = 30.0  -- P0: 降频，减少 SYSTEM_UID 热读压力
@@ -410,6 +411,7 @@ local function SetActiveTab(tab)
     if tabBtnTiandi_ then tabBtnTiandi_:SetStyle({ backgroundColor = (tab == "tiandi") and C.tabActive or C.tabInactive }) end
     if tabBtnLingyu_ then tabBtnLingyu_:SetStyle({ backgroundColor = (tab == "lingyu") and C.tabActive or C.tabInactive }) end
     if tabBtnSpecialEquip_ then tabBtnSpecialEquip_:SetStyle({ backgroundColor = (tab == "special_equip") and C.tabActive or C.tabInactive }) end
+    if tabBtnSkillBook_ then tabBtnSkillBook_:SetStyle({ backgroundColor = (tab == "skill_book") and C.tabActive or C.tabInactive }) end
     if tabBtnHistory_ then tabBtnHistory_:SetStyle({ backgroundColor = (tab == "history") and C.tabActive or C.tabInactive }) end
 
     -- 切到记录页时请求数据
@@ -686,14 +688,36 @@ local function BuildHistoryList()
             itemName = "仙石"
         end
 
-        -- 玩家名标识：个人兑换记录标"我"，公共买卖显示玩家名
-        local playerTag = rec.own and "我" or (rec.pn or "")
+        -- 判断是否是大黑无天（系统 NPC）的收购条目（兼容旧记录中的 "大黑五天"）
+        local isNpcRecycle = (rec.pn == BMConfig.RECYCLE_NPC_NAME or rec.pn == "大黑五天")
+        -- 玩家名标识：自己标"我"，NPC 统一显示当前名，其他显示原名
+        local playerTag
+        if rec.own then
+            playerTag = "我"
+        elseif isNpcRecycle then
+            playerTag = BMConfig.RECYCLE_NPC_NAME  -- 旧记录也显示正确名称
+        else
+            playerTag = rec.pn or ""
+        end
+
+        -- 名字颜色：自己=蓝，大黑无天=金，其他=灰
+        local nameColor
+        if rec.own then
+            nameColor = {130, 200, 255, 255}
+        elseif isNpcRecycle then
+            nameColor = {255, 215, 80, 255}
+        else
+            nameColor = {200, 200, 210, 200}
+        end
 
         children[#children + 1] = UI.Panel {
             width = "100%", flexDirection = "row",
             alignItems = "center",
             paddingTop = T.spacing.xs, paddingBottom = T.spacing.xs,
-            borderBottomWidth = 1, borderColor = C.separator,
+            borderWidth = isNpcRecycle and 2 or nil,
+            borderColor = isNpcRecycle and {210, 175, 55, 230} or C.separator,
+            borderRadius = isNpcRecycle and 4 or nil,
+            borderBottomWidth = not isNpcRecycle and 1 or nil,
             gap = T.spacing.xs,
             children = {
                 -- 时间
@@ -705,10 +729,9 @@ local function BuildHistoryList()
                 -- 玩家名
                 UI.Label {
                     text = playerTag,
-                    fontSize = 11, width = 44,
-                    fontColor = rec.own
-                        and {130, 200, 255, 255}
-                        or  {200, 200, 210, 200},
+                    fontSize = 11, flexShrink = 0,
+                    fontColor = nameColor,
+                    fontWeight = isNpcRecycle and "bold" or nil,
                 },
                 -- 动作标签
                 UI.Panel {
@@ -728,7 +751,7 @@ local function BuildHistoryList()
                 UI.Label {
                     text = itemName .. " ×" .. amount,
                     fontSize = T.fontSize.xs, flexGrow = 1, flexShrink = 1,
-                    fontColor = {220, 220, 230, 240},
+                    fontColor = isNpcRecycle and {240, 225, 160, 240} or {220, 220, 230, 240},
                 },
             },
         }
@@ -759,6 +782,8 @@ function BlackMerchantUI.RefreshContent()
         children = BuildShowcase(BMConfig.CATEGORY_EVENT)
     elseif activeTab_ == "special_equip" then
         children = BuildShowcase(BMConfig.CATEGORY_SPECIAL_EQUIP)
+    elseif activeTab_ == "skill_book" then
+        children = BuildShowcase(BMConfig.CATEGORY_SKILL_BOOK)
     elseif activeTab_ == "history" then
         children = BuildHistoryList()
     end
@@ -1034,6 +1059,14 @@ function BlackMerchantUI.Create(parentOverlay)
         backgroundColor = C.tabInactive,
         onClick = function() SetActiveTab("special_equip") end,
     }
+    tabBtnSkillBook_ = UI.Button {
+        text = BMConfig.CATEGORY_NAMES.skill_book,
+        flexGrow = 1, height = 28,
+        fontSize = T.fontSize.xs, fontWeight = "bold",
+        borderRadius = T.radius.xs,
+        backgroundColor = C.tabInactive,
+        onClick = function() SetActiveTab("skill_book") end,
+    }
     tabBtnHistory_ = UI.Button {
         text = "记录",
         flexGrow = 1, height = 28,
@@ -1087,12 +1120,14 @@ function BlackMerchantUI.Create(parentOverlay)
         paddingBottom = T.spacing.xl,
         visible = false,
         zIndex = 100,
+        onClick = function() BlackMerchantUI.Hide() end,
         children = {
             UI.Panel {
                 width = "94%",
                 maxWidth = T.size.npcPanelMaxW,
                 maxHeight = "85%",
                 backgroundColor = C.panelBg,
+                onClick = function() end,  -- 阻止穿透到遮罩关闭
                 borderRadius = T.radius.lg,
                 borderWidth = 1,
                 borderColor = {140, 110, 60, 200},
@@ -1183,6 +1218,13 @@ function BlackMerchantUI.Create(parentOverlay)
                                         marginTop = 4,
                                     },
                                     UI.Label {
+                                        text = "大黑无天每天也会采购货物，满库存的商品可能被收走。",
+                                        fontSize = T.fontSize.xs,
+                                        fontColor = {180, 220, 255, 240},
+                                        width = "100%",
+                                        marginTop = 4,
+                                    },
+                                    UI.Label {
                                         text = "灵韵可兑仙石，仙石亦可换灵韵（折损五成）。",
                                         fontSize = T.fontSize.xs,
                                         fontColor = {200, 200, 180, 240},
@@ -1248,7 +1290,7 @@ function BlackMerchantUI.Create(parentOverlay)
                             -- 分隔线
                             UI.Panel { width = "100%", height = 1, backgroundColor = C.separator },
                             -- 标签页栏（双行）
-                            -- 第一行：材料 · 活动 · 附灵玉 · 特殊装备 · 记录
+                            -- 第一行：材料 · 活动 · 附灵玉 · 特殊装备 · 技能书 · 记录
                             UI.Panel {
                                 width = "100%", flexDirection = "row",
                                 gap = T.spacing.xs,
@@ -1257,6 +1299,7 @@ function BlackMerchantUI.Create(parentOverlay)
                                     tabBtnEvent_,
                                     tabBtnLingyu_,
                                     tabBtnSpecialEquip_,
+                                    tabBtnSkillBook_,
                                     tabBtnHistory_,
                                 },
                             },
@@ -1318,6 +1361,7 @@ function BlackMerchantUI.Show()
     if tabBtnTiandi_ then tabBtnTiandi_:SetStyle({ backgroundColor = C.tabInactive }) end
     if tabBtnLingyu_ then tabBtnLingyu_:SetStyle({ backgroundColor = C.tabInactive }) end
     if tabBtnSpecialEquip_ then tabBtnSpecialEquip_:SetStyle({ backgroundColor = C.tabInactive }) end
+    if tabBtnSkillBook_ then tabBtnSkillBook_:SetStyle({ backgroundColor = C.tabInactive }) end
     if tabBtnHistory_ then tabBtnHistory_:SetStyle({ backgroundColor = C.tabInactive }) end
 
     panel_:SetVisible(true)

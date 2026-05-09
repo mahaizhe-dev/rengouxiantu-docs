@@ -222,7 +222,7 @@ function CS.UpdateZones(dt)
                     for _, m in ipairs(monsters) do
                         if m.alive then
                             local actualDmg = GameConfig.CalcDamage(dmgPerTick, m.def)
-                            actualDmg = m:TakeDamage(actualDmg, player) or actualDmg
+                            actualDmg = m:TakeDamage(actualDmg, player)
                             CS.AddFloatingText(
                                 m.x, m.y - 0.2,
                                 tostring(actualDmg),
@@ -306,7 +306,7 @@ function CS.UpdateDots(dt)
             if dot.tickTimer >= 1.0 then
                 dot.tickTimer = dot.tickTimer - 1.0
                 local tickDmg = math.max(1, math.floor(dot.dmgPerTick))
-                tickDmg = monster:TakeDamage(tickDmg, dot.source) or tickDmg
+                tickDmg = monster:TakeDamage(tickDmg, dot.source)
                 CS.AddFloatingText(
                     monster.x, monster.y - 0.4,
                     tickDmg .. " " .. dot.effectName,

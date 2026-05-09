@@ -15,7 +15,7 @@ GameConfig.DUNGEON_ENABLED = false
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
 GameConfig.CODE_VERSION = 4
-GameConfig.DISPLAY_VERSION = "v1.9.3"
+GameConfig.DISPLAY_VERSION = "v1.9.4"
 
 -- 地图设置
 GameConfig.TILE_SIZE = 128         -- 每个瓦片的逻辑像素大小（基准值，不要直接用于渲染）
@@ -166,9 +166,13 @@ GameConfig.PET_MATERIALS = {
     gold_bar = { name = "金条", icon = "icon_gold_bar.png", sellPrice = 1000, quality = "orange", desc = "沉甸甸的金条，闪耀着诱人的光泽。\n用途：出售给商人换取金币。" },
     gold_brick = { name = "金砖", icon = "icon_gold_bar.png", sellPrice = 100000, quality = "cyan", desc = "由万年灵金铸炼而成的实心金砖，沉如磐石，金光内敛。\n用途：出售给商人换取大量金币。" },
     -- 挑战系统货币
-    wubao_token = { name = "乌堡令", icon = "🏷️", sellPrice = 50, quality = "blue", desc = "乌堡势力的信物，散发着阴冷的气息。\n用途：向浩气宗或血煞盟使者上交，解锁切磋挑战。\n售价：50金币" },
+    wubao_token = { name = "乌堡令", icon = "🏷️", sellPrice = 100, quality = "blue", desc = "乌堡势力的信物，散发着阴冷的气息。\n用途：向浩气宗或血煞盟使者上交，解锁切磋挑战。\n售价：100金币" },
     sha_hai_ling = { name = "沙海令", icon = "🏜️", sellPrice = 100, quality = "blue", desc = "沙漠九寨的通行令牌，散发着炽热的气息。\n用途：向浩气宗或血煞盟使者上交，解锁沙海试炼。\n售价：100金币" },
     taixu_token = { name = "太虚令", icon = "🔱", sellPrice = 100, quality = "blue", desc = "太虚宗上古令牌，蕴含修补海神柱的灵力。\n用途：修复和升级海神柱，开启四兽岛传送。\n获取：八卦阵怪物掉落。" },
+    -- 令牌盒（100令牌+100灵韵→1盒，使用获得100令牌）
+    wubao_token_box = { name = "乌堡令盒", icon = "📦", sellPrice = 0, quality = "purple", desc = "封装了100枚乌堡令的锦盒，散发幽冷气息。\n用途：使用后获得100枚乌堡令。\n炼制：100乌堡令 + 100灵韵（第二章炼丹炉）" },
+    sha_hai_ling_box = { name = "沙海令盒", icon = "📦", sellPrice = 0, quality = "purple", desc = "封装了100枚沙海令的锦盒，散发炽热气息。\n用途：使用后获得100枚沙海令。\n炼制：100沙海令 + 100灵韵（第三章炼丹炉）" },
+    taixu_token_box = { name = "太虚令盒", icon = "📦", sellPrice = 0, quality = "purple", desc = "封装了100枚太虚令的锦盒，蕴含上古灵力。\n用途：使用后获得100枚太虚令。\n炼制：100太虚令 + 100灵韵（第四章炼丹炉）" },
     -- 上宝逊金钯残片（圣器品质，8片合成）
     rake_fragment_1 = { name = "上宝逊金钯残片·壹", icon = "icon_rake_fragment.png", sellPrice = 50000, quality = "red", desc = "上古神兵「上宝逊金钯」的碎片，仍残留着神器余威。\n用途：集齐九片可重铸神兵。\n获取：枯木妖王掉落（0.1%）" },
     rake_fragment_2 = { name = "上宝逊金钯残片·贰", icon = "icon_rake_fragment.png", sellPrice = 50000, quality = "red", desc = "上古神兵「上宝逊金钯」的碎片，隐约可见钯齿纹路。\n用途：集齐九片可重铸神兵。\n获取：岩蟾妖王掉落（0.1%）" },
@@ -675,5 +679,13 @@ GameConfig.CONSUMABLES = {}
 for k, v in pairs(GameConfig.PET_FOOD) do GameConfig.CONSUMABLES[k] = v end
 for k, v in pairs(GameConfig.PET_MATERIALS) do GameConfig.CONSUMABLES[k] = v end
 for k, v in pairs(GameConfig.EVENT_ITEMS) do GameConfig.CONSUMABLES[k] = v end
+
+-- ============================================================================
+-- 性能监控配置（Phase 0 基线采集）
+-- ============================================================================
+GameConfig.PERF_FLAGS = {
+    enabled = false,          -- 主开关（默认关，GM 命令 /perf 可运行时切换）
+    reportInterval = 10,      -- 报告间隔（秒）
+}
 
 return GameConfig

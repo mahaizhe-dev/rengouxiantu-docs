@@ -7,6 +7,7 @@
 
 local GameConfig = require("config.GameConfig")
 local EquipmentData = require("config.EquipmentData")
+local PetSkillData = require("config.PetSkillData")
 
 local BMConfig = {}
 
@@ -23,8 +24,8 @@ BMConfig.PUBLIC_TRADE_LOG_KEY = "bm_pub_trade"  -- 公共买卖记录 key（按 
 BMConfig.MAX_TRADE_RECORDS = 50                 -- 公共买卖记录上限
 BMConfig.MAX_PERSONAL_RECORDS = 50              -- 个人兑换记录上限
 
--- 筑基初期 order（黑商解锁门槛，v0.8 从金丹初期下调）
-BMConfig.JINDAN_ORDER = 4
+-- 黑商解锁门槛（大乘初期 order=19）
+BMConfig.JINDAN_ORDER = 19
 
 -- ============================================================================
 -- 分类
@@ -37,6 +38,7 @@ BMConfig.CATEGORY_LINGYU   = "lingyu"    -- 附灵玉
 BMConfig.CATEGORY_MATERIAL     = "material"      -- 丹药材料
 BMConfig.CATEGORY_EVENT        = "event"         -- 活动道具
 BMConfig.CATEGORY_SPECIAL_EQUIP = "special_equip" -- 特殊装备
+BMConfig.CATEGORY_SKILL_BOOK   = "skill_book"    -- 技能书
 
 -- 分类显示名（标签页用）
 BMConfig.CATEGORY_NAMES = {
@@ -47,6 +49,7 @@ BMConfig.CATEGORY_NAMES = {
     material      = "材料",
     event         = "活动",
     special_equip = "特殊装备",
+    skill_book    = "技能书",
 }
 
 -- ============================================================================
@@ -79,6 +82,19 @@ local function EquipItemFromData(equipId, overrides)
         icon     = eq and eq.icon or nil,
         itemType = "equipment",  -- 区分于消耗品（默认 nil = consumable）
         equipId  = equipId,      -- 装备模板 ID
+    }
+    for k, v in pairs(overrides) do
+        item[k] = v
+    end
+    return item
+end
+
+--- 从 PetSkillData.SKILL_BOOKS 获取技能书名称和图标的辅助函数
+local function BookItemFromData(bookId, overrides)
+    local book = PetSkillData.SKILL_BOOKS[bookId]
+    local item = {
+        name = book and book.name or bookId,
+        icon = book and book.icon or nil,
     }
     for k, v in pairs(overrides) do
         item[k] = v
@@ -177,6 +193,11 @@ BMConfig.ITEMS = {
     dragon_scale_sand  = ItemFromGame("dragon_scale_sand",  { buy_price = 15, sell_price = 30, category = "material", max_stock = 5, sort_order = 13 }),
     gold_brick         = ItemFromGame("gold_brick",         { buy_price = 2,  sell_price = 5,  category = "material", max_stock = 10, sort_order = 14 }),
 
+    -- === 令牌盒（100令牌+100灵韵炼制，买2卖4仙石，限购10） ===
+    wubao_token_box    = ItemFromGame("wubao_token_box",    { buy_price = 2,  sell_price = 4,  category = "material", max_stock = 10, sort_order = 15 }),
+    sha_hai_ling_box   = ItemFromGame("sha_hai_ling_box",   { buy_price = 2,  sell_price = 4,  category = "material", max_stock = 10, sort_order = 16 }),
+    taixu_token_box    = ItemFromGame("taixu_token_box",    { buy_price = 2,  sell_price = 4,  category = "material", max_stock = 10, sort_order = 17 }),
+
     -- === 五一活动信物（限时，福袋不可交易） ===
     mayday_wu   = ItemFromGame("mayday_wu",   { buy_price = 3, sell_price = 6, category = "event", max_stock = 5, sort_order = 1 }),
     mayday_yi   = ItemFromGame("mayday_yi",   { buy_price = 3, sell_price = 6, category = "event", max_stock = 5, sort_order = 2 }),
@@ -200,6 +221,47 @@ BMConfig.ITEMS = {
         buy_price = 15, sell_price = 30, category = "special_equip", sort_order = 4,
         boss = "四龙",
     }),
+
+    -- === 中级技能书（紫色品质，sellPrice=1000金，收3售6仙石，限购5） ===
+    -- Ch1~Ch2 基础中级
+    book_atk_2       = BookItemFromData("book_atk_2",       { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 1  }),
+    book_hp_2        = BookItemFromData("book_hp_2",        { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 2  }),
+    book_def_2       = BookItemFromData("book_def_2",       { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 3  }),
+    book_evade_2     = BookItemFromData("book_evade_2",     { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 4  }),
+    book_regen_2     = BookItemFromData("book_regen_2",     { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 5  }),
+    book_crit_2      = BookItemFromData("book_crit_2",      { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 6  }),
+    -- Ch3 中级
+    book_atkSpd_2    = BookItemFromData("book_atkSpd_2",    { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 7  }),
+    book_critDmg_2   = BookItemFromData("book_critDmg_2",   { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 8  }),
+    book_doubleHit_2 = BookItemFromData("book_doubleHit_2", { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 9  }),
+    book_lifeSteal_2 = BookItemFromData("book_lifeSteal_2", { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 10 }),
+    book_hpPerLv_2   = BookItemFromData("book_hpPerLv_2",   { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 11 }),
+    book_dmgReduce_2 = BookItemFromData("book_dmgReduce_2", { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 12 }),
+    book_defPerLv_2  = BookItemFromData("book_defPerLv_2",  { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 13 }),
+    -- 灵兽赐主中级
+    book_wisdom_owner_2       = BookItemFromData("book_wisdom_owner_2",       { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 14 }),
+    book_constitution_owner_2 = BookItemFromData("book_constitution_owner_2", { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 15 }),
+    book_physique_owner_2     = BookItemFromData("book_physique_owner_2",     { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 16 }),
+    book_fortune_owner_2      = BookItemFromData("book_fortune_owner_2",      { buy_price = 3,  sell_price = 6,  category = "skill_book", max_stock = 5, sort_order = 17 }),
+
+    -- === 高级技能书（橙色品质，sellPrice=3000金，收8售16仙石，限购5） ===
+    book_atk_3       = BookItemFromData("book_atk_3",       { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 20 }),
+    book_hp_3        = BookItemFromData("book_hp_3",        { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 21 }),
+    book_def_3       = BookItemFromData("book_def_3",       { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 22 }),
+    book_evade_3     = BookItemFromData("book_evade_3",     { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 23 }),
+    book_regen_3     = BookItemFromData("book_regen_3",     { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 24 }),
+    book_crit_3      = BookItemFromData("book_crit_3",      { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 25 }),
+    book_atkSpd_3    = BookItemFromData("book_atkSpd_3",    { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 26 }),
+    book_critDmg_3   = BookItemFromData("book_critDmg_3",   { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 27 }),
+    book_doubleHit_3 = BookItemFromData("book_doubleHit_3", { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 28 }),
+    book_lifeSteal_3 = BookItemFromData("book_lifeSteal_3", { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 29 }),
+    book_hpPerLv_3   = BookItemFromData("book_hpPerLv_3",   { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 30 }),
+    book_dmgReduce_3 = BookItemFromData("book_dmgReduce_3", { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 31 }),
+    book_defPerLv_3  = BookItemFromData("book_defPerLv_3",  { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 32 }),
+    book_wisdom_owner_3       = BookItemFromData("book_wisdom_owner_3",       { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 33 }),
+    book_constitution_owner_3 = BookItemFromData("book_constitution_owner_3", { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 34 }),
+    book_physique_owner_3     = BookItemFromData("book_physique_owner_3",     { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 35 }),
+    book_fortune_owner_3      = BookItemFromData("book_fortune_owner_3",      { buy_price = 8,  sell_price = 16, category = "skill_book", max_stock = 5, sort_order = 36 }),
 }
 
 -- ============================================================================
@@ -255,5 +317,18 @@ BMConfig.WAL_KEY = "bm_wal"
 BMConfig.WAL_BP_KEY = "bm_wal_bp"
 --- WAL key: bm_wal_sell（出售仙石补偿：背包已扣但 BatchCommit 失败时写入，下次登录补发仙石）
 BMConfig.WAL_SELL_KEY = "bm_wal_sell"
+
+-- ============================================================================
+-- 自动收购（大黑无天）—— 设计文档 §12
+-- ============================================================================
+
+--- 自动收购总开关（发版设 false 可关闭，无需服务端热更新）
+BMConfig.RECYCLE_ENABLED = false
+--- 收购 NPC 名称（显示在公共交易记录中）
+BMConfig.RECYCLE_NPC_NAME = "大黑无天"
+--- 加权随机累积概率阈值：0件25%、1件50%、2件25%（期望值 1.0 件/天/满库存商品）
+BMConfig.RECYCLE_WEIGHTS = { 0.25, 0.75, 1.0 }
+--- serverCloud.money 日期键名（SYSTEM_UID=0 下存储，数值 YYYYMMDD）
+BMConfig.RECYCLE_DATE_KEY = "bm_recycle_date"
 
 return BMConfig

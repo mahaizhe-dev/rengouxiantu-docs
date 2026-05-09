@@ -9,8 +9,22 @@ local EventBus = require("core.EventBus")
 local Utils = require("core.Utils")
 local CombatSystem = require("systems.CombatSystem")
 local TargetSelector = require("systems.combat.TargetSelector")
+local HitResolver    = require("systems.combat.HitResolver")
+local ComboRunner    = require("systems.combat.ComboRunner")
 
 local SkillSystem = {}
+
+-- P1-2: local化高频 math 函数（消除全局表查找）
+local math_floor  = math.floor
+local math_max    = math.max
+local math_min    = math.min
+local math_random = math.random
+local math_atan   = math.atan
+local math_cos    = math.cos
+local math_sin    = math.sin
+local math_abs    = math.abs
+local math_rad    = math.rad
+local math_pi     = math.pi
 
 -- ── 技能类型处理器注册表 ──
 -- 结构: { [typeName] = { cast = function(skill, player) -> bool, passive = function(skill, player)? } }
@@ -34,12 +48,6 @@ SkillSystem.cooldowns = {}
 
 -- 技能栏（最多4个已装备技能ID）
 SkillSystem.equippedSkills = {}
-
--- 连击延迟队列 { { delay, elapsed, execute } }
-SkillSystem.pendingCombos = {}
-
--- 连击延迟时间（秒）
-local COMBO_DELAY = 0.5
 
 -- 被动技能状态（per-skill，按 skill.id 索引）
 -- 例: skillState["sword_formation"] = { counter = 0 }
@@ -73,47 +81,13 @@ function SkillSystem.GetSkillState(skillId, defaults)
     return SkillSystem.skillState[skillId]
 end
 
---- 连击统一入口：判定概率 → 调度延迟执行（含预告浮字 + 重播特效）
---- 所有主动技能只需在命中逻辑末尾调用此函数，不需要自行判定概率或调用 AddPendingCombo。
----@param player table 玩家实体
----@param skill table 技能定义（SkillData entry）
----@param targetAngle number 技能朝向角度
----@param comboHitFn function 连击第二轮的伤害逻辑闭包
-function SkillSystem.TryCombo(player, skill, targetAngle, comboHitFn)
-    local comboChance = player:GetSkillComboChance()
-    if comboChance <= 0 then return end
-    if math.random() >= comboChance then return end
-
-    -- 预告浮字
-    CombatSystem.AddFloatingText(player.x, player.y - 1.0, "连击!", {255, 100, 255, 255}, 0.8)
-
-    -- 加入延迟队列
-    table.insert(SkillSystem.pendingCombos, {
-        delay = COMBO_DELAY,
-        elapsed = 0,
-        execute = function()
-            comboHitFn()
-            -- 重播技能特效
-            CombatSystem.AddSkillEffect(player, skill.id, skill.range, skill.effectColor, skill.type, {
-                shape = skill.shape,
-                coneAngle = skill.coneAngle,
-                rectLength = skill.rectLength,
-                rectWidth = skill.rectWidth,
-                targetAngle = targetAngle,
-            })
-            -- 连击也计入技能释放次数（触发 nth_cast_trigger 等被动）
-            EventBus.Emit("skill_cast", skill.id, skill)
-        end,
-    })
-end
-
 --- 初始化技能系统
 function SkillSystem.Init()
     SkillSystem.unlockedSkills = {}
     SkillSystem.cooldowns = {}
     SkillSystem.equippedSkills = {}
-    SkillSystem.pendingCombos = {}
     SkillSystem.skillState = {}
+    ComboRunner.Init()
 
     -- 监听升级/境界突破事件，检查新技能解锁
     EventBus.On("player_levelup", function(level)
@@ -261,24 +235,8 @@ function SkillSystem.Update(dt)
     -- 更新剑阵降临（电磁塔 tick）
     SkillSystem.UpdateSwordFormations(dt)
 
-    -- 更新连击延迟队列
-    local combos = SkillSystem.pendingCombos
-    local cj = 1
-    for ci = 1, #combos do
-        local c = combos[ci]
-        c.elapsed = c.elapsed + dt
-        if c.elapsed >= c.delay then
-            -- 玩家死亡时取消连击
-            local p = GameState.player
-            if p and p.alive then
-                c.execute()
-            end
-        else
-            combos[cj] = c
-            cj = cj + 1
-        end
-    end
-    for ci = cj, #combos do combos[ci] = nil end
+    -- 更新连击延迟队列（委托 ComboRunner）
+    ComboRunner.Update(dt)
 end
 
 --- 检测被动技能触发（遍历所有已解锁技能，调用注册的 passive 回调）
@@ -314,7 +272,7 @@ function SkillSystem.PassiveShieldTrigger(skill, player, skillId)
     if maxHp > 0 and (player.hp / maxHp) < threshold then
         -- 触发护盾
         local totalDef = player:GetTotalDef()
-        local shieldValue = math.floor(totalDef * skill.shieldMultiplier)
+        local shieldValue = math_floor(totalDef * skill.shieldMultiplier)
         player.shieldHp = shieldValue
         player.shieldMaxHp = shieldValue
         player.shieldTimer = skill.shieldDuration
@@ -390,20 +348,20 @@ function SkillSystem.FilterByShape(targets, skill, player, facingAngle)
     if not skill.shape then return targets end
 
     -- 优先使用传入的朝向角，否则退回二值左右朝向
-    facingAngle = facingAngle or (player.facingRight and 0 or math.pi)
+    facingAngle = facingAngle or (player.facingRight and 0 or math_pi)
     local filtered = {}
 
     if skill.shape == "cone" then
         -- 锥形过滤：检查玩家→目标角度是否在面朝方向 ±(coneAngle/2) 内
-        local halfAngle = math.rad((skill.coneAngle or 90) / 2)
+        local halfAngle = math_rad((skill.coneAngle or 90) / 2)
         for _, m in ipairs(targets) do
             local dx = m.x - player.x
             local dy = m.y - player.y
-            local toTarget = math.atan(dy, dx)
+            local toTarget = math_atan(dy, dx)
             -- 角度差（归一化到 [-π, π]）
             local diff = toTarget - facingAngle
-            diff = math.atan(math.sin(diff), math.cos(diff))
-            if math.abs(diff) <= halfAngle then
+            diff = math_atan(math_sin(diff), math_cos(diff))
+            if math_abs(diff) <= halfAngle then
                 table.insert(filtered, m)
             end
         end
@@ -412,15 +370,15 @@ function SkillSystem.FilterByShape(targets, skill, player, facingAngle)
         -- 矩形过滤：以玩家为起点，面朝方向为长轴
         local length = skill.rectLength or 2.0
         local halfWidth = (skill.rectWidth or 1.0) / 2
-        local cosA = math.cos(facingAngle)
-        local sinA = math.sin(facingAngle)
+        local cosA = math_cos(facingAngle)
+        local sinA = math_sin(facingAngle)
         for _, m in ipairs(targets) do
             local dx = m.x - player.x
             local dy = m.y - player.y
             -- 投影到面朝方向的局部坐标
             local forward = dx * cosA + dy * sinA   -- 前方分量
             local lateral = -dx * sinA + dy * cosA  -- 侧向分量
-            if forward >= 0 and forward <= length and math.abs(lateral) <= halfWidth then
+            if forward >= 0 and forward <= length and math_abs(lateral) <= halfWidth then
                 table.insert(filtered, m)
             end
         end
@@ -445,7 +403,7 @@ function SkillSystem.CastDamageSkill(skill, player)
     end
 
     -- 以玩家到目标的实际角度作为技能释放方向（而非二值左右朝向）
-    local targetAngle = math.atan(player.target.y - player.y, player.target.x - player.x)
+    local targetAngle = math_atan(player.target.y - player.y, player.target.x - player.x)
 
     -- 目标选择（Pattern A: 主目标保底 + 主目标优先排序）
     local targets, hitCount = TargetSelector.SelectWithPrimary(player, skill, targetAngle)
@@ -463,15 +421,8 @@ function SkillSystem.CastDamageSkill(skill, player)
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage = GameConfig.CalcDamage(
-                math.floor(effectiveAtk * skill.damageMultiplier),
-                m.def
-            )
-            local isCrit
-            damage, isCrit = player:ApplyCrit(damage)
-            damage = m:TakeDamage(damage, player) or damage
-
-            EventBus.Emit("player_deal_damage", player, m)
+            local damage, isCrit = HitResolver.Standard(player, m,
+                math_floor(effectiveAtk * skill.damageMultiplier))
 
             if skill.slowPercent and skill.slowDuration and m.ApplyDebuff then
                 m:ApplyDebuff("ice_slow", {
@@ -496,20 +447,11 @@ function SkillSystem.CastDamageSkill(skill, player)
         end
     end
 
-    -- 连击（统一入口：概率判定 + 延迟调度 + 特效重播）
-    SkillSystem.TryCombo(player, skill, targetAngle, function()
-        for i = 1, hitCount do
-            local m = targets[i]
-            if m and m.alive then
-                local damage = GameConfig.CalcDamage(
-                    math.floor(effectiveAtk * skill.damageMultiplier),
-                    m.def
-                )
-                local isCrit
-                damage, isCrit = player:ApplyCrit(damage)
-                damage = m:TakeDamage(damage, player) or damage
-                EventBus.Emit("player_deal_damage", player, m)
-
+    -- 连击（ReplayHits + debuff 应用）
+    ComboRunner.Schedule(player, skill, targetAngle, function()
+        ComboRunner.ReplayHits(player, skill, targets, hitCount,
+            math_floor(effectiveAtk * skill.damageMultiplier),
+            function(m)
                 if skill.slowPercent and skill.slowDuration and m.ApplyDebuff then
                     m:ApplyDebuff("ice_slow", {
                         slowPercent = skill.slowPercent,
@@ -522,15 +464,7 @@ function SkillSystem.CastDamageSkill(skill, player)
                         duration = skill.atkReduceDuration,
                     })
                 end
-
-                CombatSystem.AddFloatingText(
-                    m.x, m.y - 0.3,
-                    skill.icon .. "连击 " .. damage,
-                    {255, 100, 255, 255},
-                    1.2
-                )
-            end
-        end
+            end)
     end)
 
     -- 技能名浮动文字
@@ -565,7 +499,7 @@ function SkillSystem.CastLifestealSkill(skill, player)
     if not player.target or not player.target.alive then return false end
 
     -- 以玩家到目标的实际角度作为技能释放方向（而非二值左右朝向）
-    local targetAngle = math.atan(player.target.y - player.y, player.target.x - player.x)
+    local targetAngle = math_atan(player.target.y - player.y, player.target.x - player.x)
 
     -- 目标选择（Pattern A: 主目标保底 + 主目标优先排序）
     local targets, hitCount = TargetSelector.SelectWithPrimary(player, skill, targetAngle)
@@ -581,16 +515,9 @@ function SkillSystem.CastLifestealSkill(skill, player)
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage = GameConfig.CalcDamage(
-                math.floor(effectiveAtk * skill.damageMultiplier),
-                m.def
-            )
-            local isCrit
-            damage, isCrit = player:ApplyCrit(damage)
-            damage = m:TakeDamage(damage, player) or damage
+            local damage, isCrit = HitResolver.Standard(player, m,
+                math_floor(effectiveAtk * skill.damageMultiplier))
             totalHeal = totalHeal + damage
-
-            EventBus.Emit("player_deal_damage", player, m)
 
             local dmgText = skill.icon .. damage
             local dmgColor = skill.effectColor
@@ -605,7 +532,7 @@ function SkillSystem.CastLifestealSkill(skill, player)
     -- 第一轮吸血回复
     if totalHeal > 0 then
         local maxHp = player:GetTotalMaxHp()
-        player.hp = math.min(maxHp, player.hp + totalHeal)
+        player.hp = math_min(maxHp, player.hp + totalHeal)
         CombatSystem.AddFloatingText(
             player.x, player.y - 0.3,
             "+" .. totalHeal,
@@ -614,34 +541,13 @@ function SkillSystem.CastLifestealSkill(skill, player)
         )
     end
 
-    -- 连击（统一入口：概率判定 + 延迟调度 + 特效重播）
-    SkillSystem.TryCombo(player, skill, targetAngle, function()
-        local comboHeal = 0
-        for i = 1, hitCount do
-            local m = targets[i]
-            if m and m.alive then
-                local damage = GameConfig.CalcDamage(
-                    math.floor(effectiveAtk * skill.damageMultiplier),
-                    m.def
-                )
-                local isCrit
-                damage, isCrit = player:ApplyCrit(damage)
-                damage = m:TakeDamage(damage, player) or damage
-                comboHeal = comboHeal + damage
-
-                EventBus.Emit("player_deal_damage", player, m)
-
-                CombatSystem.AddFloatingText(
-                    m.x, m.y - 0.3,
-                    skill.icon .. "连击 " .. damage,
-                    {255, 100, 255, 255},
-                    1.2
-                )
-            end
-        end
+    -- 连击（ReplayHits 返回总伤害 → 吸血回复）
+    ComboRunner.Schedule(player, skill, targetAngle, function()
+        local comboHeal = ComboRunner.ReplayHits(player, skill, targets, hitCount,
+            math_floor(effectiveAtk * skill.damageMultiplier))
         if comboHeal > 0 then
             local maxHp = player:GetTotalMaxHp()
-            player.hp = math.min(maxHp, player.hp + comboHeal)
+            player.hp = math_min(maxHp, player.hp + comboHeal)
             CombatSystem.AddFloatingText(
                 player.x, player.y - 0.3,
                 "+" .. comboHeal,
@@ -677,8 +583,8 @@ end
 ---@return boolean
 function SkillSystem.CastHealSkill(skill, player)
     -- 回复自身
-    local healAmount = math.floor(player:GetTotalMaxHp() * skill.healPercent)
-    player.hp = math.min(player:GetTotalMaxHp(), player.hp + healAmount)
+    local healAmount = math_floor(player:GetTotalMaxHp() * skill.healPercent)
+    player.hp = math_min(player:GetTotalMaxHp(), player.hp + healAmount)
 
     CombatSystem.AddFloatingText(
         player.x, player.y - 0.5,
@@ -690,8 +596,8 @@ function SkillSystem.CastHealSkill(skill, player)
     -- 回复宠物
     local pet = GameState.pet
     if pet and pet.alive and skill.petHealPercent then
-        local petHeal = math.floor(pet.maxHp * skill.petHealPercent)
-        pet.hp = math.min(pet.maxHp, pet.hp + petHeal)
+        local petHeal = math_floor(pet.maxHp * skill.petHealPercent)
+        pet.hp = math_min(pet.maxHp, pet.hp + petHeal)
         CombatSystem.AddFloatingText(
             pet.x, pet.y - 0.3,
             "+" .. petHeal,
@@ -773,9 +679,9 @@ function SkillSystem.CastAoeDotSkill(skill, player)
     if hitCount == 0 then return false end
 
     -- 计算朝向角度（面向当前目标，用于特效和连击）
-    local targetAngle = player.facingRight and 0 or math.pi
+    local targetAngle = player.facingRight and 0 or math_pi
     if player.target then
-        targetAngle = math.atan(player.target.y - player.y, player.target.x - player.x)
+        targetAngle = math_atan(player.target.y - player.y, player.target.x - player.x)
     end
 
     -- 获取专属装备 tier 以查表覆盖参数
@@ -803,22 +709,15 @@ function SkillSystem.CastAoeDotSkill(skill, player)
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage = GameConfig.CalcDamage(
-                math.floor(effectiveAtk * damageMultiplier),
-                m.def
-            )
-            local isCrit
-            damage, isCrit = player:ApplyCrit(damage)
-            damage = m:TakeDamage(damage, player) or damage
-
-            EventBus.Emit("player_deal_damage", player, m)
+            local damage, isCrit = HitResolver.Standard(player, m,
+                math_floor(effectiveAtk * damageMultiplier))
 
             local dotKey = "blood_sea_" .. (m.id or tostring(m))
             CombatSystem.activeDots[dotKey] = {
                 monster = m,
                 remaining = dotDuration,
                 tickTimer = 0,
-                dmgPerTick = math.floor(effectiveAtk * dotDamagePercent),
+                dmgPerTick = math_floor(effectiveAtk * dotDamagePercent),
                 effectName = "血蚀",
                 source = player,
             }
@@ -833,40 +732,21 @@ function SkillSystem.CastAoeDotSkill(skill, player)
         end
     end
 
-    -- 连击（统一入口：概率判定 + 延迟调度 + 特效重播）
-    SkillSystem.TryCombo(player, skill, targetAngle, function()
-        for i = 1, hitCount do
-            local m = targets[i]
-            if m and m.alive then
-                local damage = GameConfig.CalcDamage(
-                    math.floor(effectiveAtk * damageMultiplier),
-                    m.def
-                )
-                local isCrit
-                damage, isCrit = player:ApplyCrit(damage)
-                damage = m:TakeDamage(damage, player) or damage
-
-                EventBus.Emit("player_deal_damage", player, m)
-
-                -- 连击刷新 DoT 持续时间
+    -- 连击（ReplayHits + 连击刷新 DOT）
+    ComboRunner.Schedule(player, skill, targetAngle, function()
+        ComboRunner.ReplayHits(player, skill, targets, hitCount,
+            math_floor(effectiveAtk * damageMultiplier),
+            function(m)
                 local dotKey = "blood_sea_" .. (m.id or tostring(m))
                 CombatSystem.activeDots[dotKey] = {
                     monster = m,
                     remaining = dotDuration,
                     tickTimer = 0,
-                    dmgPerTick = math.floor(effectiveAtk * dotDamagePercent),
+                    dmgPerTick = math_floor(effectiveAtk * dotDamagePercent),
                     effectName = "血蚀",
                     source = player,
                 }
-
-                CombatSystem.AddFloatingText(
-                    m.x, m.y - 0.3,
-                    skill.icon .. "连击 " .. damage,
-                    {255, 100, 255, 255},
-                    1.2
-                )
-            end
-        end
+            end)
     end)
 
     -- 技能名浮动文字
@@ -942,9 +822,9 @@ function SkillSystem.CastXianyuanConeAoeSkill(skill, player)
     if hitCount == 0 then return false end
 
     -- 计算朝向角度（用于特效和连击）
-    local targetAngle = player.facingRight and 0 or math.pi
+    local targetAngle = player.facingRight and 0 or math_pi
     if player.target then
-        targetAngle = math.atan(player.target.y - player.y, player.target.x - player.x)
+        targetAngle = math_atan(player.target.y - player.y, player.target.x - player.x)
     end
 
     -- 计算仙缘四属性之和
@@ -954,22 +834,17 @@ function SkillSystem.CastXianyuanConeAoeSkill(skill, player)
                       + player:GetTotalPhysique()
 
     local damageCoeff = skill.damageCoeff or 2.0
-    local rawDmg = math.floor(xianyuanSum * damageCoeff)
+    local rawDmg = math_floor(xianyuanSum * damageCoeff)
 
     -- 技能伤害百分比加成（悟性派生：每5点+1%）
     local skillDmgPercent = (player.equipSkillDmg or 0) + player:GetSkillDmgPercent()
-    rawDmg = math.floor(rawDmg * (1 + skillDmgPercent))
+    rawDmg = math_floor(rawDmg * (1 + skillDmgPercent))
 
     -- 对命中目标造成伤害
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage = GameConfig.CalcDamage(rawDmg, m.def)
-            local isCrit
-            damage, isCrit = player:ApplyCrit(damage)
-            damage = m:TakeDamage(damage, player) or damage
-
-            EventBus.Emit("player_deal_damage", player, m)
+            local damage, isCrit = HitResolver.Standard(player, m, rawDmg)
 
             local dmgText = skill.icon .. damage
             local dmgColor = skill.effectColor
@@ -991,26 +866,21 @@ function SkillSystem.CastXianyuanConeAoeSkill(skill, player)
         targetAngle = targetAngle,
     })
 
-    -- 连击（统一入口：概率判定 + 延迟调度 + 特效重播）
-    SkillSystem.TryCombo(player, skill, targetAngle, function()
-        local comboTargets = GameState.GetMonstersInRange(player.x, player.y, skill.range)
-        comboTargets = SkillSystem.FilterByShape(comboTargets, skill, player, targetAngle)
+    -- 连击（自定义回调：reselect 模式 + 仙缘公式重算）
+    ComboRunner.Schedule(player, skill, targetAngle, function()
+        local comboTargets, comboHitCount = TargetSelector.SelectAoE(player, skill, 8)
+        if comboHitCount == 0 then return end
         local comboXianyuanSum = player:GetTotalWisdom()
                               + player:GetTotalFortune()
                               + player:GetTotalConstitution()
                               + player:GetTotalPhysique()
-        local comboRaw = math.floor(comboXianyuanSum * damageCoeff)
+        local comboRaw = math_floor(comboXianyuanSum * damageCoeff)
         local comboSkillDmg = (player.equipSkillDmg or 0) + player:GetSkillDmgPercent()
-        comboRaw = math.floor(comboRaw * (1 + comboSkillDmg))
-        local comboHitCount = math.min(#comboTargets, skill.maxTargets or 8)
+        comboRaw = math_floor(comboRaw * (1 + comboSkillDmg))
         for i = 1, comboHitCount do
             local m = comboTargets[i]
             if m and m.alive then
-                local damage = GameConfig.CalcDamage(comboRaw, m.def)
-                local isCrit
-                damage, isCrit = player:ApplyCrit(damage)
-                damage = m:TakeDamage(damage, player) or damage
-                EventBus.Emit("player_deal_damage", player, m)
+                local damage, isCrit = HitResolver.Standard(player, m, comboRaw)
                 local dmgText = skill.icon .. damage
                 local dmgColor = skill.effectColor
                 if isCrit then
@@ -1042,9 +912,9 @@ function SkillSystem.CastDamageAmpZoneSkill(skill, player)
     end
 
     -- 扣除当前HP的百分比
-    local hpCost = math.floor(player.hp * hpCostPercent)
+    local hpCost = math_floor(player.hp * hpCostPercent)
     if hpCost < 1 then hpCost = 1 end
-    player.hp = math.max(1, player.hp - hpCost)
+    player.hp = math_max(1, player.hp - hpCost)
 
     local zoneDuration = skill.zoneDuration or 10.0
     local damageBoostPercent = skill.damageBoostPercent or 0.10
@@ -1287,8 +1157,8 @@ function SkillSystem.SwordShieldPassive(skill, player, skillId, dt)
 
             -- 消耗一柄剑，格挡部分伤害
             ss.swords = ss.swords - 1
-            local blocked = math.floor(damage * ss.reducePercent)
-            local finalDmg = math.max(1, damage - blocked)
+            local blocked = math_floor(damage * ss.reducePercent)
+            local finalDmg = math_max(1, damage - blocked)
 
             -- 重置恢复计时器（受击后重新开始计时）
             ss.recoverTimer = 0
@@ -1322,7 +1192,7 @@ function SkillSystem.SwordShieldPassive(skill, player, skillId, dt)
         ss.recoverTimer = ss.recoverTimer + dt
         if ss.recoverTimer >= ss.recoverInterval then
             ss.recoverTimer = ss.recoverTimer - ss.recoverInterval
-            ss.swords = math.min(ss.maxSwords, ss.swords + 1)
+            ss.swords = math_min(ss.maxSwords, ss.swords + 1)
             CombatSystem.AddFloatingText(
                 player.x, player.y - 0.8,
                 "🔰剑恢复 (" .. ss.swords .. "/" .. ss.maxSwords .. ")",
@@ -1405,25 +1275,17 @@ function SkillSystem.TriggerNthCastEffect(skill, player)
     end
 
     -- 以玩家到目标的角度作为巨剑释放方向
-    local targetAngle = math.atan(target.y - player.y, target.x - player.x)
+    local targetAngle = math_atan(target.y - player.y, target.x - player.x)
 
-    -- 判定中心：身前偏移（与原巨剑一致）
-    local cx = player.x + math.cos(targetAngle) * (skill.triggerRange or 1.5)
-    local cy = player.y + math.sin(targetAngle) * (skill.triggerRange or 1.5)
-
-    local targets = GameState.GetMonstersInRange(cx, cy, skill.triggerRange or 1.5)
-
-    -- 限制最大目标数
-    local hitCount = math.min(#targets, skill.triggerMaxTargets or 5)
-
-    -- 普攻目标排首位
-    table.sort(targets, function(a, b)
-        if a == player.target then return true end
-        if b == player.target then return false end
-        local distA = Utils.Distance(player.x, player.y, a.x, a.y)
-        local distB = Utils.Distance(player.x, player.y, b.x, b.y)
-        return distA < distB
-    end)
+    -- Step 2.5: 统一使用 TargetSelector（centerOffset + primaryFirst）
+    local targets, hitCount = TargetSelector.Select(player, {
+        range        = skill.triggerRange or 1.5,
+        maxTargets   = skill.triggerMaxTargets or 5,
+        centerOffset = skill.triggerRange or 1.5,
+        primaryFirst = true,
+        facingAngle  = targetAngle,
+    })
+    if hitCount == 0 then return end
 
     local totalAtk = player:GetTotalAtk()
     local skillDmgPercent = (player.equipSkillDmg or 0) + player:GetSkillDmgPercent()
@@ -1432,15 +1294,8 @@ function SkillSystem.TriggerNthCastEffect(skill, player)
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage = GameConfig.CalcDamage(
-                math.floor(effectiveAtk * (skill.triggerDamageMultiplier or 3.0)),
-                m.def
-            )
-            local isCrit
-            damage, isCrit = player:ApplyCrit(damage)
-            damage = m:TakeDamage(damage, player) or damage
-
-            EventBus.Emit("player_deal_damage", player, m)
+            local damage, isCrit = HitResolver.Standard(player, m,
+                math_floor(effectiveAtk * (skill.triggerDamageMultiplier or 3.0)))
 
             local dmgText = "⚡" .. damage
             local dmgColor = skill.effectColor
@@ -1486,17 +1341,17 @@ function SkillSystem.CreateSwordFormationFromSkill(skill, player, cx, cy)
     end
 
     -- 计算插剑位置：在命中点附近，带小随机偏移
-    local spawnX = cx + (math.random() - 0.5) * 0.4
-    local spawnY = cy + (math.random() - 0.5) * 0.4
+    local spawnX = cx + (math_random() - 0.5) * 0.4
+    local spawnY = cy + (math_random() - 0.5) * 0.4
 
     -- 检查是否与已有剑阵太近
     for _, sf in ipairs(player._swordFormations) do
         local dx = sf.x - spawnX
         local dy = sf.y - spawnY
         if dx * dx + dy * dy < SWORD_FORMATION_MIN_DIST * SWORD_FORMATION_MIN_DIST then
-            local angle = math.random() * math.pi * 2
-            spawnX = sf.x + math.cos(angle) * SWORD_FORMATION_MIN_DIST
-            spawnY = sf.y + math.sin(angle) * SWORD_FORMATION_MIN_DIST
+            local angle = math_random() * math_pi * 2
+            spawnX = sf.x + math_cos(angle) * SWORD_FORMATION_MIN_DIST
+            spawnY = sf.y + math_sin(angle) * SWORD_FORMATION_MIN_DIST
             break
         end
     end
@@ -1510,7 +1365,7 @@ function SkillSystem.CreateSwordFormationFromSkill(skill, player, cx, cy)
     local totalAtk = player:GetTotalAtk()
     local skillDmgPercent = (player.equipSkillDmg or 0) + player:GetSkillDmgPercent()
     local effectiveAtk = totalAtk * (1 + skillDmgPercent)
-    local rawDotDmg = math.floor(effectiveAtk * (skill.dotDamagePercent or 0.10))
+    local rawDotDmg = math_floor(effectiveAtk * (skill.dotDamagePercent or 0.10))
 
     local dotDuration = skill.dotDuration or 5.0
     local dotRange = skill.dotRange or 2.0
@@ -1550,7 +1405,7 @@ function SkillSystem.CastMeleeAoeDotSkill(skill, player)
     if not player.target or not player.target.alive then return false end
 
     -- 以玩家到目标的角度作为释放方向
-    local targetAngle = math.atan(player.target.y - player.y, player.target.x - player.x)
+    local targetAngle = math_atan(player.target.y - player.y, player.target.x - player.x)
 
     -- 目标选择（Pattern A: 主目标保底 + 身前偏移，原代码硬编码 centerOffset=range）
     local targets, hitCount = TargetSelector.Select(player, {
@@ -1566,8 +1421,8 @@ function SkillSystem.CastMeleeAoeDotSkill(skill, player)
     if not targets then return false end
 
     -- 剑阵 DOT 放置点（身前偏移 = range）
-    local cx = player.x + math.cos(targetAngle) * skill.range
-    local cy = player.y + math.sin(targetAngle) * skill.range
+    local cx = player.x + math_cos(targetAngle) * skill.range
+    local cy = player.y + math_sin(targetAngle) * skill.range
 
     local totalAtk = player:GetTotalAtk()
     local skillDmgPercent = (player.equipSkillDmg or 0) + player:GetSkillDmgPercent()
@@ -1577,15 +1432,8 @@ function SkillSystem.CastMeleeAoeDotSkill(skill, player)
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage = GameConfig.CalcDamage(
-                math.floor(effectiveAtk * skill.damageMultiplier),
-                m.def
-            )
-            local isCrit
-            damage, isCrit = player:ApplyCrit(damage)
-            damage = m:TakeDamage(damage, player) or damage
-
-            EventBus.Emit("player_deal_damage", player, m)
+            local damage, isCrit = HitResolver.Standard(player, m,
+                math_floor(effectiveAtk * skill.damageMultiplier))
 
             local dmgText = skill.icon .. damage
             local dmgColor = skill.effectColor
@@ -1600,29 +1448,10 @@ function SkillSystem.CastMeleeAoeDotSkill(skill, player)
     -- 在命中点创建剑阵DOT（电磁塔）
     SkillSystem.CreateSwordFormationFromSkill(skill, player, cx, cy)
 
-    -- 连击（统一入口）
-    SkillSystem.TryCombo(player, skill, targetAngle, function()
-        for i = 1, hitCount do
-            local m = targets[i]
-            if m and m.alive then
-                local damage = GameConfig.CalcDamage(
-                    math.floor(effectiveAtk * skill.damageMultiplier),
-                    m.def
-                )
-                local isCrit
-                damage, isCrit = player:ApplyCrit(damage)
-                damage = m:TakeDamage(damage, player) or damage
-                EventBus.Emit("player_deal_damage", player, m)
-
-                CombatSystem.AddFloatingText(
-                    m.x, m.y - 0.3,
-                    skill.icon .. "连击 " .. damage,
-                    {255, 100, 255, 255},
-                    1.2
-                )
-            end
-        end
-        -- 连击也插剑（额外DOT）
+    -- 连击（ReplayHits + 额外剑阵 DOT）
+    ComboRunner.Schedule(player, skill, targetAngle, function()
+        ComboRunner.ReplayHits(player, skill, targets, hitCount,
+            math_floor(effectiveAtk * skill.damageMultiplier))
         SkillSystem.CreateSwordFormationFromSkill(skill, player, cx, cy)
     end)
 
@@ -1690,13 +1519,13 @@ function SkillSystem.UpdateSwordFormations(dt)
                     else
                         tickDmg = GameConfig.CalcDamage(sf.rawDmg, nearest.def)
                     end
-                    tickDmg = math.max(1, tickDmg)
+                    tickDmg = math_max(1, tickDmg)
                     -- 独立判暴击
                     local isCrit = false
                     if sf.source and sf.source.ApplyCrit then
                         tickDmg, isCrit = sf.source:ApplyCrit(tickDmg)
                     end
-                    tickDmg = nearest:TakeDamage(tickDmg, sf.source) or tickDmg
+                    tickDmg = nearest:TakeDamage(tickDmg, sf.source)
                     local dmgText = tickDmg .. " ⚡"
                     local dmgColor = {150, 200, 255, 255}
                     if isCrit then
@@ -1741,26 +1570,26 @@ function SkillSystem.TriggerChargePassiveRelease(skill)
     if not player or not player.alive then return end
 
     -- 伤害 = 1倍重击公式：(ATK + HeavyHit) × (1 + 根骨重击加成)
-    local heavyDmg = math.floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
+    local heavyDmg = math_floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
     local heavyDmgBonus = player:GetConstitutionHeavyDmgBonus()
     if heavyDmgBonus > 0 then
-        heavyDmg = math.floor(heavyDmg * (1 + heavyDmgBonus))
+        heavyDmg = math_floor(heavyDmg * (1 + heavyDmgBonus))
     end
 
     -- 暴击判定
     local isCrit
     heavyDmg, isCrit = player:ApplyCrit(heavyDmg)
 
-    -- AoE 真实伤害（不走 CalcDamage）
-    local targets = GameState.GetMonstersInRange(player.x, player.y, skill.aoeRange or 1.5)
-    local hitCount = math.min(#targets, skill.maxTargets or 8)
+    -- Step 2.5: 统一使用 TargetSelector（简单圆形 AoE，无排序）
+    local targets, hitCount = TargetSelector.SelectCircle(
+        player.x, player.y, skill.aoeRange or 1.5, skill.maxTargets or 8
+    )
 
     local actualHeavyDmg = heavyDmg
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            actualHeavyDmg = m:TakeDamage(heavyDmg, player) or heavyDmg
-            EventBus.Emit("player_deal_damage", player, m)
+            actualHeavyDmg = HitResolver.Hit(player, m, heavyDmg, { skipCalcDamage = true, skipCrit = true })
         end
     end
 
@@ -1792,7 +1621,7 @@ function SkillSystem.CastMultiZoneHeavySkill(skill, player)
     if not player.target or not player.target.alive then return false end
 
     -- 朝向：玩家→目标
-    local targetAngle = math.atan(player.target.y - player.y, player.target.x - player.x)
+    local targetAngle = math_atan(player.target.y - player.y, player.target.x - player.x)
 
     -- tierScaling 获取当前法宝阶级的倍率
     local damageMultiplier = skill.damageMultiplier or 1.5
@@ -1815,8 +1644,8 @@ function SkillSystem.CastMultiZoneHeavySkill(skill, player)
     -- 计算 2×2 网格的 4 个区域中心坐标
     local zoneSize   = skill.zoneSize or 1.0
     local zoneOffset = skill.zoneOffset or 1.0  -- 区域起始偏移（玩家前方多远）
-    local cosA = math.cos(targetAngle)
-    local sinA = math.sin(targetAngle)
+    local cosA = math_cos(targetAngle)
+    local sinA = math_sin(targetAngle)
     -- 法线方向（垂直于朝向）
     local perpCos = -sinA
     local perpSin =  cosA
@@ -1846,8 +1675,8 @@ function SkillSystem.CastMultiZoneHeavySkill(skill, player)
         for _, m in ipairs(monstersNearby) do
             if m.alive and not hitSet[m] then
                 -- 方形区域检测
-                local dx = math.abs(m.x - zc.x)
-                local dy = math.abs(m.y - zc.y)
+                local dx = math_abs(m.x - zc.x)
+                local dy = math_abs(m.y - zc.y)
                 if dx <= halfSize and dy <= halfSize then
                     hitSet[m] = true
                     table.insert(hitList, m)
@@ -1870,28 +1699,27 @@ function SkillSystem.CastMultiZoneHeavySkill(skill, player)
         local distB = Utils.Distance(player.x, player.y, b.x, b.y)
         return distA < distB
     end)
-    local hitCount = math.min(#hitList, maxTargets)
+    local hitCount = math_min(#hitList, maxTargets)
 
     -- 重击伤害公式：(ATK + HeavyHit) × damageMultiplier × (1 + 根骨重击加成)
     -- 无视防御，直接 TakeDamage
-    local baseDmg = math.floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
+    local baseDmg = math_floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
     local heavyDmgBonus = player:GetConstitutionHeavyDmgBonus()
     if heavyDmgBonus > 0 then
-        baseDmg = math.floor(baseDmg * (1 + heavyDmgBonus))
+        baseDmg = math_floor(baseDmg * (1 + heavyDmgBonus))
     end
-    local scaledDmg = math.floor(baseDmg * damageMultiplier)
+    local scaledDmg = math_floor(baseDmg * damageMultiplier)
 
     -- 暴击判定（全体共用同一次判定）
     local isCrit
     scaledDmg, isCrit = player:ApplyCrit(scaledDmg)
 
-    -- 对命中目标施加伤害
+    -- 对命中目标施加伤害（暴击已在外部判定，per-target 只做 TakeDamage + Event）
     local actualDmg = scaledDmg
     for i = 1, hitCount do
         local m = hitList[i]
         if m and m.alive then
-            actualDmg = m:TakeDamage(scaledDmg, player) or scaledDmg
-            EventBus.Emit("player_deal_damage", player, m)
+            actualDmg = HitResolver.Hit(player, m, scaledDmg, { skipCalcDamage = true, skipCrit = true })
         end
     end
 
@@ -1909,23 +1737,21 @@ function SkillSystem.CastMultiZoneHeavySkill(skill, player)
             duration = 1.2,  -- 神塔镇压：凝现→蓄力→炸裂，需要较长展示时间
         })
 
-    -- 连击尝试
-    SkillSystem.TryCombo(player, skill, targetAngle, function()
-        -- 连击伤害重新计算
-        local comboDmg = math.floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
+    -- 连击尝试（自定义回调：重击伤害重算 + 共享暴击）
+    ComboRunner.Schedule(player, skill, targetAngle, function()
+        local comboDmg = math_floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
         local comboDmgBonus = player:GetConstitutionHeavyDmgBonus()
         if comboDmgBonus > 0 then
-            comboDmg = math.floor(comboDmg * (1 + comboDmgBonus))
+            comboDmg = math_floor(comboDmg * (1 + comboDmgBonus))
         end
-        comboDmg = math.floor(comboDmg * damageMultiplier)
+        comboDmg = math_floor(comboDmg * damageMultiplier)
         local comboCrit
         comboDmg, comboCrit = player:ApplyCrit(comboDmg)
 
         for i = 1, hitCount do
             local m = hitList[i]
             if m and m.alive then
-                m:TakeDamage(comboDmg, player)
-                EventBus.Emit("player_deal_damage", player, m)
+                HitResolver.Hit(player, m, comboDmg, { skipCalcDamage = true, skipCrit = true })
             end
         end
         local comboPrefix = comboCrit and (icon .. "连击暴击 ") or (icon .. "连击 ")
@@ -1952,13 +1778,13 @@ function SkillSystem.CastHpDamageSkill(skill, player)
     if not player.target or not player.target.alive then return false end
 
     local maxHp = player:GetTotalMaxHp()
-    local hpCost = math.floor(maxHp * (skill.hpCost or 0))
+    local hpCost = math_floor(maxHp * (skill.hpCost or 0))
 
     -- HP 不够（至少保留 1 点）
     if player.hp <= hpCost then return false end
 
     -- 扣血
-    player.hp = math.max(1, player.hp - hpCost)
+    player.hp = math_max(1, player.hp - hpCost)
 
     -- 累计消耗（供血爆读取）
     if skill.feedsAccumulator then
@@ -1966,7 +1792,7 @@ function SkillSystem.CastHpDamageSkill(skill, player)
     end
 
     -- 目标选择（Pattern C: 圆形范围，有 centerOffset，无排序无形状过滤）
-    local targetAngle = math.atan(player.target.y - player.y, player.target.x - player.x)
+    local targetAngle = math_atan(player.target.y - player.y, player.target.x - player.x)
     local targets, hitCount = TargetSelector.Select(player, {
         range        = skill.range or 1.5,
         maxTargets   = skill.maxTargets or 5,
@@ -1984,7 +1810,7 @@ function SkillSystem.CastHpDamageSkill(skill, player)
         rawDmg = rawDmg * (1 + skillDmgPercent)
     end
 
-    rawDmg = math.floor(rawDmg)
+    rawDmg = math_floor(rawDmg)
 
     -- 多目标技能：每个血怒效果每次施法最多叠加一层
     CombatSystem._bloodRageTriggeredThisCast = false
@@ -1994,11 +1820,7 @@ function SkillSystem.CastHpDamageSkill(skill, player)
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage = GameConfig.CalcDamage(rawDmg, m.def)
-            local isCrit
-            damage, isCrit = player:ApplyCrit(damage)
-            damage = m:TakeDamage(damage, player) or damage
-            EventBus.Emit("player_deal_damage", player, m)
+            local damage, isCrit = HitResolver.Standard(player, m, rawDmg)
 
             if not firstHitMonster and m.alive then
                 firstHitMonster = m
@@ -2040,14 +1862,14 @@ function SkillSystem.CastHpHealDamageSkill(skill, player)
     local targetAngle
     if skill.shape then
         if not player.target or not player.target.alive then return false end
-        targetAngle = math.atan(player.target.y - player.y, player.target.x - player.x)
+        targetAngle = math_atan(player.target.y - player.y, player.target.x - player.x)
     end
 
     local maxHp = player:GetTotalMaxHp()
 
     -- 回血
-    local healAmount = math.floor(maxHp * (skill.healPercent or 0.30))
-    player.hp = math.min(maxHp, player.hp + healAmount)
+    local healAmount = math_floor(maxHp * (skill.healPercent or 0.30))
+    player.hp = math_min(maxHp, player.hp + healAmount)
     CombatSystem.AddFloatingText(player.x, player.y - 0.8, "+" .. healAmount, {80, 255, 120, 255}, 1.2)
 
     -- 目标选择（Pattern C: 条件形状过滤 + centerOffset，无排序）
@@ -2072,17 +1894,13 @@ function SkillSystem.CastHpHealDamageSkill(skill, player)
         rawDmg = rawDmg * (1 + skillDmgPercent)
     end
 
-    rawDmg = math.floor(rawDmg)
+    rawDmg = math_floor(rawDmg)
 
     -- 对每个目标造成伤害
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage = GameConfig.CalcDamage(rawDmg, m.def)
-            local isCrit
-            damage, isCrit = player:ApplyCrit(damage)
-            damage = m:TakeDamage(damage, player) or damage
-            EventBus.Emit("player_deal_damage", player, m)
+            local damage, isCrit = HitResolver.Standard(player, m, rawDmg)
 
             local dmgText = isCrit and (skill.icon .. "暴击 " .. damage) or (skill.icon .. damage)
             local dmgColor = isCrit and {255, 220, 50, 255} or (skill.effectColor or {80, 220, 120, 255})
@@ -2154,23 +1972,16 @@ function SkillSystem.TogglePassiveTick(skill, player, skillId, dt)
         -- AoE 真实伤害（焚血灼伤周围敌人）
         if tickDmg and tickDmg > 0 and skill.aoeRange then
             local targets = GameState.GetMonstersInRange(player.x, player.y, skill.aoeRange)
-            local aoeDmg = math.floor(tickDmg)
+            local aoeDmg = math_floor(tickDmg)
             if aoeDmg > 0 then
                 for _, m in ipairs(targets) do
                     if m and m.alive then
-                        -- 持续伤害：不走 CalcDamage，直接 TakeDamage
-                        -- 焚血(canCrit=true)吃暴击；其他持续性真伤不吃暴击
-                        local finalDmg = aoeDmg
-                        local isCrit = false
-                        if skill.canCrit and player.ApplyCrit then
-                            finalDmg, isCrit = player:ApplyCrit(aoeDmg)
-                        end
-                        local dmgOk, dmgErr = pcall(m.TakeDamage, m, finalDmg, player)
-                        if not dmgOk then
-                            print("[SkillSystem] TakeDamage pcall error: " .. tostring(dmgErr))
-                        end
-                        -- 持续伤害标记 isDot=true，由系统级逻辑过滤血怒等后处理
-                        EventBus.Emit("player_deal_damage", player, m, true)
+                        -- HitResolver: 真伤 + 条件暴击 + pcall + isDot
+                        local finalDmg, isCrit = HitResolver.Hit(player, m, aoeDmg, {
+                            skipCalcDamage = true,
+                            conditionalCrit = true, canCrit = skill.canCrit,
+                            pcallTakeDamage = true, isDot = true,
+                        })
                         -- 浮动伤害数字（暴击时放大显示）
                         local textScale = isCrit and 1.6 or 1.2
                         local critColor = isCrit and {255, 200, 0, 255} or skill.effectColor
@@ -2225,34 +2036,28 @@ function SkillSystem.AccumulateTriggerTick(skill, player, skillId, dt)
 
     -- 达到阈值：先检查范围内是否有目标，没有则等待（不空放）
     local targets = GameState.GetMonstersInRange(player.x, player.y, skill.aoeRange or 2)
-    local hitCount = math.min(#targets, skill.maxTargets or 5)
+    local hitCount = math_min(#targets, skill.maxTargets or 5)
     if hitCount == 0 then return end
 
     -- 有目标，引爆！重置累计器
     player[field] = 0
 
     -- 基础伤害 = maxHP × damagePercent
-    local baseDmg = math.floor(maxHp * (skill.damagePercent or 0.10))
+    local baseDmg = math_floor(maxHp * (skill.damagePercent or 0.10))
 
     -- 血怒值加成（防御性 or 0 兜底）
     if skill.useBloodRageValue then
         local bloodRageValue = player:GetPhysiqueBloodRageValue() or 0
-        baseDmg = math.floor(baseDmg * (1 + bloodRageValue))
+        baseDmg = math_floor(baseDmg * (1 + bloodRageValue))
     end
 
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage = baseDmg  -- 真实伤害，不走 CalcDamage
-            local isCrit
-            damage, isCrit = player:ApplyCrit(damage)
-            local dmgOk, dmgResult = pcall(m.TakeDamage, m, damage, player)
-            if dmgOk then
-                damage = dmgResult or damage
-            else
-                print("[SkillSystem] AccumulateTrigger TakeDamage error: " .. tostring(dmgResult))
-            end
-            EventBus.Emit("player_deal_damage", player, m)
+            -- HitResolver: TrueDamage (skipCalcDamage) + pcall 保护
+            local damage, isCrit = HitResolver.Hit(player, m, baseDmg, {
+                skipCalcDamage = true, pcallTakeDamage = true,
+            })
 
             local dmgText = isCrit and (skill.icon .. "血神暴击 " .. damage) or (skill.icon .. "血神 " .. damage)
             local dmgColor = isCrit and {255, 220, 50, 255} or (skill.effectColor or {180, 20, 20, 255})

@@ -197,7 +197,7 @@ function TestBattlePipeline.RunAll()
                 aggroList = {},
                 -- TakeDamage 简化版（模拟核心行为）
                 TakeDamage = function(self, damage, source)
-                    if not self.alive then return damage end
+                    if not self.alive then return 0 end
                     -- 易伤 debuff
                     if self.debuffs["vulnerability"] then
                         local vuln = self.debuffs["vulnerability"]
@@ -264,7 +264,7 @@ function TestBattlePipeline.RunAll()
             local m = makeMockMonster({ hp = 0 })
             m.alive = false
             local actual = m:TakeDamage(100, player)
-            assert_eq("T3-5 已死亡怪物返回伤害", actual, 100)
+            assert_eq("T3-5 已死亡怪物返回0", actual, 0)
         end
     else
         print("  [SKIP] Player 未初始化，跳过 Monster:TakeDamage 测试")
@@ -302,9 +302,11 @@ function TestBattlePipeline.RunAll()
             player.equipSpecialEffects = {}
             player.equipDmgReduce = 0
 
-            player:TakeDamage(100, nil)
+            local ret = player:TakeDamage(100, nil)
             assert_eq("T4-1 Player HP 扣减", player.hp, 400)
             assert_eq("T4-1 Player 仍存活", player.alive, true)
+            assert_true("T4-1 Player TakeDamage 返回 number", type(ret) == "number")
+            assert_eq("T4-1 Player TakeDamage 返回实际伤害", ret, 100)
 
             player.equipSpecialEffects = origEffects
         end
@@ -321,9 +323,10 @@ function TestBattlePipeline.RunAll()
             player.equipSpecialEffects = {}
             player.equipDmgReduce = 0
 
-            player:TakeDamage(50, nil)
+            local ret = player:TakeDamage(50, nil)
             assert_eq("T4-2 护盾部分吸收后 shield", player.shieldHp, 30)
             assert_eq("T4-2 护盾部分吸收后 HP 不变", player.hp, 500)
+            assert_eq("T4-2 护盾全吸收返回0", ret, 0)
 
             player.equipSpecialEffects = origEffects
         end
@@ -340,9 +343,10 @@ function TestBattlePipeline.RunAll()
             player.equipSpecialEffects = {}
             player.equipDmgReduce = 0
 
-            player:TakeDamage(100, nil)
+            local ret = player:TakeDamage(100, nil)
             assert_eq("T4-3 护盾击穿后 shield=0", player.shieldHp, 0)
             assert_eq("T4-3 护盾击穿后 HP 扣余量", player.hp, 430)
+            assert_eq("T4-3 护盾击穿返回穿透伤害", ret, 70)
 
             player.equipSpecialEffects = origEffects
         end
@@ -363,8 +367,9 @@ function TestBattlePipeline.RunAll()
                     return math.floor(damage * 0.5) -- 减伤 50%
                 end,
             }
-            player:TakeDamage(100, nil)
+            local ret = player:TakeDamage(100, nil)
             assert_eq("T4-4 hook减伤50% HP扣50", player.hp, 450)
+            assert_eq("T4-4 hook减伤返回实际伤害50", ret, 50)
 
             player._preDamageHooks = {}
             player.equipSpecialEffects = origEffects
@@ -379,8 +384,9 @@ function TestBattlePipeline.RunAll()
             player.shieldHp = 0
             player._preDamageHooks = {}
 
-            player:TakeDamage(999, nil)
+            local ret = player:TakeDamage(999, nil)
             assert_eq("T4-5 无敌状态 HP 不变", player.hp, 500)
+            assert_eq("T4-5 无敌状态返回0", ret, 0)
 
             player.invincibleTimer = 0
         end
@@ -408,33 +414,48 @@ function TestBattlePipeline.RunAll()
             hp = 200,
             maxHp = 200,
             evadeChance = 0, -- 禁用闪避确保确定性
+            hurtFlashTimer = 0,
+            state = "follow",
+            deathTimer = 0,
+            target = nil,
+            name = "TestPet",
+            reviveTime = 10,
             TakeDamage = function(self, damage, source)
-                -- 简化版 Pet:TakeDamage 核心逻辑
-                if not self.alive then return end
+                -- 与真实 Pet:TakeDamage 对齐的返回值语义
+                if not self.alive then return 0 end
                 -- 闪避（跳过以保证确定性）
                 self.hp = self.hp - damage
+                self.hurtFlashTimer = 0.2
                 if self.hp <= 0 then
                     self.hp = 0
                     self.alive = false
+                    self.state = "dead"
+                    self.deathTimer = 0
+                    self.target = nil
                 end
+                return damage
             end,
         }
 
         -- T5-1: 基本受伤
-        mockPet:TakeDamage(50, nil)
+        local ret = mockPet:TakeDamage(50, nil)
         assert_eq("T5-1 Pet HP 扣减", mockPet.hp, 150)
         assert_eq("T5-1 Pet 仍存活", mockPet.alive, true)
+        assert_true("T5-1 Pet TakeDamage 返回 number", type(ret) == "number")
+        assert_eq("T5-1 Pet TakeDamage 返回实际伤害", ret, 50)
 
         -- T5-2: 致死
-        mockPet:TakeDamage(200, nil)
+        ret = mockPet:TakeDamage(200, nil)
         assert_eq("T5-2 Pet 致死 HP=0", mockPet.hp, 0)
         assert_eq("T5-2 Pet alive=false", mockPet.alive, false)
+        assert_eq("T5-2 Pet 致死返回实际伤害", ret, 200)
 
         -- T5-3: 已死亡不再处理
         mockPet.hp = 0
         mockPet.alive = false
-        mockPet:TakeDamage(100, nil)
+        ret = mockPet:TakeDamage(100, nil)
         assert_eq("T5-3 已死亡 Pet HP 不变", mockPet.hp, 0)
+        assert_eq("T5-3 已死亡 Pet 返回0", ret, 0)
     end
 
     -- ===================================================================
@@ -618,7 +639,7 @@ function TestBattlePipeline.RunAll()
             local atk = player:GetTotalAtk()
             local rawDmg = GameConfig.CalcDamage(atk, mockM.def)
             local dmg, isCrit = player:ApplyCrit(rawDmg)
-            local actualDmg = mockM:TakeDamage(dmg, player) or dmg
+            local actualDmg = mockM:TakeDamage(dmg, player)
 
             assert_true("T8-1 端到端伤害>0", actualDmg > 0)
             assert_true("T8-1 端到端HP扣减正确", mockM.hp == 10000 - actualDmg)

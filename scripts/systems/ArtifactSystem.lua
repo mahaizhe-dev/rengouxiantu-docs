@@ -6,6 +6,7 @@
 local GameConfig = require("config.GameConfig")
 local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
+local HitResolver = require("systems.combat.HitResolver")
 
 local ArtifactSystem = {}
 
@@ -616,7 +617,7 @@ function ArtifactSystem.TryPassiveStrike(player, monster)
                 local forward = mx * cosA + my * sinA
                 local lateral = -mx * sinA + my * cosA
                 if forward >= fOff and forward <= (fOff + cfg.range) and math.abs(lateral) <= halfW then
-                    passiveDmg = m:TakeDamage(passiveDmg, player) or passiveDmg
+                    passiveDmg = HitResolver.Bypass(player, m, passiveDmg)
                     hitCount = hitCount + 1
                     CombatSystem.AddFloatingText(
                         m.x, m.y - 0.9,

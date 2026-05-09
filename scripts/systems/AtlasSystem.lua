@@ -52,6 +52,8 @@ function AtlasSystem.CreateEmpty()
             -- 装备首获类 (first_obtain)
             first_cyan         = false, -- 灵器初现
             first_red          = false, -- 圣器降世
+            -- 事件发放类 (event_grant)
+            wutian_drunk       = false, -- 大事件：无天醉酒
         },
         -- 神器（账号级副本，与 ArtifactSystem 同步）
         artifact = {
@@ -799,6 +801,7 @@ function AtlasSystem.Serialize()
             pioneer_heti       = data.medals.pioneer_heti or false,
             first_cyan         = data.medals.first_cyan or false,
             first_red          = data.medals.first_red or false,
+            wutian_drunk       = data.medals.wutian_drunk or false,
         },
         artifact = {
             activatedGrids = data.artifact.activatedGrids,

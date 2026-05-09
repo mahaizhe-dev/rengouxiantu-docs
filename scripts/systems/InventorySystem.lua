@@ -619,7 +619,8 @@ function InventorySystem.AddConsumable(consumableId, amount)
     local PetSkillData = require("config.PetSkillData")
     local bookData = PetSkillData.SKILL_BOOKS[consumableId]
     local eventData = GameConfig.EVENT_ITEMS and GameConfig.EVENT_ITEMS[consumableId]
-    local data = foodData or matData or bookData or eventData
+    local consumableData = GameConfig.CONSUMABLES[consumableId]
+    local data = foodData or matData or bookData or eventData or consumableData
     if not data then return false, originalAmount - amount end
 
     -- 循环创建新堆叠直到 amount 用尽或背包满
@@ -967,6 +968,12 @@ function InventorySystem.UseBatchConsumable(consumableId, count)
         return InventorySystem._UseBatchLingyunFruit(count)
     elseif consumableId == "gold_bar" or consumableId == "gold_brick" then
         return InventorySystem._SellBatchConsumable(consumableId, count)
+    elseif consumableId == "wubao_token_box" then
+        return InventorySystem._UseTokenBox(consumableId, "wubao_token")
+    elseif consumableId == "sha_hai_ling_box" then
+        return InventorySystem._UseTokenBox(consumableId, "sha_hai_ling")
+    elseif consumableId == "taixu_token_box" then
+        return InventorySystem._UseTokenBox(consumableId, "taixu_token")
     else
         return false, "该物品不支持批量操作"
     end
@@ -1108,6 +1115,42 @@ function InventorySystem._SellBatchConsumable(consumableId, count)
     local msg = "出售 " .. count .. " 个" .. cfgData.name .. "，获得 " .. totalPrice .. " " .. currencyName .. "！"
     print("[InventorySystem] " .. msg)
     return true, msg, count
+end
+
+--- 使用令牌盒：原子化消耗1个令牌盒 → 发放100个对应令牌（单次使用，不支持批量）
+---@param boxId string   令牌盒消耗品ID（如 "wubao_token_box"）
+---@param tokenId string 对应令牌ID（如 "wubao_token"）
+---@return boolean success, string|nil message, number|nil actualCount
+function InventorySystem._UseTokenBox(boxId, tokenId)
+    local player = GameState.player
+    if not player then return false, "玩家不存在" end
+
+    local TOKEN_PER_BOX = 100
+
+    local boxData = GameConfig.CONSUMABLES[boxId]
+    local tokenData = GameConfig.CONSUMABLES[tokenId]
+    if not boxData or not tokenData then return false, "物品配置不存在" end
+
+    -- 检查库存
+    local have = InventorySystem.CountConsumable(boxId)
+    if have <= 0 then return false, boxData.name .. "不足" end
+
+    -- 检查背包空间（令牌已有堆叠或有空位）
+    local canAdd = InventorySystem.CountConsumable(tokenId) > 0 or InventorySystem.GetFreeSlots() > 0
+    if not canAdd then
+        return false, "背包已满，无法使用！"
+    end
+
+    -- 原子扣除令牌盒
+    local ok = InventorySystem.ConsumeConsumable(boxId, 1)
+    if not ok then return false, "消耗失败" end
+
+    -- 发放令牌
+    InventorySystem.AddConsumable(tokenId, TOKEN_PER_BOX)
+
+    local msg = "使用 " .. boxData.name .. "，获得 " .. TOKEN_PER_BOX .. " 个" .. tokenData.name .. "！"
+    print("[InventorySystem] " .. msg)
+    return true, msg, 1
 end
 
 return InventorySystem

@@ -157,7 +157,7 @@ function CS.UpdateSacrificeAura(dt)
 
     local dmg = math.max(1, math.floor(player:GetTotalAtk() * (eff.damagePercent or 0.05)))
     for _, m in ipairs(targets) do
-        local actualDmg = m:TakeDamage(dmg, player) or dmg
+        local actualDmg = m:TakeDamage(dmg, player)
         CS.AddFloatingText(
             m.x, m.y - 0.3,
             actualDmg .. " 灼",
@@ -364,7 +364,7 @@ function CS.AddBloodRageStack(player, monster)
         local detonateDmg = math.max(1, math.floor(player:GetTotalMaxHp() * BLOOD_RAGE_DETONATE_RATIO))
         local detCrit
         detonateDmg, detCrit = player:ApplyCrit(detonateDmg)
-        detonateDmg = monster:TakeDamage(detonateDmg, player) or detonateDmg
+        detonateDmg = monster:TakeDamage(detonateDmg, player)
 
         local prefix = detCrit and "血怒引爆暴击 " or "血怒引爆 "
         local color = detCrit and FT_RAGE_DET_CRIT or FT_RAGE_DET_NORMAL

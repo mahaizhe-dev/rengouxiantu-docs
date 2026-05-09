@@ -8,6 +8,10 @@ local GameConfig = require("config.GameConfig")
 local GameState  = require("core.GameState")
 local EventBus   = require("core.EventBus")
 
+-- P1-3: local化高频 math 函数
+local math_floor  = math.floor
+local math_random = math.random
+
 -- 属性名 → Player getter 方法映射（数据驱动，不硬编码套装ID）
 local ATTRIBUTE_GETTERS = {
     wisdom       = "GetTotalWisdom",
@@ -51,7 +55,7 @@ local function TrySetAoe(player, triggerEvent, sourceX, sourceY)
                 -- 仍在冷却中，跳过
             else
                 -- 概率判定
-                if math.random() < aoe.chance then
+                if math_random() < aoe.chance then
                     -- 获取仙缘属性值（数据驱动：从 damageAttribute 映射到 getter）
                     local getterName = ATTRIBUTE_GETTERS[aoe.damageAttribute]
                     local attrValue = 0
@@ -60,7 +64,7 @@ local function TrySetAoe(player, triggerEvent, sourceX, sourceY)
                     end
 
                     -- 计算AOE伤害 = 属性值 × 系数 → CalcDamage（不吃暴击）
-                    local rawDmg = math.floor(attrValue * (aoe.damageCoeff or 5))
+                    local rawDmg = math_floor(attrValue * (aoe.damageCoeff or 5))
 
                     -- 对范围内怪物造成伤害
                     local targets = GameState.GetMonstersInRange(sourceX, sourceY, aoe.range)
@@ -68,7 +72,7 @@ local function TrySetAoe(player, triggerEvent, sourceX, sourceY)
                     for _, m in ipairs(targets) do
                         if m.alive then
                             local actualDmg = GameConfig.CalcDamage(rawDmg, m.def)
-                            actualDmg = m:TakeDamage(actualDmg, player) or actualDmg
+                            actualDmg = m:TakeDamage(actualDmg, player)
                             CS.AddFloatingText(
                                 m.x, m.y - 0.2,
                                 tostring(actualDmg),

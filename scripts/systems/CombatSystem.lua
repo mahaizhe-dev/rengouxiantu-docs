@@ -5,7 +5,21 @@
 local GameConfig = require("config.GameConfig")
 local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
+local HitResolver = require("systems.combat.HitResolver")
+local ArtifactSystem = require("systems.ArtifactSystem")
 local CombatSystem = {}
+
+-- P1-1: local化高频 math 函数（消除全局表查找）
+local math_floor  = math.floor
+local math_max    = math.max
+local math_min    = math.min
+local math_random = math.random
+local math_atan   = math.atan
+local math_cos    = math.cos
+local math_sin    = math.sin
+local math_abs    = math.abs
+local math_sqrt   = math.sqrt
+local math_pi     = math.pi
 
 --- 通用：紧凑清理定时数组（移除 elapsed >= durationField 的元素，原地操作无分配）
 ---@param arr table
@@ -116,7 +130,7 @@ EFFECT_HANDLERS["bleed_dot"] = {
         local cdKey = eff.type
         if (CombatSystem.dotCooldowns[cdKey] or 0) > 0 then return end
         local chance = eff.triggerChance or 1.0
-        if math.random() > chance then return end
+        if math_random() > chance then return end
         local dmgPerTick = player:GetTotalAtk() * (eff.damagePercent or 0.08)
         local mId = monster.id
         if CombatSystem.activeDots[mId] then
@@ -145,11 +159,10 @@ EFFECT_HANDLERS["bleed_dot"] = {
 EFFECT_HANDLERS["wind_slash"] = {
     onHit = function(eff, player, monster, _isCrit)
         if (eff._cooldown or 0) > 0 then return end
-        if math.random() <= (eff.triggerChance or 0.20) then
+        if math_random() <= (eff.triggerChance or 0.20) then
             eff._cooldown = eff.cooldown or 2.0
-            local dmg = math.max(1, math.floor(player:GetTotalAtk() * (eff.damagePercent or 1.20)))
-            local actualDmg = GameConfig.CalcDamage(dmg, monster.def)
-            actualDmg = monster:TakeDamage(actualDmg, player) or actualDmg
+            local dmg = math_max(1, math_floor(player:GetTotalAtk() * (eff.damagePercent or 1.20)))
+            local actualDmg = HitResolver.NoCrit(player, monster, dmg)
             CombatSystem.AddFloatingText(
                 monster.x, monster.y - 0.7,
                 "裂风 " .. actualDmg,
@@ -180,9 +193,9 @@ EFFECT_HANDLERS["lifesteal_burst"] = {
     onKill = function(eff, player, _monster)
         -- 击杀回血（保留）
         local maxHp = player:GetTotalMaxHp()
-        local healAmt = math.floor(maxHp * (eff.healPercent or 0.03))
+        local healAmt = math_floor(maxHp * (eff.healPercent or 0.03))
         if healAmt > 0 and player.hp < maxHp then
-            player.hp = math.min(maxHp, player.hp + healAmt)
+            player.hp = math_min(maxHp, player.hp + healAmt)
             CombatSystem.AddFloatingText(
                 player.x, player.y - 0.5,
                 "噬魂 +" .. healAmt,
@@ -203,24 +216,24 @@ EFFECT_HANDLERS["lifesteal_burst"] = {
         -- ══ 满层释放AOE ══
         eff._soulStacks = 0
         local atk = player:GetTotalAtk()
-        local baseDmg = math.floor(atk * (eff.damagePercent or 1.0))
+        local baseDmg = math_floor(atk * (eff.damagePercent or 1.0))
         if baseDmg < 1 then baseDmg = 1 end
 
         -- 计算朝向（朝最近的怪或面向方向）
         local nearest = GameState.GetNearestMonster(player.x, player.y, eff.range or 2.5)
         local sweepAngle
         if nearest then
-            sweepAngle = math.atan(nearest.y - player.y, nearest.x - player.x)
+            sweepAngle = math_atan(nearest.y - player.y, nearest.x - player.x)
         else
-            sweepAngle = player.facingRight and 0 or math.pi
+            sweepAngle = player.facingRight and 0 or math_pi
         end
-        local cosA = math.cos(sweepAngle)
-        local sinA = math.sin(sweepAngle)
+        local cosA = math_cos(sweepAngle)
+        local sinA = math_sin(sweepAngle)
 
         -- 矩形AOE命中检测（与伏魔刀相同范围：2.0长×1.0宽）
         local rectLen = eff.rectLength or 2.0
         local halfW = (eff.rectWidth or 1.0) / 2
-        local searchR = math.sqrt(rectLen * rectLen + halfW * halfW) + 0.5
+        local searchR = math_sqrt(rectLen * rectLen + halfW * halfW) + 0.5
         local targets = GameState.GetMonstersInRange(player.x, player.y, searchR)
         local hitCount = 0
         local totalHeal = 0
@@ -232,10 +245,10 @@ EFFECT_HANDLERS["lifesteal_burst"] = {
                 local my = m.y - player.y
                 local forward = mx * cosA + my * sinA
                 local lateral = -mx * sinA + my * cosA
-                if forward >= 0 and forward <= rectLen and math.abs(lateral) <= halfW then
+                if forward >= 0 and forward <= rectLen and math_abs(lateral) <= halfW then
                     -- CalcDamage 经过防御减算，不暴击
                     local dmg = GameConfig.CalcDamage(baseDmg, m.def)
-                    dmg = m:TakeDamage(dmg, player) or dmg
+                    dmg = m:TakeDamage(dmg, player)
                     hitCount = hitCount + 1
                     totalHeal = totalHeal + dmg
                     CombatSystem.AddFloatingText(
@@ -250,7 +263,7 @@ EFFECT_HANDLERS["lifesteal_burst"] = {
 
         -- 吸血回复（造成多少伤害回多少血）
         if totalHeal > 0 and player.hp < maxHp then
-            player.hp = math.min(maxHp, player.hp + totalHeal)
+            player.hp = math_min(maxHp, player.hp + totalHeal)
             CombatSystem.AddFloatingText(
                 player.x, player.y - 0.3,
                 "噬魂回复 +" .. totalHeal,
@@ -280,11 +293,10 @@ EFFECT_HANDLERS["shadow_strike"] = {
         if not isCrit then return end
         if not monster.alive then return end
         if (eff._cooldown or 0) > 0 then return end
-        if math.random() <= (eff.triggerChance or 0.50) then
+        if math_random() <= (eff.triggerChance or 0.50) then
             eff._cooldown = 2.0
-            local dmg = math.max(1, math.floor(player:GetTotalAtk() * (eff.damagePercent or 0.60)))
-            local actualDmg = GameConfig.CalcDamage(dmg, monster.def)
-            actualDmg = monster:TakeDamage(actualDmg, player) or actualDmg
+            local dmg = math_max(1, math_floor(player:GetTotalAtk() * (eff.damagePercent or 0.60)))
+            local actualDmg = HitResolver.NoCrit(player, monster, dmg)
             CombatSystem.AddFloatingText(
                 monster.x, monster.y - 0.9,
                 "灭影 " .. actualDmg,
@@ -321,7 +333,7 @@ EFFECT_HANDLERS["hp_regen_percent"] = {
                 local maxHp = player:GetTotalMaxHp()
                 if eff.stopWhenFull and player.hp >= maxHp then return end
                 local heal = maxHp * (eff.regenPercent or 0.02) * dt
-                player.hp = math.min(maxHp, player.hp + heal)
+                player.hp = math_min(maxHp, player.hp + heal)
             end
         end
     end,
@@ -485,9 +497,9 @@ end
 function CombatSystem.AddSlashEffect(player, monster, atkInterval)
     local dx = monster.x - player.x
     local dy = monster.y - player.y
-    local angle = math.atan(dy, dx)
+    local angle = math_atan(dy, dx)
 
-    local duration = math.max(0.15, math.min(0.4, atkInterval * 0.3))
+    local duration = math_max(0.15, math_min(0.4, atkInterval * 0.3))
     local radius = GameConfig.ATTACK_RANGE * 0.85
 
     table.insert(CombatSystem.slashEffects, {
@@ -497,7 +509,7 @@ function CombatSystem.AddSlashEffect(player, monster, atkInterval)
         radius = radius,
         duration = duration,
         elapsed = 0,
-        sweepAngle = math.pi * 0.6,
+        sweepAngle = math_pi * 0.6,
         facingRight = player.facingRight,
     })
 end
@@ -508,8 +520,8 @@ end
 function CombatSystem.AddClawEffect(monster, player)
     local dx = player.x - monster.x
     local dy = player.y - monster.y
-    local angle = math.atan(dy, dx)
-    local randOffset = (math.random() - 0.5) * 0.6
+    local angle = math_atan(dy, dx)
+    local randOffset = (math_random() - 0.5) * 0.6
 
     table.insert(CombatSystem.clawEffects, {
         x = player.x,
@@ -528,8 +540,8 @@ end
 ---@param width number 划过宽度（瓦片）
 function CombatSystem.AddRakeStrikeEffect(player, sweepAngle, range, width, forwardOffset)
     local fOff = forwardOffset or 0
-    local cosA = math.cos(sweepAngle)
-    local sinA = math.sin(sweepAngle)
+    local cosA = math_cos(sweepAngle)
+    local sinA = math_sin(sweepAngle)
     table.insert(CombatSystem.rakeStrikeEffects, {
         x = player.x + cosA * fOff,
         y = player.y + sinA * fOff,
@@ -579,7 +591,7 @@ end
 function CombatSystem.AddPetSlashEffect(pet, monster)
     local dx = monster.x - pet.x
     local dy = monster.y - pet.y
-    local angle = math.atan(dy, dx)
+    local angle = math_atan(dy, dx)
 
     table.insert(CombatSystem.petSlashEffects, {
         x = monster.x,
@@ -702,13 +714,8 @@ function CombatSystem.AutoAttack(dt)
         player.attackTimer = player.attackTimer + dt
         if player.attackTimer >= player:GetAttackInterval() then
             player.attackTimer = 0
-            local damage = GameConfig.CalcDamage(player:GetTotalAtk(), nearest.def)
-            local isCrit
-            damage, isCrit = player:ApplyCrit(damage)
-            -- （噬魂已改为击杀堆叠AOE，不再有持续增伤buff）
-            -- 洗髓增伤已移至 Monster:TakeDamage，所有伤害来源统一享受加成
-            -- TakeDamage 返回实际伤害（含易伤/洗髓增伤），用于浮字和事件
-            damage = nearest:TakeDamage(damage, player) or damage
+            -- HitResolver: Standard + noEvent（event 在攻击链末尾统一发出）
+            local damage, isCrit = HitResolver.Hit(player, nearest, player:GetTotalAtk(), { noEvent = true })
             if isCrit then
                 CombatSystem.AddFloatingText(
                     nearest.x, nearest.y - 0.5,
@@ -722,16 +729,16 @@ function CombatSystem.AutoAttack(dt)
 
             -- 重击判定：职业被动基础概率 + 根骨加成（每25点+1%）
             local heavyHitChance = player:GetClassHeavyHitChance() + player:GetConstitutionHeavyHitChance()
-            if math.random() < heavyHitChance then
-                local heavyDmg = math.floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
+            if math_random() < heavyHitChance then
+                local heavyDmg = math_floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
                 -- 根骨重击伤害加成（每25点+1%）
                 local heavyDmgBonus = player:GetConstitutionHeavyDmgBonus()
                 if heavyDmgBonus > 0 then
-                    heavyDmg = math.floor(heavyDmg * (1 + heavyDmgBonus))
+                    heavyDmg = math_floor(heavyDmg * (1 + heavyDmgBonus))
                 end
+                -- HitResolver: TrueDamage + noEvent（player_heavy_hit 是独立事件）
                 local heavyCrit
-                heavyDmg, heavyCrit = player:ApplyCrit(heavyDmg)
-                heavyDmg = nearest:TakeDamage(heavyDmg, player) or heavyDmg
+                heavyDmg, heavyCrit = HitResolver.Hit(player, nearest, heavyDmg, { skipCalcDamage = true, skipCrit = false, noEvent = true })
                 local heavyPrefix = heavyCrit and "重击暴击 " or "重击 "
                 local heavyColor = heavyCrit and FT_CRIT_YELLOW or FT_HEAVY_ORANGE
                 CombatSystem.AddFloatingText(
@@ -751,13 +758,12 @@ function CombatSystem.AutoAttack(dt)
             CombatSystem.TriggerEquipEffectsOnHit(player, nearest, isCrit)
 
             -- 神器被动：天蓬遗威（15%概率追加攻击力×100%真实伤害，不走CalcDamage）
-            local ArtifactSystem = require("systems.ArtifactSystem")
             ArtifactSystem.TryPassiveStrike(player, nearest)
 
             -- 玩家直接伤害事件（血怒等后处理由事件监听统一处理）
             EventBus.Emit("player_deal_damage", player, nearest)
 
-            print("[Combat] Player hit " .. nearest.name .. " for " .. damage .. (isCrit and " (CRIT)" or "") .. " (HP: " .. math.floor(nearest.hp) .. "/" .. nearest.maxHp .. ")")
+            print("[Combat] Player hit " .. nearest.name .. " for " .. damage .. (isCrit and " (CRIT)" or "") .. " (HP: " .. math_floor(nearest.hp) .. "/" .. nearest.maxHp .. ")")
         end
     else
         player.target = nil
@@ -789,15 +795,15 @@ function CombatSystem.TryHeavyStrike(player, monster)
     if eff._counter >= (eff.hitInterval or 5) then
         eff._counter = 0
         -- 与10%重击相同公式：ATK + heavyHit
-        local heavyDmg = math.floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
+        local heavyDmg = math_floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
         -- 根骨重击伤害加成（每25点+1%）
         local heavyDmgBonus = player:GetConstitutionHeavyDmgBonus()
         if heavyDmgBonus > 0 then
-            heavyDmg = math.floor(heavyDmg * (1 + heavyDmgBonus))
+            heavyDmg = math_floor(heavyDmg * (1 + heavyDmgBonus))
         end
         local heavyCrit
         heavyDmg, heavyCrit = player:ApplyCrit(heavyDmg)
-        heavyDmg = monster:TakeDamage(heavyDmg, player) or heavyDmg
+        heavyDmg = monster:TakeDamage(heavyDmg, player)
         local prefix = heavyCrit and "裂地暴击 " or "裂地 "
         local color = heavyCrit and FT_HEAVY_CRIT or FT_HEAVY_NORMAL
         CombatSystem.AddFloatingText(

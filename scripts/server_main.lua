@@ -1680,5 +1680,10 @@ function HandleServerUpdate(eventType, eventData)
         local ok, err = pcall(DungeonHandler.Update, dt)
         if not ok then print("[Server] DungeonHandler.Update pcall error: " .. tostring(err)) end
     end
+    -- §12 黑市自动收购已关闭（RECYCLE_ENABLED=false + 调用入口注释）
+    -- if BlackMerchantHandler then
+    --     local ok2, err2 = pcall(BlackMerchantHandler.RecycleTick, dt)
+    --     if not ok2 then print("[Server] BlackMerchantHandler.RecycleTick pcall error: " .. tostring(err2)) end
+    -- end
 end
 

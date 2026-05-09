@@ -72,6 +72,7 @@ local FortuneFruitSystem = require("systems.FortuneFruitSystem")
 local WineSystem = require("systems.WineSystem")
 local BlackMerchantEntry = require("ui.BlackMerchantEntry")
 local DPSTracker = require("ui.DPSTracker")
+local PerfMonitor = require("systems.PerfMonitor")
 local _dcOk, DungeonClient = pcall(require, "network.DungeonClient")
 if not _dcOk then
     print("[WARN] DungeonClient load failed: " .. tostring(DungeonClient))
@@ -228,6 +229,9 @@ function GameStart()
 
     -- 2.5 版本守卫：写入当前版本号 + 启动轮询
     VersionGuard.Init()
+
+    -- 2.6 性能监控初始化（Phase 0 基线采集）
+    PerfMonitor.Init(GameConfig.PERF_FLAGS)
 
     -- 3. 创建登录界面根容器
     uiRoot_ = UI.Panel {
@@ -1191,6 +1195,7 @@ end
 ---@param eventData UpdateEventData
 function HandleUpdate(eventType, eventData)
     local dt = eventData["TimeStep"]:GetFloat()
+    PerfMonitor.BeginFrame()
 
     -- 版本守卫轮询（无论游戏是否开始都要检测）
     VersionGuard.Update(dt)
@@ -1205,8 +1210,8 @@ function HandleUpdate(eventType, eventData)
     -- 角色选择界面超时检测（游戏未开始时也需要运行）
     CharacterSelectScreen.Update(dt)
 
-    if not gameStarted_ then return end
-    if GameState.paused then return end
+    if not gameStarted_ then PerfMonitor.EndFrame(dt); return end
+    if GameState.paused then PerfMonitor.EndFrame(dt); return end
 
     -- 天道问心：新角色创角后首帧检测（场景已就绪，安全触发 NanoVG 覆盖层）
     if daoQuestionPending_ then
@@ -1233,6 +1238,7 @@ function HandleUpdate(eventType, eventData)
     HandleInput(dt)
 
     -- 更新玩家
+    PerfMonitor.StartSegment("player")
     local player = GameState.player
     if player then
         player:Update(dt, gameMap_)
@@ -1251,9 +1257,12 @@ function HandleUpdate(eventType, eventData)
     if pet then
         pet:Update(dt, gameMap_)
     end
+    PerfMonitor.EndSegment("player")
 
     -- 更新怪物（PF-1: 距离剔除 + 远处怪物降频）
     -- 近处/战斗中/BOSS: 每帧更新；远处idle/patrol: 每 0.5s 更新一次
+    PerfMonitor.StartSegment("monsters")
+    PerfMonitor.Count("monster_total", #GameState.monsters)
     local px, py = player and player.x or 0, player and player.y or 0
     for i = 1, #GameState.monsters do
         local m = GameState.monsters[i]
@@ -1262,22 +1271,26 @@ function HandleUpdate(eventType, eventData)
             -- 正在战斗或回巢的怪物始终每帧更新
             if st == "chase" or st == "attack" or st == "return" then
                 m:Update(dt, player, GameState.pet, gameMap_)
+                PerfMonitor.Count("monster_updated")
             else
                 -- idle/patrol: 按距离决定更新频率
                 local dx, dy = m.x - px, m.y - py
                 if dx * dx + dy * dy <= FAR_MONSTER_DIST_SQ then
                     m:Update(dt, player, GameState.pet, gameMap_)
+                    PerfMonitor.Count("monster_updated")
                 else
                     -- 远处怪物累积 dt，每 0.5s 批量更新
                     m._throttleAccum = (m._throttleAccum or 0) + dt
                     if m._throttleAccum >= FAR_MONSTER_UPDATE_INTERVAL then
                         m:Update(m._throttleAccum, player, GameState.pet, gameMap_)
                         m._throttleAccum = 0
+                        PerfMonitor.Count("monster_updated")
                     end
                 end
             end
         end
     end
+    PerfMonitor.EndSegment("monsters")
 
     -- 更新怪物刷新（挑战/试炼/多人副本中暂停刷怪）
     if spawner_ and not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
@@ -1319,12 +1332,16 @@ function HandleUpdate(eventType, eventData)
     end
 
     -- 更新技能冷却
+    PerfMonitor.StartSegment("skills")
     SkillSystem.Update(dt)
+    PerfMonitor.EndSegment("skills")
 
     -- 更新存档系统（自动存档计时）— 副本中暂停自动存档
+    PerfMonitor.StartSegment("save")
     if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
         SaveSystem.Update(dt)
     end
+    PerfMonitor.EndSegment("save")
 
     -- 更新系统菜单（toast 和延迟退出倒计时）
     SystemMenu.Update(dt)
@@ -1357,6 +1374,7 @@ function HandleUpdate(eventType, eventData)
     end
 
     -- 自动攻击（委托给 CombatSystem）
+    PerfMonitor.StartSegment("combat")
     CombatSystem.AutoAttack(dt)
 
     -- 治愈之泉回血（委托给 CombatSystem）
@@ -1364,8 +1382,10 @@ function HandleUpdate(eventType, eventData)
 
     -- 献祭光环（黄沙·焚天特效：持续灼烧周围怪物）
     CombatSystem.UpdateSacrificeAura(dt)
+    PerfMonitor.EndSegment("combat")
 
     -- 更新底部栏（降频到 10fps）
+    PerfMonitor.StartSegment("hud")
     hudUpdateTimer_ = hudUpdateTimer_ + dt
     if hudUpdateTimer_ >= 0.1 then
         hudUpdateTimer_ = 0
@@ -1375,6 +1395,9 @@ function HandleUpdate(eventType, eventData)
 
     -- DPS 统计面板更新（每帧更新，自带区域检测）
     DPSTracker.Update(dt)
+    PerfMonitor.EndSegment("hud")
+
+    PerfMonitor.EndFrame(dt)
 end
 
 -- ============================================================================

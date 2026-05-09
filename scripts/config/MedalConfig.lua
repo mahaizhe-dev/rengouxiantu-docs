@@ -244,6 +244,23 @@ MedalConfig.MEDALS = {
         bonus = { hpRegen = 1 },
         desc = "首次获得圣器品质装备，圣光庇佑身自愈",
     },
+
+    -- ════════════════════════════════════════════════════════════
+    -- ⑤ 事件发放类 (event_grant) — 一次性历史事件道印
+    -- ════════════════════════════════════════════════════════════
+
+    wutian_drunk = {
+        id = "wutian_drunk",
+        name = "大事件：无天醉酒",
+        type = "one_time",
+        max_level = 1,
+        trigger = {
+            type = "event_grant",
+            leaderboard = "xianshi_rank",   -- 仙石榜（服务器级）
+        },
+        bonus = { fuyuan = 3 },
+        desc = "26年5月8日夜，大黑无天当值醉酒，仙石市场紊乱，星界财团的另外一位股东降临接掌黑市",
+    },
 }
 
 --- 道印显示顺序
@@ -259,6 +276,7 @@ MedalConfig.ORDER = {
     "pioneer_heti",
     "first_cyan",
     "first_red",
+    "wutian_drunk",
 }
 
 -- ============================================================================
@@ -289,7 +307,8 @@ function MedalConfig.GetLevel(medalId, medalsData)
     local medal = MedalConfig.MEDALS[medalId]
     if not medal then return 0 end
 
-    if medal.trigger.type == "server_race" or medal.trigger.type == "first_obtain" then
+    if medal.trigger.type == "server_race" or medal.trigger.type == "first_obtain"
+        or medal.trigger.type == "event_grant" then
         local key = medalId
         return medalsData[key] and 1 or 0
     elseif medal.trigger.type == "item_consume" then

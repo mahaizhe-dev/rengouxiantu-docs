@@ -330,10 +330,11 @@ local function BuildCh4Items()
         ::continue::
     end
 
-    -- Ch4 技能书（中级 ×6，各 50 灵韵）
+    -- Ch4 技能书（第三章掉落的初级技能书 ×7，各 50 灵韵）
     local SKILL_BOOK_IDS = {
-        "book_atk_2", "book_hp_2", "book_def_2",
-        "book_evade_2", "book_regen_2", "book_crit_2",
+        "book_atkSpd_1", "book_hpPerLv_1", "book_critDmg_1",
+        "book_dmgReduce_1", "book_defPerLv_1", "book_doubleHit_1",
+        "book_lifeSteal_1",
     }
     for _, bookId in ipairs(SKILL_BOOK_IDS) do
         local bookData = PetSkillData.SKILL_BOOKS[bookId]

@@ -818,9 +818,10 @@ end
 --- 受伤
 ---@param damage number
 ---@param source table|nil 伤害来源
+---@return number actualDamage 实际造成的伤害（闪避/护盾吸收/未存活时返回 0）
 function Player:TakeDamage(damage, source)
-    if not self.alive then return end
-    if self.invincibleTimer > 0 then return end
+    if not self.alive then return 0 end
+    if self.invincibleTimer > 0 then return 0 end
 
     -- 闪避判定（evade_damage 特效：概率完全闪避此次伤害）
     local effects = self.equipSpecialEffects
@@ -829,7 +830,7 @@ function Player:TakeDamage(damage, source)
             if eff.type == "evade_damage" and math.random() < (eff.evadeChance or 0) then
                 local CombatSystem = require("systems.CombatSystem")
                 CombatSystem.AddFloatingText(self.x, self.y, "闪避", {180, 240, 255, 255}, 0.8)
-                return  -- 完全闪避，不受伤害
+                return 0  -- 完全闪避，不受伤害
             end
         end
     end
@@ -859,7 +860,7 @@ function Player:TakeDamage(damage, source)
             end
             if damage <= 0 then
                 self.hurtFlashTimer = 0.1
-                return
+                return 0
             end
         end
     end
@@ -870,7 +871,7 @@ function Player:TakeDamage(damage, source)
             self.shieldHp = self.shieldHp - damage
             self.hurtFlashTimer = 0.1
             EventBus.Emit("shield_hit", damage, self.shieldHp)
-            return  -- 伤害完全被护盾吸收
+            return 0  -- 伤害完全被护盾吸收
         else
             damage = damage - self.shieldHp
             self.shieldHp = 0
@@ -886,7 +887,7 @@ function Player:TakeDamage(damage, source)
         damage = ArtifactCh4.AbsorbDamage(damage)
         if damage <= 0 then
             self.hurtFlashTimer = 0.1
-            return  -- 伤害完全被神器护盾吸收
+            return 0  -- 伤害完全被神器护盾吸收
         end
     end
 
@@ -918,6 +919,8 @@ function Player:TakeDamage(damage, source)
             print("[Player] Died!")
         end
     end
+
+    return damage
 end
 
 --- 复活

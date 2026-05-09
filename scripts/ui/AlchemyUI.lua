@@ -1,9 +1,9 @@
 -- ============================================================================
 -- AlchemyUI.lua - 炼丹炉功能面板（按章节切换配方）
 -- Ch1: 练气丹 + 虎骨丹
--- Ch2: 筑基丹 + 灵蛇丹 + 金刚丹
--- Ch3: 金丹沙 + 元婴果 + 千锤百炼丹
--- Ch4: 九转金丹（500灵韵/颗）
+-- Ch2: 筑基丹 + 灵蛇丹 + 金刚丹 + 乌堡令盒
+-- Ch3: 金丹沙 + 元婴果 + 千锤百炼丹 + 沙海令盒
+-- Ch4: 九转金丹（500灵韵/颗） + 太虚令盒
 -- 中洲(101): 阵营丹药（凝力丹/凝甲丹/凝元丹/凝魂丹/凝息丹）
 -- ============================================================================
 
@@ -118,6 +118,15 @@ end
 
 -- 九转金丹配置
 local JIUZHUAN_JINDAN_COST = 500  -- 灵韵/颗
+
+-- ===== 令牌盒配方（通用） =====
+local TOKEN_BOX_LINGYUN_COST = 100   -- 灵韵消耗
+local TOKEN_BOX_TOKEN_COST   = 100   -- 令牌消耗
+local TOKEN_BOX_RECIPES = {
+    { tokenId = "wubao_token",   boxId = "wubao_token_box",   chapter = 2 },
+    { tokenId = "sha_hai_ling",  boxId = "sha_hai_ling_box",  chapter = 3 },
+    { tokenId = "taixu_token",   boxId = "taixu_token_box",   chapter = 4 },
+}
 
 --- 获取当前练气丹数量
 local function GetPillCount()
@@ -318,6 +327,39 @@ local function BuildCh2Content()
             backgroundColor = canDiamond and {80, 100, 180, 220} or {80, 80, 90, 200},
             onClick = function() AlchemyUI.DoCraftDiamond() end,
         },
+        -- 分隔线
+        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
+        -- 乌堡令盒区
+        UI.Label {
+            text = "📦 炼制乌堡令盒",
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {180, 200, 255, 240},
+        },
+        UI.Label {
+            text = "将100枚乌堡令封装为令牌盒，便于黑市交易",
+            fontSize = T.fontSize.xs,
+            fontColor = {200, 180, 150, 200},
+        },
+        UI.Label {
+            text = "当前乌堡令盒: " .. InventorySystem.CountConsumable("wubao_token_box") .. " 个",
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {200, 180, 255, 255}, textAlign = "center",
+        },
+        UI.Label {
+            text = "灵韵: " .. player.lingYun .. " (需要 " .. TOKEN_BOX_LINGYUN_COST .. ")  "
+                .. "乌堡令: " .. InventorySystem.CountConsumable("wubao_token") .. " (需要 " .. TOKEN_BOX_TOKEN_COST .. ")",
+            fontSize = T.fontSize.xs, textAlign = "center",
+            fontColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("wubao_token") >= TOKEN_BOX_TOKEN_COST)
+                and {130, 230, 130, 255} or {255, 130, 100, 255},
+        },
+        UI.Button {
+            text = "炼制乌堡令盒 (" .. TOKEN_BOX_LINGYUN_COST .. "灵韵+" .. TOKEN_BOX_TOKEN_COST .. "乌堡令 → 1盒)",
+            width = "100%", height = T.size.dialogBtnH,
+            fontSize = T.fontSize.sm,
+            backgroundColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("wubao_token") >= TOKEN_BOX_TOKEN_COST)
+                and {100, 80, 160, 220} or {80, 80, 90, 200},
+            onClick = function() AlchemyUI.DoCraftTokenBox("wubao_token", "wubao_token_box") end,
+        },
     }
 end
 
@@ -421,6 +463,39 @@ local function BuildCh3Content()
             backgroundColor = canTempering and {100, 120, 60, 220} or {80, 80, 90, 200},
             onClick = function() AlchemyUI.DoCraftTempering() end,
         },
+        -- 分隔线
+        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
+        -- 沙海令盒区
+        UI.Label {
+            text = "📦 炼制沙海令盒",
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {255, 200, 120, 240},
+        },
+        UI.Label {
+            text = "将100枚沙海令封装为令牌盒，便于黑市交易",
+            fontSize = T.fontSize.xs,
+            fontColor = {200, 180, 150, 200},
+        },
+        UI.Label {
+            text = "当前沙海令盒: " .. InventorySystem.CountConsumable("sha_hai_ling_box") .. " 个",
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {255, 200, 120, 255}, textAlign = "center",
+        },
+        UI.Label {
+            text = "灵韵: " .. player.lingYun .. " (需要 " .. TOKEN_BOX_LINGYUN_COST .. ")  "
+                .. "沙海令: " .. InventorySystem.CountConsumable("sha_hai_ling") .. " (需要 " .. TOKEN_BOX_TOKEN_COST .. ")",
+            fontSize = T.fontSize.xs, textAlign = "center",
+            fontColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("sha_hai_ling") >= TOKEN_BOX_TOKEN_COST)
+                and {130, 230, 130, 255} or {255, 130, 100, 255},
+        },
+        UI.Button {
+            text = "炼制沙海令盒 (" .. TOKEN_BOX_LINGYUN_COST .. "灵韵+" .. TOKEN_BOX_TOKEN_COST .. "沙海令 → 1盒)",
+            width = "100%", height = T.size.dialogBtnH,
+            fontSize = T.fontSize.sm,
+            backgroundColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("sha_hai_ling") >= TOKEN_BOX_TOKEN_COST)
+                and {160, 120, 40, 220} or {80, 80, 90, 200},
+            onClick = function() AlchemyUI.DoCraftTokenBox("sha_hai_ling", "sha_hai_ling_box") end,
+        },
     }
 end
 
@@ -460,6 +535,39 @@ local function BuildCh4Content()
             fontSize = T.fontSize.sm,
             backgroundColor = canJiuzhuan and {180, 100, 40, 220} or {80, 80, 90, 200},
             onClick = function() AlchemyUI.DoCraftJiuzhuanJindan() end,
+        },
+        -- 分隔线
+        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
+        -- 太虚令盒区
+        UI.Label {
+            text = "📦 炼制太虚令盒",
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {120, 200, 255, 240},
+        },
+        UI.Label {
+            text = "将100枚太虚令封装为令牌盒，便于黑市交易",
+            fontSize = T.fontSize.xs,
+            fontColor = {200, 180, 150, 200},
+        },
+        UI.Label {
+            text = "当前太虚令盒: " .. InventorySystem.CountConsumable("taixu_token_box") .. " 个",
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {120, 200, 255, 255}, textAlign = "center",
+        },
+        UI.Label {
+            text = "灵韵: " .. player.lingYun .. " (需要 " .. TOKEN_BOX_LINGYUN_COST .. ")  "
+                .. "太虚令: " .. InventorySystem.CountConsumable("taixu_token") .. " (需要 " .. TOKEN_BOX_TOKEN_COST .. ")",
+            fontSize = T.fontSize.xs, textAlign = "center",
+            fontColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("taixu_token") >= TOKEN_BOX_TOKEN_COST)
+                and {130, 230, 130, 255} or {255, 130, 100, 255},
+        },
+        UI.Button {
+            text = "炼制太虚令盒 (" .. TOKEN_BOX_LINGYUN_COST .. "灵韵+" .. TOKEN_BOX_TOKEN_COST .. "太虚令 → 1盒)",
+            width = "100%", height = T.size.dialogBtnH,
+            fontSize = T.fontSize.sm,
+            backgroundColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("taixu_token") >= TOKEN_BOX_TOKEN_COST)
+                and {60, 120, 180, 220} or {80, 80, 90, 200},
+            onClick = function() AlchemyUI.DoCraftTokenBox("taixu_token", "taixu_token_box") end,
         },
     }
 end
@@ -958,6 +1066,67 @@ function AlchemyUI.DoCraftJiuzhuanJindan()
 
     local newCount = InventorySystem.CountConsumable("jiuzhuan_jindan")
     resultLabel_:SetText("炼制成功！获得九转金丹 ×1 (共 " .. newCount .. " 颗)")
+    resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
+    EventBus.Emit("alchemy_success")
+    EventBus.Emit("save_request")
+    RefreshUI()
+end
+
+-- ============================================================================
+-- 令牌盒炼制函数（通用）
+-- ============================================================================
+
+--- 炼制令牌盒：消耗100令牌+100灵韵 → 1个令牌盒
+---@param tokenId string 令牌消耗品ID（如 "wubao_token"）
+---@param boxId string   令牌盒消耗品ID（如 "wubao_token_box"）
+function AlchemyUI.DoCraftTokenBox(tokenId, boxId)
+    local player = GameState.player
+    if not player then return end
+
+    local tokenName = GameConfig.CONSUMABLES[tokenId] and GameConfig.CONSUMABLES[tokenId].name or tokenId
+    local boxName = GameConfig.CONSUMABLES[boxId] and GameConfig.CONSUMABLES[boxId].name or boxId
+
+    -- 检查灵韵
+    if player.lingYun < TOKEN_BOX_LINGYUN_COST then
+        resultLabel_:SetText("灵韵不足！炼制需要 " .. TOKEN_BOX_LINGYUN_COST .. " 灵韵")
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+
+    -- 检查令牌数量
+    local tokenCount = InventorySystem.CountConsumable(tokenId)
+    if tokenCount < TOKEN_BOX_TOKEN_COST then
+        resultLabel_:SetText(tokenName .. "不足！需要 " .. TOKEN_BOX_TOKEN_COST .. "，当前 " .. tokenCount)
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+
+    -- 检查背包空间
+    local canAdd = InventorySystem.CountConsumable(boxId) > 0 or InventorySystem.GetFreeSlots() > 0
+    if not canAdd then
+        resultLabel_:SetText("背包已满，无法炼制！")
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+
+    -- 原子化扣除：先扣灵韵，再扣令牌，再发放令牌盒
+    player.lingYun = player.lingYun - TOKEN_BOX_LINGYUN_COST
+    local ok = InventorySystem.ConsumeConsumable(tokenId, TOKEN_BOX_TOKEN_COST)
+    if not ok then
+        -- 回滚灵韵
+        player.lingYun = player.lingYun + TOKEN_BOX_LINGYUN_COST
+        resultLabel_:SetText("炼制失败：" .. tokenName .. "扣除异常")
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+    InventorySystem.AddConsumable(boxId, 1)
+
+    local newCount = InventorySystem.CountConsumable(boxId)
+    resultLabel_:SetText("炼制成功！获得" .. boxName .. " ×1 (共 " .. newCount .. " 个)")
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
     EventBus.Emit("save_request")

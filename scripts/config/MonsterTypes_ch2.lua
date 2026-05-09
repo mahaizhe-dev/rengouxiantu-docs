@@ -347,6 +347,8 @@ return function(M)
             { chance = 0.05, type = "equipment", equipId = "wu_ring_chou" },      -- 乌堡戒·仇5%
             -- ⑤帝尊贰戒（2%独立掉落）
             { chance = 0.02, type = "equipment", equipId = "dizun_ring_ch2" },
+            -- ⑤.5 乌堡令盒（0.1%独立掉落）
+            { chance = 0.001, type = "consumable", consumableId = "wubao_token_box" },
             -- ⑥世界掉落
             { chance = 0.02, type = "world_drop", pool = "ch2" },
             { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果共享1%
@@ -393,6 +395,8 @@ return function(M)
             { chance = 0.02, type = "equipment", equipId = "wu_boots_ch2" },      -- 踏云靴2%
             -- ⑤帝尊贰戒（2%独立掉落）
             { chance = 0.02, type = "equipment", equipId = "dizun_ring_ch2" },
+            -- ⑤.5 乌堡令盒（0.1%独立掉落）
+            { chance = 0.001, type = "consumable", consumableId = "wubao_token_box" },
             -- ⑥世界掉落
             { chance = 0.02, type = "world_drop", pool = "ch2" },
             { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果共享1%

@@ -751,13 +751,14 @@ end
 --- 受伤
 ---@param damage number
 ---@param source table|nil
+---@return number actualDamage 实际造成的伤害（闪避/未存活时返回 0）
 function Pet:TakeDamage(damage, source)
-    if not self.alive then return end
+    if not self.alive then return 0 end
 
     -- 闪避判定
     if self.evadeChance > 0 and math.random(100) <= self.evadeChance then
         EventBus.Emit("pet_evade", self, source)
-        return
+        return 0
     end
 
     self.hp = self.hp - damage
@@ -772,6 +773,8 @@ function Pet:TakeDamage(damage, source)
         EventBus.Emit("pet_death")
         print("[Pet] " .. self.name .. " died! Reviving in " .. self.reviveTime .. "s")
     end
+
+    return damage
 end
 
 --- 复活

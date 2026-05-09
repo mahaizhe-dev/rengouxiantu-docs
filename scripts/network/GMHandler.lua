@@ -29,6 +29,21 @@ function M.HandleGMCommand(eventType, eventData)
         return
     end
 
+    -- §12 黑市收购：异步分支（服务端执行后返回结果）
+    if cmd == "bm_recycle" then
+        print("[Server][GM] bm_recycle: 开始异步执行")
+        local BlackMerchantHandler = require("network.BlackMerchantHandler")
+        BlackMerchantHandler.ExecuteRecycle(function(ok, summary)
+            local data = VariantMap()
+            data["ok"] = Variant(ok)
+            data["cmd"] = Variant("bm_recycle")
+            data["msg"] = Variant(summary or "未知结果")
+            Session.SafeSend(connection, SaveProtocol.S2C_GMCommandResult, data)
+            print("[Server][GM] bm_recycle 完成: " .. tostring(summary))
+        end)
+        return  -- 不走后续统一响应
+    end
+
     -- 授权通过，回复客户端执行
     print("[Server][GM] Command AUTHORIZED: cmd=" .. cmd .. " userId=" .. tostring(userId))
     local data = VariantMap()

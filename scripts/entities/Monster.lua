@@ -8,6 +8,18 @@ local MonsterData = require("config.MonsterData")
 local ActiveZoneData = require("config.ActiveZoneData")
 local Utils = require("core.Utils")
 local EventBus = require("core.EventBus")
+local CombatSystem = require("systems.CombatSystem")
+local GameState = require("core.GameState")
+
+-- P1-4/5: local化高频 math 函数 + Utils
+local math_floor  = math.floor
+local math_max    = math.max
+local math_min    = math.min
+local math_random = math.random
+local math_cos    = math.cos
+local math_sin    = math.sin
+local math_pi     = math.pi
+local DistanceSq  = Utils.DistanceSq
 
 -- P6: 预计算距离平方阈值，避免每帧 sqrt
 local AGGRO_RANGE_SQ = GameConfig.AGGRO_RANGE * GameConfig.AGGRO_RANGE
@@ -47,7 +59,7 @@ function Monster.New(data, spawnX, spawnY)
 
     -- 等级：支持 levelRange 随机
     if data.levelRange then
-        self.level = math.random(data.levelRange[1], data.levelRange[2])
+        self.level = math_random(data.levelRange[1], data.levelRange[2])
     else
         self.level = data.level
     end
@@ -162,7 +174,7 @@ function Monster.New(data, spawnX, spawnY)
     if data.demonBuff then
         self.demonBuff = true
         self:ApplyBerserkBuff({ atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 })
-        self.maxHp = math.floor(self.maxHp * 1.5)
+        self.maxHp = math_floor(self.maxHp * 1.5)
         self.hp = self.maxHp
     end
 
@@ -184,7 +196,7 @@ function Monster.New(data, spawnX, spawnY)
 
     -- 封魔BOSS 生命强化（HP × sealDemonHpMult）
     if data.sealDemonHpMult then
-        self.maxHp = math.floor(self.maxHp * data.sealDemonHpMult)
+        self.maxHp = math_floor(self.maxHp * data.sealDemonHpMult)
         self.hp = self.maxHp
     end
 
@@ -213,7 +225,7 @@ end
 function Monster:RerollLevel()
     local data = self.data
     if data.levelRange then
-        self.level = math.random(data.levelRange[1], data.levelRange[2])
+        self.level = math_random(data.levelRange[1], data.levelRange[2])
     end
 
     local stats = MonsterData.CalcFinalStats(self.level, data.category, data.race, data.realm)
@@ -239,9 +251,9 @@ end
 ---@return table|nil target
 function Monster:SelectTarget(player, pet)
     if not player or not player.alive then return nil end
-    local distP = Utils.DistanceSq(self.x, self.y, player.x, player.y)
+    local distP = DistanceSq(self.x, self.y, player.x, player.y)
     if pet and pet.alive then
-        local distPet = Utils.DistanceSq(self.x, self.y, pet.x, pet.y)
+        local distPet = DistanceSq(self.x, self.y, pet.x, pet.y)
         if distPet < distP then
             return pet
         end
@@ -269,14 +281,14 @@ function Monster:Update(dt, player, pet, gameMap)
 
     local playerX = player and player.x or self.spawnX
     local playerY = player and player.y or self.spawnY
-    local distToPlayerSq = Utils.DistanceSq(self.x, self.y, playerX, playerY)
-    local distToSpawnSq = Utils.DistanceSq(self.x, self.y, self.spawnX, self.spawnY)
+    local distToPlayerSq = DistanceSq(self.x, self.y, playerX, playerY)
+    local distToSpawnSq = DistanceSq(self.x, self.y, self.spawnX, self.spawnY)
 
     -- 状态机
     if self.state == "idle" or self.state == "patrol" then
         -- 检测玩家或宠物进入仇恨范围
         local aggroTarget = self:SelectTarget(player, pet)
-        local aggroDistSq = aggroTarget and Utils.DistanceSq(self.x, self.y, aggroTarget.x, aggroTarget.y) or 999999
+        local aggroDistSq = aggroTarget and DistanceSq(self.x, self.y, aggroTarget.x, aggroTarget.y) or 999999
         if not self.passive and aggroDistSq <= AGGRO_RANGE_SQ and not self:IsInTownSafeZone() then
             self.state = "chase"
             self.target = aggroTarget
@@ -321,7 +333,7 @@ function Monster:Update(dt, player, pet, gameMap)
             return
         end
 
-        local distToTargetSq = Utils.DistanceSq(self.x, self.y, self.target.x, self.target.y)
+        local distToTargetSq = DistanceSq(self.x, self.y, self.target.x, self.target.y)
         local myAtkRange = self.data.attackRange or GameConfig.ATTACK_RANGE
         local myAtkRangeSq = myAtkRange * myAtkRange
         if distToTargetSq <= myAtkRangeSq then
@@ -334,7 +346,7 @@ function Monster:Update(dt, player, pet, gameMap)
         if self.state == "chase" then
             self.stuckCheckTimer = self.stuckCheckTimer + dt
             if self.stuckCheckTimer >= GameConfig.STUCK_CHECK_INTERVAL then
-                local movedSq = Utils.DistanceSq(self.x, self.y, self.stuckLastX, self.stuckLastY)
+                local movedSq = DistanceSq(self.x, self.y, self.stuckLastX, self.stuckLastY)
                 if movedSq < STUCK_MOVE_SQ then
                     self.stuckTimer = self.stuckTimer + self.stuckCheckTimer
                 else
@@ -394,7 +406,7 @@ function Monster:Update(dt, player, pet, gameMap)
 
         local targetX = self.target.x
         local targetY = self.target.y
-        local distToTargetSq = Utils.DistanceSq(self.x, self.y, targetX, targetY)
+        local distToTargetSq = DistanceSq(self.x, self.y, targetX, targetY)
 
         -- 场地技能蓄力中不因目标跑远而中断（全场AOE，无需近身）
         local isFieldCasting = self.casting and self.castingSkill and self.castingSkill.isFieldSkill
@@ -471,8 +483,8 @@ function Monster:Update(dt, player, pet, gameMap)
             self.healAccum = self.healAccum + dt
             if self.healAccum >= GameConfig.HEAL_INTERVAL then
                 self.healAccum = self.healAccum - GameConfig.HEAL_INTERVAL
-                local healAmt = math.floor(self.maxHp * GameConfig.HEAL_PCT)
-                self.hp = math.min(self.maxHp, self.hp + healAmt)
+                local healAmt = math_floor(self.maxHp * GameConfig.HEAL_PCT)
+                self.hp = math_min(self.maxHp, self.hp + healAmt)
             end
         end
 
@@ -493,8 +505,8 @@ function Monster:Update(dt, player, pet, gameMap)
         self.healAccum = self.healAccum + dt
         if self.healAccum >= GameConfig.HEAL_INTERVAL then
             self.healAccum = self.healAccum - GameConfig.HEAL_INTERVAL
-            local healAmt = math.floor(self.maxHp * GameConfig.HEAL_PCT)
-            self.hp = math.min(self.maxHp, self.hp + healAmt)
+            local healAmt = math_floor(self.maxHp * GameConfig.HEAL_PCT)
+            self.hp = math_min(self.maxHp, self.hp + healAmt)
         end
     end
 end
@@ -508,15 +520,15 @@ function Monster:UpdatePatrol(dt, gameMap)
         if self.patrolWaitTimer < 2.0 then return end
         self.patrolWaitTimer = 0
 
-        local angle = math.random() * math.pi * 2
-        local dist = math.random() * self.patrolRadius
+        local angle = math_random() * math_pi * 2
+        local dist = math_random() * self.patrolRadius
         self.patrolTarget = {
-            x = self.spawnX + math.cos(angle) * dist,
-            y = self.spawnY + math.sin(angle) * dist,
+            x = self.spawnX + math_cos(angle) * dist,
+            y = self.spawnY + math_sin(angle) * dist,
         }
         self.state = "patrol"
     else
-        local distSq = Utils.DistanceSq(self.x, self.y, self.patrolTarget.x, self.patrolTarget.y)
+        local distSq = DistanceSq(self.x, self.y, self.patrolTarget.x, self.patrolTarget.y)
         if distSq < PATROL_ARRIVE_SQ then
             self.patrolTarget = nil
             self.state = "idle"
@@ -565,9 +577,9 @@ function Monster:BlinkToTarget(gameMap)
     -- 8方向寻找目标周围可行走的攻击位置
     local bestX, bestY
     for i = 0, 7 do
-        local angle = i * math.pi / 4
-        local cx = tx + math.cos(angle) * range
-        local cy = ty + math.sin(angle) * range
+        local angle = i * math_pi / 4
+        local cx = tx + math_cos(angle) * range
+        local cy = ty + math_sin(angle) * range
         if gameMap and gameMap:IsWalkable(cx, cy) then
             bestX, bestY = cx, cy
             break
@@ -592,25 +604,25 @@ end
 --- 受伤
 ---@param damage number
 ---@param source table|nil
---- @return number actualDamage 经过易伤/洗髓增伤后的实际伤害值
+--- @return number actualDamage 实际造成的伤害（未存活时返回 0）
 function Monster:TakeDamage(damage, source)
-    if not self.alive then return damage end
+    if not self.alive then return 0 end
 
     -- 易伤增伤：受到所有伤害增加
     local vulnDebuff = self.debuffs["vulnerability"]
     if vulnDebuff and vulnDebuff.timer > 0 and vulnDebuff.percent then
-        damage = math.floor(damage * (1 + vulnDebuff.percent))
+        damage = math_floor(damage * (1 + vulnDebuff.percent))
     end
 
     -- 封魔大阵增伤：怪物在增伤区域内受到最终伤害加成（独立乘区）
-    local CS = require("systems.CombatSystem")
+    local CS = CombatSystem
     if CS.activeZones then
         for _, zone in ipairs(CS.activeZones) do
             if zone.damageBoostPercent and zone.damageBoostPercent > 0 then
                 local dx = self.x - zone.x
                 local dy = self.y - zone.y
                 if dx * dx + dy * dy <= zone.range * zone.range then
-                    damage = math.floor(damage * (1 + zone.damageBoostPercent))
+                    damage = math_floor(damage * (1 + zone.damageBoostPercent))
                     break  -- 同类增伤区域不叠加
                 end
             end
@@ -622,15 +634,15 @@ function Monster:TakeDamage(damage, source)
     if source and source.GetWashLevel then
         local washLevel = source:GetWashLevel()
         if washLevel > 0 then
-            damage = math.floor(damage * (1 + washLevel * 0.01))
+            damage = math_floor(damage * (1 + washLevel * 0.01))
         end
     end
 
     -- 玉甲回响：护盾激活时减伤+反射
     if self.jadeShieldActive and self.jadeShieldDmgReduction then
         local origDamage = damage
-        damage = math.max(1, math.floor(damage * (1 - self.jadeShieldDmgReduction)))
-        local reflectDmg = math.floor(origDamage * (self.jadeShieldReflectPercent or 0))
+        damage = math_max(1, math_floor(damage * (1 - self.jadeShieldDmgReduction)))
+        local reflectDmg = math_floor(origDamage * (self.jadeShieldReflectPercent or 0))
         if reflectDmg > 0 then
             EventBus.Emit("jade_shield_reflect", reflectDmg, self.x, self.y)
         end
@@ -652,7 +664,6 @@ function Monster:TakeDamage(damage, source)
 
     -- 被攻击时激活仇恨（目标切换到攻击来源）
     -- 玩家死亡期间不接受仇恨，继续脱战回位
-    local GameState = require("core.GameState")
     local playerAlive = GameState.player and GameState.player.alive
     if playerAlive then
         if self.state == "idle" or self.state == "patrol" or self.state == "return" then
@@ -706,7 +717,7 @@ function Monster:CheckPhaseTransition()
 
             -- 应用阶段属性倍率
             if phase.atkMult then
-                self.atk = math.floor(self.baseAtk * phase.atkMult)
+                self.atk = math_floor(self.baseAtk * phase.atkMult)
             end
             if phase.speedMult then
                 self.speed = self.baseSpeed * phase.speedMult
@@ -745,12 +756,12 @@ function Monster:CheckPhaseTransition()
                         end
                         -- Fisher-Yates 洗牌
                         for si = #allTiles, 2, -1 do
-                            local sj = math.random(si)
+                            local sj = math_random(si)
                             allTiles[si], allTiles[sj] = allTiles[sj], allTiles[si]
                         end
                         -- 取前 safeZoneCount 个作为安全格
                         local count = triggerDef.safeZoneCount or 4
-                        for si = 1, math.min(count, #allTiles) do
+                        for si = 1, math_min(count, #allTiles) do
                             table.insert(self.fieldSafeZones, allTiles[si])
                         end
                     end
@@ -811,10 +822,10 @@ function Monster:CheckDualStateTransition()
         end
 
         -- 应用数值强化
-        local scaleIndex = math.min(self.dualStateSwitchCount + 1, #(ds.scaling or {}))
+        local scaleIndex = math_min(self.dualStateSwitchCount + 1, #(ds.scaling or {}))
         local scale = ds.scaling and ds.scaling[scaleIndex]
         if scale then
-            self.atk = math.floor(self.baseAtk * (scale.atkMult or 1.0))
+            self.atk = math_floor(self.baseAtk * (scale.atkMult or 1.0))
             self.speed = self.baseSpeed * (scale.speedMult or 1.0)
         end
 
@@ -837,11 +848,11 @@ function Monster:CheckDualStateTransition()
                         end
                     end
                     for si = #allTiles, 2, -1 do
-                        local sj = math.random(si)
+                        local sj = math_random(si)
                         allTiles[si], allTiles[sj] = allTiles[sj], allTiles[si]
                     end
                     local count = triggerDef.safeZoneCount or 2
-                    for si = 1, math.min(count, #allTiles) do
+                    for si = 1, math_min(count, #allTiles) do
                         table.insert(self.fieldSafeZones, allTiles[si])
                     end
                 end
@@ -855,7 +866,7 @@ function Monster:CheckDualStateTransition()
         end
 
         print("[Monster] " .. self.name .. " dual-state switch #" .. self.dualStateSwitchCount
-            .. " → " .. newKey .. " (HP: " .. math.floor(hpPercent * 100) .. "%)")
+            .. " → " .. newKey .. " (HP: " .. math_floor(hpPercent * 100) .. "%)")
 
         nextThreshold = nextThreshold - interval
     end
@@ -910,7 +921,7 @@ function Monster:Respawn()
     if self.data.demonBuff then
         self.hasBerserkBuff = false  -- 重置标记以允许重新应用
         self:ApplyBerserkBuff({ atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 })
-        self.maxHp = math.floor(self.maxHp * 1.5)
+        self.maxHp = math_floor(self.maxHp * 1.5)
         self.hp = self.maxHp
     end
 
@@ -1002,7 +1013,7 @@ function Monster:GetSpeedMultiplier()
             mult = mult - debuff.slowPercent
         end
     end
-    return math.max(0.1, mult)  -- 最低10%速度
+    return math_max(0.1, mult)  -- 最低10%速度
 end
 
 --- 获取攻击力倍率（受减攻debuff影响）
@@ -1014,7 +1025,7 @@ function Monster:GetAttackMultiplier()
             mult = mult - debuff.atkReducePercent
         end
     end
-    return math.max(0.1, mult)  -- 最低10%攻击力
+    return math_max(0.1, mult)  -- 最低10%攻击力
 end
 
 return Monster

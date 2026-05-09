@@ -623,6 +623,8 @@ M.Types.yao_king_3 = {
         { chance = 0.05, type = "equipment", equipId = "lieyan_cape_ch3" },  -- 烈焰鬃披5%（橙）
         -- ⑧.5 帝尊叁戒（0.5%独立掉落）
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch3" },
+        -- ⑧.6 沙海令盒（0.1%独立掉落）
+        { chance = 0.001, type = "consumable", consumableId = "sha_hai_ling_box" },
         -- ⑨世界掉落
         { chance = 0.03, type = "world_drop", pool = "ch3" },  -- 3%
         -- ⑩沙海令
@@ -687,6 +689,8 @@ M.Types.yao_king_2 = {
         { chance = 0.02, type = "equipment", equipId = "shen_shoulder_ch3" },  -- 蜃影肩甲2%（灵器）
         -- ⑧.5 帝尊叁戒（0.5%独立掉落）
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch3" },
+        -- ⑧.6 沙海令盒（0.1%独立掉落）
+        { chance = 0.001, type = "consumable", consumableId = "sha_hai_ling_box" },
         -- ⑨世界掉落
         { chance = 0.03, type = "world_drop", pool = "ch3" },  -- 3%
         -- ⑩沙海令
@@ -796,6 +800,8 @@ M.Types.yao_king_1 = {
         { chance = 0.01, type = "world_drop", pool = "huangsha_weapons" },
         -- ⑨.5 帝尊叁戒（0.5%独立掉落）
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch3" },
+        -- ⑨.6 沙海令盒（0.1%独立掉落）
+        { chance = 0.001, type = "consumable", consumableId = "sha_hai_ling_box" },
         -- ⑩世界掉落
         { chance = 0.03, type = "world_drop", pool = "ch3" },  -- 3%
         -- ⑪沙海令

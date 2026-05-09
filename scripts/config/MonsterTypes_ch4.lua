@@ -670,6 +670,8 @@ M.Types.qian_boss = {
         { chance = 0.03, type = "world_drop", pool = "sikong_books" },  -- 高级蕴灵书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
+        -- 太虚令盒（0.1%独立掉落）
+        { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
         { chance = 0.02, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹2%（司空正阳）
         { chance = 0.001, type = "consumable", consumableId = "bagua_fragment_qian" },  -- 神器碎片·乾 0.1%
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
@@ -714,6 +716,8 @@ M.Types.dragon_ice = {
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
         { chance = 0.01, type = "consumable", consumableId = "dragon_scale_ice" },  -- 封霜龙鳞1%（圣器打造材料）
         { chance = 0.0025, type = "equipment", equipId = "silong_ring_ch4" },  -- 帝尊肆戒0.25%
+        -- 太虚令盒（0.1%独立掉落）
+        { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
     },
@@ -753,6 +757,8 @@ M.Types.dragon_abyss = {
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
         { chance = 0.01, type = "consumable", consumableId = "dragon_scale_abyss" },  -- 渊蛟龙骨1%（圣器打造材料）
         { chance = 0.0025, type = "equipment", equipId = "silong_ring_ch4" },  -- 帝尊肆戒0.25%
+        -- 太虚令盒（0.1%独立掉落）
+        { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
     },
@@ -792,6 +798,8 @@ M.Types.dragon_fire = {
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
         { chance = 0.01, type = "consumable", consumableId = "dragon_scale_fire" },  -- 焚天龙焰1%（圣器打造材料）
         { chance = 0.0025, type = "equipment", equipId = "silong_ring_ch4" },  -- 帝尊肆戒0.25%
+        -- 太虚令盒（0.1%独立掉落）
+        { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
     },
@@ -831,6 +839,8 @@ M.Types.dragon_sand = {
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
         { chance = 0.01, type = "consumable", consumableId = "dragon_scale_sand" },  -- 蚀骨龙牙1%（圣器打造材料）
         { chance = 0.0025, type = "equipment", equipId = "silong_ring_ch4" },  -- 帝尊肆戒0.25%
+        -- 太虚令盒（0.1%独立掉落）
+        { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
     },

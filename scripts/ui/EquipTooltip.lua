@@ -719,6 +719,23 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
                 children = batchBtns,
             })
         end
+        if item.consumableId == "wubao_token_box" or item.consumableId == "sha_hai_ling_box" or item.consumableId == "taixu_token_box" then
+            local cId = item.consumableId
+            table.insert(btnChildren, UI.Button {
+                text = "📦 使用", variant = "primary", flexGrow = 1,
+                onClick = function(self)
+                    self:SetDisabled(true)
+                    local ok, msg = InventorySystem.UseBatchConsumable(cId, 1)
+                    if ok then
+                        EventBus.Emit("show_toast", msg)
+                    else
+                        EventBus.Emit("show_toast", msg or "使用失败")
+                    end
+                    EquipTooltip.Hide()
+                    if doneCallback then doneCallback() end
+                end,
+            })
+        end
         if item.consumableId == "item_guardian_token" then
             table.insert(btnChildren, UI.Button {
                 text = "🔖 使用", variant = "primary", flexGrow = 1,
@@ -735,7 +752,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
             })
         end
         -- 修炼果、灵韵果、守护者证明不可出售，金条/金砖已有批量出售UI
-        if item.consumableId ~= "exp_pill" and item.consumableId ~= "lingyun_fruit" and item.consumableId ~= "item_guardian_token" and item.consumableId ~= "gold_bar" and item.consumableId ~= "gold_brick" then
+        if item.consumableId ~= "exp_pill" and item.consumableId ~= "lingyun_fruit" and item.consumableId ~= "item_guardian_token" and item.consumableId ~= "gold_bar" and item.consumableId ~= "gold_brick" and item.consumableId ~= "wubao_token_box" and item.consumableId ~= "sha_hai_ling_box" and item.consumableId ~= "taixu_token_box" then
             table.insert(btnChildren, UI.Button {
                 text = "出售", variant = "warning", flexGrow = 1,
                 onClick = function()
