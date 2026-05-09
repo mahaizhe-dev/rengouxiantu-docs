@@ -203,6 +203,42 @@ local function RebuildRankOnLogin(userId, slotsIndex, getSlotData, taptapNick)
             .. " bestFloor=" .. bestTrialFloor .. " slot=" .. bestTrialSlot)
     end
 
+    -- ═══ 仙石榜（xianshi_rank）: 仙石>0 的账号永久入榜 ═══
+    -- 单向操作：一旦入榜不删除，即使仙石后续变为 0
+    serverCloud.money:Get(userId, {
+        ok = function(playerMoneys)
+            local xianshi = playerMoneys and playerMoneys.xianshi or 0
+            if xianshi > 0 then
+                serverCloud:SetInt(userId, "xianshi_rank", xianshi, {
+                    error = function(code, reason)
+                        print("[Server] xianshi_rank SetInt FAILED: userId=" .. tostring(userId)
+                            .. " err=" .. tostring(code) .. " " .. tostring(reason))
+                    end,
+                })
+                -- 附加信息（TapTap 昵称用于 UI 显示）
+                local xsBatch = serverCloud:BatchSet(userId)
+                xsBatch:Set("xianshi_info", {
+                    xianshi = xianshi,
+                    taptapNick = taptapNick,
+                })
+                xsBatch:Save("仙石榜入榜", {
+                    ok = function()
+                        print("[Server] xianshi_rank: enrolled userId=" .. tostring(userId)
+                            .. " xianshi=" .. xianshi .. " nick=" .. tostring(taptapNick))
+                    end,
+                    error = function(code, reason)
+                        print("[Server] xianshi_rank info save FAILED: " .. tostring(code)
+                            .. " " .. tostring(reason))
+                    end,
+                })
+            end
+        end,
+        error = function(code, reason)
+            print("[Server] xianshi_rank money:Get FAILED: userId=" .. tostring(userId)
+                .. " err=" .. tostring(code) .. " " .. tostring(reason))
+        end,
+    })
+
     -- 附加信息写回（fire-and-forget，不阻塞登录流程）
     if rankRepairBatch then
         rankRepairBatch:Save("v2排行榜入榜", {

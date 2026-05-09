@@ -448,6 +448,72 @@ function AtlasSystem.RetroCheckFirstObtain()
     end
 end
 
+--- 检查 event_grant 类道印（仙石榜等一次性事件发放）
+--- 查询排行榜自身是否有记录，有则永久发放道印
+function AtlasSystem.CheckEventGrants(retryCount)
+    retryCount = retryCount or 0
+    local data = AtlasSystem.data
+    if not data then return end
+
+    local pendingCount = 0  -- 未解锁的 event_grant 道印数
+
+    for _, medalId in ipairs(MedalConfig.ORDER) do
+        local medal = MedalConfig.MEDALS[medalId]
+        if not medal then goto cont end
+        if medal.trigger.type ~= "event_grant" then goto cont end
+
+        -- 已获得则跳过
+        if data.medals[medalId] then goto cont end
+
+        pendingCount = pendingCount + 1
+
+        -- 查询对应排行榜中自己是否有记录
+        local leaderboard = medal.trigger.leaderboard
+        if not leaderboard then goto cont end
+
+        if clientCloud then
+            local capturedMedalId = medalId
+            -- 用 GetMyScore 查询自己在排行榜中的分数
+            clientCloud:GetMyScore(leaderboard, {
+                ok = function(scoreInfo)
+                    -- scoreInfo 非 nil 且有有效值 → 说明在榜上
+                    if scoreInfo and scoreInfo.score and scoreInfo.score > 0 then
+                        -- 再次检查（异步回调时可能已被其他路径解锁）
+                        if data.medals[capturedMedalId] then return end
+                        data.medals[capturedMedalId] = true
+                        print("[AtlasSystem] Event grant medal unlocked: " .. medal.name)
+                        EventBus.Emit("medal_upgraded", {
+                            medalId = capturedMedalId,
+                            oldLevel = 0,
+                            newLevel = 1,
+                        })
+                        AtlasSystem.RecalcMedalBonuses()
+                        AtlasSystem.SaveImmediate()
+                    else
+                        print("[AtlasSystem] Event grant check: not on leaderboard " .. leaderboard
+                            .. " (retry=" .. retryCount .. ")")
+                        -- 服务端写榜是异步的，首次查询可能排行榜尚未写入
+                        -- 延迟重试最多3次（3s/6s/9s）
+                        if retryCount < 3 then
+                            local nextRetry = retryCount + 1
+                            local delay = nextRetry * 3
+                            print("[AtlasSystem] Will retry CheckEventGrants in " .. delay .. "s")
+                            AtlasSystem._eventGrantRetryAt = (GameState.gameTime or 0) + delay
+                            AtlasSystem._eventGrantRetryCount = nextRetry
+                        end
+                    end
+                end,
+                error = function(code, reason)
+                    print("[AtlasSystem] Event grant check ERROR: " .. leaderboard
+                        .. " code=" .. tostring(code) .. " reason=" .. tostring(reason))
+                end,
+            })
+        end
+
+        ::cont::
+    end
+end
+
 --- 查询 server_race 名额状态（用于隐藏规则）
 ---@param medalId string
 ---@param callback function (isFull: boolean)
@@ -843,6 +909,7 @@ function AtlasSystem.Deserialize(rawData)
             data.medals.pioneer_heti       = m.pioneer_heti == true
             data.medals.first_cyan         = m.first_cyan == true
             data.medals.first_red          = m.first_red == true
+            data.medals.wutian_drunk       = m.wutian_drunk == true
         end
 
         -- 神器
@@ -934,6 +1001,9 @@ function AtlasSystem.PostLoadSync()
     -- 3b. 回溯扫描：检查已有装备是否满足 first_obtain 道印
     AtlasSystem.RetroCheckFirstObtain()
 
+    -- 3c. 检查 event_grant 类道印（仙石榜等历史事件发放）
+    AtlasSystem.CheckEventGrants()
+
     -- 4. 回溯检查 server_race 道印（修复旧版本未触发的竞速道印）
     local player = GameState.player
     local playerPrefix = player and player.realm and player.realm:match("^([^_]+)") or ""
@@ -964,6 +1034,24 @@ function AtlasSystem.Reset()
     AtlasSystem.data = AtlasSystem.CreateEmpty()
     AtlasSystem.loaded = false
     AtlasSystem.raceSlotCache = {}
+    AtlasSystem._eventGrantRetryAt = nil
+    AtlasSystem._eventGrantRetryCount = nil
 end
+
+-- ============================================================================
+-- event_grant 延迟重试驱动（自包含，无需外部 Update 调用）
+-- 服务端写榜是异步的，客户端首次查询可能还没入榜，需要延迟重试
+-- ============================================================================
+SubscribeToEvent("Update", function(_, eventData)
+    if not AtlasSystem._eventGrantRetryAt then return end
+    local now = GameState.gameTime or 0
+    if now >= AtlasSystem._eventGrantRetryAt then
+        local retryCount = AtlasSystem._eventGrantRetryCount or 1
+        AtlasSystem._eventGrantRetryAt = nil
+        AtlasSystem._eventGrantRetryCount = nil
+        print("[AtlasSystem] Executing event grant retry #" .. retryCount)
+        AtlasSystem.CheckEventGrants(retryCount)
+    end
+end)
 
 return AtlasSystem

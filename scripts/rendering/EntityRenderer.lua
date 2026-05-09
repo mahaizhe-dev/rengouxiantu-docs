@@ -1967,7 +1967,7 @@ function M.RenderNPCs(nvg, l, camera)
             if npc.portrait then
                 local imgHandle = RenderUtils.GetCachedImage(nvg, npc.portrait)
                 if imgHandle then
-                    local spriteSize = ts * 1.4
+                    local spriteSize = ts * 1.4 * (npc.iconScale or 1)
                     local halfSize = spriteSize / 2
                     local imgX = sx - halfSize
                     local imgY = sy - halfSize * 1.1
@@ -1992,6 +1992,7 @@ function M.RenderNPCs(nvg, l, camera)
             end
 
             -- ── NPC 名字（头顶 + 背景底 + 职能副标题） ──
+            if not npc.hideName then
             nvgFontFace(nvg, "sans")
 
             -- 计算总高度：名字 + 可选副标题
@@ -2040,6 +2041,8 @@ function M.RenderNPCs(nvg, l, camera)
                 nvgFillColor(nvg, nvgRGBA(200, 200, 180, 200))
                 nvgText(nvg, sx, subCenterY, npc.subtitle, nil)
             end
+
+            end -- hideName
 
             -- 云裳每日供奉未领取指示器（头顶黄色感叹号，同公告栏样式）
             if npc.interactType == "trial_offering" then

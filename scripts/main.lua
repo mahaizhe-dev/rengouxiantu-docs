@@ -130,6 +130,8 @@ local function CopyNPC(npcData)
         buttons = npcData.buttons,
         chapter = npcData.chapter,
         pillarId = npcData.pillarId,
+        hideName = npcData.hideName,
+        iconScale = npcData.iconScale,
     }
 end
 

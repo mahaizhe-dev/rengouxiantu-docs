@@ -35,6 +35,7 @@ local BlackMerchantUI_ = nil
 local TemperUI_ = nil
 local YaochiWashUI_ = nil
 local EventExchangeUI_ = nil
+local XianshiRankUI_ = nil
 
 -- 通用对话面板（用于 villager 等无专属面板的 NPC）
 local genericPanel_ = nil
@@ -151,13 +152,19 @@ local function GetEventExchangeUI()
     return EventExchangeUI_
 end
 
+local function GetXianshiRankUI()
+    if not XianshiRankUI_ then XianshiRankUI_ = require("ui.XianshiRankUI") end
+    return XianshiRankUI_
+end
+
 --- 显示通用对话面板
 ---@param npc table
 local function ShowGenericDialog(npc)
     HideGenericDialog()
     local npcName = npc.name or "???"
     local subtitle = npc.subtitle or ""
-    local dialog = npc.dialog or "……"
+    local rawDialog = npc.dialog or "……"
+    local dialog = type(rawDialog) == "table" and table.concat(rawDialog, "\n") or rawDialog
     local titleText = npcName
     if subtitle ~= "" then titleText = titleText .. "（" .. subtitle .. "）" end
 
@@ -285,6 +292,7 @@ function NPCDialog.Create(parentOverlay)
     GetTemperUI().Create(parentOverlay)
     GetYaochiWashUI().Create(parentOverlay)
     GetEventExchangeUI().Create(parentOverlay)
+    GetXianshiRankUI().Create(parentOverlay)
 end
 
 -- E-2: NPC 交互路由表（新增类型只需加一行）
@@ -609,6 +617,7 @@ local INTERACT_HANDLERS = {
     divine_rake       = function(_npc) GetArtifactUI().Show() end,
     divine_bagua      = function(_npc) GetArtifactUI_ch4().Show() end,
     event_exchange    = function(npc)  GetEventExchangeUI().Show(npc) end,
+    xianshi_note      = function(_npc) GetXianshiRankUI().Show() end,
     divine_tiandi     = function(_npc) GetArtifactUI_tiandi().Show() end,
     mysterious_merchant = function(npc)
         local ArtifactSystem = require("systems.ArtifactSystem")
@@ -697,6 +706,7 @@ function NPCDialog.Hide()
     if TemperUI_ then TemperUI_.Hide() end
     if YaochiWashUI_ then YaochiWashUI_.Hide() end
     if EventExchangeUI_ then EventExchangeUI_.Hide() end
+    if XianshiRankUI_ then XianshiRankUI_.Hide() end
     HideGenericDialog()
 end
 
@@ -720,6 +730,7 @@ function NPCDialog.Destroy()
     if TemperUI_ and TemperUI_.Destroy then TemperUI_.Destroy() end
     if YaochiWashUI_ and YaochiWashUI_.Destroy then YaochiWashUI_.Destroy() end
     if EventExchangeUI_ and EventExchangeUI_.Destroy then EventExchangeUI_.Destroy() end
+    if XianshiRankUI_ and XianshiRankUI_.Hide then XianshiRankUI_.Hide() end
     ForgeUI.Destroy()
     HideGenericDialog()
     parentOverlay_ = nil
@@ -767,6 +778,7 @@ function NPCDialog.IsVisible()
     if TemperUI_ and TemperUI_.IsVisible() then return true end
     if YaochiWashUI_ and YaochiWashUI_.IsVisible() then return true end
     if EventExchangeUI_ and EventExchangeUI_.IsVisible() then return true end
+    if XianshiRankUI_ and XianshiRankUI_.IsVisible() then return true end
     if genericVisible_ then return true end
     return false
 end

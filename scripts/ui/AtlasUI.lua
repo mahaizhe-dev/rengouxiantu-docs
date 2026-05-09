@@ -200,6 +200,8 @@ local function BuildMedalContent()
             progressText = isObtained and "已获得" or "竞速中"
         elseif medal.trigger.type == "first_obtain" then
             progressText = isObtained and "已获得" or "未获得"
+        elseif medal.trigger.type == "event_grant" then
+            progressText = isObtained and "已获得" or "未获得"
         elseif medal.trigger.type == "item_consume" then
             local exp = medals and medals.guardian_exp or 0
             local nextExp = (level + 1) * medal.trigger.exp_per_level
