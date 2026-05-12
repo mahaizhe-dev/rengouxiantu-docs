@@ -1,19 +1,20 @@
 -- ============================================================================
 -- test_migration_state_policy.lua — MigrationPolicy 模块纯 Lua 测试
 --
--- P0-4: 迁移入口收敛与废弃迁移分支冻结
+-- P0-4 + P0-4R: 迁移入口收敛 / 状态模型收口
 --
 -- 覆盖：
 --   1. 模块可加载
 --   2. 状态枚举完整性（5 种状态）
 --   3. flag=false 时 Evaluate 返回 nil（不干预原有逻辑）
---   4. flag=true 时迁移状态矩阵（needMigration × slotCount）
---   5. ShouldBlockEntry 对所有状态返回 false（迁移已废弃）
---   6. ShouldAutoMigrate 对所有状态返回 false（迁移已废弃）
---   7. IsPCMigrationCheckNeeded: flag=false→true, flag=true→false
---   8. GetStateLabel 对所有状态返回非空字符串
---   9. flag 开关切换不影响另一条路径
---  10. _resetForTest 重置全局状态
+--   4. flag=true 时现实状态矩阵（状态层/动作层分离）
+--   5. flag=true + 迁移假设重新启用时的状态判断
+--   6. ShouldBlockEntry 对所有状态返回 false（迁移已废弃）
+--   7. ShouldAutoMigrate 对所有状态返回 false（迁移已废弃）
+--   8. IsPCMigrationCheckNeeded: flag=false→true, flag=true→false
+--   9. GetStateLabel 对所有状态返回非空字符串
+--  10. flag 开关切换不影响另一条路径
+--  11. _resetForTest 重置全局状态
 -- ============================================================================
 
 local passed = 0
@@ -129,23 +130,34 @@ assert_nil(MP.Evaluate(true, 2), "flag=false, needMigration=true, slots=2 → ni
 assert_nil(MP.Evaluate(false, 3), "flag=false, needMigration=false, slots=3 → nil")
 
 -- ============================================================================
--- TEST 4: flag=true 时迁移状态矩阵
+-- TEST 4: flag=true 时迁移状态矩阵（状态层 / 动作层分离）
+-- P0-4R: Evaluate() 只返回现实状态，不受 MIGRATION_GLOBALLY_ENABLED 影响
 -- ============================================================================
-print("--- MP TEST 4: flag=true 迁移状态矩阵 ---")
+print("--- MP TEST 4: flag=true 迁移状态矩阵（现实状态） ---")
 
 resetAll()
 FF.setOverride("SAVE_MIGRATION_SINGLE_ENTRY", true)
 assert_true(MP.IsEnabled(), "flag 启用后 MP.IsEnabled()=true")
 
--- 迁移全局已废弃(MIGRATION_GLOBALLY_ENABLED=false)，所有输入组合应返回 MIGRATION_DISABLED
-assert_eq(MP.Evaluate(true, 0), S.MIGRATION_DISABLED,
-    "needMigration=true, slots=0, global=false → DISABLED")
-assert_eq(MP.Evaluate(false, 0), S.MIGRATION_DISABLED,
-    "needMigration=false, slots=0, global=false → DISABLED")
-assert_eq(MP.Evaluate(true, 2), S.MIGRATION_DISABLED,
-    "needMigration=true, slots=2, global=false → DISABLED")
-assert_eq(MP.Evaluate(false, 3), S.MIGRATION_DISABLED,
-    "needMigration=false, slots=3, global=false → DISABLED")
+-- needMigration=true, slots=0 → 具备迁移资格（现实状态 ELIGIBLE）
+assert_eq(MP.Evaluate(true, 0), S.ELIGIBLE_CLIENT_CLOUD,
+    "needMigration=true, slots=0 → ELIGIBLE_CLIENT_CLOUD")
+
+-- needMigration=false → 无需迁移
+assert_eq(MP.Evaluate(false, 0), S.NOT_NEEDED,
+    "needMigration=false, slots=0 → NOT_NEEDED")
+
+-- 已有存档 → 无需迁移
+assert_eq(MP.Evaluate(true, 2), S.NOT_NEEDED,
+    "needMigration=true, slots=2 → NOT_NEEDED")
+assert_eq(MP.Evaluate(false, 3), S.NOT_NEEDED,
+    "needMigration=false, slots=3 → NOT_NEEDED")
+
+-- 动作层验证：即使状态是 ELIGIBLE，动作仍应返回 false（迁移已废弃）
+assert_false(MP.ShouldAutoMigrate(S.ELIGIBLE_CLIENT_CLOUD),
+    "ELIGIBLE 状态 → ShouldAutoMigrate 仍 false（动作层由策略控制）")
+assert_false(MP.ShouldBlockEntry(S.ELIGIBLE_CLIENT_CLOUD),
+    "ELIGIBLE 状态 → ShouldBlockEntry 仍 false（动作层由策略控制）")
 
 -- ============================================================================
 -- TEST 5: flag=true + 假设迁移重新启用时的状态判断
@@ -171,6 +183,10 @@ assert_eq(MP.Evaluate(true, 4), S.NOT_NEEDED,
 -- needMigration=false, slots=0 → NOT_NEEDED（无迁移标记）
 assert_eq(MP.Evaluate(false, 0), S.NOT_NEEDED,
     "needMigration=false, slots=0, global=true → NOT_NEEDED")
+
+-- needMigration=true, slots=0, global=true → ELIGIBLE_CLIENT_CLOUD
+assert_eq(MP.Evaluate(true, 0), S.ELIGIBLE_CLIENT_CLOUD,
+    "needMigration=true, slots=0, global=true → ELIGIBLE_CLIENT_CLOUD")
 
 resetAll()
 

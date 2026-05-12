@@ -12,11 +12,15 @@
 --   2. 零业务依赖（仅依赖 FeatureFlags）
 --   3. flag=false 时所有 API 退化为 pass-through，不改变现有行为
 --   4. 统一状态枚举，消除多处独立判断的不一致风险
+--   5. 状态层/动作层分离（P0-4R）：
+--      Evaluate() 只返回"现实状态"（NOT_NEEDED / ELIGIBLE_*），
+--      动作决策（ShouldAutoMigrate / ShouldBlockEntry）独立参考
+--      MIGRATION_GLOBALLY_ENABLED 做策略判断。
 --
 -- 统一状态集合（5 种）：
---   - MIGRATION_DISABLED : 迁移功能已全局关闭（当前线上默认）
---   - NOT_NEEDED         : 服务端已有存档，无需迁移
---   - ELIGIBLE_CLIENT_CLOUD : 可从 clientCloud 迁移（保留定义，当前不触发）
+--   - MIGRATION_DISABLED    : 迁移功能已全局关闭（枚举保留，Evaluate 不再返回）
+--   - NOT_NEEDED            : 服务端已有存档 或 无需迁移
+--   - ELIGIBLE_CLIENT_CLOUD : 可从 clientCloud 迁移（现实状态，当前动作层不触发）
 --   - ELIGIBLE_LOCAL_FILE   : 可从本地导出文件迁移（保留定义，当前不触发）
 --   - ALREADY_MIGRATED      : 已完成迁移
 --
@@ -67,10 +71,14 @@ function MigrationPolicy.IsEnabled()
     return FeatureFlags.isEnabled("SAVE_MIGRATION_SINGLE_ENTRY")
 end
 
---- 评估迁移状态（统一入口）
+--- 评估迁移现实状态（统一入口）
 ---
 --- 当 flag=false 时，返回 nil（调用方走原有逻辑）。
---- 当 flag=true 时，根据输入信号返回统一状态枚举。
+--- 当 flag=true 时，根据输入信号返回**现实状态**枚举。
+---
+--- 注意：本函数只判断"现实上属于哪种迁移状态"，不做动作决策。
+--- 动作决策由 ShouldAutoMigrate() / ShouldBlockEntry() 负责，
+--- 它们会参考 MIGRATION_GLOBALLY_ENABLED 做策略判断。
 ---
 ---@param needMigration boolean 服务端返回的 needMigration 值
 ---@param slotCount number 服务端返回的有效槽位数
@@ -80,20 +88,16 @@ function MigrationPolicy.Evaluate(needMigration, slotCount)
         return nil  -- flag 关闭，走原有逻辑
     end
 
-    -- 迁移全局已废弃
-    if not MIGRATION_GLOBALLY_ENABLED then
-        return S.MIGRATION_DISABLED
-    end
-
-    -- 有存档 → 无需迁移
+    -- 状态层：先判定现实状态，不受全局策略影响
+    -- 1. 有存档 或 服务端明确标记无需迁移 → NOT_NEEDED
     if not needMigration or slotCount > 0 then
         return S.NOT_NEEDED
     end
 
-    -- needMigration=true 且 slotCount=0
-    -- 理论上可进入 ELIGIBLE 分支，但全局开关已关闭（上方已返回 DISABLED）
-    -- 此处仅作防御性兜底
-    return S.MIGRATION_DISABLED
+    -- 2. needMigration=true 且 slotCount=0 → 具备迁移资格
+    --    当前只有 clientCloud 这一条可用路径
+    --    注意：不检查 MIGRATION_GLOBALLY_ENABLED，那是动作层的事
+    return S.ELIGIBLE_CLIENT_CLOUD
 end
 
 --- 判断给定状态是否应阻止游戏入口
