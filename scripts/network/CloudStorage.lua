@@ -15,11 +15,15 @@
 -- ============================================================================
 
 local SaveProtocol = require("network.SaveProtocol")
+local FeatureFlags = require("config.FeatureFlags")
 
 ---@diagnostic disable-next-line: undefined-global
 local cjson = cjson
 
 local CloudStorage = {}
+
+--- 错误码：网络模式下不支持的非存档 BatchSet
+CloudStorage.ERR_UNSUPPORTED_BATCH = "UNSUPPORTED_BATCH"
 
 -- ============================================================================
 -- 模式管理
@@ -191,6 +195,32 @@ end
 -- 批量写入（BatchSet）
 -- ============================================================================
 
+--- 判断 sets 表中是否包含存档键（save_{slot} 或 save_data_{slot}）
+---@param sets table<string, any>
+---@return boolean
+local function IsSaveBatch(sets)
+    for key, _ in pairs(sets) do
+        if key:match("^save_%d+$") or key:match("^save_data_%d+$") then
+            return true
+        end
+    end
+    return false
+end
+
+--- 收集 batch 中所有操作的 key 列表（用于诊断日志）
+---@param sets table
+---@param setInts table
+---@param deletes table
+---@return string[]
+local function CollectBatchKeys(sets, setInts, deletes)
+    local keys = {}
+    for k, _ in pairs(sets) do keys[#keys + 1] = k end
+    for k, _ in pairs(setInts) do keys[#keys + 1] = k end
+    for k, _ in pairs(deletes) do keys[#keys + 1] = "(del)" .. k end
+    table.sort(keys)
+    return keys
+end
+
 --- 创建批量写入构建器
 ---@return table builder 链式调用构建器
 function CloudStorage.BatchSet()
@@ -320,11 +350,23 @@ function CloudStorage.BatchSet()
             end
         else
             -- 非存档 BatchSet（如 checkpoint、自愈写回）
-            -- 简化处理：也通过 C2S_SaveGame 发送，用 slot=0 表示非存档操作
-            -- 或者直接在客户端忽略（checkpoint 在服务端没有意义）
-            print("[CloudStorage] Network BatchSet (non-save): desc=" .. tostring(desc) .. " — skipped")
-            if events and events.ok then
-                events.ok()
+            -- 网络模式下不写入服务端
+            if FeatureFlags.isEnabled("CLOUDSTORAGE_STRICT_BATCHSET") then
+                -- P0-5 严格模式：显式告知调用方"未写入"
+                local keyList = CollectBatchKeys(self._sets, self._setInts, self._deletes)
+                local reason = string.format(
+                    "Unsupported non-save BatchSet in network mode: desc=%s keys=[%s]",
+                    tostring(desc), table.concat(keyList, ", "))
+                print("[CloudStorage] STRICT: " .. reason)
+                if events and events.error then
+                    events.error(CloudStorage.ERR_UNSUPPORTED_BATCH, reason)
+                end
+            else
+                -- 旧路径（flag=false）：保持原有假成功行为
+                print("[CloudStorage] Network BatchSet (non-save): desc=" .. tostring(desc) .. " — skipped")
+                if events and events.ok then
+                    events.ok()
+                end
             end
         end
     end
