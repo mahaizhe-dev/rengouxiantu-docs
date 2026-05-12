@@ -147,14 +147,21 @@ assert_false(FF.isEnabled("NEW_SERVER_ROUTER"), "其他 flag 不受影响")
 FF.setOverride("SAVE_PIPELINE_V2", false)
 assert_false(FF.isEnabled("SAVE_PIPELINE_V2"), "覆盖回 false 后 isEnabled 返回 false")
 
--- 覆盖未注册 flag
+-- 覆盖未注册 flag：必须拒绝且不生效
 local setUnknown = FF.setOverride("UNKNOWN_FLAG", true)
 assert_false(setUnknown, "setOverride 未注册 flag 返回 false")
-assert_true(FF.isEnabled("UNKNOWN_FLAG"), "未注册 flag 覆盖后仍可读取")
+assert_false(FF.isEnabled("UNKNOWN_FLAG"), "未注册 flag 覆盖后 isEnabled 仍为 false")
+
+-- 未注册 flag 不污染 snapshot
+local snapAfterUnknown = FF.snapshot()
+assert_true(snapAfterUnknown["UNKNOWN_FLAG"] == nil, "未注册 flag 不出现在 snapshot 中")
 
 -- 非 boolean 值拒绝
 local setBad = FF.setOverride("SAVE_PIPELINE_V2", "yes")
 assert_false(setBad, "setOverride 非 boolean 返回 false")
+
+-- 非 boolean 不写入 override（已注册 flag 仍走默认值）
+assert_false(FF.isEnabled("SAVE_PIPELINE_V2"), "非 boolean setOverride 后仍为默认 false")
 
 FF._resetForTest()
 
@@ -201,7 +208,7 @@ local meta = FF.getMeta("SAVE_PIPELINE_V2")
 assert_true(meta ~= nil, "getMeta 已注册 flag 返回非 nil")
 assert_eq(meta.name, "SAVE_PIPELINE_V2", "meta.name 正确")
 assert_eq(meta.default, false, "meta.default = false")
-assert_eq(meta.task, "P0-5", "meta.task = P0-5")
+assert_eq(meta.task, "P0-3", "meta.task = P0-3")
 assert_true(type(meta.desc) == "string" and #meta.desc > 0, "meta.desc 非空字符串")
 
 -- 未注册 flag
@@ -219,12 +226,12 @@ assert_eq(metaAgain.default, false, "getMeta 返回只读副本")
 print("--- FF TEST 10: flag-task 映射 ---")
 
 local EXPECTED_TASKS = {
-    SAVE_PIPELINE_V2            = "P0-5",
-    SERVER_SAVE_VALIDATOR_V2    = "P0-5",
-    SAVE_MIGRATION_SINGLE_ENTRY = "P0-3",
-    NEW_MAIN_LOOP_ORCHESTRATOR  = "P0-4",
-    NEW_SERVER_ROUTER           = "P0-6",
-    CLOUDSTORAGE_STRICT_BATCHSET = "P0-5",
+    SAVE_PIPELINE_V2            = "P0-3",  -- 存档链路职责收敛
+    SERVER_SAVE_VALIDATOR_V2    = "P0-6",  -- 服务端存档事务服务化
+    SAVE_MIGRATION_SINGLE_ENTRY = "P0-4",  -- 迁移入口收敛
+    NEW_MAIN_LOOP_ORCHESTRATOR  = "P1-1",  -- 客户端主入口编排器拆分
+    NEW_SERVER_ROUTER           = "P0-6",  -- 服务端路由/服务化
+    CLOUDSTORAGE_STRICT_BATCHSET = "P0-5", -- CloudStorage 语义修正
 }
 
 for flagName, expectedTask in pairs(EXPECTED_TASKS) do

@@ -36,25 +36,25 @@ local FLAG_REGISTRY = {
         name    = "SAVE_PIPELINE_V2",
         default = false,
         desc    = "启用 v2 存档管线（SavePersistence 统一读写）",
-        task    = "P0-5",
+        task    = "P0-3",  -- 存档链路职责收敛
     },
     SERVER_SAVE_VALIDATOR_V2 = {
         name    = "SERVER_SAVE_VALIDATOR_V2",
         default = false,
         desc    = "启用 v2 服务端存档校验器",
-        task    = "P0-5",
+        task    = "P0-6",  -- 服务端存档事务服务化
     },
     SAVE_MIGRATION_SINGLE_ENTRY = {
         name    = "SAVE_MIGRATION_SINGLE_ENTRY",
         default = false,
         desc    = "启用迁移单入口模式（所有迁移逻辑收口到 SaveMigrations）",
-        task    = "P0-3",
+        task    = "P0-4",  -- 迁移入口收敛
     },
     NEW_MAIN_LOOP_ORCHESTRATOR = {
         name    = "NEW_MAIN_LOOP_ORCHESTRATOR",
         default = false,
         desc    = "启用新版主循环编排器（替换 main.lua 中的手动调度）",
-        task    = "P0-4",
+        task    = "P1-1",  -- 客户端主入口编排器拆分
     },
     NEW_SERVER_ROUTER = {
         name    = "NEW_SERVER_ROUTER",
@@ -104,16 +104,19 @@ end
 
 --- 运行时覆盖某个开关的值
 --- 仅影响当前运行时，不持久化
+--- 仅允许对已注册的 flag 设置 override，未注册的 flag 拒绝且不写入
 ---@param flagName string
 ---@param value boolean
----@return boolean ok 是否为已注册的开关
+---@return boolean ok 是否成功写入（flag 已注册且 value 为 boolean）
 function FeatureFlags.setOverride(flagName, value)
     if type(value) ~= "boolean" then
         return false
     end
+    if FLAG_REGISTRY[flagName] == nil then
+        return false
+    end
     overrides[flagName] = value
-    -- 即使 flag 未注册也允许 override（前向兼容）
-    return FLAG_REGISTRY[flagName] ~= nil
+    return true
 end
 
 --- 清除某个开关的运行时覆盖，恢复默认值
