@@ -139,9 +139,9 @@ main.lua ── 初始化 UI / 创建游戏世界 / 主循环
 
 | 参数 | 当前值 |
 |------|--------|
-| `CURRENT_SAVE_VERSION` | **17**（v17: 新增瑶池洗髓 yaochi_wash 字段） |
+| `CURRENT_SAVE_VERSION` | **23**（v23: 新增镇狱塔 prisonTower 字段） |
 | `MAX_SLOTS` | 4 |
-| `AUTO_SAVE_INTERVAL` | **60 秒** |
+| `AUTO_SAVE_INTERVAL` | **120 秒** |
 | `CHECKPOINT_INTERVAL` | 5（每 5 次存档写一次定期备份） |
 
 ### 3.1 Key 架构（v11+ 统一格式）
@@ -154,7 +154,7 @@ main.lua ── 初始化 UI / 创建游戏世界 / 主循环
 
 1. `CURRENT_SAVE_VERSION` 递增
 2. 在 `SaveMigrations.MIGRATIONS` 表注册迁移函数
-3. 不可删除已有迁移函数（当前迁移链: v1 → v2 → … → v17）
+3. 不可删除已有迁移函数（当前迁移链: v1 → v2 → … → v23）
 4. 迁移后必须设 `data.version = 新版本号`
 
 ### 3.3 安全阀

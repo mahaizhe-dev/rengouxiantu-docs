@@ -9,6 +9,7 @@ local SS = require("systems.save.SaveState")
 local SaveKeys = require("systems.save.SaveKeys")
 local SaveSerializer = require("systems.save.SaveSerializer")
 local SaveMigrations = require("systems.save.SaveMigrations")
+local FeatureFlags = require("config.FeatureFlags")
 ---@diagnostic disable-next-line: undefined-global
 local cjson = cjson
 
@@ -427,26 +428,35 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
             print("[SaveSystem] Migrated historical BOSS kills: " .. histBossKills)
         end
 
-        -- 仙图录加载后同步
-        do
-            local AtlasSystem = require("systems.AtlasSystem")
-            AtlasSystem.PostLoadSync()
-        end
+        -- P0-3: 加载后同步 — SAVE_PIPELINE_V2 条件分支
+        if FeatureFlags.isEnabled("SAVE_PIPELINE_V2") then
+            -- 新路径：通过 SavePostLoadSync 模块统一执行
+            local SavePostLoadSync = require("systems.save.SavePostLoadSync")
+            SavePostLoadSync.Run(saveData)
+        else
+            -- 旧路径：内联执行（保持原有行为不变）
 
-        -- HP 重新校准：所有加成系统（装备/神器/道印）加载完毕后，
-        -- 用存档原始 HP 重新设置，修复 DeserializePlayer 过早 cap 的问题
-        do
-            local player = GameState.player
-            if player and saveData.player then
-                player._statsCacheFrame = -1  -- 强制刷新属性缓存
-                local newTotalMaxHp = player:GetTotalMaxHp()
-                local savedHp = saveData.player.hp or newTotalMaxHp
-                player.hp = math.min(savedHp, newTotalMaxHp)
-                if player.hp <= 0 then
-                    player.hp = newTotalMaxHp
+            -- 仙图录加载后同步
+            do
+                local AtlasSystem = require("systems.AtlasSystem")
+                AtlasSystem.PostLoadSync()
+            end
+
+            -- HP 重新校准：所有加成系统（装备/神器/道印）加载完毕后，
+            -- 用存档原始 HP 重新设置，修复 DeserializePlayer 过早 cap 的问题
+            do
+                local player = GameState.player
+                if player and saveData.player then
+                    player._statsCacheFrame = -1  -- 强制刷新属性缓存
+                    local newTotalMaxHp = player:GetTotalMaxHp()
+                    local savedHp = saveData.player.hp or newTotalMaxHp
+                    player.hp = math.min(savedHp, newTotalMaxHp)
+                    if player.hp <= 0 then
+                        player.hp = newTotalMaxHp
+                    end
+                    print("[SaveSystem] HP recalibrated: saved=" .. (saveData.player.hp or "nil")
+                        .. " totalMaxHp=" .. newTotalMaxHp .. " final=" .. player.hp)
                 end
-                print("[SaveSystem] HP recalibrated: saved=" .. (saveData.player.hp or "nil")
-                    .. " totalMaxHp=" .. newTotalMaxHp .. " final=" .. player.hp)
             end
         end
     end)

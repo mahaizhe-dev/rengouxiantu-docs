@@ -12,6 +12,8 @@ local SaveSlots = require("systems.save.SaveSlots")
 ---@diagnostic disable-next-line: undefined-global
 local cjson = cjson
 
+local FeatureFlags = require("config.FeatureFlags")
+
 local SavePersistence = {}
 
 -- ============================================================================
@@ -215,6 +217,20 @@ function SavePersistence.DoSave(slot, callback, epoch)
         -- 透传服务端写入的仙缘宝箱待选奖励（客户端不解析，原样写回防覆盖）
         pendingXianyuanRewards = SS._pendingXianyuanRewards,
     }
+
+    -- P0-3: SAVE_PIPELINE_V2 影子校验 — 检查 coreData 字段边界
+    if FeatureFlags.isEnabled("SAVE_PIPELINE_V2") then
+        local SaveDTO = require("systems.save.SaveDTO")
+        local boundaryOk, unknowns = SaveDTO.ValidateBoundary(coreData)
+        if not boundaryOk then
+            print("[SaveSystem][DTO] Boundary warning: unknown fields in coreData: "
+                .. table.concat(unknowns, ", "))
+        else
+            print("[SaveSystem][DTO] Boundary check passed ("
+                .. SaveDTO.GetSchemaFieldCount() .. " schema + "
+                .. SaveDTO.GetPassthroughFieldCount() .. " passthrough)")
+        end
+    end
 
     -- v11 新 key + 旧 key（迁移用）
     local saveKey = SaveKeys.GetKey("save", slot)
