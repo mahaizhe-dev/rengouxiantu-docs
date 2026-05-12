@@ -25,14 +25,19 @@ local trialListContainer_ = nil
 local trialStatusLabel_ = nil
 local trialLoading_ = false
 
+-- ── 镇狱榜状态 ──
+local prisonListContainer_ = nil
+local prisonLoading_ = false
+
 -- ── Tab 状态（单容器 ClearChildren+rebuild 模式） ──
-local activeTab_ = "xiuxian"     -- "xiuxian" | "trial"
+local activeTab_ = "xiuxian"     -- "xiuxian" | "trial" | "prison"
 local tabContent_ = nil          -- 单个内容容器，切换时清空重建
 
 -- ── 数据缓存（ClearChildren 会销毁容器，切换回来时需从缓存重新渲染） ──
 local cachedXiuxianEntries_ = nil     -- 修仙榜排序后的条目列表
 local cachedXiuxianNickMap_ = nil     -- 修仙榜昵称映射
 local cachedTrialRankList_ = nil      -- 试炼榜排行数据
+local cachedPrisonRankList_ = nil     -- 镇狱榜排行数据
 
 -- ── 修仙榜职业子 Tab ──
 local xiuxianClassFilter_ = "all"    -- "all" | "monk" | "taixu" | "zhenyue"
@@ -41,6 +46,10 @@ local classSubTabBtns_ = {}           -- 子 Tab 按钮引用数组
 -- ── 试炼榜常量 ──
 local TRIAL_TIME_BASE = 10000000000  -- 10^10，与 server_main 一致
 local TRIAL_RANK_COUNT = 50
+
+-- ── 镇狱榜常量 ──
+local PRISON_TIME_BASE = 10000000000  -- 10^10，与 RankHandler 一致
+local PRISON_RANK_COUNT = 50
 
 -- ============================================================================
 -- 排行榜黑名单（作弊玩家屏蔽）
@@ -95,8 +104,8 @@ local TAB_INACTIVE_BG = {40, 45, 60, 200}
 local TAB_ACTIVE_COLOR = {240, 240, 255, 255}
 local TAB_INACTIVE_COLOR = {140, 140, 160, 200}
 
-local TAB_NAMES = { "⚔ 修仙榜", "🏆 试炼榜" }
-local TAB_IDS   = { "xiuxian", "trial" }
+local TAB_NAMES = { "⚔ 修仙榜", "🏆 试炼榜", "🏯 镇狱榜" }
+local TAB_IDS   = { "xiuxian", "trial", "prison" }
 local tabBtns_  = {}  -- tab 按钮引用数组
 
 local function UpdateTabStyles()
@@ -836,11 +845,82 @@ local function LoadTrialLeaderboard()
 end
 
 -- ============================================================================
+-- 加载镇狱榜数据
+-- ============================================================================
+
+--- 填充镇狱榜数据到 prisonListContainer_
+local function PopulatePrisonList(rankList)
+    if not prisonListContainer_ then return end
+    prisonListContainer_:ClearChildren()
+
+    cachedPrisonRankList_ = rankList
+
+    if not rankList or #rankList == 0 then
+        prisonListContainer_:AddChild(BuildTrialStatusRow("暂无镇狱记录"))
+        return
+    end
+
+    for i, item in ipairs(rankList) do
+        local compositeScore = item.value or 0
+        local floor = math.floor(compositeScore / PRISON_TIME_BASE)
+        if floor <= 0 then floor = 1 end
+
+        local info = item.score and item.score.prison_info
+        local displayName = "修仙者"
+        local realmName = "凡人"
+        local level = 1
+        local taptapNick = nil
+        local classId = "monk"
+
+        if info and type(info) == "table" then
+            displayName = info.name or displayName
+            realmName = GetRealmName(info.realm)
+            level = info.level or level
+            taptapNick = info.taptapNick
+            classId = info.classId or "monk"
+            if info.floor and type(info.floor) == "number" and info.floor > 0 then
+                floor = info.floor
+            end
+        end
+
+        prisonListContainer_:AddChild(BuildTrialRankRow(i, displayName, floor, realmName, level, taptapNick, classId))
+    end
+end
+
+--- 请求镇狱榜排行数据
+local function LoadPrisonLeaderboard()
+    if prisonLoading_ then return end
+    prisonLoading_ = true
+
+    if prisonListContainer_ then
+        prisonListContainer_:ClearChildren()
+        prisonListContainer_:AddChild(BuildTrialStatusRow("加载中..."))
+    end
+
+    CloudStorage.GetRankList("prison_floor", 0, PRISON_RANK_COUNT, {
+        ok = function(rankList)
+            prisonLoading_ = false
+            print("[LeaderboardUI] Prison: received " .. #rankList .. " entries")
+            PopulatePrisonList(rankList)
+        end,
+        error = function(code, reason)
+            prisonLoading_ = false
+            print("[LeaderboardUI] Prison: GetRankList error: " .. tostring(code) .. " " .. tostring(reason))
+            if prisonListContainer_ then
+                prisonListContainer_:ClearChildren()
+                prisonListContainer_:AddChild(BuildTrialStatusRow("加载失败，请稍后再试"))
+            end
+        end,
+    }, "prison_info")
+end
+
+-- ============================================================================
 -- Tab 内容构建（ClearChildren + rebuild 模式）
 -- ============================================================================
 
 local xiuxianLoaded_ = false
 local trialLoaded_ = false
+local prisonLoaded_ = false
 
 --- 更新职业子 Tab 按钮样式
 local function UpdateClassSubTabStyles()
@@ -974,6 +1054,36 @@ local function BuildTrialTabContent()
     })
 end
 
+--- 构建镇狱榜内容到 tabContent_
+local function BuildPrisonTabContent()
+    prisonListContainer_ = UI.Panel {
+        width = "100%",
+        gap = 4,
+    }
+
+    -- 表头
+    tabContent_:AddChild(UI.Panel {
+        flexDirection = "row",
+        alignItems = "center",
+        paddingLeft = T.spacing.sm,
+        paddingRight = T.spacing.sm,
+        height = 24,
+        children = {
+            UI.Label { text = "排名", fontSize = T.fontSize.xs, fontColor = {120, 120, 140, 160}, width = 36, textAlign = "center" },
+            UI.Label { text = "修仙者", fontSize = T.fontSize.xs, fontColor = {120, 120, 140, 160}, flexGrow = 1 },
+            UI.Label { text = "镇狱层数", fontSize = T.fontSize.xs, fontColor = {120, 120, 140, 160} },
+        },
+    })
+    tabContent_:AddChild(UI.Panel { width = "100%", height = 1, backgroundColor = {80, 85, 100, 100} })
+    tabContent_:AddChild(UI.ScrollView {
+        flexGrow = 1,
+        flexShrink = 1,
+        children = {
+            prisonListContainer_,
+        },
+    })
+end
+
 --- 刷新 Tab 内容（ClearChildren + rebuild）
 local function RefreshTabContent()
     if not tabContent_ then return end
@@ -983,6 +1093,7 @@ local function RefreshTabContent()
     listContainer_ = nil
     statusLabel_ = nil
     trialListContainer_ = nil
+    prisonListContainer_ = nil
 
     if activeTab_ == "xiuxian" then
         BuildXiuxianTabContent()
@@ -990,18 +1101,24 @@ local function RefreshTabContent()
             xiuxianLoaded_ = true
             LoadLeaderboard()
         elseif cachedXiuxianEntries_ then
-            -- 从缓存重新渲染（容器已被 ClearChildren 销毁重建）
             statusLabel_:Hide()
             RenderLeaderboard(cachedXiuxianEntries_, cachedXiuxianNickMap_)
         end
-    else
+    elseif activeTab_ == "trial" then
         BuildTrialTabContent()
         if not trialLoaded_ then
             trialLoaded_ = true
             LoadTrialLeaderboard()
         elseif cachedTrialRankList_ then
-            -- 从缓存重新渲染
             PopulateTrialList(cachedTrialRankList_)
+        end
+    elseif activeTab_ == "prison" then
+        BuildPrisonTabContent()
+        if not prisonLoaded_ then
+            prisonLoaded_ = true
+            LoadPrisonLeaderboard()
+        elseif cachedPrisonRankList_ then
+            PopulatePrisonList(cachedPrisonRankList_)
         end
     end
 
@@ -1030,6 +1147,7 @@ function LeaderboardUI.Create(uiRoot)
         statusLabel_ = nil
         trialListContainer_ = nil
         trialStatusLabel_ = nil
+        prisonListContainer_ = nil
         tabContent_ = nil
         tabBtns_ = {}
     end
@@ -1163,9 +1281,11 @@ function LeaderboardUI.Show(tabId)
     -- 重置加载标记和缓存（每次 Show 都重新加载数据）
     xiuxianLoaded_ = false
     trialLoaded_ = false
+    prisonLoaded_ = false
     cachedXiuxianEntries_ = nil
     cachedXiuxianNickMap_ = nil
     cachedTrialRankList_ = nil
+    cachedPrisonRankList_ = nil
     xiuxianClassFilter_ = "all"
     classSubTabBtns_ = {}
 

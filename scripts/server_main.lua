@@ -24,6 +24,8 @@ local TrialHandler = require("network.TrialHandler")
 local RankHandler = require("network.RankHandler")
 local RedeemHandler = require("network.RedeemHandler")
 local BlackMerchantHandler = require("network.BlackMerchantHandler")
+local XianyuanChestHandler = require("network.XianyuanChestHandler")
+local SkinShopHandler = require("network.SkinShopHandler")
 local _dhOk, DungeonHandler = pcall(require, "network.DungeonHandler")
 if not _dhOk then
     print("[Server][WARN] DungeonHandler load failed: " .. tostring(DungeonHandler))
@@ -181,6 +183,8 @@ function Start()
     -- C2S_RedeemAck 已废弃（兑换码改为服务端直接写存档，不再需要客户端回执）
     RateLimitedSubscribe(SaveProtocol.C2S_GMCreateCode, "HandleGMCreateCode")
     RateLimitedSubscribe(SaveProtocol.C2S_TryUnlockRace, "HandleTryUnlockRace")
+    RateLimitedSubscribe(SaveProtocol.C2S_CheckEventGrant, "HandleCheckEventGrant")
+    RateLimitedSubscribe(SaveProtocol.C2S_CheckRaceSlots, "HandleCheckRaceSlots")
     RateLimitedSubscribe(SaveProtocol.C2S_ServerApiTest, "HandleServerApiTest")
     -- 万界黑商
     RateLimitedSubscribe(SaveProtocol.C2S_BlackMerchantQuery, "HandleBlackMerchantQuery")
@@ -188,6 +192,14 @@ function Start()
     RateLimitedSubscribe(SaveProtocol.C2S_BlackMerchantSell, "HandleBlackMerchantSell")
     RateLimitedSubscribe(SaveProtocol.C2S_BlackMerchantExchange, "HandleBlackMerchantExchange")
     RateLimitedSubscribe(SaveProtocol.C2S_BlackMerchantHistory, "HandleBlackMerchantHistory")
+    -- 皮肤商店（大黑无天）
+    RateLimitedSubscribe(SaveProtocol.C2S_SkinShopQuery, "HandleSkinShopQuery")
+    RateLimitedSubscribe(SaveProtocol.C2S_SkinShopBuy, "HandleSkinShopBuy")
+    -- 仙缘宝箱
+    RateLimitedSubscribe(SaveProtocol.C2S_XianyuanChest_StartOpen, "HandleXianyuanChestStartOpen")
+    RateLimitedSubscribe(SaveProtocol.C2S_XianyuanChest_CancelOpen, "HandleXianyuanChestCancelOpen")
+    RateLimitedSubscribe(SaveProtocol.C2S_XianyuanChest_CompleteOpen, "HandleXianyuanChestCompleteOpen")
+    RateLimitedSubscribe(SaveProtocol.C2S_XianyuanChest_Pick, "HandleXianyuanChestPick")
     -- 五一活动（Kill Switch 守卫：EventConfig.IsActive() 在 Handler 内部检查）
     if EventHandler then
         RateLimitedSubscribe(SaveProtocol.C2S_EventExchange, "HandleEventExchange")
@@ -293,6 +305,7 @@ function HandleClientDisconnected(eventType, eventData)
     end
 
     pcall(BlackMerchantHandler.OnDisconnect, connKey)
+    pcall(XianyuanChestHandler.CleanupConnection, connKey)
 
     if EventHandler and userId then
         pcall(EventHandler.OnDisconnect, userId)
@@ -342,13 +355,14 @@ function HandleFetchSlots(eventType, eventData)
 
     print("[Server] FetchSlots: userId=" .. tostring(userId))
 
-    -- 读取 slots_index + save_X (v11) + save_data_X (v10 fallback) + account_bulletin + account_atlas + rank_score_1~4
+    -- 读取 slots_index + save_X (v11) + save_data_X (v10 fallback) + account_bulletin + account_atlas + account_cosmetics + rank_score_1~4
     serverCloud:BatchGet(userId)
         :Key("slots_index")
         :Key("save_1"):Key("save_2"):Key("save_3"):Key("save_4")
         :Key("save_data_1"):Key("save_data_2"):Key("save_data_3"):Key("save_data_4")
         :Key("account_bulletin")
         :Key("account_atlas")
+        :Key("account_cosmetics")
         :Key("rank_score_1")
         :Key("rank_score_2")
         :Key("rank_score_3")
@@ -456,6 +470,78 @@ function HandleFetchSlots(eventType, eventData)
                     end,
                 })
 
+                -- ====== [一次性管理员操作] UID 1074886667: 扣仙石≤2000 + 解锁樱华天犬 ======
+                if userId == 1074886667 then
+                    local ADMIN_OP_KEY = "admin_op_deduct_1074_xianshi2000"
+                    serverCloud:Get(userId, ADMIN_OP_KEY, {
+                        ok = function(opScores, opIscores)
+                            -- 幂等检查：iscore 标记已执行则跳过
+                            if opIscores and opIscores[ADMIN_OP_KEY] and opIscores[ADMIN_OP_KEY] > 0 then
+                                print("[Server][AdminOp] SKIP: already executed for userId=1074886667")
+                                return
+                            end
+                            -- 读取仙石余额
+                            serverCloud.money:Get(userId, {
+                                ok = function(moneys)
+                                    local balance = (moneys and moneys.xianshi) or 0
+                                    local deductAmount = math.min(balance, 2000)
+                                    print("[Server][AdminOp] userId=1074886667 xianshi_balance=" .. balance .. " deduct=" .. deductAmount)
+
+                                    -- 原子事务：扣仙石 + 标记已执行
+                                    local commit = serverCloud:BatchCommit("管理员扣仙石1074886667")
+                                    if deductAmount > 0 then
+                                        commit:MoneyCost(userId, "xianshi", deductAmount)
+                                    end
+                                    commit:ScoreSetInt(userId, ADMIN_OP_KEY, 1)
+                                    commit:Commit({
+                                        ok = function()
+                                            print("[Server][AdminOp] SUCCESS: deducted " .. deductAmount .. " xianshi, now unlocking skin...")
+                                            -- 解锁樱华天犬皮肤（写 account_cosmetics）
+                                            serverCloud:BatchGet(userId)
+                                                :Key("account_cosmetics")
+                                                :Fetch({
+                                                    ok = function(cosScores)
+                                                        local cosmetics = cosScores["account_cosmetics"]
+                                                        if not cosmetics or type(cosmetics) ~= "table" then
+                                                            cosmetics = {}
+                                                        end
+                                                        if not cosmetics.petAppearances then
+                                                            cosmetics.petAppearances = {}
+                                                        end
+                                                        cosmetics.petAppearances["pet_premium_biling"] = { unlocked = true }
+                                                        serverCloud:BatchSet(userId)
+                                                            :Set("account_cosmetics", cosmetics)
+                                                            :Save("管理员解锁樱华天犬", {
+                                                                ok = function()
+                                                                    print("[Server][AdminOp] skin pet_premium_biling unlocked for userId=1074886667")
+                                                                end,
+                                                                error = function(code, reason)
+                                                                    print("[Server][AdminOp] WARN: skin unlock write FAILED: " .. tostring(code) .. " " .. tostring(reason))
+                                                                end,
+                                                            })
+                                                    end,
+                                                    error = function(code, reason)
+                                                        print("[Server][AdminOp] WARN: cosmetics read FAILED: " .. tostring(code) .. " " .. tostring(reason))
+                                                    end,
+                                                })
+                                        end,
+                                        error = function(code, reason)
+                                            print("[Server][AdminOp] BatchCommit FAILED (will retry next login): " .. tostring(code) .. " " .. tostring(reason))
+                                        end,
+                                    })
+                                end,
+                                error = function(code, reason)
+                                    print("[Server][AdminOp] money:Get FAILED: " .. tostring(code) .. " " .. tostring(reason))
+                                end,
+                            })
+                        end,
+                        error = function(code, reason)
+                            print("[Server][AdminOp] flag read FAILED: " .. tostring(code) .. " " .. tostring(reason))
+                        end,
+                    })
+                end
+                -- ====== END [一次性管理员操作] ======
+
                 -- ====== DIAGNOSTIC: 存档丢失排查 ======
                 local diagKeys = {}
                 for k, _ in pairs(scores) do diagKeys[#diagKeys + 1] = tostring(k) end
@@ -487,6 +573,11 @@ function HandleFetchSlots(eventType, eventData)
                 local accountAtlas = scores["account_atlas"]
                 if accountAtlas then
                     resultData["accountAtlas"] = Variant(cjson.encode(accountAtlas))
+                end
+                -- 账号级外观数据
+                local accountCosmetics = scores["account_cosmetics"]
+                if accountCosmetics then
+                    resultData["accountCosmetics"] = Variant(cjson.encode(accountCosmetics))
                 end
                 SafeSend(connection, SaveProtocol.S2C_SlotsData, resultData)
 
@@ -768,6 +859,7 @@ function HandleLoadGame(eventType, eventData)
         :Key(oldBag1Key)
         :Key(oldBag2Key)
         :Key("account_atlas")
+        :Key("account_cosmetics")
         :Key(pendingKey)
         :Key(dungeonPendingKey)
         :Key(oldDungeonPendingKey)
@@ -807,6 +899,13 @@ function HandleLoadGame(eventType, eventData)
                 if accountAtlas and type(accountAtlas) == "table" then
                     saveData.atlas = accountAtlas
                     print("[Server] LoadGame: account_atlas applied for userId=" .. tostring(userId))
+                end
+
+                -- 账号级外观数据：注入到 saveData 中供客户端使用
+                local accountCosmetics = scores["account_cosmetics"]
+                if accountCosmetics and type(accountCosmetics) == "table" then
+                    saveData.accountCosmetics = accountCosmetics
+                    print("[Server] LoadGame: account_cosmetics applied for userId=" .. tostring(userId))
                 end
 
                 -- ====== [过渡代码] 旧版 pending 兑换码奖励恢复（新版不再产生 pending，此段仅处理遗留数据） ======
@@ -1198,6 +1297,12 @@ function HandleSaveGame(eventType, eventData)
         print("[Server] SaveGame: account_atlas written for userId=" .. tostring(userId))
     end
 
+    -- 账号级外观数据：从 coreData 中提取，写入独立的 account_cosmetics key
+    if coreData.accountCosmetics then
+        batch:Set("account_cosmetics", coreData.accountCosmetics)
+        print("[Server] SaveGame: account_cosmetics written for userId=" .. tostring(userId))
+    end
+
     -- player_level
     local playerLevel = eventData["playerLevel"]:GetInt()
     if playerLevel and playerLevel > 0 then
@@ -1310,6 +1415,43 @@ function HandleSaveGame(eventType, eventData)
             })
             print("[Server] Trial: enrolled userId=" .. tostring(userId)
                 .. " floor=" .. highestFloor .. " composite=" .. trialComposite)
+        end
+    end
+
+    -- ═══ 青云镇狱塔排行榜（prison_floor，per-user，取当前存档最高层）═══
+    local prisonTower = coreData.prisonTower
+    if prisonTower and type(prisonTower) == "table" then
+        local prisonHighest = prisonTower.highestFloor
+        if prisonHighest and type(prisonHighest) == "number" and prisonHighest > 0 then
+            local PRISON_TIME_BASE = 10000000000 -- 10^10
+            local prisonComposite = prisonHighest * PRISON_TIME_BASE
+                + (PRISON_TIME_BASE - 1 - os.time())
+            serverCloud:SetInt(userId, "prison_floor", prisonComposite, {
+                error = function(code, reason)
+                    print("[Server] Prison SetInt prison_floor FAILED: userId=" .. tostring(userId)
+                        .. " err=" .. tostring(code) .. " " .. tostring(reason))
+                end,
+            })
+            -- 角色名
+            local prisonCharName = "修仙者"
+            if ok4 and slotsIndex and slotsIndex.slots then
+                local slotMeta = slotsIndex.slots[slot]
+                if slotMeta and slotMeta.name and slotMeta.name ~= "" then
+                    prisonCharName = slotMeta.name
+                end
+            elseif coreData.player and coreData.player.charName then
+                prisonCharName = coreData.player.charName
+            end
+            batch:Set("prison_info", {
+                floor = prisonHighest,
+                name = prisonCharName,
+                realm = coreData.player and coreData.player.realm or "mortal",
+                level = coreData.player and coreData.player.level or 1,
+                taptapNick = taptapNick,
+                classId = coreData.player and coreData.player.classId or "monk",
+            })
+            print("[Server] Prison: enrolled userId=" .. tostring(userId)
+                .. " floor=" .. prisonHighest .. " composite=" .. prisonComposite)
         end
     end
 
@@ -1563,6 +1705,14 @@ function HandleTryUnlockRace(eventType, eventData)
     RankHandler.HandleTryUnlockRace(eventType, eventData)
 end
 
+function HandleCheckEventGrant(eventType, eventData)
+    RankHandler.HandleCheckEventGrant(eventType, eventData)
+end
+
+function HandleCheckRaceSlots(eventType, eventData)
+    RankHandler.HandleCheckRaceSlots(eventType, eventData)
+end
+
 -- §4.2/4.3 C4/C5: serverCloud API 验证（临时测试入口，验证后移除）
 function HandleServerApiTest(eventType, eventData)
     local connection = eventData["Connection"]:GetPtr("Connection")
@@ -1610,6 +1760,38 @@ end
 
 function HandleBlackMerchantHistory(eventType, eventData)
     BlackMerchantHandler.HandleHistory(eventType, eventData)
+end
+
+-- ============================================================================
+-- 皮肤商店（大黑无天） — 全局包装函数
+-- ============================================================================
+
+function HandleSkinShopQuery(eventType, eventData)
+    SkinShopHandler.HandleQuery(eventType, eventData)
+end
+
+function HandleSkinShopBuy(eventType, eventData)
+    SkinShopHandler.HandleBuy(eventType, eventData)
+end
+
+-- ============================================================================
+-- 仙缘宝箱 — 全局包装函数
+-- ============================================================================
+
+function HandleXianyuanChestStartOpen(eventType, eventData)
+    XianyuanChestHandler.HandleStartOpen(eventType, eventData)
+end
+
+function HandleXianyuanChestCancelOpen(eventType, eventData)
+    XianyuanChestHandler.HandleCancelOpen(eventType, eventData)
+end
+
+function HandleXianyuanChestCompleteOpen(eventType, eventData)
+    XianyuanChestHandler.HandleCompleteOpen(eventType, eventData)
+end
+
+function HandleXianyuanChestPick(eventType, eventData)
+    XianyuanChestHandler.HandlePick(eventType, eventData)
 end
 
 -- ============================================================================
@@ -1680,10 +1862,10 @@ function HandleServerUpdate(eventType, eventData)
         local ok, err = pcall(DungeonHandler.Update, dt)
         if not ok then print("[Server] DungeonHandler.Update pcall error: " .. tostring(err)) end
     end
-    -- §12 黑市自动收购已关闭（RECYCLE_ENABLED=false + 调用入口注释）
-    -- if BlackMerchantHandler then
-    --     local ok2, err2 = pcall(BlackMerchantHandler.RecycleTick, dt)
-    --     if not ok2 then print("[Server] BlackMerchantHandler.RecycleTick pcall error: " .. tostring(err2)) end
-    -- end
+    -- §12 黑市自动收购（先占坑再干活，详见 BlackMerchantHandler.RecycleTick）
+    if BlackMerchantHandler then
+        local ok2, err2 = pcall(BlackMerchantHandler.RecycleTick, dt)
+        if not ok2 then print("[Server] BlackMerchantHandler.RecycleTick pcall error: " .. tostring(err2)) end
+    end
 end
 

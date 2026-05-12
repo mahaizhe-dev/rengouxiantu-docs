@@ -21,11 +21,11 @@ tianji.npcs = {
         x = 10, y = 63,
         icon = "npc_black_merchant.png",
         portrait = "Textures/npc_black_merchant.png",
-        interactType = "black_merchant",
+        interactType = "skin_shop",
         zone = "mz_tianji",
         dialog = {
-            "嘿嘿……有仙石的话，我这里什么都有。",
-            "万界奇珍，概不还价。",
+            "哼……都怪那个胤，把我的黑市抢走了。",
+            "不过没关系，我还有好东西。看看这些皮肤吧。",
         },
     },
     {
@@ -35,14 +35,12 @@ tianji.npcs = {
         x = 8, y = 63,
         icon = "npc_yin.png",
         portrait = "Textures/npc_yin.png",
-        interactType = "coming_soon",
+        interactType = "black_merchant",
         zone = "mz_tianji",
         dialog = {
             "……又来了一个。",
-            "你找无天？他醉了，烂摊子全是我在收拾。",
-            "仙石价格紊乱、账目对不上、还有一堆投诉……",
-            "（他不耐烦地整理着手中的账簿）",
-            "别挡路，没看到我很忙吗。",
+            "无天那家伙醉了，这里现在我说了算。",
+            "有仙石就买，没仙石就走。",
         },
     },
     {

@@ -226,6 +226,18 @@ function SaveSystemNet_HandleSlotsData(eventType, eventData)
         end
     end
 
+    -- 反序列化 account_cosmetics（账号级外观数据，登录即可用）
+    local cosmeticsJson = nil
+    pcall(function() cosmeticsJson = eventData["accountCosmetics"]:GetString() end)
+    if cosmeticsJson and cosmeticsJson ~= "" then
+        local ok4, cosmeticsData = pcall(cjson.decode, cosmeticsJson)
+        if ok4 and cosmeticsData then
+            local GameState = require("core.GameState")
+            GameState.accountCosmetics = cosmeticsData
+            print("[SaveSystemNet] account_cosmetics loaded at login")
+        end
+    end
+
     -- [已废弃] 迁移逻辑已正式关闭
     -- clientCloud → serverCloud 和 local_file → serverCloud 迁移不再触发
     -- 已迁移玩家不受影响：其 serverCloud 已有数据（needMigration=false）、本地导出文件已删除

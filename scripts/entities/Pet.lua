@@ -4,6 +4,7 @@
 
 local GameConfig = require("config.GameConfig")
 local PetSkillData = require("config.PetSkillData")
+local PetAppearanceConfig = require("config.PetAppearanceConfig")
 local Utils = require("core.Utils")
 local EventBus = require("core.EventBus")
 local LootSystem = require("systems.LootSystem")
@@ -33,11 +34,15 @@ function Pet.New(owner)
     -- 等级与进阶
     self.level = 1
     self.exp = 0
-    self.tier = 0  -- 当前阶级（0=幼犬, 1=灵犬, 2=妖犬, 3=灵兽）
+    self.tier = 0  -- 当前阶级（0=幼犬, 1=凶犬, 2=斗犬, 3=灵犬, 4=灵兽, 5=圣犬, 6=圣兽, 7=天犬）
 
     -- 技能（被动属性加成）
     -- skills[slotIndex] = { id = "atk_basic", tier = 1 } 或 nil（空槽）
     self.skills = {}
+
+    -- 外观（v20+）
+    -- appearance = { selectedId = "pet_base_t0" } 或 nil（使用默认）
+    self.appearance = nil
 
     -- 运行时属性（由 RecalcStats 计算）
     self.maxHp = 0
@@ -192,8 +197,11 @@ function Pet:RecalcStats()
 
     -- 百分比加成 + 蕴灵每级固定加成
     self.maxHp = math.floor(rawMaxHp * (1 + skillPct.maxHp / 100) + perLv.maxHp * self.level)
-    self.atk   = math.floor(rawAtk   * (1 + skillPct.atk   / 100))
+    local baseAtk = math.floor(rawAtk * (1 + skillPct.atk / 100))
     self.def   = math.floor(rawDef   * (1 + skillPct.def   / 100) + perLv.def * self.level)
+
+    -- 高级皮肤加成已迁移至角色（Player._RecalcStatsCache）
+    self.atk = baseAtk
 
     -- Ch1/Ch2 属性
     self.evadeChance = skillPct.evadeChance  -- 闪避率(%)

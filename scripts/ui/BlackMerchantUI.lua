@@ -25,9 +25,9 @@ local BlackMerchantUI = {}
 -- ============================================================================
 
 local PORTRAIT_SIZE = 64
-local NPC_NAME = "大黑无天"
-local NPC_TITLE = "无所不能的神秘商人"
-local NPC_DIALOGUE = "欢迎来到万界商行。\n万物皆有价，买卖凭仙石。\n商店库存全部来自其他修士的寄售，无官方补货，售空即止。\n大黑无天每天也会采购货物，满库存的商品可能被收走。\n灵韵可兑仙石，仙石亦可换灵韵（折损五成）。"
+local NPC_NAME = "胤"
+local NPC_TITLE = "星界财团·新任掌柜"
+local NPC_DIALOGUE = "欢迎来到万界商行。\n万物皆有价，买卖凭仙石。\n商店库存全部来自其他修士的寄售，无官方补货，售空即止。\n胤每天也会采购货物，满库存的商品可能被收走。\n灵韵可兑仙石，仙石亦可换灵韵（折损五成）。"
 
 -- ============================================================================
 -- 状态
@@ -48,8 +48,9 @@ local tradeRecords_ = {}    -- 交易记录数组
 local contentPanel_ = nil   -- 动态内容区（标签页切换时重建）
 local currencyLabel_ = nil  -- 仙石余额文字
 local statusLabel_ = nil    -- 状态提示文字
-local tabBtnMaterial_ = nil
-local tabBtnEvent_ = nil
+local tabBtnConsumableMat_ = nil
+local tabBtnHerb_ = nil
+-- local tabBtnEvent_ = nil  -- 活动已下架
 local tabBtnRake_ = nil
 local tabBtnBagua_ = nil
 local tabBtnTiandi_ = nil
@@ -58,7 +59,7 @@ local tabBtnSpecialEquip_ = nil
 local tabBtnSkillBook_ = nil
 local tabBtnHistory_ = nil
 
-local activeTab_ = "material"   -- "material" | "rake" | "bagua" | "tiandi" | "lingyu" | "special_equip" | "skill_book" | "history"
+local activeTab_ = "consumable_mat"   -- "consumable_mat" | "herb" | "rake" | "bagua" | "tiandi" | "lingyu" | "special_equip" | "skill_book" | "history"
 
 -- 轮询
 local POLL_INTERVAL = 30.0  -- P0: 降频，减少 SYSTEM_UID 热读压力
@@ -404,8 +405,9 @@ local function SetActiveTab(tab)
     HideConfirmDialog()  -- 切标签关闭确认弹窗
 
     -- 更新所有标签按钮样式
-    if tabBtnMaterial_ then tabBtnMaterial_:SetStyle({ backgroundColor = (tab == "material") and C.tabActive or C.tabInactive }) end
-    if tabBtnEvent_ then tabBtnEvent_:SetStyle({ backgroundColor = (tab == "event") and C.tabActive or C.tabInactive }) end
+    if tabBtnConsumableMat_ then tabBtnConsumableMat_:SetStyle({ backgroundColor = (tab == "consumable_mat") and C.tabActive or C.tabInactive }) end
+    if tabBtnHerb_ then tabBtnHerb_:SetStyle({ backgroundColor = (tab == "herb") and C.tabActive or C.tabInactive }) end
+    -- if tabBtnEvent_ then tabBtnEvent_:SetStyle({ backgroundColor = (tab == "event") and C.tabActive or C.tabInactive }) end  -- 活动已下架
     if tabBtnRake_ then tabBtnRake_:SetStyle({ backgroundColor = (tab == "rake") and C.tabActive or C.tabInactive }) end
     if tabBtnBagua_ then tabBtnBagua_:SetStyle({ backgroundColor = (tab == "bagua") and C.tabActive or C.tabInactive }) end
     if tabBtnTiandi_ then tabBtnTiandi_:SetStyle({ backgroundColor = (tab == "tiandi") and C.tabActive or C.tabInactive }) end
@@ -688,8 +690,8 @@ local function BuildHistoryList()
             itemName = "仙石"
         end
 
-        -- 判断是否是大黑无天（系统 NPC）的收购条目（兼容旧记录中的 "大黑五天"）
-        local isNpcRecycle = (rec.pn == BMConfig.RECYCLE_NPC_NAME or rec.pn == "大黑五天")
+        -- 判断是否是胤（系统 NPC）的收购条目（兼容旧记录中的 "大黑五天"/"大黑无天"）
+        local isNpcRecycle = (rec.pn == BMConfig.RECYCLE_NPC_NAME or rec.pn == "大黑五天" or rec.pn == "大黑无天")
         -- 玩家名标识：自己标"我"，NPC 统一显示当前名，其他显示原名
         local playerTag
         if rec.own then
@@ -700,7 +702,7 @@ local function BuildHistoryList()
             playerTag = rec.pn or ""
         end
 
-        -- 名字颜色：自己=蓝，大黑无天=金，其他=灰
+        -- 名字颜色：自己=蓝，胤=金，其他=灰
         local nameColor
         if rec.own then
             nameColor = {130, 200, 255, 255}
@@ -776,10 +778,12 @@ function BlackMerchantUI.RefreshContent()
         children = BuildShowcase(BMConfig.CATEGORY_TIANDI)
     elseif activeTab_ == "lingyu" then
         children = BuildShowcase(BMConfig.CATEGORY_LINGYU)
-    elseif activeTab_ == "material" then
-        children = BuildShowcase(BMConfig.CATEGORY_MATERIAL)
-    elseif activeTab_ == "event" then
-        children = BuildShowcase(BMConfig.CATEGORY_EVENT)
+    elseif activeTab_ == "consumable_mat" then
+        children = BuildShowcase(BMConfig.CATEGORY_CONSUMABLE_MAT)
+    elseif activeTab_ == "herb" then
+        children = BuildShowcase(BMConfig.CATEGORY_HERB)
+    -- elseif activeTab_ == "event" then  -- 活动已下架
+    --     children = BuildShowcase(BMConfig.CATEGORY_EVENT)
     elseif activeTab_ == "special_equip" then
         children = BuildShowcase(BMConfig.CATEGORY_SPECIAL_EQUIP)
     elseif activeTab_ == "skill_book" then
@@ -1027,22 +1031,23 @@ function BlackMerchantUI.Create(parentOverlay)
     }
 
     -- 第一行页签按钮
-    tabBtnMaterial_ = UI.Button {
-        text = BMConfig.CATEGORY_NAMES.material,
+    tabBtnConsumableMat_ = UI.Button {
+        text = BMConfig.CATEGORY_NAMES.consumable_mat,
         flexGrow = 1, height = 28,
         fontSize = T.fontSize.xs, fontWeight = "bold",
         borderRadius = T.radius.xs,
         backgroundColor = C.tabActive,
-        onClick = function() SetActiveTab("material") end,
+        onClick = function() SetActiveTab("consumable_mat") end,
     }
-    tabBtnEvent_ = UI.Button {
-        text = BMConfig.CATEGORY_NAMES.event,
+    tabBtnHerb_ = UI.Button {
+        text = BMConfig.CATEGORY_NAMES.herb,
         flexGrow = 1, height = 28,
         fontSize = T.fontSize.xs, fontWeight = "bold",
         borderRadius = T.radius.xs,
         backgroundColor = C.tabInactive,
-        onClick = function() SetActiveTab("event") end,
+        onClick = function() SetActiveTab("herb") end,
     }
+    -- tabBtnEvent_ 活动已下架
     tabBtnLingyu_ = UI.Button {
         text = BMConfig.CATEGORY_NAMES.lingyu,
         flexGrow = 1, height = 28,
@@ -1173,7 +1178,7 @@ function BlackMerchantUI.Create(parentOverlay)
                                             UI.Panel {
                                                 width = "100%",
                                                 height = "100%",
-                                                backgroundImage = "Textures/npc_black_merchant.png",
+                                                backgroundImage = "Textures/npc_yin.png",
                                                 backgroundFit = "contain",
                                             },
                                         },
@@ -1218,7 +1223,7 @@ function BlackMerchantUI.Create(parentOverlay)
                                         marginTop = 4,
                                     },
                                     UI.Label {
-                                        text = "大黑无天每天也会采购货物，满库存的商品可能被收走。",
+                                        text = "胤每天也会采购货物，满库存的商品可能被收走。",
                                         fontSize = T.fontSize.xs,
                                         fontColor = {180, 220, 255, 240},
                                         width = "100%",
@@ -1256,6 +1261,20 @@ function BlackMerchantUI.Create(parentOverlay)
                                         flexDirection = "row", gap = T.spacing.xs,
                                         children = {
                                             UI.Button {
+                                                text = "皮肤",
+                                                width = 52, height = 28,
+                                                fontSize = 11, fontWeight = "bold",
+                                                borderRadius = T.radius.sm,
+                                                backgroundColor = {140, 60, 100, 220},
+                                                onClick = function()
+                                                    BlackMerchantUI.Hide()
+                                                    local SkinShopUI = require("ui.SkinShopUI")
+                                                    SkinShopUI.Show({ onClose = function()
+                                                        BlackMerchantUI.Show()
+                                                    end })
+                                                end,
+                                            },
+                                            UI.Button {
                                                 text = "灵韵→仙石",
                                                 width = 86, height = 28,
                                                 fontSize = 11, fontWeight = "bold",
@@ -1290,13 +1309,14 @@ function BlackMerchantUI.Create(parentOverlay)
                             -- 分隔线
                             UI.Panel { width = "100%", height = 1, backgroundColor = C.separator },
                             -- 标签页栏（双行）
-                            -- 第一行：材料 · 活动 · 附灵玉 · 特殊装备 · 技能书 · 记录
+                            -- 第一行：消耗品 · 草药 · 附灵玉 · 特殊装备 · 技能书 · 记录
                             UI.Panel {
                                 width = "100%", flexDirection = "row",
                                 gap = T.spacing.xs,
                                 children = {
-                                    tabBtnMaterial_,
-                                    tabBtnEvent_,
+                                    tabBtnConsumableMat_,
+                                    tabBtnHerb_,
+                                    -- tabBtnEvent_,  -- 活动已下架
                                     tabBtnLingyu_,
                                     tabBtnSpecialEquip_,
                                     tabBtnSkillBook_,
@@ -1348,14 +1368,15 @@ function BlackMerchantUI.Show()
     if not panel_ then return end
 
     -- 重置状态
-    activeTab_ = "material"
+    activeTab_ = "consumable_mat"
     dataLoaded_ = false
     pendingRequest_ = false
     pollTimer_ = 0
 
     -- 更新标签按钮
-    if tabBtnMaterial_ then tabBtnMaterial_:SetStyle({ backgroundColor = C.tabActive }) end
-    if tabBtnEvent_ then tabBtnEvent_:SetStyle({ backgroundColor = C.tabInactive }) end
+    if tabBtnConsumableMat_ then tabBtnConsumableMat_:SetStyle({ backgroundColor = C.tabActive }) end
+    if tabBtnHerb_ then tabBtnHerb_:SetStyle({ backgroundColor = C.tabInactive }) end
+    -- if tabBtnEvent_ then tabBtnEvent_:SetStyle({ backgroundColor = C.tabInactive }) end  -- 活动已下架
     if tabBtnRake_ then tabBtnRake_:SetStyle({ backgroundColor = C.tabInactive }) end
     if tabBtnBagua_ then tabBtnBagua_:SetStyle({ backgroundColor = C.tabInactive }) end
     if tabBtnTiandi_ then tabBtnTiandi_:SetStyle({ backgroundColor = C.tabInactive }) end

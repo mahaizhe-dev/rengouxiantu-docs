@@ -24,8 +24,8 @@ BMConfig.PUBLIC_TRADE_LOG_KEY = "bm_pub_trade"  -- 公共买卖记录 key（按 
 BMConfig.MAX_TRADE_RECORDS = 50                 -- 公共买卖记录上限
 BMConfig.MAX_PERSONAL_RECORDS = 50              -- 个人兑换记录上限
 
--- 黑商解锁门槛（大乘初期 order=19）
-BMConfig.JINDAN_ORDER = 19
+-- 黑商解锁门槛（筑基初期 order=4）
+BMConfig.JINDAN_ORDER = 4
 
 -- ============================================================================
 -- 分类
@@ -35,8 +35,10 @@ BMConfig.CATEGORY_RAKE    = "rake"      -- 上宝逊金钯碎片
 BMConfig.CATEGORY_BAGUA   = "bagua"     -- 文王八卦盘碎片
 BMConfig.CATEGORY_TIANDI  = "tiandi"    -- 天帝剑痕碎片
 BMConfig.CATEGORY_LINGYU   = "lingyu"    -- 附灵玉
-BMConfig.CATEGORY_MATERIAL     = "material"      -- 丹药材料
-BMConfig.CATEGORY_EVENT        = "event"         -- 活动道具
+BMConfig.CATEGORY_MATERIAL     = "material"      -- 丹药材料（兼容旧引用）
+BMConfig.CATEGORY_CONSUMABLE_MAT = "consumable_mat" -- 消耗品（龙鳞、金砖、令牌盒等）
+BMConfig.CATEGORY_HERB         = "herb"           -- 草药（炼丹材料、精华等）
+-- BMConfig.CATEGORY_EVENT     = "event"         -- 活动道具（已下架）
 BMConfig.CATEGORY_SPECIAL_EQUIP = "special_equip" -- 特殊装备
 BMConfig.CATEGORY_SKILL_BOOK   = "skill_book"    -- 技能书
 
@@ -46,8 +48,9 @@ BMConfig.CATEGORY_NAMES = {
     bagua         = "八卦盘",
     tiandi        = "天帝剑痕",
     lingyu        = "附灵玉",
-    material      = "材料",
-    event         = "活动",
+    consumable_mat = "消耗品",
+    herb          = "草药",
+    -- event      = "活动",  -- 已下架
     special_equip = "特殊装备",
     skill_book    = "技能书",
 }
@@ -175,34 +178,31 @@ BMConfig.ITEMS = {
     lingyu_fengmo_lv1  = ItemFromGame("lingyu_fengmo_lv1",  { buy_price = 20, sell_price = 40, category = "lingyu" }),
     lingyu_haoqi_lv1   = ItemFromGame("lingyu_haoqi_lv1",   { buy_price = 20, sell_price = 40, category = "lingyu" }),
 
-    -- === 丹药材料（v0.8 新增，max_stock 单独为 10，sort_order 控制显示顺序） ===
-    tiger_bone         = ItemFromGame("tiger_bone",         { buy_price = 1,  sell_price = 2,  category = "material", max_stock = 10, sort_order = 1 }),
-    snake_fruit        = ItemFromGame("snake_fruit",        { buy_price = 2,  sell_price = 4,  category = "material", max_stock = 10, sort_order = 2 }),
-    diamond_wood       = ItemFromGame("diamond_wood",       { buy_price = 3,  sell_price = 6,  category = "material", max_stock = 10, sort_order = 3 }),
-    wind_eroded_grass  = ItemFromGame("wind_eroded_grass",  { buy_price = 4,  sell_price = 8,  category = "material", max_stock = 10, sort_order = 4 }),
-    lipo_essence       = ItemFromGame("lipo_essence",       { buy_price = 5,  sell_price = 10, category = "material", max_stock = 10, sort_order = 5 }),
-    panshi_essence     = ItemFromGame("panshi_essence",     { buy_price = 5,  sell_price = 10, category = "material", max_stock = 10, sort_order = 6 }),
-    yuanling_essence   = ItemFromGame("yuanling_essence",   { buy_price = 5,  sell_price = 10, category = "material", max_stock = 10, sort_order = 7 }),
-    shihun_essence     = ItemFromGame("shihun_essence",     { buy_price = 5,  sell_price = 10, category = "material", max_stock = 10, sort_order = 8 }),
-    lingxi_essence     = ItemFromGame("lingxi_essence",     { buy_price = 5,  sell_price = 10, category = "material", max_stock = 10, sort_order = 9 }),
+    -- === 草药（炼丹材料、精华） ===
+    tiger_bone         = ItemFromGame("tiger_bone",         { buy_price = 1,  sell_price = 2,  category = "herb", max_stock = 10, sort_order = 1 }),
+    snake_fruit        = ItemFromGame("snake_fruit",        { buy_price = 2,  sell_price = 4,  category = "herb", max_stock = 10, sort_order = 2 }),
+    diamond_wood       = ItemFromGame("diamond_wood",       { buy_price = 3,  sell_price = 6,  category = "herb", max_stock = 10, sort_order = 3 }),
+    wind_eroded_grass  = ItemFromGame("wind_eroded_grass",  { buy_price = 4,  sell_price = 8,  category = "herb", max_stock = 10, sort_order = 4 }),
+    lipo_essence       = ItemFromGame("lipo_essence",       { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 5 }),
+    panshi_essence     = ItemFromGame("panshi_essence",     { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 6 }),
+    yuanling_essence   = ItemFromGame("yuanling_essence",   { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 7 }),
+    shihun_essence     = ItemFromGame("shihun_essence",     { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 8 }),
+    lingxi_essence     = ItemFromGame("lingxi_essence",     { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 9 }),
+    dragon_blood_herb  = ItemFromGame("dragon_blood_herb",  { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 10 }),
 
-    -- === 龙神打造材料（v0.8.1 新增，四龙掉落武器材料） ===
-    dragon_scale_ice   = ItemFromGame("dragon_scale_ice",   { buy_price = 15, sell_price = 30, category = "material", max_stock = 5, sort_order = 10 }),
-    dragon_scale_abyss = ItemFromGame("dragon_scale_abyss", { buy_price = 15, sell_price = 30, category = "material", max_stock = 5, sort_order = 11 }),
-    dragon_scale_fire  = ItemFromGame("dragon_scale_fire",  { buy_price = 15, sell_price = 30, category = "material", max_stock = 5, sort_order = 12 }),
-    dragon_scale_sand  = ItemFromGame("dragon_scale_sand",  { buy_price = 15, sell_price = 30, category = "material", max_stock = 5, sort_order = 13 }),
-    gold_brick         = ItemFromGame("gold_brick",         { buy_price = 2,  sell_price = 5,  category = "material", max_stock = 10, sort_order = 14 }),
+    -- === 消耗品（龙神材料、金砖、令牌盒） ===
+    dragon_scale_ice   = ItemFromGame("dragon_scale_ice",   { buy_price = 15, sell_price = 30, category = "consumable_mat", max_stock = 5, sort_order = 1 }),
+    dragon_scale_abyss = ItemFromGame("dragon_scale_abyss", { buy_price = 15, sell_price = 30, category = "consumable_mat", max_stock = 5, sort_order = 2 }),
+    dragon_scale_fire  = ItemFromGame("dragon_scale_fire",  { buy_price = 15, sell_price = 30, category = "consumable_mat", max_stock = 5, sort_order = 3 }),
+    dragon_scale_sand  = ItemFromGame("dragon_scale_sand",  { buy_price = 15, sell_price = 30, category = "consumable_mat", max_stock = 5, sort_order = 4 }),
+    gold_brick         = ItemFromGame("gold_brick",         { buy_price = 2,  sell_price = 5,  category = "consumable_mat", max_stock = 10, sort_order = 5 }),
 
     -- === 令牌盒（100令牌+100灵韵炼制，买2卖4仙石，限购10） ===
-    wubao_token_box    = ItemFromGame("wubao_token_box",    { buy_price = 2,  sell_price = 4,  category = "material", max_stock = 10, sort_order = 15 }),
-    sha_hai_ling_box   = ItemFromGame("sha_hai_ling_box",   { buy_price = 2,  sell_price = 4,  category = "material", max_stock = 10, sort_order = 16 }),
-    taixu_token_box    = ItemFromGame("taixu_token_box",    { buy_price = 2,  sell_price = 4,  category = "material", max_stock = 10, sort_order = 17 }),
+    wubao_token_box    = ItemFromGame("wubao_token_box",    { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 6 }),
+    sha_hai_ling_box   = ItemFromGame("sha_hai_ling_box",   { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 7 }),
+    taixu_token_box    = ItemFromGame("taixu_token_box",    { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 8 }),
 
-    -- === 五一活动信物（限时，福袋不可交易） ===
-    mayday_wu   = ItemFromGame("mayday_wu",   { buy_price = 3, sell_price = 6, category = "event", max_stock = 5, sort_order = 1 }),
-    mayday_yi   = ItemFromGame("mayday_yi",   { buy_price = 3, sell_price = 6, category = "event", max_stock = 5, sort_order = 2 }),
-    mayday_kuai = ItemFromGame("mayday_kuai", { buy_price = 3, sell_price = 6, category = "event", max_stock = 5, sort_order = 3 }),
-    mayday_le   = ItemFromGame("mayday_le",   { buy_price = 3, sell_price = 6, category = "event", max_stock = 5, sort_order = 4 }),
+    -- === 五一活动信物（已下架） ===
 
     -- === 特殊装备：帝尊戒指系列（装备类商品，买回初始状态，卖出不论附魔/洗练） ===
     dizun_ring_ch1 = EquipItemFromData("dizun_ring_ch1", {
@@ -319,16 +319,19 @@ BMConfig.WAL_BP_KEY = "bm_wal_bp"
 BMConfig.WAL_SELL_KEY = "bm_wal_sell"
 
 -- ============================================================================
--- 自动收购（大黑无天）—— 设计文档 §12
+-- 自动收购（胤）—— 设计文档 §12
 -- ============================================================================
 
 --- 自动收购总开关（发版设 false 可关闭，无需服务端热更新）
-BMConfig.RECYCLE_ENABLED = false
+BMConfig.RECYCLE_ENABLED = true
 --- 收购 NPC 名称（显示在公共交易记录中）
-BMConfig.RECYCLE_NPC_NAME = "大黑无天"
+BMConfig.RECYCLE_NPC_NAME = "胤"
 --- 加权随机累积概率阈值：0件25%、1件50%、2件25%（期望值 1.0 件/天/满库存商品）
 BMConfig.RECYCLE_WEIGHTS = { 0.25, 0.75, 1.0 }
 --- serverCloud.money 日期键名（SYSTEM_UID=0 下存储，数值 YYYYMMDD）
 BMConfig.RECYCLE_DATE_KEY = "bm_recycle_date"
+--- 允许的最大日期跨度（天）。超过此值视为时间异常，仅更新日期不执行回收。
+--- 防止篡改本地时钟跳天获利。正常值 1（过天），2 兼容时区偏移。
+BMConfig.MAX_RECYCLE_GAP = 2
 
 return BMConfig

@@ -11,6 +11,7 @@ local TrialTowerConfig = require("config.TrialTowerConfig")
 local MonsterData = require("config.MonsterData")
 local Monster = require("entities.Monster")
 local TileTypes = require("config.TileTypes")
+local PrisonTowerSystem = require("systems.PrisonTowerSystem")
 
 local TrialTowerSystem = {}
 
@@ -79,6 +80,11 @@ end
 function TrialTowerSystem.Enter(floor, gameMap, camera)
     if TrialTowerSystem.active then
         return false, "已在试炼中"
+    end
+
+    -- 互斥：镇狱塔中不能进入试炼
+    if PrisonTowerSystem.IsActive() then
+        return false, "镇狱塔中无法进入试炼"
     end
 
     -- 检查层数合法
@@ -507,11 +513,11 @@ function TrialTowerSystem.Exit(gameMap, camera)
     TrialTowerSystem.aliveCount = 0
     TrialTowerSystem._camera = nil
     TrialTowerSystem._gameMap = nil
+    TrialTowerSystem._arenaPadding = 0
 
     EventBus.Emit("trial_tower_exited", {})
 
-    -- 自动存档
-    EventBus.Emit("save_request")
+    -- P2优化：取消退出保存（低价值失败态，由 auto-save 兜底）
 
     if player then
         CombatSystem.AddFloatingText(

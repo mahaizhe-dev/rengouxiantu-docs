@@ -10,6 +10,7 @@ local EquipmentData = require("config.EquipmentData")
 local GameState = require("core.GameState")
 local InventorySystem = require("systems.InventorySystem")
 local EventBus = require("core.EventBus")
+local SaveSession = require("systems.save.SaveSession")
 local T = require("config.UITheme")
 local StatNames = require("utils.StatNames")
 
@@ -185,8 +186,8 @@ local function DoForge()
         InventorySystem.RecalcEquipStats()
     end
 
-    -- 即时存档：洗练消耗金币且结果随机，防止退出重刷
-    EventBus.Emit("save_request")
+    -- 会话式合并保存：洗练属于高频操作，合并落盘（P2优化）
+    SaveSession.MarkDirty()
 
     local rangeText = GetForgeRangeText(newStat.stat, selectedItem_.tier)
     return true, "洗练成功！获得 " .. newStat.name .. " +" .. ForgeUI.FormatStatValue(newStat) .. " " .. rangeText
@@ -597,6 +598,7 @@ end
 
 function ForgeUI.Hide()
     if panel_ and visible_ then
+        SaveSession.Flush()  -- 关闭 UI 时收口会话脏数据（P2优化）
         visible_ = false
         panel_:Hide()
         if GameState.uiOpen == "forge" then

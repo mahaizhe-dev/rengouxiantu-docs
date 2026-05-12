@@ -927,6 +927,56 @@ local MIGRATIONS = {
         data.version = 19
         return data
     end,
+
+    --- v20: 宠物外观系统
+    --- pet.appearance 不存在时由 nil 兜底（回退到 tier 默认外观），不需要主动写入。
+    --- 这是最安全的迁移——不修改任何数据，只升版本号。
+    [20] = function(data)
+        print("[SaveSystem] v19→v20 migration: pet appearance system (version bump only)")
+        data.version = 20
+        return data
+    end,
+
+    -- ========================================================================
+    -- v21: 仙缘宝箱系统 — 新增 openedXianyuanChests 字段
+    -- ========================================================================
+    [21] = function(data)
+        if not data.openedXianyuanChests then
+            data.openedXianyuanChests = {}
+        end
+        print("[SaveSystem] v20→v21 migration: openedXianyuanChests field added")
+        data.version = 21
+        return data
+    end,
+
+    -- ========================================================================
+    -- v22: 重置仙缘宝箱状态 — 修复 v21 选取奖励未入背包的 bug
+    -- ========================================================================
+    [22] = function(data)
+        data.openedXianyuanChests = {}
+        print("[SaveSystem] v21→v22 migration: reset openedXianyuanChests (pick bug fix)")
+        data.version = 22
+        return data
+    end,
+
+    -- ========================================================================
+    -- v23: 青云镇狱塔系统 — 新增 prisonTower 字段 + 玩家属性字段
+    -- ========================================================================
+    [23] = function(data)
+        if not data.prisonTower then
+            data.prisonTower = { highestFloor = 0 }
+        end
+        -- 玩家永久属性字段（来自里程碑奖励，写入 player 子表）
+        if data.player then
+            data.player.prisonTowerAtk = data.player.prisonTowerAtk or 0
+            data.player.prisonTowerDef = data.player.prisonTowerDef or 0
+            data.player.prisonTowerMaxHp = data.player.prisonTowerMaxHp or 0
+            data.player.prisonTowerHpRegen = data.player.prisonTowerHpRegen or 0
+        end
+        print("[SaveSystem] v22→v23 migration: prisonTower system added")
+        data.version = 23
+        return data
+    end,
 }
 
 -- ============================================================================

@@ -63,9 +63,11 @@ function SaveSystem.Init()
     end
     SaveSystem._onConnRestored = function()
         SaveSystem._disconnected = false
-        print("[SaveSystem] Connection restored — triggering immediate save")
+        -- P0优化：不再立即 Save()，改为标记 dirty，由防抖流程统一调度
+        -- 避免大量玩家同时重连时的 save 风暴
+        print("[SaveSystem] Connection restored — marking dirty (deferred save)")
         if SaveSystem.loaded and SaveSystem.activeSlot then
-            SaveSystem.Save()
+            SaveSystem._dirty = true
         end
     end
 
@@ -136,6 +138,7 @@ function SaveSystem.Update(dt)
         if elapsed >= SaveSystem.SAVE_DEBOUNCE_INTERVAL then
             SaveSystem._dirty = false
             SaveSystem.Save()
+            return  -- P0优化：本帧已触发保存，不再叠加 saveTimer，防止 off-by-one
         end
     end
 

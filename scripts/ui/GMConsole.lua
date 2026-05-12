@@ -320,6 +320,13 @@ local GM_CATEGORIES = {
                 end)
             end },
             { label = "龙神材料+5000W", action = CmdGiveDragonForgeMats },
+            { label = "龙血草 +10", action = function()
+                SendGMCommand("give_dragon_herb", function()
+                    local InventorySystem = require("systems.InventorySystem")
+                    InventorySystem.AddConsumable("dragon_blood_herb", 10)
+                    ShowLog("发放 10 龙血草", {200, 50, 50, 255})
+                end)
+            end },
             { label = "乌堡令 +1000", action = function()
                 local InventorySystem = require("systems.InventorySystem")
                 InventorySystem.AddConsumable("wubao_token", 1000)
@@ -535,6 +542,25 @@ local GM_CATEGORIES = {
         commands = {
             { label = "境界提升",      action = CmdRealmUp },
             { label = "宠物变形",      action = CmdPetTransform },
+            { label = "解锁赤焰皮肤", action = function()
+                local PetSkinSystem = require("systems.PetSkinSystem")
+                local ok = PetSkinSystem.UnlockPremiumSkin("pet_premium_chiyan")
+                if ok then
+                    ShowLog("解锁高级外观: 赤焰天犬", {255, 180, 60, 255})
+                else
+                    ShowLog("解锁失败（已拥有或ID无效）", {255, 120, 100, 255})
+                end
+            end },
+            { label = "解锁所有皮肤", action = function()
+                local PetSkinSystem = require("systems.PetSkinSystem")
+                local count = PetSkinSystem.UnlockAllSkins()
+                ShowLog("已解锁全部 " .. count .. " 个皮肤", {100, 255, 200, 255})
+            end },
+            { label = "重置宠物外观", action = function()
+                local PetSkinSystem = require("systems.PetSkinSystem")
+                PetSkinSystem.ResetToDefault()
+                ShowLog("宠物外观已重置为默认", {100, 255, 150, 255})
+            end },
             { label = "无敌模式",      action = CmdToggleInvincible },
             { label = "解锁全部称号", action = function()
                 local TitleData = require("config.TitleData")

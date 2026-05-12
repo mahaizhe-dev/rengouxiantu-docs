@@ -91,6 +91,13 @@ function InventorySystem.SellItem(slotIndex)
     if not item then return false end
 
     local unitPrice = item.sellPrice or 1
+    -- 消耗品优先从配置表读取售价（存档中可能缺失或为 0）
+    if item.consumableId then
+        local cfgData = GameConfig.CONSUMABLES[item.consumableId]
+        if cfgData and cfgData.sellPrice and cfgData.sellPrice > 0 then
+            unitPrice = cfgData.sellPrice
+        end
+    end
     local count = item.count or 1
     local price = unitPrice * count
     local player = GameState.player
@@ -962,11 +969,15 @@ function InventorySystem.UseBatchConsumable(consumableId, count)
     -- 夹紧到实际拥有量
     count = math.min(count, have)
 
+    -- 查配置（用于 category 判断）
+    local cfgData = GameConfig.CONSUMABLES[consumableId]
+
     if consumableId == "exp_pill" then
         return InventorySystem._UseBatchExpPill(count)
     elseif consumableId == "lingyun_fruit" then
         return InventorySystem._UseBatchLingyunFruit(count)
-    elseif consumableId == "gold_bar" or consumableId == "gold_brick" then
+    elseif consumableId == "gold_bar" or consumableId == "gold_brick"
+        or (cfgData and cfgData.category == "event") then
         return InventorySystem._SellBatchConsumable(consumableId, count)
     elseif consumableId == "wubao_token_box" then
         return InventorySystem._UseTokenBox(consumableId, "wubao_token")

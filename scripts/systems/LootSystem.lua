@@ -274,7 +274,12 @@ function LootSystem.GenerateDrops(dropTable, monster)
                 end
             elseif entry.type == "consumable" then
                 -- 消耗品掉落（宠物食物、灵兽丹等）
+                -- 支持 consumablePool：从池中随机选一种
                 local cId = entry.consumableId
+                if not cId and entry.consumablePool then
+                    local pool = entry.consumablePool
+                    cId = pool[math.random(1, #pool)]
+                end
                 -- 等级差>10: 宠物食物不掉落（与经验衰减一致）
                 local isPetFood = GameConfig.PET_FOOD[cId]
                 if not (isPetFood and levelDiff > 10) then
@@ -860,6 +865,7 @@ function LootSystem.AutoPickup(player, dt)
             end
             -- 获得消耗品（宠物食物、灵兽丹等）—— 检查返回值防丢失
             local hasConsumableFailure = false
+            local hasFragmentPickup = false  -- 神器碎片拾取标记
             if drop.consumables then
                 local CombatSystem = require("systems.CombatSystem")
                 for cId, cAmount in pairs(drop.consumables) do
@@ -878,6 +884,10 @@ function LootSystem.AutoPickup(player, dt)
                                 icon .. " " .. cData.name .. (added > 1 and ("×" .. added) or ""),
                                 {180, 255, 180, 255}, 2.0
                             )
+                        end
+                        -- 神器碎片检测（rake_fragment_* / bagua_fragment_* / tiandi_fragment_*）
+                        if string.find(cId, "_fragment_") then
+                            hasFragmentPickup = true
                         end
                         -- 扣减 drop 中的数量
                         local remaining = cAmount - added
@@ -903,6 +913,11 @@ function LootSystem.AutoPickup(player, dt)
                 if not next(drop.consumables) then
                     drop.consumables = nil
                 end
+            end
+            -- 神器碎片拾取后立即存档，防止回档丢失（高价值低频掉落）
+            if hasFragmentPickup then
+                print("[Pickup] Artifact fragment acquired, requesting save")
+                EventBus.Emit("save_request")
             end
             -- 获得装备（背包空间已在上方检查通过）
             if drop.items and #drop.items > 0 then
@@ -1034,6 +1049,7 @@ function LootSystem.PetPickup(player, drop)
 
     -- 4) 逐个尝试消耗品（按实际写入数量扣减 drop）
     local hasConsumableFailure = false
+    local hasFragmentPickup = false  -- 神器碎片拾取标记
     if drop.consumables then
         for cId, cAmount in pairs(drop.consumables) do
             local ok, added = InventorySystem.AddConsumable(cId, cAmount)
@@ -1051,6 +1067,10 @@ function LootSystem.PetPickup(player, drop)
                         icon .. " " .. cData.name .. (added > 1 and ("×" .. added) or ""),
                         {180, 255, 180, 255}, 2.0
                     )
+                end
+                -- 神器碎片检测（rake_fragment_* / bagua_fragment_* / tiandi_fragment_*）
+                if string.find(cId, "_fragment_") then
+                    hasFragmentPickup = true
                 end
                 -- 扣减 drop 中的数量
                 local remaining = cAmount - added
@@ -1077,6 +1097,11 @@ function LootSystem.PetPickup(player, drop)
         if not next(drop.consumables) then
             drop.consumables = nil
         end
+    end
+    -- 神器碎片拾取后立即存档，防止回档丢失（高价值低频掉落）
+    if hasFragmentPickup then
+        print("[PetPickup] Artifact fragment acquired, requesting save")
+        EventBus.Emit("save_request")
     end
 
     -- 5) 判断是否完全拾取
@@ -1153,6 +1178,105 @@ function LootSystem.RollEventDrops(dropResult, monster)
             dropResult.consumables[itemId] = (dropResult.consumables[itemId] or 0) + 1
         end
     end
+end
+
+--- 为仙缘宝箱生成 3 件候选装备（固定 tier + quality，保底 1 条仙缘副属性）
+---@param tier number 固定 tier
+---@param quality string 固定品质常量（"purple"/"orange"/"cyan"）
+---@param guaranteedSubStat string 保底仙缘副属性（"constitution"/"fortune"/"wisdom"/"physique"）
+---@return table[] items 3 件装备
+function LootSystem.GenerateXianyuanReward(tier, quality, guaranteedSubStat)
+    local XianyuanChestConfig = require("config.XianyuanChestConfig")
+    local qualityConfig = GameConfig.QUALITY[quality]
+    if not qualityConfig then return {} end
+    local qualityMult = qualityConfig.multiplier
+    local qualityOrder = GameConfig.QUALITY_ORDER[quality] or 1
+
+    -- 1. 从 SLOT_POOL 中随机抽 3 个不重复槽位
+    local pool = {}
+    for _, s in ipairs(XianyuanChestConfig.SLOT_POOL) do
+        pool[#pool + 1] = s
+    end
+    local slots = {}
+    for i = 1, 3 do
+        local idx = math.random(1, #pool)
+        slots[i] = pool[idx]
+        table.remove(pool, idx)
+    end
+
+    -- 保底副属性信息
+    local guaranteedInfo = SUB_BASE_MAP[guaranteedSubStat]
+    -- 保底副属性值：线性公式 floor(tier * qualityMult)
+    local guaranteedValue = math.floor(tier * qualityMult)
+    if guaranteedValue <= 0 then guaranteedValue = 1 end
+
+    local items = {}
+    for i = 1, 3 do
+        local slot = slots[i]
+
+        -- 主属性计算
+        local mainValue, mainStatType = EquipmentUtils.CalcSlotMainStat(slot, tier, qualityMult)
+        if not mainValue then goto continue_slot end
+
+        -- 生成副属性（传入品质）
+        local subStats = LootSystem.GenerateSubStats(qualityConfig.subStatCount, tier, mainStatType, quality)
+
+        -- 强制注入保底仙缘副属性
+        if guaranteedInfo then
+            local found = false
+            for _, sub in ipairs(subStats) do
+                if sub.stat == guaranteedSubStat then
+                    -- 已存在：保留较大值（保底值通常 >= 随机值，取 max 确保不亏）
+                    sub.value = math.max(sub.value, guaranteedValue)
+                    found = true
+                    break
+                end
+            end
+            if not found then
+                -- 未存在：替换最后一条随机副属性（保持总数不超过 subStatCount）
+                subStats[#subStats] = {
+                    stat = guaranteedSubStat,
+                    name = guaranteedInfo.name,
+                    value = guaranteedValue,
+                }
+            end
+        end
+
+        -- 灵性属性（cyan 灵器及以上品质）
+        local spiritStat = nil
+        if qualityOrder >= 6 then
+            spiritStat = LootSystem.GenerateSpiritStat(tier, mainStatType, quality)
+        end
+
+        -- 装备名称
+        local tierNames = EquipmentData.TIER_SLOT_NAMES[tier]
+        local baseName = tierNames and tierNames[slot] or (EquipmentData.SLOT_NAMES[slot] or slot)
+
+        local item = {
+            id = Utils.NextId(),
+            name = baseName,
+            slot = slot,
+            icon = LootSystem.GetSlotIcon(slot, tier),
+            quality = quality,
+            tier = tier,
+            mainStat = { [mainStatType] = mainValue },
+            subStats = subStats,
+            spiritStat = spiritStat,
+            sellPrice = math.floor((LootSystem.BASE_SELL_PRICE[tier] or (10 * tier)) * qualityMult),
+            isXianyuanReward = true,
+        }
+
+        -- 灵器及以上出售灵韵
+        if qualityOrder >= 6 then
+            item.sellCurrency = "lingYun"
+            item.sellPrice = math.max(1, tier - 4)
+        end
+
+        items[#items + 1] = item
+        ::continue_slot::
+    end
+
+    return items
 end
 
 --- 灵器打造：生成固定 T9+cyan 的标准灵器装备（背包打造专用）

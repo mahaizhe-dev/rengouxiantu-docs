@@ -13,6 +13,7 @@ local EquipmentData = require("config.EquipmentData")
 local GameState    = require("core.GameState")
 local InventorySystem = require("systems.InventorySystem")
 local EventBus     = require("core.EventBus")
+local SaveSession  = require("systems.save.SaveSession")
 local T            = require("config.UITheme")
 local IconUtils    = require("utils.IconUtils")
 
@@ -300,7 +301,7 @@ local function DoExtract()
 
     local setName = SET_NAMES[sid] or sid
     EventBus.Emit("temper_extract", sid, outputId)
-    EventBus.Emit("save_request")  -- 消耗3件装备+灵韵，即时存档
+    SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
     print("[TemperUI] 萃取成功: " .. setName .. " → " .. outputId)
 
     selectedExtractSlots_ = {}
@@ -352,7 +353,7 @@ local function DoEnchant()
 
     local setName = SET_NAMES[setId] or setId
     EventBus.Emit("temper_enchant", selectedEquipSlot_, setId, item)
-    EventBus.Emit("save_request")  -- 消耗附灵玉+灵韵+修改装备，即时存档
+    SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
     print("[TemperUI] 附灵成功: " .. item.name .. " → " .. setName .. " 套装")
 
     local enchantedItem = item  -- 保存引用，用于弹窗展示
@@ -1021,6 +1022,7 @@ end
 --- 隐藏面板
 function TemperUI.Hide()
     if not panel_ or not visible_ then return end
+    SaveSession.Flush()  -- 关闭 UI 时收口会话脏数据（P2优化）
     visible_ = false
     panel_:Hide()
     if GameState.uiOpen == "temper" then

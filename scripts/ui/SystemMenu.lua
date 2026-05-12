@@ -171,10 +171,12 @@ local function BuildDropSummary(monster)
                 lingYunMax = lingYunMax + hi
             end
         elseif entry.type == "consumable" then
-            local cId = entry.consumableId
-            if not seenConsumable[cId] then
-                seenConsumable[cId] = true
-                table.insert(parts, GetConsumableName(cId))
+            local cIds = entry.consumableId and { entry.consumableId } or entry.consumablePool or {}
+            for _, cId in ipairs(cIds) do
+                if not seenConsumable[cId] then
+                    seenConsumable[cId] = true
+                    table.insert(parts, GetConsumableName(cId))
+                end
             end
         elseif entry.type == "world_drop" and entry.pool then
             local pool = MonsterData.WORLD_DROP_POOLS[entry.pool]
@@ -742,21 +744,7 @@ function SystemMenu.Create(parentOverlay, callbacks)
                                     LeaderboardUI.Show()
                                 end,
                             },
-                            -- 试炼榜按钮
-                            UI.Button {
-                                text = "🏆  试炼榜",
-                                width = "100%",
-                                height = 52,
-                                fontSize = T.fontSize.md,
-                                borderRadius = T.radius.md,
-                                backgroundColor = {40, 45, 60, 220},
-                                pressedBackgroundColor = {55, 60, 80, 255},
-                                transition = "backgroundColor 0.15s easeOut",
-                                onClick = function(self)
-                                    SystemMenu.Hide()
-                                    LeaderboardUI.Show("trial")
-                                end,
-                            },
+
                             -- 兑换码按钮
                             UI.Button {
                                 text = "🎁  兑换码",

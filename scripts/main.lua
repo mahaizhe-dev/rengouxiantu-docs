@@ -8,6 +8,7 @@ local InputManager = require("urhox-libs.Platform.InputManager")
 
 -- 游戏模块
 local GameConfig = require("config.GameConfig")
+local EventConfig = require("config.EventConfig")
 local MonsterData = require("config.MonsterData")
 local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
@@ -59,6 +60,8 @@ local ChallengeUI = require("ui.ChallengeUI")
 local SealDemonSystem = require("systems.SealDemonSystem")
 local TrialTowerSystem = require("systems.TrialTowerSystem")
 local TrialTowerUI = require("ui.TrialTowerUI")
+local PrisonTowerUI = require("ui.PrisonTowerUI")
+local PrisonTowerSystem = require("systems.PrisonTowerSystem")
 local VersionGuard = require("systems.VersionGuard")
 local LingYunFx = require("rendering.LingYunFx")
 local ArtifactUI = require("ui.ArtifactUI")
@@ -69,6 +72,8 @@ local ArtifactSystem_ch4 = require("systems.ArtifactSystem_ch4")
 local ArtifactSystem_tiandi = require("systems.ArtifactSystem_tiandi")
 local AtlasUI = require("ui.AtlasUI")
 local FortuneFruitSystem = require("systems.FortuneFruitSystem")
+local XianyuanChestSystem = require("systems.XianyuanChestSystem")
+local XianyuanChestUI = require("ui.XianyuanChestUI")
 local WineSystem = require("systems.WineSystem")
 local BlackMerchantEntry = require("ui.BlackMerchantEntry")
 local DPSTracker = require("ui.DPSTracker")
@@ -604,9 +609,13 @@ function ReturnToLogin()
     if TrialTowerSystem.IsActive() and gameMap_ then
         TrialTowerSystem.Exit(gameMap_, false, camera_)
     end
+    if PrisonTowerSystem.IsActive() and gameMap_ then
+        PrisonTowerSystem.Exit(gameMap_, camera_)
+    end
     ChallengeSystem.Init()  -- 重置挑战状态
     SealDemonSystem.Init()  -- 重置封魔状态
     TrialTowerSystem.Init() -- 重置试炼塔状态
+    PrisonTowerSystem.Init() -- 重置镇狱塔状态
     WineSystem.Init()       -- 重置美酒状态
 
     -- 🔴 重置副本状态（isDungeonMode_/savedPosition_ 等）
@@ -697,6 +706,7 @@ function RebuildWorld(chapterId, spawnOverride)
     -- 设置挑战 UI 引用（必须在 camera_ 创建之后）
     ChallengeUI.SetGameMap(gameMap_, camera_)
     TrialTowerUI.SetGameMap(gameMap_, camera_)
+    PrisonTowerUI.SetGameMap(gameMap_, camera_)
 
     -- 7. 定位玩家/宠物到出生点
     local spawn = spawnOverride or newZoneData.SPAWN_POINT or { x = 40.5, y = 40.5 }
@@ -712,9 +722,11 @@ function RebuildWorld(chapterId, spawnOverride)
     end
     camera_.x = spawn.x
     camera_.y = spawn.y
-    -- 8. 加载 NPC
+    -- 8. 加载 NPC（eventBound NPC 仅在活动开启时显示）
     for _, npcData in ipairs(newZoneData.NPCs or {}) do
-        table.insert(GameState.npcs, CopyNPC(npcData))
+        if not npcData.eventBound or EventConfig.IsActive() then
+            table.insert(GameState.npcs, CopyNPC(npcData))
+        end
     end
     -- 9. 重建刷怪器
     spawner_ = Spawner.New()
@@ -737,8 +749,8 @@ function SwitchChapter(targetChapterId)
     if not gameStarted_ then return end
     if GameState.currentChapter == targetChapterId then return end
 
-    -- 挑战/试炼/多人副本中禁止切换章节
-    if ChallengeSystem.IsActive() or TrialTowerSystem.IsActive() or (DungeonClient and DungeonClient.IsDungeonMode()) then
+    -- 挑战/试炼/镇狱/多人副本中禁止切换章节
+    if ChallengeSystem.IsActive() or TrialTowerSystem.IsActive() or PrisonTowerSystem.IsActive() or (DungeonClient and DungeonClient.IsDungeonMode()) then
         local p = GameState.player
         if p then
             CombatSystem.AddFloatingText(p.x, p.y - 1.0, "副本中无法传送", {255, 100, 100, 255}, 2.0)
@@ -858,6 +870,7 @@ function InitGame(classId)
     -- 设置挑战 UI 引用（必须在 camera_ 创建之后）
     ChallengeUI.SetGameMap(gameMap_, camera_)
     TrialTowerUI.SetGameMap(gameMap_, camera_)
+    PrisonTowerUI.SetGameMap(gameMap_, camera_)
 
     -- 创建玩家
     local spawn = currentZoneData.SPAWN_POINT or { x = 40.5, y = 40.5 }
@@ -870,9 +883,11 @@ function InitGame(classId)
     camera_.x = spawn.x
     camera_.y = spawn.y
 
-    -- 加载 NPC
+    -- 加载 NPC（eventBound NPC 仅在活动开启时显示）
     for _, npcData in ipairs(currentZoneData.NPCs) do
-        table.insert(GameState.npcs, CopyNPC(npcData))
+        if not npcData.eventBound or EventConfig.IsActive() then
+            table.insert(GameState.npcs, CopyNPC(npcData))
+        end
     end
 
     -- 创建怪物刷新管理器（传入地图实例，自动修正墙内刷怪点）
@@ -889,6 +904,7 @@ function InitGame(classId)
     ChallengeSystem.Init()
     SealDemonSystem.Init()
     TrialTowerSystem.Init()
+    PrisonTowerSystem.Init()
     WineSystem.Init()
 
     -- 重初始化存档系统状态
@@ -1148,6 +1164,10 @@ function CreateUI()
     -- 初始化福源果系统（传入 overlay 用于弹窗）
     FortuneFruitSystem.Init(overlay)
 
+    -- 初始化仙缘宝箱系统与 UI
+    XianyuanChestSystem.Init()
+    XianyuanChestUI.Create(overlay)
+
     -- 创建小地图
     Minimap.Create(overlay)
 
@@ -1245,8 +1265,8 @@ function HandleUpdate(eventType, eventData)
     if player then
         player:Update(dt, gameMap_)
 
-        -- 区域切换检测（委托给 ZoneManager）— 副本/挑战/试炼中跳过（坐标不属于正常地图）
-        if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
+        -- 区域切换检测（委托给 ZoneManager）— 副本/挑战/试炼/镇狱中跳过（坐标不属于正常地图）
+        if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
             ZoneManager.CheckZoneChange(gameMap_, player, uiRoot_)
         end
 
@@ -1294,8 +1314,8 @@ function HandleUpdate(eventType, eventData)
     end
     PerfMonitor.EndSegment("monsters")
 
-    -- 更新怪物刷新（挑战/试炼/多人副本中暂停刷怪）
-    if spawner_ and not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
+    -- 更新怪物刷新（挑战/试炼/镇狱/多人副本中暂停刷怪）
+    if spawner_ and not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
         spawner_:Update(dt)
     end
 
@@ -1304,6 +1324,9 @@ function HandleUpdate(eventType, eventData)
 
     -- 更新试炼塔系统
     TrialTowerSystem.Update(dt, gameMap_)
+
+    -- 更新镇狱塔系统
+    PrisonTowerSystem.Update(dt, gameMap_)
 
     -- 神器BOSS战流程
     ArtifactUI.TryStartPendingBossFight(gameMap_, camera_)
@@ -1321,6 +1344,10 @@ function HandleUpdate(eventType, eventData)
 
     -- 福源果弹窗计时
     FortuneFruitSystem.Update(dt)
+
+    -- 仙缘宝箱读条 + UI 计时
+    XianyuanChestSystem.Update(dt)
+    XianyuanChestUI.Update(dt)
 
     -- 更新战斗系统（浮动伤害文字等）
     CombatSystem.Update(dt)
@@ -1340,7 +1367,7 @@ function HandleUpdate(eventType, eventData)
 
     -- 更新存档系统（自动存档计时）— 副本中暂停自动存档
     PerfMonitor.StartSegment("save")
-    if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
+    if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
         SaveSystem.Update(dt)
     end
     PerfMonitor.EndSegment("save")

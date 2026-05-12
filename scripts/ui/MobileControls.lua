@@ -120,7 +120,24 @@ function MobileControls._onNPCInteract()
                 return
             end
 
-            -- 没有封印时尝试福源果交互
+            -- 没有封印时尝试仙缘宝箱交互（按E先显示查看面板，文档 §6.4）
+            local XianyuanChestSystem = require("systems.XianyuanChestSystem")
+            local chestId = XianyuanChestSystem.FindNearby(
+                GameState.player.x, GameState.player.y,
+                GameState.currentChapter or 1
+            )
+            if chestId then
+                -- 读条中或面板已打开时不重复弹出
+                local XianyuanChestUI = require("ui.XianyuanChestUI")
+                if not XianyuanChestSystem.IsChanneling() and not XianyuanChestUI.IsVisible() then
+                    if XianyuanChestUI_ShowInspectPanel then
+                        XianyuanChestUI_ShowInspectPanel(chestId)
+                    end
+                end
+                return
+            end
+
+            -- 没有宝箱时尝试福源果交互
             local FortuneFruitSystem = require("systems.FortuneFruitSystem")
             FortuneFruitSystem.TryInteract()
         end

@@ -5,6 +5,7 @@
 local GameConfig = require("config.GameConfig")
 local Utils = require("core.Utils")
 local EventBus = require("core.EventBus")
+local PetAppearanceConfig = require("config.PetAppearanceConfig")
 
 local Player = {}
 Player.__index = Player
@@ -155,6 +156,11 @@ function Player.New(x, y, opts)
     self.daoPhysique = 0
     self.daoAtk = 0
     self.daoMaxHp = 0
+    -- 镇狱塔永久加成（由 PrisonTowerSystem 写入）
+    self.prisonTowerAtk = 0
+    self.prisonTowerDef = 0
+    self.prisonTowerMaxHp = 0
+    self.prisonTowerHpRegen = 0
     self.daoAnswers = {}       -- { [1]="A"|"B", [2]="A"|"B", ... [5]="A"|"B" }
 
     -- 宠物赐主加成（由 Pet:RecalcStats 同步写入）
@@ -236,9 +242,14 @@ function Player:_RecalcStatsCache()
     if self._statsCacheFrame == _frameCounter then return end
     self._statsCacheFrame = _frameCounter
 
+    -- 高级皮肤加成（账号级，对角色生效）
+    local GameState = require("core.GameState")
+    local skinAc = GameState.accountCosmetics
+    local skinBonuses = PetAppearanceConfig.GetAllPremiumBonuses(skinAc)
+
     -- GetTotalAtk
-    local base = self.atk + self.equipAtk + (self.collectionAtk or 0) + (self.titleAtk or 0) + (self.seaPillarAtk or 0) + (self.medalAtkFlat or 0) + (self.artifactTiandiAtk or 0) + (self.daoAtk or 0)
-    local atkBonus = (self.titleAtkBonus or 0)
+    local base = self.atk + self.equipAtk + (self.collectionAtk or 0) + (self.titleAtk or 0) + (self.seaPillarAtk or 0) + (self.medalAtkFlat or 0) + (self.artifactTiandiAtk or 0) + (self.daoAtk or 0) + (self.prisonTowerAtk or 0)
+    local atkBonus = (self.titleAtkBonus or 0) + (skinBonuses.atkPct or 0)
     local cs = GetCombatSystem()
     if cs and cs.GetBuffAtkPercent then
         atkBonus = atkBonus + cs.GetBuffAtkPercent()
@@ -256,11 +267,11 @@ function Player:_RecalcStatsCache()
     end
     local petBonusConst = self.petOwnerBonuses and self.petOwnerBonuses.constitution or 0
     local buffConst = (cs and cs.GetBuffConstitutionFlat) and cs.GetBuffConstitutionFlat() or 0
-    self._cachedTotalConstitution = (self.equipConstitution or 0) + (self.pillConstitution or 0) + (self.artifactConstitution or 0) + classConst + petBonusConst + (self.wineConstitution or 0) + (self.medalGengu or 0) + (self.collectionConstitution or 0) + buffConst + (self.daoConstitution or 0)
+    self._cachedTotalConstitution = (self.equipConstitution or 0) + (self.pillConstitution or 0) + (self.artifactConstitution or 0) + classConst + petBonusConst + (self.wineConstitution or 0) + (self.medalGengu or 0) + (self.collectionConstitution or 0) + buffConst + (self.daoConstitution or 0) + (skinBonuses.constitution or 0)
 
     -- GetTotalDef（依赖根骨）
-    local defBase = self.def + self.equipDef + (self.collectionDef or 0) + (self.seaPillarDef or 0) + (self.artifactCh4Defense or 0) + (self.medalDefFlat or 0)
-    local defBonus = math.floor(self._cachedTotalConstitution / 5) * 0.01  -- GetConstitutionDefBonus 内联
+    local defBase = self.def + self.equipDef + (self.collectionDef or 0) + (self.seaPillarDef or 0) + (self.artifactCh4Defense or 0) + (self.medalDefFlat or 0) + (self.prisonTowerDef or 0)
+    local defBonus = math.floor(self._cachedTotalConstitution / 5) * 0.01 + (skinBonuses.defPct or 0)  -- GetConstitutionDefBonus 内联 + 皮肤
     if cs and cs.GetBuffDefPercent then
         defBonus = defBonus + cs.GetBuffDefPercent()
     end
@@ -277,11 +288,11 @@ function Player:_RecalcStatsCache()
     local petBonusPhys = self.petOwnerBonuses and self.petOwnerBonuses.physique or 0
     local pillPhysique = self.pillPhysique or 0
     local buffPhys = (cs and cs.GetBuffPhysiqueFlat) and cs.GetBuffPhysiqueFlat() or 0
-    self._cachedTotalPhysique = (self.equipPhysique or 0) + (self.artifactPhysique or 0) + petBonusPhys + pillPhysique + (self.winePhysique or 0) + (self.medalTipo or 0) + (self.collectionPhysique or 0) + buffPhys + classPhys + (self.daoPhysique or 0)
+    self._cachedTotalPhysique = (self.equipPhysique or 0) + (self.artifactPhysique or 0) + petBonusPhys + pillPhysique + (self.winePhysique or 0) + (self.medalTipo or 0) + (self.collectionPhysique or 0) + buffPhys + classPhys + (self.daoPhysique or 0) + (skinBonuses.physique or 0)
 
     -- GetTotalMaxHp（依赖体魄）
-    local hpBase = self.maxHp + self.equipHp + (self.collectionHp or 0) + (self.seaPillarMaxHp or 0) + (self.medalHpFlat or 0) + (self.daoMaxHp or 0)
-    local hpBonus = math.floor(self._cachedTotalPhysique / 5) * 0.01  -- GetPhysiqueHpBonus 内联
+    local hpBase = self.maxHp + self.equipHp + (self.collectionHp or 0) + (self.seaPillarMaxHp or 0) + (self.medalHpFlat or 0) + (self.daoMaxHp or 0) + (self.prisonTowerMaxHp or 0)
+    local hpBonus = math.floor(self._cachedTotalPhysique / 5) * 0.01 + (skinBonuses.hpPct or 0)  -- GetPhysiqueHpBonus 内联 + 皮肤
     if hpBonus > 0 then
         hpBase = math.floor(hpBase * (1 + hpBonus))
     end
@@ -290,7 +301,7 @@ function Player:_RecalcStatsCache()
     -- GetTotalFortune
     local petBonusFort = self.petOwnerBonuses and self.petOwnerBonuses.fortune or 0
     local buffFort = (cs and cs.GetBuffFortuneFlat) and cs.GetBuffFortuneFlat() or 0
-    self._cachedTotalFortune = (self.equipFortune or 0) + (self.collectionFortune or 0) + (self.artifactCh4Fortune or 0) + (self.fruitFortune or 0) + petBonusFort + (self.wineFortune or 0) + (self.medalFuyuan or 0) + buffFort + (self.daoFortune or 0)
+    self._cachedTotalFortune = (self.equipFortune or 0) + (self.collectionFortune or 0) + (self.artifactCh4Fortune or 0) + (self.fruitFortune or 0) + petBonusFort + (self.wineFortune or 0) + (self.medalFuyuan or 0) + buffFort + (self.daoFortune or 0) + (skinBonuses.fortune or 0)
 
     -- GetTotalWisdom（含职业每级悟性加成）
     local classWisdom = 0
@@ -300,7 +311,10 @@ function Player:_RecalcStatsCache()
     local petBonusWis = self.petOwnerBonuses and self.petOwnerBonuses.wisdom or 0
     local daoTreeWisdom = self.daoTreeWisdom or 0
     local buffWis = (cs and cs.GetBuffWisdomFlat) and cs.GetBuffWisdomFlat() or 0
-    self._cachedTotalWisdom = (self.equipWisdom or 0) + (self.artifactCh4Wisdom or 0) + petBonusWis + daoTreeWisdom + (self.wineWisdom or 0) + (self.medalWuxing or 0) + classWisdom + (self.collectionWisdom or 0) + buffWis + (self.daoWisdom or 0)
+    self._cachedTotalWisdom = (self.equipWisdom or 0) + (self.artifactCh4Wisdom or 0) + petBonusWis + daoTreeWisdom + (self.wineWisdom or 0) + (self.medalWuxing or 0) + classWisdom + (self.collectionWisdom or 0) + buffWis + (self.daoWisdom or 0) + (skinBonuses.wisdom or 0)
+
+    -- 高级皮肤移速加成（缓存供外部读取）
+    self._skinMoveSpeedPct = skinBonuses.moveSpeedPct or 0
 end
 
 --- 获取总攻击力
@@ -563,7 +577,7 @@ function Player:Update(dt, gameMap)
     -- HP 自然回复（含体魄回血效率加成）
     local totalMaxHp = self:GetTotalMaxHp()
     if self.hp < totalMaxHp then
-        local totalRegen = self.hpRegen + self.equipHpRegen + (self.skillBonusHpRegen or 0) + (self.collectionHpRegen or 0) + (self.seaPillarHpRegen or 0) + (self.medalHpRegen or 0) + (self.artifactTiandiHpRegen or 0)
+        local totalRegen = self.hpRegen + self.equipHpRegen + (self.skillBonusHpRegen or 0) + (self.collectionHpRegen or 0) + (self.seaPillarHpRegen or 0) + (self.medalHpRegen or 0) + (self.artifactTiandiHpRegen or 0) + (self.prisonTowerHpRegen or 0)
         local physiqueRegen = self:GetPhysiqueHealEfficiency()
         totalRegen = totalRegen + physiqueRegen
         self.hp = math.min(totalMaxHp, self.hp + totalRegen * dt)
@@ -643,7 +657,7 @@ function Player:Update(dt, gameMap)
 
     -- 移动
     if self.moving and (self.dx ~= 0 or self.dy ~= 0) then
-        local speed = GameConfig.PLAYER_SPEED * (1 + (self.equipSpeed or 0) + (self.petBerserkMoveSpeed or 0))
+        local speed = GameConfig.PLAYER_SPEED * (1 + (self.equipSpeed or 0) + (self.petBerserkMoveSpeed or 0) + (self._skinMoveSpeedPct or 0))
         -- 减速 debuff
         if self.slowTimer > 0 then
             speed = speed * (1 - self.slowMovePercent)

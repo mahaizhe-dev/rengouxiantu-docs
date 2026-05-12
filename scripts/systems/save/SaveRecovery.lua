@@ -230,6 +230,7 @@ function SaveRecovery.TryRecoverSave(slot, callback)
                             bossKills = 0,
                             _bossKillsMigrated = true,
                             seaPillar = {},
+                            prisonTower = {},
                         }
                     end
 

@@ -65,6 +65,14 @@ qingyun.npcs = {
         dialog = "五一佳节，天庭特赐福袋与灵韵。\n击败所有BOSS均有机会掉落活动信物，\n集齐可兑换珍稀奖励！",
         eventBound = true,
     },
+    -- 镇狱塔入口 NPC — 青云塔贴图上
+    {
+        id = "prison_tower_entrance", name = "镇狱塔", subtitle = "青云镇狱",
+        x = 40, y = 49, icon = "🗿",
+        interactType = "prison_tower", zone = "mz_qingyun",
+        isObject = true, label = "镇狱塔",
+        dialog = "镇狱塔灵压深重，隐约可闻BOSS的怒吼……",
+    },
     -- 阵营挑战 NPC：云无涯（青云城主）— 青云塔正前方
     {
         id = "qingyun_master", name = "云无涯", subtitle = "青云城主",

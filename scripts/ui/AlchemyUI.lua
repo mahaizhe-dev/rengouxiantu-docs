@@ -10,6 +10,7 @@
 local UI = require("urhox-libs/UI")
 local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
+local SaveSession = require("systems.save.SaveSession")
 local T = require("config.UITheme")
 local GameConfig = require("config.GameConfig")
 local InventorySystem = require("systems.InventorySystem")
@@ -118,6 +119,17 @@ end
 
 -- 九转金丹配置
 local JIUZHUAN_JINDAN_COST = 500  -- 灵韵/颗
+
+-- 龙血丹配置
+local DRAGON_BLOOD_PILL = {
+    cost = 500,           -- 灵韵消耗
+    hpBonus = 30,         -- 每颗永久增加的 maxHp
+    maxBuy = 10,          -- 限购数量
+    material = "dragon_blood_herb",  -- 所需材料（龙血草）
+}
+
+-- 龙血丹已炼制次数（运行时状态，由存档恢复）
+local dragonBloodPillCount_ = 0
 
 -- ===== 令牌盒配方（通用） =====
 local TOKEN_BOX_LINGYUN_COST = 100   -- 灵韵消耗
@@ -538,6 +550,50 @@ local function BuildCh4Content()
         },
         -- 分隔线
         UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
+        -- 龙血丹区
+        UI.Label {
+            text = "🩸 炼制龙血丹",
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {255, 100, 100, 240},
+        },
+        UI.Label {
+            text = "以龙血草炼制的丹药，服用后永久强化血量上限。",
+            fontSize = T.fontSize.xs,
+            fontColor = {200, 180, 150, 200},
+        },
+        UI.Label {
+            text = "永久增加血量上限 +" .. DRAGON_BLOOD_PILL.hpBonus .. "（限炼" .. DRAGON_BLOOD_PILL.maxBuy .. "颗）",
+            fontSize = T.fontSize.xs,
+            fontColor = {255, 180, 180, 200},
+        },
+        UI.Label {
+            text = (dragonBloodPillCount_ < DRAGON_BLOOD_PILL.maxBuy)
+                and ("已炼制 " .. dragonBloodPillCount_ .. "/" .. DRAGON_BLOOD_PILL.maxBuy .. " 颗")
+                or ("已售罄（限炼 " .. DRAGON_BLOOD_PILL.maxBuy .. " 颗）"),
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {255, 150, 150, 255}, textAlign = "center",
+        },
+        UI.Label {
+            text = (dragonBloodPillCount_ < DRAGON_BLOOD_PILL.maxBuy)
+                and ("灵韵: " .. player.lingYun .. " (需要 " .. DRAGON_BLOOD_PILL.cost .. ")  "
+                    .. GetMaterialName(DRAGON_BLOOD_PILL.material) .. ": " .. InventorySystem.CountConsumable(DRAGON_BLOOD_PILL.material) .. " (需要 1)")
+                or "",
+            fontSize = T.fontSize.xs, textAlign = "center",
+            fontColor = (player.lingYun >= DRAGON_BLOOD_PILL.cost and InventorySystem.CountConsumable(DRAGON_BLOOD_PILL.material) >= 1)
+                and {130, 230, 130, 255} or {255, 130, 100, 255},
+        },
+        UI.Button {
+            text = (dragonBloodPillCount_ < DRAGON_BLOOD_PILL.maxBuy)
+                and ("炼制龙血丹 (" .. DRAGON_BLOOD_PILL.cost .. "灵韵+" .. GetMaterialName(DRAGON_BLOOD_PILL.material) .. " → +" .. DRAGON_BLOOD_PILL.hpBonus .. "血量上限)")
+                or "已售罄",
+            width = "100%", height = T.size.dialogBtnH,
+            fontSize = T.fontSize.sm,
+            backgroundColor = (dragonBloodPillCount_ < DRAGON_BLOOD_PILL.maxBuy and player.lingYun >= DRAGON_BLOOD_PILL.cost and InventorySystem.CountConsumable(DRAGON_BLOOD_PILL.material) >= 1)
+                and {150, 50, 50, 220} or {80, 80, 90, 200},
+            onClick = function() AlchemyUI.DoCraftDragonBlood() end,
+        },
+        -- 分隔线
+        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
         -- 太虚令盒区
         UI.Label {
             text = "📦 炼制太虚令盒",
@@ -799,7 +855,7 @@ function AlchemyUI.DoCraft()
     resultLabel_:SetText("炼制成功！获得练气丹 ×1 (共 " .. newCount .. " 颗)")
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
-    EventBus.Emit("save_request")
+    SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
     RefreshUI()
 end
 
@@ -835,7 +891,7 @@ function AlchemyUI.DoCraftZhuji()
     resultLabel_:SetText("炼制成功！获得筑基丹 ×1 (共 " .. newCount .. " 颗)")
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
-    EventBus.Emit("save_request")
+    SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
     RefreshUI()
 end
 
@@ -958,7 +1014,7 @@ function AlchemyUI.DoCraftJindanSand()
     resultLabel_:SetText("炼制成功！获得金丹沙 ×1 (共 " .. newCount .. " 颗)")
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
-    EventBus.Emit("save_request")
+    SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
     RefreshUI()
 end
 
@@ -989,7 +1045,7 @@ function AlchemyUI.DoCraftYuanyingFruit()
     resultLabel_:SetText("炼制成功！获得元婴果 ×1 (共 " .. newCount .. " 颗)")
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
-    EventBus.Emit("save_request")
+    SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
     RefreshUI()
 end
 
@@ -1068,7 +1124,7 @@ function AlchemyUI.DoCraftJiuzhuanJindan()
     resultLabel_:SetText("炼制成功！获得九转金丹 ×1 (共 " .. newCount .. " 颗)")
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
-    EventBus.Emit("save_request")
+    SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
     RefreshUI()
 end
 
@@ -1129,7 +1185,7 @@ function AlchemyUI.DoCraftTokenBox(tokenId, boxId)
     resultLabel_:SetText("炼制成功！获得" .. boxName .. " ×1 (共 " .. newCount .. " 个)")
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
-    EventBus.Emit("save_request")
+    SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
     RefreshUI()
 end
 
@@ -1246,6 +1302,54 @@ function AlchemyUI.DoCraftTiger()
     end)
 end
 
+--- 炼制龙血丹：消耗灵韵+龙血草，永久增加血量上限（C2S 授权）
+function AlchemyUI.DoCraftDragonBlood()
+    local player = GameState.player
+    if not player then return end
+
+    -- 前置校验（客户端）
+    if dragonBloodPillCount_ >= DRAGON_BLOOD_PILL.maxBuy then
+        resultLabel_:SetText("龙血丹已炼制完毕！限炼" .. DRAGON_BLOOD_PILL.maxBuy .. "颗")
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+    if player.lingYun < DRAGON_BLOOD_PILL.cost then
+        resultLabel_:SetText("灵韵不足！炼制需要 " .. DRAGON_BLOOD_PILL.cost .. " 灵韵")
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+    local matName = GetMaterialName(DRAGON_BLOOD_PILL.material)
+    if InventorySystem.CountConsumable(DRAGON_BLOOD_PILL.material) < 1 then
+        resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+
+    -- 发送 C2S 授权请求
+    SendBuyPill("dragon_blood", function()
+        -- 二次校验（防止授权期间状态变化）
+        if dragonBloodPillCount_ >= DRAGON_BLOOD_PILL.maxBuy then return end
+        if player.lingYun < DRAGON_BLOOD_PILL.cost then return end
+        if InventorySystem.CountConsumable(DRAGON_BLOOD_PILL.material) < 1 then return end
+
+        player.lingYun = player.lingYun - DRAGON_BLOOD_PILL.cost
+        InventorySystem.ConsumeConsumable(DRAGON_BLOOD_PILL.material, 1)
+        dragonBloodPillCount_ = dragonBloodPillCount_ + 1
+        if player.pillCounts then player.pillCounts.dragon_blood = dragonBloodPillCount_ end
+        player.maxHp = player.maxHp + DRAGON_BLOOD_PILL.hpBonus
+        player.hp = math.min(player.hp + DRAGON_BLOOD_PILL.hpBonus, player:GetTotalMaxHp())
+
+        resultLabel_:SetText("炼制成功！血量上限永久 +" .. DRAGON_BLOOD_PILL.hpBonus .. " (已炼" .. dragonBloodPillCount_ .. "/" .. DRAGON_BLOOD_PILL.maxBuy .. ")")
+        resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
+        EventBus.Emit("alchemy_success")
+        EventBus.Emit("save_request")
+        RefreshUI()
+    end)
+end
+
 --- 获取虎骨丹已炼制次数（供存档系统使用）
 function AlchemyUI.GetTigerPillCount()
     return tigerPillCount_
@@ -1286,6 +1390,16 @@ function AlchemyUI.SetTemperingPillEaten(count)
     temperingPillEaten_ = count or 0
 end
 
+--- 获取龙血丹已炼制次数（供存档系统使用）
+function AlchemyUI.GetDragonBloodPillCount()
+    return dragonBloodPillCount_
+end
+
+--- 设置龙血丹已炼制次数（供存档系统加载使用）
+function AlchemyUI.SetDragonBloodPillCount(count)
+    dragonBloodPillCount_ = count or 0
+end
+
 function AlchemyUI.Show(npc)
     if panel_ and not visible_ then
         visible_ = true
@@ -1307,6 +1421,7 @@ end
 
 function AlchemyUI.Hide()
     if panel_ and visible_ then
+        SaveSession.Flush()  -- 关闭 UI 时收口会话脏数据（P2优化）
         visible_ = false
         panel_:Hide()
         if GameState.uiOpen == "alchemy" then
@@ -1330,6 +1445,7 @@ function AlchemyUI.Destroy()
     snakePillCount_ = 0
     diamondPillCount_ = 0
     temperingPillEaten_ = 0
+    dragonBloodPillCount_ = 0
     pendingPillBuys_ = {}
 end
 
@@ -1355,6 +1471,7 @@ function AlchemyUI.GetShopPillConfigs()
         tiger = TIGER_PILL,
         snake = SNAKE_PILL,
         diamond = DIAMOND_PILL,
+        dragon_blood = DRAGON_BLOOD_PILL,
     }
 end
 

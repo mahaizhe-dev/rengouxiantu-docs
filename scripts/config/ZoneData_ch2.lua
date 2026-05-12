@@ -11,14 +11,17 @@ local wildBData     = require("config.zones.chapter2.wild_b")
 local wildCData     = require("config.zones.chapter2.wild_c")
 local skullDData    = require("config.zones.chapter2.skull_d")
 local fortressEData = require("config.zones.chapter2.fortress_e")
+local xianyuanRoomsCh2 = require("config.zones.xianyuan_rooms_ch2")
 
 -- 所有区域模块列表
+-- ⚠️ xianyuanRoomsCh2 必须在末尾，BuildXianyuanRooms 最后覆写地形
 local ALL_ZONES = {
     campAData,
     wildBData,
     wildCData,
     skullDData,
     fortressEData,
+    xianyuanRoomsCh2,
 }
 
 -- ============================================================================

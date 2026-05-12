@@ -386,4 +386,58 @@ function GameMap:IsNearHealingSpring(x, y, range)
     return false
 end
 
+--- 仙缘宝箱藏宝室：在生成管道最末尾手动放置 5×5 房间
+--- 必须在 ClearTownBuffer 之后调用，保证不被任何前序步骤覆盖
+--- 支持多章节：从 zone 配置读取 floorTile/wallTile，从 region 读取 entrance
+function GameMap:BuildXianyuanRooms()
+    -- 遍历 ALL_ZONES，找到所有含仙缘藏宝室 region 的 zone 模块
+    for _, zm in ipairs(activeZoneData.ALL_ZONES) do
+        if zm.regions and zm.regions.xianyuan_room_physique then
+            local zmFloor = zm.floorTile or activeZoneData.TILE.CAVE_FLOOR
+            local zmWall  = zm.wallTile  or activeZoneData.TILE.MOUNTAIN
+
+            for regKey, region in pairs(zm.regions) do
+                local entrance = region.entrance
+                if not entrance then goto nextRoom end
+
+                -- region 级瓦片优先（ch4 四龙岛各不相同），回退到 zone 模块级
+                local floorTile = region.floorTile or zmFloor
+                local wallTile  = region.wallTile  or zmWall
+
+                -- 1. 整个 5×5 填充地板
+                for y = region.y1, region.y2 do
+                    for x = region.x1, region.x2 do
+                        self:SetTile(x, y, floorTile)
+                    end
+                end
+
+                -- 2. 外圈放墙（精确控制，不用 BuildThickBorder）
+                for x = region.x1, region.x2 do
+                    self:SetTile(x, region.y1, wallTile)
+                    self:SetTile(x, region.y2, wallTile)
+                end
+                for y = region.y1, region.y2 do
+                    self:SetTile(region.x1, y, wallTile)
+                    self:SetTile(region.x2, y, wallTile)
+                end
+
+                -- 3. 入口处：1 格开口（精确 1 格，无 ±1 margin）
+                local s = entrance.side
+                local c = entrance.coord
+                if s == "south" then
+                    self:SetTile(c, region.y2, floorTile)
+                elseif s == "north" then
+                    self:SetTile(c, region.y1, floorTile)
+                elseif s == "west" then
+                    self:SetTile(region.x1, c, floorTile)
+                elseif s == "east" then
+                    self:SetTile(region.x2, c, floorTile)
+                end
+
+                ::nextRoom::
+            end
+        end
+    end
+end
+
 end

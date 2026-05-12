@@ -86,6 +86,9 @@ function WorldRenderer:Render(nvg)
     -- 绘制福源果（地面交互物）
     EntityRenderer.RenderFortuneFruits(nvg, l, camera)
 
+    -- 绘制仙缘宝箱（地面交互物）
+    EntityRenderer.RenderXianyuanChests(nvg, l, camera)
+
     -- 绘制 NPC
     EntityRenderer.RenderNPCs(nvg, l, camera)
 

@@ -30,31 +30,40 @@ AtlasSystem.raceSlotCache = {}
 -- 初始化
 -- ============================================================================
 
+--- 根据道印 trigger.type 推导存储 key 和默认值
+--- value_check → medalId.."_level", 0
+--- item_consume → medalId.."_exp", 0
+--- server_race/first_obtain/event_grant → medalId, false
+---@param medalId string
+---@param medal table MedalConfig.MEDALS[medalId]
+---@return string key, number|boolean defaultVal
+local function MedalStorageKey(medalId, medal)
+    local t = medal.trigger.type
+    if t == "value_check" then
+        return medalId .. "_level", 0
+    elseif t == "item_consume" then
+        return medalId .. "_exp", 0
+    else -- server_race / first_obtain / event_grant
+        return medalId, false
+    end
+end
+
 --- 创建空白数据
 ---@return table
 function AtlasSystem.CreateEmpty()
+    -- 道印字段由 MedalConfig 数据驱动生成
+    local medals = {}
+    for _, medalId in ipairs(MedalConfig.ORDER) do
+        local medal = MedalConfig.MEDALS[medalId]
+        if medal then
+            local key, default = MedalStorageKey(medalId, medal)
+            medals[key] = default
+        end
+    end
+
     return {
         version = 2,
-        -- 道印
-        medals = {
-            -- 数值检测类 (value_check)
-            realm_master_level = 0,     -- 境界大师 (0~8)
-            taixu_level        = 0,     -- 太虚之道 (0~10)
-            zhenyue_level      = 0,     -- 镇岳之力 (0~10)
-            luohan_level       = 0,     -- 罗汉之躯 (0~10)
-            tianyan_level      = 0,     -- 天衍之机 (0~10)
-            trial_level        = 0,     -- 青云试炼 (0~8)
-            -- 道具消耗类 (item_consume)
-            guardian_exp        = 0,    -- 仙途守护者累计经验
-            -- 全服竞速类 (server_race)
-            pioneer_huashen    = false, -- 先人一步·化神
-            pioneer_heti       = false, -- 先人一步·合体
-            -- 装备首获类 (first_obtain)
-            first_cyan         = false, -- 灵器初现
-            first_red          = false, -- 圣器降世
-            -- 事件发放类 (event_grant)
-            wutian_drunk       = false, -- 大事件：无天醉酒
-        },
+        medals = medals,
         -- 神器（账号级副本，与 ArtifactSystem 同步）
         artifact = {
             activatedGrids = { false, false, false, false, false, false, false, false, false },
@@ -293,10 +302,12 @@ function AtlasSystem.TryUnlockRace(medalId, callback)
     print("[AtlasSystem] TryUnlockRace: sent C2S for " .. medalId)
 end
 
---- 初始化竞速道印 S2C 回调订阅（在 AtlasSystem.Init 或加载后调用一次）
+--- 初始化 S2C 回调订阅（在 AtlasSystem.Init 中调用一次）
 function AtlasSystem.InitRaceSubscription()
     local SaveProtocol = require("network.SaveProtocol")
     SubscribeToEvent(SaveProtocol.S2C_TryUnlockRaceResult, "AtlasSystem_HandleRaceResult")
+    SubscribeToEvent(SaveProtocol.S2C_CheckEventGrantResult, "AtlasSystem_HandleCheckEventGrantResult")
+    SubscribeToEvent(SaveProtocol.S2C_CheckRaceSlotsResult, "AtlasSystem_HandleCheckRaceSlotsResult")
 end
 
 --- S2C_TryUnlockRaceResult 全局回调
@@ -364,6 +375,54 @@ function AtlasSystem_HandleRaceResult(eventType, eventData)
         end
 
         if callback then callback(false) end
+    end
+end
+
+--- S2C_CheckEventGrantResult 全局回调
+function AtlasSystem_HandleCheckEventGrantResult(eventType, eventData)
+    local ok = eventData["ok"]:GetBool()
+    local medalId = eventData["medalId"]:GetString()
+    local leaderboard = eventData["leaderboard"]:GetString()
+
+    if not ok then
+        local msg = ""
+        pcall(function() msg = eventData["msg"]:GetString() end)
+        print("[AtlasSystem] CheckEventGrant failed: " .. medalId .. " msg=" .. msg)
+        return
+    end
+
+    local onBoard = eventData["onBoard"]:GetBool()
+    local data = AtlasSystem.data
+    if not data then return end
+
+    if onBoard then
+        -- 在榜 → 解锁道印
+        if not data.medals[medalId] then
+            data.medals[medalId] = true
+            print("[AtlasSystem] Event grant medal unlocked: " .. medalId)
+            EventBus.Emit("medal_upgraded", {
+                medalId = medalId,
+                oldLevel = 0,
+                newLevel = 1,
+            })
+            AtlasSystem.RecalcMedalBonuses()
+            AtlasSystem.SaveImmediate()
+        end
+    else
+        -- 不在榜 → 安排延迟重试（最多3次）
+        AtlasSystem._eventGrantRetryMap = AtlasSystem._eventGrantRetryMap or {}
+        local retryCount = AtlasSystem._eventGrantRetryMap[medalId] or 0
+        if retryCount < 3 then
+            local nextRetry = retryCount + 1
+            local delay = nextRetry * 3  -- 3s, 6s, 9s
+            AtlasSystem._eventGrantRetryAt = (GameState.gameTime or 0) + delay
+            AtlasSystem._eventGrantRetryCount = nextRetry
+            print("[AtlasSystem] Event grant not on board: " .. medalId
+                .. " scheduling retry #" .. nextRetry .. " in " .. delay .. "s")
+        else
+            print("[AtlasSystem] Event grant not on board: " .. medalId
+                .. " max retries reached, giving up")
+        end
     end
 end
 
@@ -449,13 +508,18 @@ function AtlasSystem.RetroCheckFirstObtain()
 end
 
 --- 检查 event_grant 类道印（仙石榜等一次性事件发放）
---- 查询排行榜自身是否有记录，有则永久发放道印
+--- 通过 C2S 协议请求服务端代查排行榜（clientCloud 在多人模式下为 nil）
 function AtlasSystem.CheckEventGrants(retryCount)
     retryCount = retryCount or 0
     local data = AtlasSystem.data
     if not data then return end
 
-    local pendingCount = 0  -- 未解锁的 event_grant 道印数
+    local SaveProtocol = require("network.SaveProtocol")
+    local serverConn = network:GetServerConnection()
+    if not serverConn then
+        print("[AtlasSystem] CheckEventGrants: no server connection, skip")
+        return
+    end
 
     for _, medalId in ipairs(MedalConfig.ORDER) do
         local medal = MedalConfig.MEDALS[medalId]
@@ -465,56 +529,30 @@ function AtlasSystem.CheckEventGrants(retryCount)
         -- 已获得则跳过
         if data.medals[medalId] then goto cont end
 
-        pendingCount = pendingCount + 1
-
-        -- 查询对应排行榜中自己是否有记录
         local leaderboard = medal.trigger.leaderboard
         if not leaderboard then goto cont end
 
-        if clientCloud then
-            local capturedMedalId = medalId
-            -- 用 GetMyScore 查询自己在排行榜中的分数
-            clientCloud:GetMyScore(leaderboard, {
-                ok = function(scoreInfo)
-                    -- scoreInfo 非 nil 且有有效值 → 说明在榜上
-                    if scoreInfo and scoreInfo.score and scoreInfo.score > 0 then
-                        -- 再次检查（异步回调时可能已被其他路径解锁）
-                        if data.medals[capturedMedalId] then return end
-                        data.medals[capturedMedalId] = true
-                        print("[AtlasSystem] Event grant medal unlocked: " .. medal.name)
-                        EventBus.Emit("medal_upgraded", {
-                            medalId = capturedMedalId,
-                            oldLevel = 0,
-                            newLevel = 1,
-                        })
-                        AtlasSystem.RecalcMedalBonuses()
-                        AtlasSystem.SaveImmediate()
-                    else
-                        print("[AtlasSystem] Event grant check: not on leaderboard " .. leaderboard
-                            .. " (retry=" .. retryCount .. ")")
-                        -- 服务端写榜是异步的，首次查询可能排行榜尚未写入
-                        -- 延迟重试最多3次（3s/6s/9s）
-                        if retryCount < 3 then
-                            local nextRetry = retryCount + 1
-                            local delay = nextRetry * 3
-                            print("[AtlasSystem] Will retry CheckEventGrants in " .. delay .. "s")
-                            AtlasSystem._eventGrantRetryAt = (GameState.gameTime or 0) + delay
-                            AtlasSystem._eventGrantRetryCount = nextRetry
-                        end
-                    end
-                end,
-                error = function(code, reason)
-                    print("[AtlasSystem] Event grant check ERROR: " .. leaderboard
-                        .. " code=" .. tostring(code) .. " reason=" .. tostring(reason))
-                end,
-            })
-        end
+        -- 记录重试次数，供 S2C 回调使用
+        AtlasSystem._eventGrantRetryMap = AtlasSystem._eventGrantRetryMap or {}
+        AtlasSystem._eventGrantRetryMap[medalId] = retryCount
+
+        -- 通过 C2S 请求服务端查询
+        local evtData = VariantMap()
+        evtData["medalId"] = Variant(medalId)
+        evtData["leaderboard"] = Variant(leaderboard)
+        serverConn:SendRemoteEvent(SaveProtocol.C2S_CheckEventGrant, true, evtData)
+        print("[AtlasSystem] CheckEventGrants: sent C2S for " .. medalId
+            .. " leaderboard=" .. leaderboard .. " retry=" .. retryCount)
 
         ::cont::
     end
 end
 
+--- 竞速名额查询待处理回调 { [medalId] = callback }
+AtlasSystem._raceSlotsCallbacks = {}
+
 --- 查询 server_race 名额状态（用于隐藏规则）
+--- 通过 C2S 协议请求服务端代查排行榜（clientCloud 在多人模式下为 nil）
 ---@param medalId string
 ---@param callback function (isFull: boolean)
 function AtlasSystem.CheckRaceSlots(medalId, callback)
@@ -534,20 +572,46 @@ function AtlasSystem.CheckRaceSlots(medalId, callback)
         return
     end
 
-    if clientCloud then
-        clientCloud:GetLeaderboard(leaderboard, 0, maxSlots, {
-            ok = function(entries)
-                local count = entries and #entries or 0
-                local isFull = count >= maxSlots
-                AtlasSystem.raceSlotCache[leaderboard] = { full = isFull, count = count }
-                if callback then callback(isFull) end
-            end,
-            error = function()
-                -- 查询失败时默认不隐藏
-                if callback then callback(false) end
-            end,
-        })
+    -- 通过 C2S 请求服务端查询
+    local SaveProtocol = require("network.SaveProtocol")
+    local serverConn = network:GetServerConnection()
+    if not serverConn then
+        print("[AtlasSystem] CheckRaceSlots: no server connection, skip")
+        if callback then callback(false) end
+        return
+    end
+
+    -- 保存回调
+    AtlasSystem._raceSlotsCallbacks[medalId] = callback
+
+    local evtData = VariantMap()
+    evtData["medalId"] = Variant(medalId)
+    evtData["leaderboard"] = Variant(leaderboard)
+    evtData["maxSlots"] = Variant(maxSlots)
+    serverConn:SendRemoteEvent(SaveProtocol.C2S_CheckRaceSlots, true, evtData)
+    print("[AtlasSystem] CheckRaceSlots: sent C2S for " .. medalId
+        .. " leaderboard=" .. leaderboard .. " maxSlots=" .. maxSlots)
+end
+
+--- S2C_CheckRaceSlotsResult 全局回调
+function AtlasSystem_HandleCheckRaceSlotsResult(eventType, eventData)
+    local ok = eventData["ok"]:GetBool()
+    local medalId = eventData["medalId"]:GetString()
+    local leaderboard = eventData["leaderboard"]:GetString()
+
+    local callback = AtlasSystem._raceSlotsCallbacks[medalId]
+    AtlasSystem._raceSlotsCallbacks[medalId] = nil
+
+    if ok then
+        local count = eventData["count"]:GetInt()
+        local maxSlots = eventData["maxSlots"]:GetInt()
+        local isFull = eventData["isFull"]:GetBool()
+        AtlasSystem.raceSlotCache[leaderboard] = { full = isFull, count = count }
+        if callback then callback(isFull) end
     else
+        local msg = ""
+        pcall(function() msg = eventData["msg"]:GetString() end)
+        print("[AtlasSystem] CheckRaceSlots failed: " .. medalId .. " msg=" .. msg)
         if callback then callback(false) end
     end
 end
@@ -853,22 +917,19 @@ function AtlasSystem.Serialize()
     AtlasSystem.MergeArtifactCh4FromCharacter()
     AtlasSystem.MergeArtifactTiandiFromCharacter()
 
+    -- 道印字段由 MedalConfig 数据驱动序列化
+    local medals = {}
+    for _, medalId in ipairs(MedalConfig.ORDER) do
+        local medal = MedalConfig.MEDALS[medalId]
+        if medal then
+            local key, default = MedalStorageKey(medalId, medal)
+            medals[key] = data.medals[key] or default
+        end
+    end
+
     return {
         version = data.version or 2,
-        medals = {
-            realm_master_level = data.medals.realm_master_level or 0,
-            taixu_level        = data.medals.taixu_level or 0,
-            zhenyue_level      = data.medals.zhenyue_level or 0,
-            luohan_level       = data.medals.luohan_level or 0,
-            tianyan_level      = data.medals.tianyan_level or 0,
-            trial_level        = data.medals.trial_level or 0,
-            guardian_exp        = data.medals.guardian_exp or 0,
-            pioneer_huashen    = data.medals.pioneer_huashen or false,
-            pioneer_heti       = data.medals.pioneer_heti or false,
-            first_cyan         = data.medals.first_cyan or false,
-            first_red          = data.medals.first_red or false,
-            wutian_drunk       = data.medals.wutian_drunk or false,
-        },
+        medals = medals,
         artifact = {
             activatedGrids = data.artifact.activatedGrids,
             bossDefeated = data.artifact.bossDefeated,
@@ -896,20 +957,20 @@ function AtlasSystem.Deserialize(rawData)
         data.version = rawData.version or 1
 
         -- v1 → v2 迁移：旧格式有 chapters/badges/cosmetics，新格式只有 medals/artifact
+        -- 道印字段由 MedalConfig 数据驱动反序列化
         if rawData.medals and type(rawData.medals) == "table" then
             local m = rawData.medals
-            data.medals.realm_master_level = m.realm_master_level or 0
-            data.medals.taixu_level        = m.taixu_level or 0
-            data.medals.zhenyue_level      = m.zhenyue_level or 0
-            data.medals.luohan_level       = m.luohan_level or 0
-            data.medals.tianyan_level      = m.tianyan_level or 0
-            data.medals.trial_level        = m.trial_level or 0
-            data.medals.guardian_exp        = m.guardian_exp or 0
-            data.medals.pioneer_huashen    = m.pioneer_huashen == true
-            data.medals.pioneer_heti       = m.pioneer_heti == true
-            data.medals.first_cyan         = m.first_cyan == true
-            data.medals.first_red          = m.first_red == true
-            data.medals.wutian_drunk       = m.wutian_drunk == true
+            for _, medalId in ipairs(MedalConfig.ORDER) do
+                local medal = MedalConfig.MEDALS[medalId]
+                if medal then
+                    local key, default = MedalStorageKey(medalId, medal)
+                    if type(default) == "boolean" then
+                        data.medals[key] = m[key] == true
+                    else
+                        data.medals[key] = m[key] or default
+                    end
+                end
+            end
         end
 
         -- 神器

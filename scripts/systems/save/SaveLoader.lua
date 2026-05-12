@@ -332,9 +332,24 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
             EventSystem.Deserialize(saveData.event_data)
         end
 
+        -- 仙缘宝箱（v21+，nil 安全）
+        do
+            local xOk, XianyuanChestSystem = pcall(require, "systems.XianyuanChestSystem")
+            if xOk and XianyuanChestSystem then
+                XianyuanChestSystem.Deserialize(saveData.openedXianyuanChests)
+            end
+            -- 透传服务端写入的待选奖励（客户端不解析，存档时原样写回）
+            SS._pendingXianyuanRewards = saveData.pendingXianyuanRewards
+        end
+
         if saveData.trialTower then
             local TrialTowerSystem = require("systems.TrialTowerSystem")
             TrialTowerSystem.Deserialize(saveData.trialTower)
+        end
+
+        if saveData.prisonTower then
+            local PrisonTowerSystem = require("systems.PrisonTowerSystem")
+            PrisonTowerSystem.Deserialize(saveData.prisonTower)
         end
 
         -- 仓库
@@ -353,6 +368,12 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
             if not AtlasSystem.loaded then
                 AtlasSystem.loaded = true
             end
+        end
+
+        -- 账号级外观数据（account_cosmetics）
+        if saveData.accountCosmetics and type(saveData.accountCosmetics) == "table" then
+            GameState.accountCosmetics = saveData.accountCosmetics
+            print("[SaveSystem] account_cosmetics loaded")
         end
 
         -- 恢复BOSS击杀冷却（从相对剩余时间转换回绝对killTime）

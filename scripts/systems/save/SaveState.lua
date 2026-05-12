@@ -11,8 +11,8 @@ local SaveState = {}
 
 SaveState.MAX_SLOTS = 4                -- 最大角色槽位数
 SaveState.NEW_CHAR_MAX = 4             -- 允许创建新角色的最大槽位号（1-4 全部开放）
-SaveState.AUTO_SAVE_INTERVAL = 60      -- 每 1 分钟自动存档
-SaveState.CURRENT_SAVE_VERSION = 19    -- 当前存档数据版本（v19: 天道问心系统 dao* 属性字段）
+SaveState.AUTO_SAVE_INTERVAL = 120     -- 每 2 分钟自动存档（P0优化：降低存档频率）
+SaveState.CURRENT_SAVE_VERSION = 23    -- 当前存档数据版本（v23: 青云镇狱塔系统）
 SaveState.DEFAULT_CHARACTER_NAME = "修仙者"  -- 旧存档迁移时的默认角色名
 SaveState.CHECKPOINT_INTERVAL = 5      -- 每 N 次存档写一次定期备份（~10 分钟）
 SaveState.SAVE_DEBOUNCE_INTERVAL = 3   -- 防抖间隔（秒）：3秒内多次请求合并为一次
@@ -41,5 +41,8 @@ SaveState._lastConnState = true     -- 上次检测到的连接状态（W1）
 SaveState._disconnected = false     -- 断线暂停存档标志（W2）
 SaveState._dirty = false            -- 防抖脏标记：有待写入的存档变更
 SaveState._lastSaveTime = 0         -- 上次成功存档的 os.clock() 时间戳
+
+-- 服务端写入的透传字段（客户端不解析，只在存档时原样写回，防止被客户端存档覆盖）
+SaveState._pendingXianyuanRewards = nil  -- 仙缘宝箱待选奖励缓存
 
 return SaveState

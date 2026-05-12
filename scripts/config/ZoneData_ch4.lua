@@ -19,6 +19,7 @@ local beastNorthData = require("config.zones.chapter4.beast_north")
 local beastEastData  = require("config.zones.chapter4.beast_east")
 local beastWestData  = require("config.zones.chapter4.beast_west")
 local beastSouthData = require("config.zones.chapter4.beast_south")
+local xianyuanRoomsCh4 = require("config.zones.xianyuan_rooms_ch4")
 
 -- 所有区域模块列表
 local ALL_ZONES = {
@@ -26,6 +27,7 @@ local ALL_ZONES = {
     kanData, genData, zhenData, xunData,
     liData, kunData, duiData, qianData,
     beastNorthData, beastEastData, beastWestData, beastSouthData,
+    xianyuanRoomsCh4,  -- 仙缘宝箱藏宝室（必须在最后，覆盖原有地形）
 }
 
 -- ============================================================================

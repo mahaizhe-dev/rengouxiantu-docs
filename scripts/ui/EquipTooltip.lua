@@ -673,6 +673,8 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
                 end,
             })
         end
+        local _cfgItem = item.consumableId and GameConfig.CONSUMABLES[item.consumableId]
+        local _isEventItem = _cfgItem and _cfgItem.category == "event"
         if item.consumableId == "lingyun_fruit" or item.consumableId == "exp_pill" or item.consumableId == "gold_bar" or item.consumableId == "gold_brick" then
             -- 批量使用/出售 UI：×1 / ×10 / ×50 / 全部
             local cId = item.consumableId
@@ -755,8 +757,17 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         if item.consumableId ~= "exp_pill" and item.consumableId ~= "lingyun_fruit" and item.consumableId ~= "item_guardian_token" and item.consumableId ~= "gold_bar" and item.consumableId ~= "gold_brick" and item.consumableId ~= "wubao_token_box" and item.consumableId ~= "sha_hai_ling_box" and item.consumableId ~= "taixu_token_box" then
             table.insert(btnChildren, UI.Button {
                 text = "出售", variant = "warning", flexGrow = 1,
-                onClick = function()
-                    InventorySystem.SellItem(sourceSlotId)
+                onClick = function(self)
+                    self:SetDisabled(true)
+                    if _isEventItem then
+                        -- 事件物品：全部出售，走配置表读价格
+                        local cId = item.consumableId
+                        local total = InventorySystem.CountConsumable(cId)
+                        local ok, msg = InventorySystem.UseBatchConsumable(cId, total)
+                        EventBus.Emit("show_toast", ok and msg or (msg or "出售失败"))
+                    else
+                        InventorySystem.SellItem(sourceSlotId)
+                    end
                     EquipTooltip.Hide()
                     if doneCallback then doneCallback() end
                 end,

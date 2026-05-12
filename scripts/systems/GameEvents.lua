@@ -20,6 +20,7 @@ local QuestSystem = require("systems.QuestSystem")
 local TitleSystem = require("systems.TitleSystem")
 local ChallengeSystem = require("systems.ChallengeSystem")
 local TrialTowerSystem = require("systems.TrialTowerSystem")
+local PrisonTowerSystem = require("systems.PrisonTowerSystem")
 local DungeonClient = require("network.DungeonClient")
 
 local GameEvents = {}
@@ -462,6 +463,23 @@ function GameEvents.Register(refs)
                 CombatSystem.AddFloatingText(
                     player.x, player.y - 1.5,
                     "试炼失败，已返回入口",
+                    {255, 100, 80, 255}, 2.0
+                )
+            end
+            return
+        end
+
+        -- 镇狱塔中死亡：自动退出（不走正常死亡流程）
+        if PrisonTowerSystem.active then
+            local player = GameState.player
+            if player then
+                player.alive = true
+            end
+            PrisonTowerSystem.Exit(refs.gameMap, refs.camera)
+            if player then
+                CombatSystem.AddFloatingText(
+                    player.x, player.y - 1.5,
+                    "镇狱失败，已返回入口",
                     {255, 100, 80, 255}, 2.0
                 )
             end

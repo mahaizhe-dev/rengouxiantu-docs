@@ -14,7 +14,7 @@ local EventConfig = {}
 -- ═══════════════════════════════════════
 EventConfig.ACTIVE_EVENT = {
     eventId = "mayday_2026",
-    enabled = true,
+    enabled = false,
     name = "五一快乐",
     npcName = "天官降福",
     npcSubtitle = "五一活动兑换",

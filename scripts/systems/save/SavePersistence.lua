@@ -190,8 +190,13 @@ function SavePersistence.DoSave(slot, callback, epoch)
             local SeaPillarSystem = require("systems.SeaPillarSystem")
             return SeaPillarSystem.Serialize()
         end)(),
+        prisonTower = (function()
+            local PrisonTowerSystem = require("systems.PrisonTowerSystem")
+            return PrisonTowerSystem.Serialize()
+        end)(),
         warehouse = SaveSerializer.SerializeWarehouse(),
         atlas = SaveSerializer.SerializeAtlas(),
+        accountCosmetics = GameState.accountCosmetics,  -- 账号级外观数据（透传给 server_main 写入独立 key）
         yaochi_wash = (function()
             local YaochiWashSystem = require("systems.YaochiWashSystem")
             return YaochiWashSystem.Serialize()
@@ -200,6 +205,15 @@ function SavePersistence.DoSave(slot, callback, epoch)
             local EventSystem = require("systems.EventSystem")
             return EventSystem.Serialize()
         end)(),
+        openedXianyuanChests = (function()
+            local ok, XianyuanChestSystem = pcall(require, "systems.XianyuanChestSystem")
+            if ok and XianyuanChestSystem then
+                return XianyuanChestSystem.Serialize()
+            end
+            return {}
+        end)(),
+        -- 透传服务端写入的仙缘宝箱待选奖励（客户端不解析，原样写回防覆盖）
+        pendingXianyuanRewards = SS._pendingXianyuanRewards,
     }
 
     -- v11 新 key + 旧 key（迁移用）
@@ -341,6 +355,7 @@ function SavePersistence.DoSave(slot, callback, epoch)
                 SS._retryTimer = nil
                 SS._lastKnownCloudLevel = playerData.level or 1
                 SS._lastSaveTime = os.clock()
+                SS.saveTimer = 0  -- P0优化：成功保存后重置自动存档计时器，以"距上次成功保存"为基准
 
                 EventBus.Emit("save_warning_clear")
                 onMigrateComplete()
@@ -447,6 +462,7 @@ function SavePersistence.DoSave(slot, callback, epoch)
             SS._consecutiveFailures = 0
             SS._retryTimer = nil
             SS._lastSaveTime = os.clock()
+            SS.saveTimer = 0  -- P0优化：成功保存后重置自动存档计时器，以"距上次成功保存"为基准
 
             EventBus.Emit("save_warning_clear")
 

@@ -234,12 +234,17 @@ local function BuildMedalContent()
         -- 加成文本
         local bonusText
         if isObtained then
-            bonusText = "加成: " .. MedalConfig.FormatBonus(medal.bonus, level)
+            if medal.type == "one_time" then
+                bonusText = "加成: " .. MedalConfig.FormatBonus(medal.bonus, 1)
+            else
+                bonusText = "加成: " .. MedalConfig.FormatBonus(medal.bonus, level)
+            end
         else
-            bonusText = "达成后: " .. MedalConfig.FormatBonus(medal.bonus, 1) .. "/级"
-        end
-        if medal.type == "one_time" and isObtained then
-            bonusText = "加成: " .. MedalConfig.FormatBonus(medal.bonus, 1)
+            if medal.type == "one_time" then
+                bonusText = "达成后: " .. MedalConfig.FormatBonus(medal.bonus, 1)
+            else
+                bonusText = "达成后: " .. MedalConfig.FormatBonus(medal.bonus, 1) .. "/级"
+            end
         end
 
         local bgColor = isObtained and A.cardObtainedBg or A.cardLockedBg

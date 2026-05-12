@@ -203,6 +203,77 @@ local function RebuildRankOnLogin(userId, slotsIndex, getSlotData, taptapNick)
             .. " bestFloor=" .. bestTrialFloor .. " slot=" .. bestTrialSlot)
     end
 
+    -- ═══ 青云镇狱塔排行榜修复（per-user，取全部角色中最高层）═══
+    local bestPrisonFloor = 0
+    local bestPrisonSlotData = nil
+    local bestPrisonSlot = 0
+    for rSlot = 1, 4 do
+        local rSaveData = getSlotData(rSlot)
+        if rSaveData
+            and rSaveData.prisonTower and type(rSaveData.prisonTower) == "table" then
+            local hf = rSaveData.prisonTower.highestFloor
+            if hf and type(hf) == "number" and hf > bestPrisonFloor then
+                bestPrisonFloor = hf
+                bestPrisonSlot = rSlot
+                bestPrisonSlotData = rSaveData
+            end
+        end
+    end
+    if bestPrisonFloor > 0 then
+        -- 反作弊验证
+        local prisonValid = true
+        if bestPrisonFloor > 150 then
+            print("[Server][AntiCheat] prison floor exceeds max: " .. bestPrisonFloor)
+            prisonValid = false
+        end
+        if prisonValid and bestPrisonSlotData and bestPrisonSlotData.player then
+            local pRealm = bestPrisonSlotData.player.realm or "mortal"
+            local pRealmCfg = GameConfig.REALMS[pRealm]
+            local pOrder = pRealmCfg and pRealmCfg.order or 0
+            if pOrder < 7 then
+                print("[Server][AntiCheat] prison requires jindan_1, got " .. pRealm)
+                prisonValid = false
+            end
+            local pLevel = bestPrisonSlotData.player.level or 0
+            if pLevel < 40 then
+                print("[Server][AntiCheat] prison requires level 40, got " .. pLevel)
+                prisonValid = false
+            end
+        end
+
+        if prisonValid then
+            local PRISON_TIME_BASE = 10000000000
+            local prisonComposite = bestPrisonFloor * PRISON_TIME_BASE
+                + (PRISON_TIME_BASE - 1 - os.time())
+            serverCloud:SetInt(userId, "prison_floor", prisonComposite, {
+                error = function(code, reason)
+                    print("[Server] Prison login SetInt FAILED: userId=" .. tostring(userId)
+                        .. " err=" .. tostring(code) .. " " .. tostring(reason))
+                end,
+            })
+            local prisonCharName = "修仙者"
+            local prisonSlotMeta = slotsIndex.slots and slotsIndex.slots[bestPrisonSlot]
+            if prisonSlotMeta and prisonSlotMeta.name and prisonSlotMeta.name ~= "" then
+                prisonCharName = prisonSlotMeta.name
+            elseif bestPrisonSlotData.player and bestPrisonSlotData.player.charName then
+                prisonCharName = bestPrisonSlotData.player.charName
+            end
+            if not rankRepairBatch then
+                rankRepairBatch = serverCloud:BatchSet(userId)
+            end
+            rankRepairBatch:Set("prison_info", {
+                floor = bestPrisonFloor,
+                name = prisonCharName,
+                realm = bestPrisonSlotData.player and bestPrisonSlotData.player.realm or "mortal",
+                level = bestPrisonSlotData.player and bestPrisonSlotData.player.level or 1,
+                taptapNick = taptapNick,
+                classId = bestPrisonSlotData.player and bestPrisonSlotData.player.classId or "monk",
+            })
+            print("[Server] Prison: login repair userId=" .. tostring(userId)
+                .. " bestFloor=" .. bestPrisonFloor .. " slot=" .. bestPrisonSlot)
+        end
+    end
+
     -- ═══ 仙石榜（xianshi_rank）: 仙石>0 的账号永久入榜 ═══
     -- 单向操作：一旦入榜不删除，即使仙石后续变为 0
     serverCloud.money:Get(userId, {
@@ -487,6 +558,114 @@ function M.HandleTryUnlockRace(eventType, eventData)
             data["medalId"] = Variant(medalId)
             data["msg"] = Variant("服务器错误，请重试")
             SafeSend(connection, SaveProtocol.S2C_TryUnlockRaceResult, data)
+        end,
+    })
+end
+
+-- ============================================================================
+-- HandleCheckEventGrant — event_grant 道印：服务端代查排行榜
+-- 客户端无 clientCloud，改由服务端查 serverCloud 排行
+-- ============================================================================
+
+function M.HandleCheckEventGrant(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    local leaderboard = eventData["leaderboard"]:GetString()
+    local medalId = eventData["medalId"]:GetString()
+    print("[Server] CheckEventGrant: userId=" .. tostring(userId)
+        .. " medalId=" .. medalId .. " leaderboard=" .. leaderboard)
+
+    -- 用 serverCloud:Get 查询该玩家是否有 iscore 记录（等价于原 clientCloud:GetMyScore）
+    -- xianshi_rank 通过 SetInt 写入 iscores，所以从 iscores 读取
+    serverCloud:Get(userId, leaderboard, {
+        ok = function(scores, iscores)
+            local onBoard = false
+            local score = 0
+            -- SetInt 写入的值在 iscores 中
+            local ival = iscores and iscores[leaderboard]
+            if ival and ival > 0 then
+                onBoard = true
+                score = ival
+            end
+            -- 也检查 scores 以防数据通过 Set 写入
+            if not onBoard then
+                local sval = scores and scores[leaderboard]
+                if sval and type(sval) == "number" and sval > 0 then
+                    onBoard = true
+                    score = sval
+                end
+            end
+            print("[Server] CheckEventGrant result: userId=" .. tostring(userId)
+                .. " leaderboard=" .. leaderboard
+                .. " onBoard=" .. tostring(onBoard) .. " score=" .. tostring(score)
+                .. " iscores=" .. tostring(iscores and iscores[leaderboard])
+                .. " scores=" .. tostring(scores and scores[leaderboard]))
+            local data = VariantMap()
+            data["ok"] = Variant(true)
+            data["medalId"] = Variant(medalId)
+            data["leaderboard"] = Variant(leaderboard)
+            data["onBoard"] = Variant(onBoard)
+            data["score"] = Variant(score)
+            SafeSend(connection, SaveProtocol.S2C_CheckEventGrantResult, data)
+        end,
+        error = function(code, reason)
+            print("[Server] CheckEventGrant ERROR: userId=" .. tostring(userId)
+                .. " leaderboard=" .. leaderboard
+                .. " code=" .. tostring(code) .. " reason=" .. tostring(reason))
+            local data = VariantMap()
+            data["ok"] = Variant(false)
+            data["medalId"] = Variant(medalId)
+            data["leaderboard"] = Variant(leaderboard)
+            data["msg"] = Variant(tostring(reason))
+            SafeSend(connection, SaveProtocol.S2C_CheckEventGrantResult, data)
+        end,
+    })
+end
+
+-- ============================================================================
+-- HandleCheckRaceSlots — 竞速道印名额查询（服务端代查）
+-- ============================================================================
+
+function M.HandleCheckRaceSlots(eventType, eventData)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+    local userId = GetUserId(connKey)
+    if not userId then return end
+
+    local medalId = eventData["medalId"]:GetString()
+    local leaderboard = eventData["leaderboard"]:GetString()
+    local maxSlots = eventData["maxSlots"]:GetInt()
+    print("[Server] CheckRaceSlots: userId=" .. tostring(userId)
+        .. " medalId=" .. medalId .. " leaderboard=" .. leaderboard
+        .. " maxSlots=" .. maxSlots)
+
+    serverCloud:GetRankList(leaderboard, 1, maxSlots, {
+        ok = function(rankList)
+            local count = rankList and #rankList or 0
+            local isFull = count >= maxSlots
+            print("[Server] CheckRaceSlots result: leaderboard=" .. leaderboard
+                .. " count=" .. count .. " isFull=" .. tostring(isFull))
+            local data = VariantMap()
+            data["ok"] = Variant(true)
+            data["medalId"] = Variant(medalId)
+            data["leaderboard"] = Variant(leaderboard)
+            data["count"] = Variant(count)
+            data["maxSlots"] = Variant(maxSlots)
+            data["isFull"] = Variant(isFull)
+            SafeSend(connection, SaveProtocol.S2C_CheckRaceSlotsResult, data)
+        end,
+        error = function(code, reason)
+            print("[Server] CheckRaceSlots ERROR: leaderboard=" .. leaderboard
+                .. " code=" .. tostring(code) .. " reason=" .. tostring(reason))
+            local data = VariantMap()
+            data["ok"] = Variant(false)
+            data["medalId"] = Variant(medalId)
+            data["leaderboard"] = Variant(leaderboard)
+            data["msg"] = Variant(tostring(reason))
+            SafeSend(connection, SaveProtocol.S2C_CheckRaceSlotsResult, data)
         end,
     })
 end

@@ -714,7 +714,7 @@ M.Types.dragon_ice = {
         { chance = 0.03, type = "world_drop", pool = "dragon_ice_books" },  -- 高级技能书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
-        { chance = 0.01, type = "consumable", consumableId = "dragon_scale_ice" },  -- 封霜龙鳞1%（圣器打造材料）
+        { chance = 0.02, type = "consumable", consumablePool = {"dragon_scale_ice", "dragon_blood_herb"} },  -- 2%共享（封霜龙鳞/龙血草）
         { chance = 0.0025, type = "equipment", equipId = "silong_ring_ch4" },  -- 帝尊肆戒0.25%
         -- 太虚令盒（0.1%独立掉落）
         { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
@@ -755,7 +755,7 @@ M.Types.dragon_abyss = {
         { chance = 0.03, type = "world_drop", pool = "dragon_abyss_books" },  -- 高级技能书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
-        { chance = 0.01, type = "consumable", consumableId = "dragon_scale_abyss" },  -- 渊蛟龙骨1%（圣器打造材料）
+        { chance = 0.02, type = "consumable", consumablePool = {"dragon_scale_abyss", "dragon_blood_herb"} },  -- 2%共享（渊蛟龙骨/龙血草）
         { chance = 0.0025, type = "equipment", equipId = "silong_ring_ch4" },  -- 帝尊肆戒0.25%
         -- 太虚令盒（0.1%独立掉落）
         { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
@@ -796,7 +796,7 @@ M.Types.dragon_fire = {
         { chance = 0.03, type = "world_drop", pool = "dragon_fire_books" },  -- 高级技能书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
-        { chance = 0.01, type = "consumable", consumableId = "dragon_scale_fire" },  -- 焚天龙焰1%（圣器打造材料）
+        { chance = 0.02, type = "consumable", consumablePool = {"dragon_scale_fire", "dragon_blood_herb"} },  -- 2%共享（焚天龙焰/龙血草）
         { chance = 0.0025, type = "equipment", equipId = "silong_ring_ch4" },  -- 帝尊肆戒0.25%
         -- 太虚令盒（0.1%独立掉落）
         { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
@@ -837,7 +837,7 @@ M.Types.dragon_sand = {
         { chance = 0.03, type = "world_drop", pool = "dragon_sand_books" },  -- 高级技能书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
-        { chance = 0.01, type = "consumable", consumableId = "dragon_scale_sand" },  -- 蚀骨龙牙1%（圣器打造材料）
+        { chance = 0.02, type = "consumable", consumablePool = {"dragon_scale_sand", "dragon_blood_herb"} },  -- 2%共享（蚀骨龙牙/龙血草）
         { chance = 0.0025, type = "equipment", equipId = "silong_ring_ch4" },  -- 帝尊肆戒0.25%
         -- 太虚令盒（0.1%独立掉落）
         { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },

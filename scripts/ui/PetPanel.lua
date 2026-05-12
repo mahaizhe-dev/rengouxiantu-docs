@@ -10,6 +10,7 @@ local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
 local InventorySystem = require("systems.InventorySystem")
 local CombatSystem = require("systems.CombatSystem")
+local PetSkinSystem = require("systems.PetSkinSystem")
 local T = require("config.UITheme")
 
 local PetPanel = {}
@@ -24,7 +25,7 @@ end
 
 local panel_ = nil
 local visible_ = false
-local currentTab_ = "info"  -- "info" | "breakthrough" | "skills"
+local currentTab_ = "info"  -- "info" | "breakthrough" | "skills" | "appearance"
 local confirmDialog_ = nil
 local parentOverlay_ = nil
 
@@ -36,6 +37,7 @@ local TAB_DEFS = {
     { key = "info",         label = "属性·喂食", activeColor = {80, 100, 140, 255} },
     { key = "breakthrough", label = "突破",      activeColor = {120, 80, 180, 255} },
     { key = "skills",       label = "技能",      activeColor = {60, 140, 120, 255} },
+    { key = "appearance",   label = "外观",      activeColor = {180, 120, 60, 255} },
 }
 local TAB_INACTIVE_BG = {50, 50, 60, 200}
 local TAB_ACTIVE_FONT = {255, 255, 255, 255}
@@ -583,6 +585,284 @@ local function BuildSkillsContent()
 end
 
 -- ============================================================================
+-- 构建"外观"内容
+-- ============================================================================
+
+local function BuildAppearanceContent()
+    local pet = GameState.pet
+    if not pet then return {} end
+
+    local children = {}
+    local allSkins = PetSkinSystem.GetAllSkins()
+    local equippedId = PetSkinSystem.GetEquippedSkin()
+    local PetAppearanceConfig = require("config.PetAppearanceConfig")
+
+    local CARD_GAP = 6
+    local COLS = 3
+
+    -- 标题栏
+    table.insert(children, UI.Panel {
+        flexDirection = "row",
+        justifyContent = "space-between",
+        alignItems = "center",
+        children = {
+            UI.Label {
+                text = "外观图鉴",
+                fontSize = T.fontSize.md,
+                fontWeight = "bold",
+                fontColor = T.color.titleText,
+            },
+            UI.Button {
+                text = "恢复默认",
+                height = 26,
+                paddingLeft = 10, paddingRight = 10,
+                fontSize = T.fontSize.xs,
+                fontWeight = "bold",
+                borderRadius = T.radius.sm,
+                backgroundColor = {70, 70, 80, 200},
+                fontColor = {180, 180, 190, 255},
+                onClick = function(self)
+                    PetSkinSystem.ResetToDefault()
+                    PetPanel.Refresh()
+                end,
+            },
+        },
+    })
+
+    -- 构建单张竖卡片
+    local function MakeCard(skin)
+        local isEquipped = (skin.id == equippedId)
+        local isOwned = skin.owned
+
+        -- 卡片外框
+        local cardBg, borderColor, borderW
+        if isEquipped then
+            cardBg      = {40, 32, 15, 240}
+            borderColor = {220, 170, 50, 220}
+            borderW     = 2
+        elseif isOwned then
+            cardBg      = {28, 28, 45, 220}
+            borderColor = {100, 110, 180, 120}
+            borderW     = 1
+        else
+            cardBg      = {35, 35, 35, 160}
+            borderColor = {60, 60, 60, 80}
+            borderW     = 1
+        end
+
+        -- 贴图预览（竖长方形主区域）
+        local previewBg = isOwned and {20, 18, 30, 255} or {25, 25, 25, 200}
+        local tint = (not isOwned) and {140, 140, 140, 255} or nil
+
+        local previewChildren = {}
+
+        -- 角标
+        if isEquipped then
+            previewChildren[#previewChildren + 1] = UI.Label {
+                text = "✦",
+                fontSize = 10,
+                fontWeight = "bold",
+                fontColor = {255, 230, 130, 255},
+                backgroundColor = {120, 80, 0, 200},
+                borderRadius = 4,
+                paddingLeft = 3, paddingRight = 3,
+                paddingTop = 1, paddingBottom = 1,
+                position = "absolute",
+                top = 3, left = 3,
+            }
+        elseif skin.category == "premium" then
+            previewChildren[#previewChildren + 1] = UI.Label {
+                text = "★",
+                fontSize = 10,
+                fontWeight = "bold",
+                fontColor = isOwned and {255, 200, 80, 255} or {120, 100, 60, 180},
+                backgroundColor = {100, 50, 0, 180},
+                borderRadius = 4,
+                paddingLeft = 3, paddingRight = 3,
+                paddingTop = 1, paddingBottom = 1,
+                position = "absolute",
+                top = 3, left = 3,
+            }
+        end
+
+        -- 未解锁锁标
+        if not isOwned then
+            previewChildren[#previewChildren + 1] = UI.Label {
+                text = "🔒",
+                fontSize = 22,
+                position = "absolute",
+                top = 3, right = 3,
+            }
+        end
+
+        -- 名称颜色
+        local nameColor
+        if skin.category == "premium" then
+            nameColor = isOwned and {255, 190, 80, 255} or {130, 100, 50, 180}
+        else
+            nameColor = isOwned and {220, 225, 240, 255} or {110, 110, 110, 180}
+        end
+
+        -- 底部操作区内容
+        local bottomChildren = {
+            UI.Label {
+                text = skin.name,
+                fontSize = 10,
+                fontWeight = "bold",
+                fontColor = nameColor,
+                textAlign = "center",
+            },
+        }
+
+        -- 属性加成
+        if skin.bonusDesc then
+            table.insert(bottomChildren, UI.Label {
+                text = skin.bonusDesc,
+                fontSize = 8,
+                fontColor = isOwned and {80, 230, 80, 220} or {90, 90, 90, 150},
+                textAlign = "center",
+            })
+        end
+
+        -- 操作按钮
+        if isEquipped then
+            table.insert(bottomChildren, UI.Label {
+                text = "使用中",
+                fontSize = 9,
+                fontWeight = "bold",
+                fontColor = {220, 185, 60, 255},
+                textAlign = "center",
+            })
+        elseif isOwned then
+            local skinId = skin.id
+            table.insert(bottomChildren, UI.Button {
+                text = "装备",
+                width = "100%",
+                height = 22,
+                fontSize = 10,
+                fontWeight = "bold",
+                borderRadius = 4,
+                backgroundColor = {50, 120, 200, 255},
+                fontColor = {255, 255, 255, 255},
+                onClick = function(self)
+                    PetSkinSystem.EquipSkin(skinId)
+                    PetPanel.Refresh()
+                end,
+            })
+        else
+            local sourceText = "未解锁"
+            if skin.category == "premium" then
+                sourceText = "活动获取"
+            elseif skin.category == "base" then
+                local cfg = PetAppearanceConfig.byId[skin.id]
+                if cfg then
+                    local tierName = GameConfig.PET_TIERS[cfg.requiredTier]
+                        and GameConfig.PET_TIERS[cfg.requiredTier].name or ("T" .. cfg.requiredTier)
+                    sourceText = tierName .. "解锁"
+                end
+            end
+            table.insert(bottomChildren, UI.Label {
+                text = sourceText,
+                fontSize = 9,
+                fontColor = {100, 100, 100, 160},
+                textAlign = "center",
+            })
+        end
+
+        return UI.Panel {
+            flexGrow = 1, flexShrink = 1, flexBasis = 0,
+            backgroundColor = cardBg,
+            borderRadius = T.radius.sm,
+            borderWidth = borderW,
+            borderColor = borderColor,
+            overflow = "hidden",
+            children = {
+                -- 贴图预览区（竖长方形）
+                UI.Panel {
+                    width = "100%",
+                    aspectRatio = 0.75,  -- 3:4 竖卡比例
+                    backgroundColor = previewBg,
+                    backgroundImage = skin.texture,
+                    backgroundFit = "contain",
+                    imageTint = tint,
+                    children = previewChildren,
+                },
+                -- 底部信息 + 操作
+                UI.Panel {
+                    width = "100%",
+                    alignItems = "center",
+                    padding = 4,
+                    gap = 2,
+                    children = bottomChildren,
+                },
+            },
+        }
+    end
+
+    -- 分离基础外观和高级外观
+    local baseSkins = {}
+    local premiumSkins = {}
+    for _, skin in ipairs(allSkins) do
+        if skin.category == "premium" then
+            table.insert(premiumSkins, skin)
+        else
+            table.insert(baseSkins, skin)
+        end
+    end
+
+    -- 辅助：按 COLS 列排卡片行
+    local function AddCardRows(skinList)
+        for i = 1, #skinList, COLS do
+            local rowChildren = {}
+            for j = 0, COLS - 1 do
+                local skin = skinList[i + j]
+                if skin then
+                    table.insert(rowChildren, MakeCard(skin))
+                else
+                    table.insert(rowChildren, UI.Panel {
+                        flexGrow = 1, flexShrink = 1, flexBasis = 0,
+                    })
+                end
+            end
+            table.insert(children, UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                gap = CARD_GAP,
+                children = rowChildren,
+            })
+        end
+    end
+
+    -- ── 基础外观分栏 ──
+    table.insert(children, UI.Label {
+        text = "— 基础外观 —",
+        fontSize = T.fontSize.sm,
+        fontWeight = "bold",
+        fontColor = {160, 170, 200, 200},
+        textAlign = "center",
+        marginTop = 4,
+        marginBottom = 2,
+    })
+    AddCardRows(baseSkins)
+
+    -- ── 高级外观分栏 ──
+    if #premiumSkins > 0 then
+        table.insert(children, UI.Label {
+            text = "— 高级外观（账号级） —",
+            fontSize = T.fontSize.sm,
+            fontWeight = "bold",
+            fontColor = {220, 180, 80, 220},
+            textAlign = "center",
+            marginTop = 8,
+            marginBottom = 2,
+        })
+        AddCardRows(premiumSkins)
+    end
+
+    return children
+end
+
+-- ============================================================================
 -- 刷新 tab 内容（ClearChildren + 重建）
 -- ============================================================================
 
@@ -597,6 +877,8 @@ local function RefreshTabContent()
         items = BuildBreakthroughContent()
     elseif currentTab_ == "skills" then
         items = BuildSkillsContent()
+    elseif currentTab_ == "appearance" then
+        items = BuildAppearanceContent()
     else
         items = {}
     end
@@ -661,7 +943,9 @@ function PetPanel.Create(parentOverlay)
         justifyContent = "center",
         alignItems = "center",
         visible = false,
-        onClick = function(self) end,
+        onClick = function(self)
+            PetPanel.Hide()
+        end,
         children = {
             UI.Panel {
                 id = "petCard",
@@ -672,6 +956,7 @@ function PetPanel.Create(parentOverlay)
                 padding = T.spacing.lg,
                 gap = T.spacing.md,
                 overflow = "scroll",
+                onClick = function(self) end,  -- 阻止冒泡到遮罩层
                 children = {
                     -- 标题栏
                     UI.Panel {
@@ -679,6 +964,17 @@ function PetPanel.Create(parentOverlay)
                         justifyContent = "space-between",
                         alignItems = "center",
                         children = {
+                            UI.Button {
+                                text = "✕",
+                                width = T.size.closeButton,
+                                height = T.size.closeButton,
+                                fontSize = T.fontSize.md,
+                                borderRadius = T.size.closeButton / 2,
+                                backgroundColor = {60, 60, 70, 200},
+                                onClick = function(self)
+                                    PetPanel.Hide()
+                                end,
+                            },
                             UI.Panel {
                                 flexDirection = "row",
                                 alignItems = "center",
@@ -707,17 +1003,6 @@ function PetPanel.Create(parentOverlay)
                                         paddingTop = 2, paddingBottom = 2,
                                     },
                                 },
-                            },
-                            UI.Button {
-                                text = "✕",
-                                width = T.size.closeButton,
-                                height = T.size.closeButton,
-                                fontSize = T.fontSize.md,
-                                borderRadius = T.size.closeButton / 2,
-                                backgroundColor = {60, 60, 70, 200},
-                                onClick = function(self)
-                                    PetPanel.Hide()
-                                end,
                             },
                         },
                     },

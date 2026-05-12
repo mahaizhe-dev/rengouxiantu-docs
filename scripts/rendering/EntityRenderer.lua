@@ -11,6 +11,7 @@ local TitleSystem = require("systems.TitleSystem")
 local CombatSystem = require("systems.CombatSystem")
 local MonsterData = require("config.MonsterData")
 local IconUtils = require("utils.IconUtils")
+local PetAppearanceConfig = require("config.PetAppearanceConfig")
 
 local M = {}
 
@@ -932,12 +933,27 @@ function M.RenderPet(nvg, l, camera)
 
     local flash = pet.hurtFlashTimer > 0 and math.floor(pet.hurtFlashTimer * 20) % 2 == 0
 
-    -- 狗的视觉大小：T4圣兽比灵兽大20%
-    local baseSpriteScale = pet.tier == 4 and 0.96 or 0.8
+    -- 狗的视觉大小：高阶级更大；高级皮肤固定 1.3
+    local appearanceId = pet.appearance and pet.appearance.selectedId or nil
+    local baseSpriteScale
+    local skinCfg = appearanceId and PetAppearanceConfig.byId[appearanceId]
+    if skinCfg and skinCfg.category == "premium" then
+        baseSpriteScale = 1.3    -- 所有高级皮肤
+    elseif pet.tier >= 7 then
+        baseSpriteScale = 1.3    -- T7: 天犬
+    elseif pet.tier >= 6 then
+        baseSpriteScale = 1.2    -- T6: 圣兽
+    elseif pet.tier >= 5 then
+        baseSpriteScale = 1.1    -- T5: 圣犬
+    elseif pet.tier == 4 then
+        baseSpriteScale = 1.0    -- T4: 灵兽
+    else
+        baseSpriteScale = 0.8    -- T0-T3: 幼犬/凶犬/斗犬/灵犬
+    end
     local spriteSize = ts * baseSpriteScale
     local halfSize = spriteSize / 2
 
-    local texPath = PET_TIER_TEXTURES[pet.tier] or PET_TIER_TEXTURES[0]
+    local texPath = PetAppearanceConfig.GetTexture(appearanceId, pet.tier)
     local imgHandle = RenderUtils.GetCachedImage(nvg, texPath)
 
     if imgHandle then
@@ -1009,6 +1025,58 @@ function M.RenderMonster(nvg, l, camera, m)
     local radius = ts * (MONSTER_RADIUS_SCALE[m.category] or 0.5)
     local cx = sx
     local cy = sy - radius * 0.15  -- 稍微上移使名字有空间
+
+    -- 镇狱塔柱：只渲染头像和名字，跳过所有BOSS装饰
+    if m.isPillar then
+        -- 绘制圆形头像
+        local imgHandle = RenderUtils.GetCachedImage(nvg, m.portrait)
+        if imgHandle then
+            local imgSize = radius * 2
+            local imgX = cx - radius
+            local imgY = cy - radius
+            local imgPaint = nvgImagePattern(nvg, imgX, imgY, imgSize, imgSize, 0, imgHandle, flash and 0.4 or 1.0)
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, cx, cy, radius - 1)
+            nvgFillPaint(nvg, imgPaint)
+            nvgFill(nvg)
+            if flash then
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, cx, cy, radius - 1)
+                nvgFillColor(nvg, nvgRGBA(255, 60, 60, 160))
+                nvgFill(nvg)
+            end
+        else
+            -- 回退：石柱色圆形
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, cx, cy, radius - 1)
+            nvgFillColor(nvg, nvgRGBA(120, 110, 100, 255))
+            nvgFill(nvg)
+        end
+        -- 简单石色边框
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, cx, cy, radius)
+        nvgStrokeColor(nvg, nvgRGBA(160, 150, 130, 200))
+        nvgStrokeWidth(nvg, 1.5)
+        nvgStroke(nvg)
+        -- 名字（白底黑字，简洁）
+        local pillarNameSize = T.worldFont.name
+        nvgFontFace(nvg, "sans")
+        nvgFontSize(nvg, pillarNameSize)
+        nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+        local pnW = nvgTextBounds(nvg, 0, 0, m.name, nil)
+        local pnBgW = pnW + 12
+        local pnBgH = pillarNameSize + 6
+        local pnY = cy - radius - 6
+        nvgBeginPath(nvg)
+        nvgRoundedRect(nvg, cx - pnBgW / 2, pnY - pnBgH / 2, pnBgW, pnBgH, 3)
+        nvgFillColor(nvg, nvgRGBA(0, 0, 0, 140))
+        nvgFill(nvg)
+        nvgFillColor(nvg, nvgRGBA(200, 195, 180, 255))
+        nvgText(nvg, cx, pnY, m.name, nil)
+        -- 锁链封印效果（与枯木守卫一致的铁链+铁锁样式）
+        M.RenderChainSeal(nvg, cx, cy, radius, time)
+        return  -- 柱子渲染完毕，跳过后续所有BOSS装饰
+    end
 
     -- 1) 绘制分级光效底层（BOSS以上有外发光）
     if m.category == "saint_boss" then
@@ -1811,7 +1879,7 @@ function M.RenderMonsterHealthBars(nvg, l, camera)
     local monsters = GameState.monsters
     for i = 1, #monsters do
         local m = monsters[i]
-        if m.alive and m.hp < m.maxHp and camera:IsVisible(m.x, m.y, l.w, l.h, 2) then
+        if m.alive and m.hp < m.maxHp and not m.isPillar and camera:IsVisible(m.x, m.y, l.w, l.h, 2) then
             local sx, sy = RenderUtils.WorldToLocal(m.x, m.y, camera, l)
             local ts = camera:GetTileSize()
             local radius = ts * m.bodySize * 0.32
@@ -2772,6 +2840,283 @@ function M.RenderChainSeal(nvg, cx, cy, radius, time)
     nvgStrokeColor(nvg, nvgRGBA(30, 30, 35, lockA))
     nvgStrokeWidth(nvg, ls * 0.05)
     nvgStroke(nvg)
+end
+
+-- ============================================================================
+-- 仙缘宝箱渲染 - 贴图宝箱 + 属性光效 + 读条进度
+-- ============================================================================
+
+local XianyuanChestSystem_ = nil
+local XianyuanChestConfig_ = nil
+
+-- 属性光效颜色 {r, g, b}
+local XIANYUAN_ATTR_COLORS = {
+    constitution = {220, 180, 60},   -- 根骨：金色
+    fortune      = {80, 200, 120},   -- 福源：翠绿
+    wisdom       = {120, 140, 240},  -- 悟性：靛蓝
+    physique     = {230, 90, 80},    -- 体魄：赤红
+}
+
+function M.RenderXianyuanChests(nvg, l, camera)
+    -- 副本模式下不渲染
+    if GameConfig.DUNGEON_ENABLED then
+        local okDC, DungeonClient = pcall(require, "network.DungeonClient")
+        if okDC and DungeonClient and DungeonClient.IsDungeonMode() then return end
+    end
+
+    if not XianyuanChestSystem_ then
+        XianyuanChestSystem_ = require("systems.XianyuanChestSystem")
+    end
+    if not XianyuanChestConfig_ then
+        XianyuanChestConfig_ = require("config.XianyuanChestConfig")
+    end
+
+    local chapter = GameState.currentChapter or 1
+    local chests = XianyuanChestSystem_.GetChestsForChapter(chapter)
+    if #chests == 0 then return end
+
+    local ts = camera:GetTileSize()
+    local time = GameState.gameTime or 0
+    local player = GameState.player
+
+    for _, entry in ipairs(chests) do
+        local cfg = entry.cfg
+        -- 跳过无坐标的宝箱（用户稍后补充）
+        if not cfg.x or not cfg.y then goto nextChest end
+
+        if camera:IsVisible(cfg.x, cfg.y, l.w, l.h, 3) then
+            local sx, sy = RenderUtils.WorldToLocal(cfg.x, cfg.y, camera, l)
+            local opened = entry.opened
+            local attr = cfg.attr or "constitution"
+            local ac = XIANYUAN_ATTR_COLORS[attr] or XIANYUAN_ATTR_COLORS.constitution
+
+            -- 玩家距离
+            local dist = 999
+            if player then
+                local dx = player.x - cfg.x
+                local dy = player.y - cfg.y
+                dist = math.sqrt(dx * dx + dy * dy)
+            end
+            local nearby = (not opened) and dist <= (XianyuanChestConfig_.INTERACT_RANGE or 1.5)
+
+            -- 宝箱贴图尺寸（2×2 瓦片视觉面积，文档 §10）
+            local chestW = ts * 2.0
+            local chestH = ts * 2.0
+
+            if opened then
+                -- ====== 已开启：置灰 + 半透明 ======
+
+                -- 微弱灰色光晕
+                local glowGrad = nvgRadialGradient(nvg,
+                    sx, sy, 0, chestW * 1.2,
+                    nvgRGBA(120, 120, 120, 20),
+                    nvgRGBA(120, 120, 120, 0)
+                )
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, sx, sy, chestW * 1.2)
+                nvgFillPaint(nvg, glowGrad)
+                nvgFill(nvg)
+
+                -- 宝箱贴图（降低透明度模拟置灰）
+                local texPath = XianyuanChestConfig_.CHEST_TEXTURES[attr]
+                if texPath then
+                    local img = RenderUtils.GetCachedImage(nvg, texPath)
+                    if img and img > 0 then
+                        nvgGlobalAlpha(nvg, 0.35)
+                        local pat = nvgImagePattern(nvg,
+                            sx - chestW / 2, sy - chestH / 2,
+                            chestW, chestH, 0, img, 1.0)
+                        nvgBeginPath(nvg)
+                        nvgRect(nvg, sx - chestW / 2, sy - chestH / 2, chestW, chestH)
+                        nvgFillPaint(nvg, pat)
+                        nvgFill(nvg)
+                        nvgGlobalAlpha(nvg, 1.0)
+                    end
+                end
+
+                -- "已开启" 文字
+                nvgFontFace(nvg, "sans")
+                nvgFontSize(nvg, 12)
+                nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+                nvgFillColor(nvg, nvgRGBA(150, 150, 140, 140))
+                nvgText(nvg, sx, sy - chestH / 2 - 12, "此箱机缘已尽", nil)
+            else
+                -- ====== 未开启：完整特效 ======
+
+                -- 地面光晕（属性色）
+                local envPulse = 0.5 + 0.2 * math.sin(time * 1.5)
+                local envRadius = ts * 2.5
+                local envAlpha = nearby and math.floor(55 * envPulse) or math.floor(30 * envPulse)
+
+                local grad = nvgRadialGradient(nvg,
+                    sx, sy, ts * 0.2, envRadius,
+                    nvgRGBA(ac[1], ac[2], ac[3], envAlpha),
+                    nvgRGBA(ac[1], ac[2], ac[3], 0)
+                )
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, sx, sy, envRadius)
+                nvgFillPaint(nvg, grad)
+                nvgFill(nvg)
+
+                -- 宝箱浮动
+                local bob = math.sin(time * 1.8) * 2
+
+                -- 外发光（属性色脉冲）
+                local glowPulse = 0.7 + 0.3 * math.sin(time * 2.5)
+                local glowR = chestW * (1.0 + (nearby and 0.5 or 0))
+                local glowA = math.floor((nearby and 55 or 30) * glowPulse)
+                local glowGrad = nvgRadialGradient(nvg,
+                    sx, sy + bob, 0, glowR,
+                    nvgRGBA(ac[1], ac[2], ac[3], glowA),
+                    nvgRGBA(ac[1], ac[2], ac[3], 0)
+                )
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, sx, sy + bob, glowR)
+                nvgFillPaint(nvg, glowGrad)
+                nvgFill(nvg)
+
+                -- 宝箱贴图
+                local texPath = XianyuanChestConfig_.CHEST_TEXTURES[attr]
+                if texPath then
+                    local img = RenderUtils.GetCachedImage(nvg, texPath)
+                    if img and img > 0 then
+                        local pat = nvgImagePattern(nvg,
+                            sx - chestW / 2, sy + bob - chestH / 2,
+                            chestW, chestH, 0, img, 1.0)
+                        nvgBeginPath(nvg)
+                        nvgRect(nvg, sx - chestW / 2, sy + bob - chestH / 2, chestW, chestH)
+                        nvgFillPaint(nvg, pat)
+                        nvgFill(nvg)
+                    end
+                end
+
+                -- 旋转光环（属性色）
+                local ringR = chestW * 0.55
+                local ringAngle = time * 1.2
+                local ringAlpha = nearby and 130 or 60
+                nvgSave(nvg)
+                nvgTranslate(nvg, sx, sy + bob)
+                nvgRotate(nvg, ringAngle)
+                nvgBeginPath(nvg)
+                nvgArc(nvg, 0, 0, ringR, 0, math.pi * 0.8, 1)
+                nvgStrokeColor(nvg, nvgRGBA(ac[1], ac[2], ac[3], ringAlpha))
+                nvgStrokeWidth(nvg, 1.5)
+                nvgStroke(nvg)
+                nvgBeginPath(nvg)
+                nvgArc(nvg, 0, 0, ringR, math.pi, math.pi * 1.8, 1)
+                nvgStrokeColor(nvg, nvgRGBA(ac[1], ac[2], ac[3], math.floor(ringAlpha * 0.5)))
+                nvgStrokeWidth(nvg, 1.0)
+                nvgStroke(nvg)
+                nvgRestore(nvg)
+
+                -- 属性名标签
+                local attrName = XianyuanChestConfig_.ATTR_NAMES[attr] or attr
+                local labelText = "仙缘·" .. attrName
+                local labelY = sy + bob - chestH / 2 - 10
+                nvgFontFace(nvg, "sans")
+                nvgFontSize(nvg, 30)
+                nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+                -- 4-pass 描边
+                nvgFillColor(nvg, nvgRGBA(20, 20, 30, 200))
+                nvgText(nvg, sx - 1, labelY, labelText, nil)
+                nvgText(nvg, sx + 1, labelY, labelText, nil)
+                nvgText(nvg, sx, labelY - 1, labelText, nil)
+                nvgText(nvg, sx, labelY + 1, labelText, nil)
+                -- 属性色文字
+                nvgFillColor(nvg, nvgRGBA(ac[1], ac[2], ac[3], 255))
+                nvgText(nvg, sx, labelY, labelText, nil)
+
+                -- 可交互时：光柱 + 提示/读条
+                if nearby then
+                    -- 上升光柱
+                    local pillarH = ts * 2.5
+                    local pillarW = ts * 0.3
+                    local pillarGrad = nvgLinearGradient(nvg,
+                        sx, sy + bob, sx, sy + bob - pillarH,
+                        nvgRGBA(ac[1], ac[2], ac[3], 45),
+                        nvgRGBA(ac[1], ac[2], ac[3], 0)
+                    )
+                    nvgBeginPath(nvg)
+                    nvgRect(nvg, sx - pillarW / 2, sy + bob - pillarH, pillarW, pillarH)
+                    nvgFillPaint(nvg, pillarGrad)
+                    nvgFill(nvg)
+
+                    -- 上升粒子
+                    for p = 0, 3 do
+                        local phase = time * 1.2 + p * 1.57
+                        local py2 = (phase % 2.5) / 2.5
+                        local px2 = math.sin(phase * 2.3) * ts * 0.15
+                        local pAlpha = math.floor((1 - py2) * 140)
+                        nvgBeginPath(nvg)
+                        nvgCircle(nvg, sx + px2, sy + bob - py2 * pillarH, 2)
+                        nvgFillColor(nvg, nvgRGBA(ac[1], ac[2], ac[3], pAlpha))
+                        nvgFill(nvg)
+                    end
+
+                    -- 检查是否正在对此宝箱读条
+                    local progress, chChestId = XianyuanChestSystem_.GetChannelProgress()
+                    local isChanneling = progress and chChestId and chChestId == entry.chestId
+
+                    local promptY = labelY - 26
+                    if isChanneling then
+                        -- ====== 读条进度条 ======
+                        local barW = 80
+                        local barH = 12
+                        local barX = sx - barW / 2
+                        local barY = promptY - barH / 2
+
+                        -- 背景
+                        nvgBeginPath(nvg)
+                        nvgRoundedRect(nvg, barX, barY, barW, barH, 4)
+                        nvgFillColor(nvg, nvgRGBA(0, 0, 0, 180))
+                        nvgFill(nvg)
+
+                        -- 进度填充
+                        local fillW = (barW - 4) * progress
+                        if fillW > 0 then
+                            nvgBeginPath(nvg)
+                            nvgRoundedRect(nvg, barX + 2, barY + 2, fillW, barH - 4, 2)
+                            local barGrad = nvgLinearGradient(nvg,
+                                barX + 2, barY, barX + 2 + fillW, barY,
+                                nvgRGBA(ac[1], ac[2], ac[3], 255),
+                                nvgRGBA(math.min(ac[1] + 40, 255), math.min(ac[2] + 40, 255), math.min(ac[3] + 40, 255), 255)
+                            )
+                            nvgFillPaint(nvg, barGrad)
+                            nvgFill(nvg)
+                        end
+
+                        -- 边框
+                        nvgBeginPath(nvg)
+                        nvgRoundedRect(nvg, barX, barY, barW, barH, 4)
+                        nvgStrokeColor(nvg, nvgRGBA(ac[1], ac[2], ac[3], 180))
+                        nvgStrokeWidth(nvg, 1)
+                        nvgStroke(nvg)
+
+                        -- 百分比文字
+                        nvgFontFace(nvg, "sans")
+                        nvgFontSize(nvg, 10)
+                        nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+                        nvgFillColor(nvg, nvgRGBA(255, 255, 255, 230))
+                        nvgText(nvg, sx, promptY, math.floor(progress * 100) .. "%", nil)
+                    else
+                        -- ====== "按E查看" 提示 ======
+                        nvgFontFace(nvg, "sans")
+                        nvgFontSize(nvg, 13)
+                        nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+
+                        nvgBeginPath(nvg)
+                        nvgRoundedRect(nvg, sx - 36, promptY - 10, 72, 20, 6)
+                        nvgFillColor(nvg, nvgRGBA(0, 0, 0, 160))
+                        nvgFill(nvg)
+
+                        nvgFillColor(nvg, nvgRGBA(ac[1], ac[2], ac[3], 255))
+                        nvgText(nvg, sx, promptY, "按E查看", nil)
+                    end
+                end
+            end
+        end
+        ::nextChest::
+    end
 end
 
 return M

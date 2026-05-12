@@ -1116,7 +1116,7 @@ function ChallengeSystem.BrewPill(pillId)
 
     print("[ChallengeSystem] Pill brewed: " .. cfg.name .. " (" .. ChallengeSystem[cfg.countField] .. "/" .. cfg.maxUse .. ")")
 
-    -- 存档
+    -- 限量丹药（SendBuyPill 授权），保持即时存档，不参与会话合并
     EventBus.Emit("save_request")
 
     return true, cfg.name .. "炼制成功！" .. cfg.effectDesc

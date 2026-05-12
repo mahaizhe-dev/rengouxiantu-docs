@@ -36,6 +36,8 @@ local TemperUI_ = nil
 local YaochiWashUI_ = nil
 local EventExchangeUI_ = nil
 local XianshiRankUI_ = nil
+local SkinShopUI_ = nil
+local PrisonTowerUI_ = nil
 
 -- 通用对话面板（用于 villager 等无专属面板的 NPC）
 local genericPanel_ = nil
@@ -107,6 +109,11 @@ local function GetTrialTowerUI()
     return TrialTowerUI_
 end
 
+local function GetPrisonTowerUI()
+    if not PrisonTowerUI_ then PrisonTowerUI_ = require("ui.PrisonTowerUI") end
+    return PrisonTowerUI_
+end
+
 local function GetTrialOfferingUI()
     if not TrialOfferingUI_ then TrialOfferingUI_ = require("ui.TrialOfferingUI") end
     return TrialOfferingUI_
@@ -155,6 +162,11 @@ end
 local function GetXianshiRankUI()
     if not XianshiRankUI_ then XianshiRankUI_ = require("ui.XianshiRankUI") end
     return XianshiRankUI_
+end
+
+local function GetSkinShopUI()
+    if not SkinShopUI_ then SkinShopUI_ = require("ui.SkinShopUI") end
+    return SkinShopUI_
 end
 
 --- 显示通用对话面板
@@ -283,6 +295,7 @@ function NPCDialog.Create(parentOverlay)
     GetArtifactUI_tiandi().Create(parentOverlay)
     GetDaoTreeUI().Create(parentOverlay)
     GetTrialTowerUI().Create(parentOverlay)
+    GetPrisonTowerUI().Create(parentOverlay)
     GetTrialOfferingUI().Create(parentOverlay)
     GetSeaPillarUI().Create(parentOverlay)
     GetDragonForgeUI().Create(parentOverlay)
@@ -293,6 +306,7 @@ function NPCDialog.Create(parentOverlay)
     GetYaochiWashUI().Create(parentOverlay)
     GetEventExchangeUI().Create(parentOverlay)
     GetXianshiRankUI().Create(parentOverlay)
+    GetSkinShopUI().Create(parentOverlay)
 end
 
 -- E-2: NPC 交互路由表（新增类型只需加一行）
@@ -306,6 +320,7 @@ local INTERACT_HANDLERS = {
     bulletin          = function(_npc) GetBulletinUI().Show() end,
     village_chief     = function(npc)  GetVillageChiefUI().Show(npc) end,
     black_merchant    = function(_npc) GetBlackMerchantUI().Show() end,
+    skin_shop         = function(_npc) GetSkinShopUI().Show() end,
     teleport_array    = function(_npc) GetTeleportUI().Show() end,
     bagua_teleport    = function(npc)
         -- 八卦传送阵：直接传送到目标位置，无选择 UI
@@ -561,6 +576,98 @@ local INTERACT_HANDLERS = {
         end
         GetTrialTowerUI().Show(npc)
     end,
+    prison_tower      = function(npc)
+        local PrisonTowerConfig = require("config.PrisonTowerConfig")
+        local player = GameState.player
+        if not player then return end
+        local rd = GameConfig.REALMS[player.realm]
+        local playerOrder = rd and rd.order or 0
+        if playerOrder < PrisonTowerConfig.REQUIRED_REALM_ORDER then
+            ShowGenericDialog({
+                name = npc.name, subtitle = npc.subtitle,
+                dialog = "镇狱塔灵压如山，你的修为尚无法承受……",
+                highlightText = "⚡ 需达到「金丹初期」方可挑战",
+            })
+            return
+        end
+        if player.level < PrisonTowerConfig.REQUIRED_LEVEL then
+            ShowGenericDialog({
+                name = npc.name, subtitle = npc.subtitle,
+                dialog = "镇狱塔灵压如山，你的修为尚无法承受……",
+                highlightText = "⚡ 需达到等级 " .. PrisonTowerConfig.REQUIRED_LEVEL .. " 方可挑战",
+            })
+            return
+        end
+        -- 检查是否在其他副本中
+        local TrialTowerSystem = require("systems.TrialTowerSystem")
+        if TrialTowerSystem.IsActive() then
+            local CombatSystem = require("systems.CombatSystem")
+            CombatSystem.AddFloatingText(player.x, player.y - 1.0,
+                "正在试炼中，无法进入", {255, 200, 80, 255}, 2.0)
+            return
+        end
+        GetPrisonTowerUI().Show(npc)
+    end,
+    prison_exit_portal = function(npc)
+        -- 镇狱塔内传送阵：确认退出 / 继续下一层
+        local PrisonTowerSystem = require("systems.PrisonTowerSystem")
+        local info = PrisonTowerSystem.GetActiveInfo()
+        if not info then
+            -- 不在镇狱塔中（异常兜底）
+            ShowGenericDialog({
+                name = npc.name or "传送法阵",
+                subtitle = "镇狱传送",
+                dialog = "传送法阵微微闪烁……",
+            })
+            return
+        end
+
+        local buttons = {}
+        -- 如果当前层已通关（aliveCount=0），提供继续选项
+        if info.aliveCount <= 0 then
+            local PrisonTowerConfig = require("config.PrisonTowerConfig")
+            local nextFloor = info.floor + 1
+            if nextFloor <= PrisonTowerConfig.MAX_FLOOR then
+                table.insert(buttons, {
+                    text = "继续第" .. nextFloor .. "层",
+                    onClick = function()
+                        HideGenericDialog()
+                        local ok, msg = PrisonTowerSystem.ContinueNextFloor()
+                        if not ok then
+                            local CombatSystem = require("systems.CombatSystem")
+                            local player = GameState.player
+                            if player then
+                                CombatSystem.AddFloatingText(player.x, player.y - 1.0,
+                                    msg or "无法继续", {255, 100, 100, 255}, 2.0)
+                            end
+                        end
+                    end,
+                })
+            end
+        end
+        table.insert(buttons, {
+            text = "确认离开",
+            onClick = function()
+                HideGenericDialog()
+                PrisonTowerSystem.Exit()
+            end,
+        })
+
+        local statusText = "当前：第" .. info.floor .. "层"
+        if info.aliveCount > 0 then
+            statusText = statusText .. "（剩余BOSS：" .. info.aliveCount .. "）"
+        else
+            statusText = statusText .. "（已通关）"
+        end
+
+        ShowGenericDialog({
+            name = npc.name or "传送法阵",
+            subtitle = "镇狱传送",
+            dialog = "传送法阵散发着赤红色的灵力光芒——\n\n"
+                .. statusText .. "\n\n⚠️ 离开镇狱塔将返回青云城，本层进度不保留。",
+            buttons = buttons,
+        })
+    end,
     trial_exit_portal = function(npc)
         -- 试炼塔内传送阵：确认退出 = 失败
         ShowGenericDialog({
@@ -700,6 +807,7 @@ function NPCDialog.Hide()
     if DaoTreeUI_ then DaoTreeUI_.Hide() end
     if SeaPillarUI_ then SeaPillarUI_.Hide() end
     if TrialTowerUI_ then TrialTowerUI_.Hide() end
+    if PrisonTowerUI_ then PrisonTowerUI_.Hide() end
     if TrialOfferingUI_ then TrialOfferingUI_.Hide() end
     if WarehouseUI_ then WarehouseUI_.Hide() end
     if GourdUI_ then GourdUI_.Hide() end
@@ -707,6 +815,7 @@ function NPCDialog.Hide()
     if YaochiWashUI_ then YaochiWashUI_.Hide() end
     if EventExchangeUI_ then EventExchangeUI_.Hide() end
     if XianshiRankUI_ then XianshiRankUI_.Hide() end
+    if SkinShopUI_ then SkinShopUI_.Hide() end
     HideGenericDialog()
 end
 
@@ -724,6 +833,7 @@ function NPCDialog.Destroy()
     if ArtifactUI_tiandi_ and ArtifactUI_tiandi_.Destroy then ArtifactUI_tiandi_.Destroy() end
     if DaoTreeUI_ and DaoTreeUI_.Destroy then DaoTreeUI_.Destroy() end
     if TrialTowerUI_ and TrialTowerUI_.Destroy then TrialTowerUI_.Destroy() end
+    if PrisonTowerUI_ and PrisonTowerUI_.Destroy then PrisonTowerUI_.Destroy() end
     if TrialOfferingUI_ and TrialOfferingUI_.Destroy then TrialOfferingUI_.Destroy() end
     if WarehouseUI_ and WarehouseUI_.Destroy then WarehouseUI_.Destroy() end
     if GourdUI_ and GourdUI_.Destroy then GourdUI_.Destroy() end
@@ -731,6 +841,7 @@ function NPCDialog.Destroy()
     if YaochiWashUI_ and YaochiWashUI_.Destroy then YaochiWashUI_.Destroy() end
     if EventExchangeUI_ and EventExchangeUI_.Destroy then EventExchangeUI_.Destroy() end
     if XianshiRankUI_ and XianshiRankUI_.Hide then XianshiRankUI_.Hide() end
+    if SkinShopUI_ and SkinShopUI_.Destroy then SkinShopUI_.Destroy() end
     ForgeUI.Destroy()
     HideGenericDialog()
     parentOverlay_ = nil
@@ -779,6 +890,7 @@ function NPCDialog.IsVisible()
     if YaochiWashUI_ and YaochiWashUI_.IsVisible() then return true end
     if EventExchangeUI_ and EventExchangeUI_.IsVisible() then return true end
     if XianshiRankUI_ and XianshiRankUI_.IsVisible() then return true end
+    if SkinShopUI_ and SkinShopUI_.IsVisible() then return true end
     if genericVisible_ then return true end
     return false
 end

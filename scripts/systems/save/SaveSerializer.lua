@@ -49,6 +49,10 @@ function SaveSerializer.SerializePlayer()
         seaPillarAtk = player.seaPillarAtk or 0,
         seaPillarMaxHp = player.seaPillarMaxHp or 0,
         seaPillarHpRegen = player.seaPillarHpRegen or 0,
+        prisonTowerAtk = player.prisonTowerAtk or 0,
+        prisonTowerDef = player.prisonTowerDef or 0,
+        prisonTowerMaxHp = player.prisonTowerMaxHp or 0,
+        prisonTowerHpRegen = player.prisonTowerHpRegen or 0,
         daoTreeWisdom = player.daoTreeWisdom or 0,
         daoTreeWisdomPity = player.daoTreeWisdomPity or 0,
         -- v13: 丹药计数统一存入 player
@@ -67,6 +71,10 @@ function SaveSerializer.SerializePlayer()
         temperingPillEaten = (function()
             local AlchemyUI = require("ui.AlchemyUI")
             return AlchemyUI.GetTemperingPillEaten()
+        end)(),
+        dragonBloodPillCount = (function()
+            local AlchemyUI = require("ui.AlchemyUI")
+            return AlchemyUI.GetDragonBloodPillCount()
         end)(),
         xueshaDanCount = (function()
             local ChallengeSystem = require("systems.ChallengeSystem")
@@ -127,6 +135,10 @@ function SaveSerializer.DeserializePlayer(data)
     player.seaPillarAtk = data.seaPillarAtk or 0
     player.seaPillarMaxHp = data.seaPillarMaxHp or 0
     player.seaPillarHpRegen = data.seaPillarHpRegen or 0
+    player.prisonTowerAtk = data.prisonTowerAtk or 0
+    player.prisonTowerDef = data.prisonTowerDef or 0
+    player.prisonTowerMaxHp = data.prisonTowerMaxHp or 0
+    player.prisonTowerHpRegen = data.prisonTowerHpRegen or 0
     player.daoTreeWisdom = data.daoTreeWisdom or 0
     player.daoTreeWisdomPity = data.daoTreeWisdomPity or 0
     player.pillPhysique = data.pillPhysique or 0
@@ -234,6 +246,7 @@ function SaveSerializer.DeserializePlayer(data)
         AlchemyUI.SetSnakePillCount(data.snakePillCount or 0)
         AlchemyUI.SetDiamondPillCount(data.diamondPillCount or 0)
         AlchemyUI.SetTemperingPillEaten(data.temperingPillEaten or 0)
+        AlchemyUI.SetDragonBloodPillCount(data.dragonBloodPillCount or 0)
 
         local ChallengeSystem = require("systems.ChallengeSystem")
         ChallengeSystem.xueshaDanCount = data.xueshaDanCount or 0
@@ -243,6 +256,7 @@ function SaveSerializer.DeserializePlayer(data)
             .. " snake=" .. (data.snakePillCount or 0)
             .. " diamond=" .. (data.diamondPillCount or 0)
             .. " tempering=" .. (data.temperingPillEaten or 0)
+            .. " dragonBlood=" .. (data.dragonBloodPillCount or 0)
             .. " xuesha=" .. (data.xueshaDanCount or 0)
             .. " haoqi=" .. (data.haoqiDanCount or 0))
     end
@@ -540,6 +554,12 @@ function SaveSerializer.SerializePet()
         end
     end
 
+    -- 外观数据（v20）
+    local appearanceData = nil
+    if pet.appearance and pet.appearance.selectedId then
+        appearanceData = { selectedId = pet.appearance.selectedId }
+    end
+
     return {
         name = pet.name,
         level = pet.level,
@@ -549,6 +569,7 @@ function SaveSerializer.SerializePet()
         alive = pet.alive,
         deathTimer = pet.alive and 0 or pet.deathTimer,
         skills = skillsData,
+        appearance = appearanceData,
     }
 end
 
@@ -577,6 +598,11 @@ function SaveSerializer.DeserializePet(data)
                 end
             end
         end
+    end
+
+    -- 外观数据恢复（v20+，nil 安全）
+    if data.appearance and data.appearance.selectedId then
+        pet.appearance = { selectedId = data.appearance.selectedId }
     end
 
     pet:RecalcStats()

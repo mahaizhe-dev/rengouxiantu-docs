@@ -18,6 +18,7 @@ local fort1Data = require("config.zones.chapter3.fort_1")
 local wildOuterData = require("config.zones.chapter3.wild_outer")
 local wildMidData   = require("config.zones.chapter3.wild_mid")
 local wildInnerData = require("config.zones.chapter3.wild_inner")
+local xianyuanRoomsCh3 = require("config.zones.xianyuan_rooms_ch3")
 
 -- 所有区域模块列表
 local ALL_ZONES = {
@@ -33,6 +34,7 @@ local ALL_ZONES = {
     fort2Data,
     wildInnerData,
     fort1Data,
+    xianyuanRoomsCh3,  -- 仙缘宝箱藏宝室（必须在最后，覆盖原有地形）
 }
 
 -- ============================================================================

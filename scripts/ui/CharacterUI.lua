@@ -159,6 +159,16 @@ local PILL_CONFIG = {
             return CS.ningxiDanCount or 0
         end,
     },
+    -- ── 第四章丹药 ──
+    {
+        name = "龙血丹",
+        icon = "🩸",
+        maxBuy = 10,
+        bonusLabel = "生命上限",
+        bonusPerPill = 30,
+        bonusColor = {200, 50, 50, 255},
+        getCount = function() return AlchemyUI.GetDragonBloodPillCount() end,
+    },
 }
 
 local TAB_ACTIVE_BG = {70, 80, 120, 255}

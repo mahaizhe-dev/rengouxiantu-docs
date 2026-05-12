@@ -1,5 +1,5 @@
 -- ============================================================================
--- test_recycle_system.lua — 大黑无天自动收购系统 模拟测试
+-- test_recycle_system.lua — 胤自动收购系统 模拟测试
 --
 -- 目的：在纯 Lua 环境中验证核心逻辑的正确性，覆盖以下场景：
 --   1. 加权随机分布验证（概率 25%/50%/25%）
@@ -51,7 +51,7 @@ end
 local BMConfig = {
     SYSTEM_UID = 0,
     MAX_STOCK = 5,
-    RECYCLE_NPC_NAME = "大黑无天",
+    RECYCLE_NPC_NAME = "胤",
     RECYCLE_WEIGHTS = { 0.25, 0.75, 1.0 },  -- 累积概率：0件25%、1件50%、2件25%
     ITEMS = {
         rake_1  = { name = "逊金钯碎片·壹", sell_price = 6, max_stock = 5 },
@@ -349,7 +349,7 @@ end
 
 local logs = BuildLogEntries(recycleList)
 assert_eq(#logs, 2, "日志: 2 条记录")
-assert_eq(logs[1].playerName, "大黑无天", "日志: playerName = 大黑无天")
+assert_eq(logs[1].playerName, "胤", "日志: playerName = 胤")
 assert_eq(logs[1].action, "buy", "日志: action = buy")
 assert_eq(logs[1].itemId, "rake_1", "日志: itemId 正确")
 assert_eq(logs[1].amount, 1, "日志: amount 正确")
@@ -600,6 +600,328 @@ end
 
 totalTests = totalTests + 1
 passed = passed + 1
+
+-- ============================================================================
+-- 测试 13：先占坑再干活流程验证
+-- ============================================================================
+print("\n=== TEST 13: 先占坑再干活 (RecycleTick 新流程) ===")
+
+-- 模拟新版 RecycleTick 的完整流程：
+-- 1. 内存占位 → 2. 读云端日期 → 3. 先占坑(更新日期) → 4. 再干活(ExecuteRecycle)
+-- 关键不变式：日期推进在商品处理之前完成
+
+local function SimRecycleTickV2(mockToday, cloudDate, opts)
+    opts = opts or {}
+    local MAX_RECYCLE_GAP = opts.maxGap or 2
+
+    -- 状态跟踪
+    local tickRes = {
+        dateCommitted = false,   -- 日期是否已提交
+        recycleExecuted = false, -- 回收是否已执行
+        dateCleared = false,     -- 内存日期是否被清除
+        skippedReason = nil,     -- 跳过原因
+        commitOrder = {},        -- 操作顺序记录
+    }
+
+    -- 内存快速路径
+    if lastRecycleDate_ == mockToday then
+        tickRes.skippedReason = "同日已执行(内存)"
+        return tickRes
+    end
+    lastRecycleDate_ = mockToday
+
+    -- 模拟云端读取
+    if opts.cloudReadFail then
+        lastRecycleDate_ = nil
+        tickRes.dateCleared = true
+        tickRes.skippedReason = "云端读取失败"
+        return tickRes
+    end
+
+    local todayNum = tonumber(mockToday) or 0
+    local gap = todayNum - (cloudDate or 0)
+
+    if gap <= 0 then
+        tickRes.skippedReason = "当日已执行(云端)"
+        return tickRes
+    end
+
+    -- gap 过大 → 仅推进日期
+    if gap > MAX_RECYCLE_GAP then
+        if opts.dateCommitFail then
+            lastRecycleDate_ = nil
+            tickRes.dateCleared = true
+            tickRes.skippedReason = "日期跳转失败"
+        else
+            tickRes.dateCommitted = true
+            tickRes.commitOrder[#tickRes.commitOrder + 1] = "date_advance"
+            tickRes.skippedReason = "gap过大仅推进日期"
+        end
+        return tickRes
+    end
+
+    -- 正常流程：先占坑
+    if opts.dateCommitFail then
+        lastRecycleDate_ = nil
+        tickRes.dateCleared = true
+        tickRes.skippedReason = "占坑失败"
+        return tickRes
+    end
+
+    tickRes.dateCommitted = true
+    tickRes.commitOrder[#tickRes.commitOrder + 1] = "date_commit"
+
+    -- 再干活
+    tickRes.recycleExecuted = true
+    tickRes.commitOrder[#tickRes.commitOrder + 1] = "execute_recycle"
+
+    return tickRes
+end
+
+-- 13a: 正常跨天 — 日期先于回收提交
+lastRecycleDate_ = nil
+local r13 = SimRecycleTickV2("20260509", 20260508)
+assert_true(r13.dateCommitted, "13a: 日期应已提交")
+assert_true(r13.recycleExecuted, "13a: 回收应已执行")
+assert_eq(r13.commitOrder[1], "date_commit", "13a: 第1步应是日期提交")
+assert_eq(r13.commitOrder[2], "execute_recycle", "13a: 第2步应是执行回收")
+assert_eq(r13.skippedReason, nil, "13a: 无跳过原因")
+
+-- 13b: 同日重复（内存拦截）
+r13 = SimRecycleTickV2("20260509", 20260508)
+assert_eq(r13.skippedReason, "同日已执行(内存)", "13b: 内存快速拦截")
+assert_true(not r13.dateCommitted, "13b: 不应提交日期")
+assert_true(not r13.recycleExecuted, "13b: 不应执行回收")
+
+-- 13c: 同日重复（云端拦截）
+lastRecycleDate_ = nil  -- 模拟重启后内存清空
+r13 = SimRecycleTickV2("20260509", 20260509)
+assert_eq(r13.skippedReason, "当日已执行(云端)", "13c: 云端拦截")
+assert_true(not r13.recycleExecuted, "13c: 不应执行回收")
+
+-- 13d: 云端读取失败 → 清除内存占位，允许重试
+lastRecycleDate_ = nil
+r13 = SimRecycleTickV2("20260509", 0, { cloudReadFail = true })
+assert_eq(r13.skippedReason, "云端读取失败", "13d: 云端读取失败")
+assert_true(r13.dateCleared, "13d: 应清除内存占位")
+assert_eq(lastRecycleDate_, nil, "13d: lastRecycleDate_ 应为 nil（允许重试）")
+
+-- 13e: 占坑失败 → 清除内存占位，商品未动，安全重试
+lastRecycleDate_ = nil
+r13 = SimRecycleTickV2("20260509", 20260508, { dateCommitFail = true })
+assert_eq(r13.skippedReason, "占坑失败", "13e: 占坑失败")
+assert_true(r13.dateCleared, "13e: 应清除内存占位")
+assert_true(not r13.recycleExecuted, "13e: 不应执行回收（商品未动）")
+
+-- 13f: 占坑成功但回收失败 — 日期已推进，不重试（核心安全保证）
+lastRecycleDate_ = nil
+r13 = SimRecycleTickV2("20260509", 20260508)
+assert_true(r13.dateCommitted, "13f: 日期已推进")
+-- 即使 recycleExecuted=true 内部回调失败，日期不会回退
+-- 这确保 "最多处理一次" 的不变式
+
+-- ============================================================================
+-- 测试 14：时间篡改防护 (MAX_RECYCLE_GAP)
+-- ============================================================================
+print("\n=== TEST 14: 时间篡改防护 ===")
+
+-- 14a: gap=1 → 正常执行
+lastRecycleDate_ = nil
+local r14 = SimRecycleTickV2("20260509", 20260508, { maxGap = 2 })
+assert_true(r14.recycleExecuted, "14a: gap=1 应执行回收")
+assert_eq(r14.skippedReason, nil, "14a: 无跳过原因")
+
+-- 14b: gap=2 → 正常执行（边界值）
+lastRecycleDate_ = nil
+r14 = SimRecycleTickV2("20260510", 20260508, { maxGap = 2 })
+assert_true(r14.recycleExecuted, "14b: gap=2 应执行回收")
+
+-- 14c: gap=3 → 仅推进日期，不执行回收
+lastRecycleDate_ = nil
+r14 = SimRecycleTickV2("20260511", 20260508, { maxGap = 2 })
+assert_true(not r14.recycleExecuted, "14c: gap=3 不应执行回收")
+assert_true(r14.dateCommitted, "14c: 日期应推进")
+assert_eq(r14.skippedReason, "gap过大仅推进日期", "14c: 跳过原因正确")
+
+-- 14d: gap=100（极端篡改）→ 仅推进日期
+lastRecycleDate_ = nil
+r14 = SimRecycleTickV2("20260901", 20260524, { maxGap = 2 })
+assert_true(not r14.recycleExecuted, "14d: gap=100 不应执行回收")
+assert_true(r14.dateCommitted, "14d: 日期应推进")
+
+-- 14e: cloudDate=0（首次运行，无历史日期）→ gap 极大，仅推进
+lastRecycleDate_ = nil
+r14 = SimRecycleTickV2("20260509", 0, { maxGap = 2 })
+assert_true(not r14.recycleExecuted, "14e: 首次运行 gap 极大，不应执行回收")
+assert_true(r14.dateCommitted, "14e: 日期应推进到今天")
+
+-- 14f: gap 过大时日期提交失败 → 清除内存占位
+lastRecycleDate_ = nil
+r14 = SimRecycleTickV2("20260520", 20260508, { maxGap = 2, dateCommitFail = true })
+assert_true(r14.dateCleared, "14f: 日期提交失败应清除内存占位")
+assert_eq(lastRecycleDate_, nil, "14f: lastRecycleDate_ 应为 nil")
+
+-- 14g: 负 gap（时钟回拨）→ 不执行
+lastRecycleDate_ = nil
+r14 = SimRecycleTickV2("20260507", 20260508, { maxGap = 2 })
+assert_true(not r14.recycleExecuted, "14g: 负gap不应执行回收")
+assert_eq(r14.skippedReason, "当日已执行(云端)", "14g: 按gap<=0处理")
+
+-- ============================================================================
+-- 测试 15：pcall 异常保护（recycleRunning_ 锁不泄漏）
+-- ============================================================================
+print("\n=== TEST 15: pcall 保护 recycleRunning_ 锁 ===")
+
+-- 模拟 ExecuteRecycle 中回调抛异常的场景
+local function SimExecuteRecycleWithPcall(shouldThrow)
+    if recycleRunning_ then
+        return false, "锁定中"
+    end
+    recycleRunning_ = true
+
+    -- 模拟 GetSystemStockCached 回调
+    local ok3, err3 = pcall(function()
+        if shouldThrow then
+            error("模拟回调内部异常: nil index")
+        end
+        -- 正常处理...
+    end)
+
+    if not ok3 then
+        recycleRunning_ = false  -- pcall 捕获后释放锁
+        return false, "异常: " .. tostring(err3)
+    end
+
+    recycleRunning_ = false
+    return true, "OK"
+end
+
+-- 15a: 正常执行 — 锁正常释放
+recycleRunning_ = false
+local ok15, msg15 = SimExecuteRecycleWithPcall(false)
+assert_true(ok15, "15a: 正常执行应成功")
+assert_eq(recycleRunning_, false, "15a: 锁应已释放")
+
+-- 15b: 异常抛出 — pcall 捕获后锁仍释放
+recycleRunning_ = false
+ok15, msg15 = SimExecuteRecycleWithPcall(true)
+assert_true(not ok15, "15b: 异常时应返回失败")
+assert_eq(recycleRunning_, false, "15b: 即使异常，锁仍应释放（pcall 保护）")
+
+-- 15c: 锁释放后可再次执行
+ok15, msg15 = SimExecuteRecycleWithPcall(false)
+assert_true(ok15, "15c: 锁释放后应可再次执行")
+
+-- 15d: 无 pcall 保护时锁会泄漏（反例验证）
+local function SimExecuteRecycleWithoutPcall(shouldThrow)
+    if recycleRunning_ then
+        return false, "锁定中"
+    end
+    recycleRunning_ = true
+
+    -- 无 pcall 保护
+    local success, pcallRes = pcall(function()
+        if shouldThrow then
+            error("模拟异常")
+        end
+        recycleRunning_ = false
+        return true
+    end)
+
+    if not success then
+        -- 如果没有 pcall，这里永远不会执行，锁永久泄漏
+        -- 但我们这里模拟"有 pcall 的外层"来验证对比
+        return false, "未释放锁"
+    end
+
+    return true, "OK"
+end
+
+recycleRunning_ = false
+ok15, msg15 = SimExecuteRecycleWithoutPcall(true)
+-- 注意：这个模拟中 pcall 在外层兜底了，但 recycleRunning_ 仍为 true
+assert_eq(recycleRunning_, true, "15d: 无内部 pcall 释放时，锁应泄漏（反例）")
+recycleRunning_ = false  -- 清理
+
+-- ============================================================================
+-- 测试 16：完整新流程端到端（先占坑 → 干活 → 完成）
+-- ============================================================================
+print("\n=== TEST 16: 新流程端到端模拟 ===")
+
+-- 模拟完整的"先占坑再干活"端到端流程
+local function SimFullRecycleV2(mockToday, cloudDate, systemMoneys, randomValues, opts)
+    opts = opts or {}
+
+    local events = {}  -- 记录事件顺序
+
+    -- Step 0: 内存快速路径
+    if lastRecycleDate_ == mockToday then
+        return { events = { "skip_memory" }, recycled = 0 }
+    end
+    lastRecycleDate_ = mockToday
+
+    -- Step 1: 读取云端日期
+    local todayNum = tonumber(mockToday) or 0
+    local gap = todayNum - (cloudDate or 0)
+
+    if gap <= 0 then
+        events[#events + 1] = "skip_cloud"
+        return { events = events, recycled = 0 }
+    end
+
+    if gap > (opts.maxGap or 2) then
+        events[#events + 1] = "date_advance_only"
+        return { events = events, recycled = 0 }
+    end
+
+    -- Step 2: 占坑
+    events[#events + 1] = "date_commit"
+
+    -- Step 3: 执行回收
+    local eligibleItems = FilterFullStockItems(systemMoneys)
+    if #eligibleItems == 0 then
+        events[#events + 1] = "no_items"
+        return { events = events, recycled = 0 }
+    end
+
+    local toRecycle = DecideRecycleAmounts(eligibleItems, randomValues)
+    local totalCount = 0
+    for _, r in ipairs(toRecycle) do
+        systemMoneys[BMConfig.StockKey(r.id)] = r.newStock
+        totalCount = totalCount + r.amount
+        events[#events + 1] = "recycle_" .. r.id .. "_x" .. r.amount
+    end
+
+    return { events = events, recycled = totalCount }
+end
+
+-- 16a: 典型场景 — 跨天，有满库存商品
+lastRecycleDate_ = nil
+local moneys16 = {
+    bm_stock_rake_1  = 5,   -- 满(max=5)
+    bm_stock_rake_2  = 3,   -- 未满
+    bm_stock_bagua_1 = 5,   -- 满(max=5)
+}
+local r16 = SimFullRecycleV2("20260509", 20260508, moneys16, { 0.5, 0.5 })
+-- rake_1 和 bagua_1 满库存，各随机到 1 件
+assert_eq(r16.events[1], "date_commit", "16a: 第一步应是日期提交")
+assert_true(r16.recycled > 0, "16a: 应有回收")
+
+-- 16b: 跨天但无满库存商品 — 占坑后跳过
+lastRecycleDate_ = nil
+local moneys16b = { bm_stock_rake_1 = 2 }
+r16 = SimFullRecycleV2("20260510", 20260509, moneys16b, {})
+assert_eq(r16.events[1], "date_commit", "16b: 日期应已提交")
+assert_eq(r16.events[2], "no_items", "16b: 无满库存商品")
+assert_eq(r16.recycled, 0, "16b: 回收数量为 0")
+
+-- 16c: 连续两天模拟（第二天内存拦截）
+lastRecycleDate_ = nil
+r16 = SimFullRecycleV2("20260509", 20260508, { bm_stock_rake_1 = 5 }, { 0.5 })
+assert_true(r16.recycled > 0, "16c-day1: 第一天应执行")
+-- 第二次同日调用
+r16 = SimFullRecycleV2("20260509", 20260508, { bm_stock_rake_1 = 5 }, { 0.5 })
+assert_eq(r16.events[1], "skip_memory", "16c-day1-dup: 同日第二次应被内存拦截")
 
 -- ============================================================================
 -- 汇总

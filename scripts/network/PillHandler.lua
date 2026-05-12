@@ -21,6 +21,8 @@ local VALID_PILL_IDS = {
     ningyuan_dan = true, -- 凝元丹
     ninghun_dan = true,  -- 凝魂丹
     ningxi_dan = true,   -- 凝息丹
+    -- 第四章丹药
+    dragon_blood = true, -- 龙血丹
 }
 
 --- 供基线测试访问

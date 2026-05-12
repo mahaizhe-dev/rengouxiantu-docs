@@ -495,24 +495,28 @@ function GameMap:BuildCh4Terrain()
     buildBeastIsland(beastLayout.beast_north, T.ICE_FLOOR, T.ICE_WALL, 1001, {
         {x = 7.5, y = 10.5},   -- 传送落脚点
         {x = 7.5, y = 11.5},   -- 回乾阵 NPC
+        {x = 3,   y = 6},      -- 仙缘宝箱(根骨)入口通道
     })
 
     -- 5-2  堕渊蛟龙·幽渊岛 (NE, 深渊主题)
     buildBeastIsland(beastLayout.beast_east, T.ABYSS_FLOOR, T.ABYSS_WALL, 2002, {
         {x = 71.5, y = 11.5},  -- 传送落脚点
         {x = 71.5, y = 12.5},  -- 回艮阵 NPC
+        {x = 77,   y = 6},     -- 仙缘宝箱(悟性)入口通道
     })
 
     -- 5-3  焚天蜃龙·烈焰岛 (SE, 火山主题)
     buildBeastIsland(beastLayout.beast_south, T.VOLCANO_FLOOR, T.VOLCANO_WALL, 3003, {
         {x = 70.5, y = 74.5},  -- 传送落脚点
         {x = 71.5, y = 74.5},  -- 回巽阵 NPC
+        {x = 77,   y = 75},    -- 仙缘宝箱(体魄)入口通道
     })
 
     -- 5-4  蚀骨螭龙·流沙岛 (SW, 沙漠主题)
     buildBeastIsland(beastLayout.beast_west, T.DUNE_FLOOR, T.DUNE_WALL, 4004, {
         {x = 8.5, y = 73.5},   -- 传送落脚点
         {x = 8.5, y = 74.5},   -- 回坤阵 NPC
+        {x = 3,   y = 75},     -- 仙缘宝箱(福源)入口通道
     })
 
     print("[Chapter4] Terrain generation complete: " .. W .. "x" .. H)

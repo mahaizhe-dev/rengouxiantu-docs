@@ -251,7 +251,7 @@ MedalConfig.MEDALS = {
 
     wutian_drunk = {
         id = "wutian_drunk",
-        name = "大事件：无天醉酒",
+        name = "大事件：醉市之夜",
         type = "one_time",
         max_level = 1,
         trigger = {

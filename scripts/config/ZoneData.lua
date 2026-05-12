@@ -12,8 +12,10 @@ local boarForestData   = require("config.zones.boar_forest")
 local banditCampData   = require("config.zones.bandit_camp")
 local tigerDomainData  = require("config.zones.tiger_domain")
 local wildernessData   = require("config.zones.wilderness")
+local xianyuanRoomsData = require("config.zones.xianyuan_rooms")
 
 -- 所有区域模块列表（方便遍历，未来新增区域只需在此追加）
+-- ⚠️ xianyuanRoomsData 必须在末尾，覆盖原有地形生成 5×5 藏宝室
 local ALL_ZONES = {
     townData,
     narrowTrailData,
@@ -22,6 +24,7 @@ local ALL_ZONES = {
     banditCampData,
     tigerDomainData,
     wildernessData,
+    xianyuanRoomsData,
 }
 
 -- ============================================================================

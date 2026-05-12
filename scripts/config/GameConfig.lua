@@ -15,7 +15,7 @@ GameConfig.DUNGEON_ENABLED = false
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
 GameConfig.CODE_VERSION = 4
-GameConfig.DISPLAY_VERSION = "v1.9.4"
+GameConfig.DISPLAY_VERSION = "v1.9.9"
 
 -- 地图设置
 GameConfig.TILE_SIZE = 128         -- 每个瓦片的逻辑像素大小（基准值，不要直接用于渲染）
@@ -70,18 +70,24 @@ GameConfig.PET_REVIVE_TIME = 30        -- 宠物死亡后复活时间（秒）
 -- 宠物阶级配置
 GameConfig.PET_TIERS = {
     [0] = { name = "幼犬", icon = "🐕", maxLevel = 20, syncRate = 0.20 },
-    [1] = { name = "灵犬", icon = "🐕", maxLevel = 40, syncRate = 0.30 },
-    [2] = { name = "妖犬", icon = "🐺", maxLevel = 60, syncRate = 0.40 },
-    [3] = { name = "灵兽", icon = "🦁", maxLevel = 80, syncRate = 0.50 },
-    [4] = { name = "圣兽", icon = "🐲", maxLevel = 100, syncRate = 0.60 },
+    [1] = { name = "凶犬", icon = "🐕", maxLevel = 40, syncRate = 0.30 },
+    [2] = { name = "斗犬", icon = "🐺", maxLevel = 60, syncRate = 0.40 },
+    [3] = { name = "灵犬", icon = "🦁", maxLevel = 80, syncRate = 0.50 },
+    [4] = { name = "灵兽", icon = "🐲", maxLevel = 100, syncRate = 0.60 },
+    [5] = { name = "圣犬", icon = "🐲", maxLevel = 120, syncRate = 0.68 },
+    [6] = { name = "圣兽", icon = "🐲", maxLevel = 140, syncRate = 0.75 },
+    [7] = { name = "天犬", icon = "🐲", maxLevel = 160, syncRate = 0.80 },
 }
 
 -- 宠物突破消耗（灵韵 + 对应阶级灵兽丹）
 GameConfig.PET_BREAKTHROUGH = {
     [1] = { lingYun = 30,   pillId = "spirit_pill",   pillCount = 10 },
     [2] = { lingYun = 300,  pillId = "spirit_pill_2",  pillCount = 20 },
-    [3] = { lingYun = 1500, pillId = "spirit_pill_3",  pillCount = 30 },
-    [4] = { lingYun = 5000, pillId = "spirit_pill_4",  pillCount = 40 },
+    [3] = { lingYun = 1500,   pillId = "spirit_pill_3",  pillCount = 40 },
+    [4] = { lingYun = 5000,   pillId = "spirit_pill_4",  pillCount = 80 },
+    [5] = { lingYun = 15000,  pillId = "spirit_pill_5",  pillCount = 160 },
+    [6] = { lingYun = 40000,  pillId = "spirit_pill_6",  pillCount = 320 },
+    [7] = { lingYun = 100000, pillId = "spirit_pill_7",  pillCount = 640 },
 }
 
 -- 练气丹炼制消耗
@@ -128,6 +134,21 @@ GameConfig.PET_EXP_TABLE = {
     [86] = 14480000, [87] = 15866000, [88] = 17365000, [89] = 18982000, [90] = 20722000,
     [91] = 22590000, [92] = 24591000, [93] = 26729000, [94] = 29008000, [95] = 31431000,
     [96] = 34001000, [97] = 36720000, [98] = 39589000, [99] = 42609000, [100] = 45780000,
+    -- Tier 5: Lv.101-120 (5%增长率)
+    [101] = 48069000,  [102] = 50472000,  [103] = 52996000,  [104] = 55646000,  [105] = 58428000,
+    [106] = 61349000,  [107] = 64417000,  [108] = 67638000,  [109] = 71020000,  [110] = 74571000,
+    [111] = 78300000,  [112] = 82215000,  [113] = 86326000,  [114] = 90642000,  [115] = 95174000,
+    [116] = 99933000,  [117] = 104930000, [118] = 110176000, [119] = 115685000, [120] = 121469000,
+    -- Tier 6: Lv.121-140 (5%增长率)
+    [121] = 127543000, [122] = 133920000, [123] = 140616000, [124] = 147647000, [125] = 155029000,
+    [126] = 162781000, [127] = 170920000, [128] = 179466000, [129] = 188439000, [130] = 197861000,
+    [131] = 207754000, [132] = 218142000, [133] = 229049000, [134] = 240501000, [135] = 252527000,
+    [136] = 265153000, [137] = 278411000, [138] = 292331000, [139] = 306948000, [140] = 322295000,
+    -- Tier 7: Lv.141-160 (5%增长率)
+    [141] = 338410000, [142] = 355330000, [143] = 373097000, [144] = 391752000, [145] = 411339000,
+    [146] = 431906000, [147] = 453502000, [148] = 476177000, [149] = 499986000, [150] = 524985000,
+    [151] = 551234000, [152] = 578796000, [153] = 607736000, [154] = 638123000, [155] = 670029000,
+    [156] = 703530000, [157] = 738707000, [158] = 775642000, [159] = 814424000, [160] = 855145000,
 }
 
 -- 宠物食物定义
@@ -146,6 +167,9 @@ GameConfig.PET_MATERIALS = {
     spirit_pill_2 = { name = "灵兽丹·贰", icon = "icon_spirit_pill_2.png", sellPrice = 1000, quality = "purple", desc = "以珍稀灵药炼制的高阶丹药。\n用途：宠物2阶突破的必需材料。" },
     spirit_pill_3 = { name = "灵兽丹·叁", icon = "icon_spirit_pill_3.png", sellPrice = 3000, quality = "orange", desc = "以天材地宝炼制的极品丹药。\n用途：宠物3阶突破的必需材料。" },
     spirit_pill_4 = { name = "灵兽丹·肆", icon = "icon_spirit_pill_4.png", sellPrice = 10000, quality = "red", desc = "以万年灵药炼制的仙品丹药，丹纹隐现。\n用途：宠物4阶突破的必需材料。\n获取：八卦海·龙域BOSS掉落" },
+    spirit_pill_5 = { name = "灵兽丹·伍", icon = "icon_spirit_pill_4.png", sellPrice = 20000, quality = "red", desc = "以太古灵药炼制的仙品丹药，丹光流转。\n用途：宠物5阶突破的必需材料。" },
+    spirit_pill_6 = { name = "灵兽丹·陆", icon = "icon_spirit_pill_4.png", sellPrice = 40000, quality = "red", desc = "以混沌灵药炼制的极仙丹药，丹雷隐现。\n用途：宠物6阶突破的必需材料。" },
+    spirit_pill_7 = { name = "灵兽丹·柒", icon = "icon_spirit_pill_4.png", sellPrice = 80000, quality = "red", desc = "以鸿蒙灵药炼制的至仙丹药，天象异变。\n用途：宠物7阶突破的必需材料。" },
     qi_pill = { name = "练气丹", icon = "icon_qi_pill.png", sellPrice = 0, quality = "purple", desc = "以灵韵凝炼而成的修炼丹药。\n用途：突破修炼境界的必需品。\n炼制：10灵韵 → 1颗\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
     zhuji_pill = { name = "筑基丹", icon = "icon_zhuji_pill.png", sellPrice = 0, quality = "orange", desc = "极为珍稀的筑基丹药，蕴含天地灵气。\n用途：突破筑基境界的必需品。\n获取：击败乌万仇、乌万海（1%掉率）\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
     jindan_sand = { name = "金丹沙", icon = "icon_jindan_sand.png", sellPrice = 0, quality = "orange", desc = "蕴含金丹之力的灵沙，修炼突破的珍贵材料。\n用途：突破金丹境界的必需品。\n价值：1颗 = 100灵韵\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
@@ -192,8 +216,10 @@ GameConfig.PET_MATERIALS = {
     bagua_fragment_kun  = { name = "卦象碎片·坤", icon = "icon_bagua_kun.png", sellPrice = 75000, quality = "red", desc = "文王八卦盘「坤卦」碎片，厚德载物之象。\n用途：集齐八片可重铸八卦盘。\n获取：厚德生掉落（0.1%）" },
     bagua_fragment_dui  = { name = "卦象碎片·兑", icon = "icon_bagua_dui.png", sellPrice = 75000, quality = "red", desc = "文王八卦盘「兑卦」碎片，泽润万物之象。\n用途：集齐八片可重铸八卦盘。\n获取：泽归墟掉落（0.1%）" },
     bagua_fragment_qian = { name = "卦象碎片·乾", icon = "icon_bagua_qian.png", sellPrice = 75000, quality = "red", desc = "文王八卦盘「乾卦」碎片，天道至刚之象。\n用途：集齐八片可重铸八卦盘。\n获取：司空正阳掉落（0.1%）" },
-    -- 龙神打造材料（四龙神各掉落一种，1%掉率）
-    dragon_scale_ice = { name = "封霜龙鳞", icon = "🧊", sellPrice = 10000, quality = "red", desc = "封霜应龙脱落的寒鳞，触之彻骨生寒，内蕴远古龙威。\n用途：圣器打造材料。\n获取：封霜应龙掉落（1%）" },
+    -- 龙血草（四龙共享掉落，炼制龙血丹材料）
+    dragon_blood_herb = { name = "龙血草", icon = "icon_dragon_blood_herb.png", sellPrice = 5000, quality = "orange", desc = "四龙体内孕育的灵草，通体殷红如血，散发淡淡龙威。\n用途：炼制龙血丹的必需材料。\n获取：四龙共享掉落（2%）" },
+    -- 龙神打造材料（四龙神各掉落一种，与龙血草共享2%掉率）
+    dragon_scale_ice = { name = "封霜龙鳞", icon = "🧊", sellPrice = 10000, quality = "red", desc = "封霜应龙脱落的寒鳞，触之彻骨生寒，内蕴远古龙威。\n用途：圣器打造材料。\n获取：封霜应龙掉落（2%共享）" },
     dragon_scale_abyss = { name = "渊蛟龙骨", icon = "🦴", sellPrice = 10000, quality = "red", desc = "堕渊蛟龙的脊骨碎片，散发幽紫光芒，蕴含深渊之力。\n用途：圣器打造材料。\n获取：堕渊蛟龙掉落（1%）" },
     dragon_scale_fire = { name = "焚天龙焰", icon = "🔥", sellPrice = 10000, quality = "red", desc = "焚天蜃龙的凝固龙焰，灼热异常，永不熄灭。\n用途：圣器打造材料。\n获取：焚天蜃龙掉落（1%）" },
     dragon_scale_sand = { name = "蚀骨龙牙", icon = "🦷", sellPrice = 10000, quality = "red", desc = "蚀骨螭龙的獠牙碎片，坚逾金刚，可侵蚀万物。\n用途：圣器打造材料。\n获取：蚀骨螭龙掉落（1%）" },
@@ -223,7 +249,7 @@ GameConfig.PET_MATERIALS = {
         desc = "蕴含生生不息元气的精华结晶。\n用途：炼制凝元丹（maxHP +30），需1份精华 + 100灵韵。\n获取：阵营挑战物品掉落。" },
     shihun_essence  = { name = "噬魂精华", icon = "💀", sellPrice = 500, quality = "purple",
         desc = "蕴含噬魂夺命之力的精华结晶。\n用途：炼制凝魂丹（击杀回血 +40），需1份精华 + 100灵韵。\n获取：阵营挑战物品掉落。" },
-    lingxi_essence  = { name = "灵息精华", icon = "🌿", sellPrice = 500, quality = "purple",
+    lingxi_essence  = { name = "灵息精华", icon = "🌬️", sellPrice = 500, quality = "purple",
         desc = "蕴含灵气吐纳之力的精华结晶。\n用途：炼制凝息丹（生命回复 +6），需1份精华 + 100灵韵。\n获取：阵营挑战物品掉落。" },
 }
 
@@ -641,35 +667,35 @@ GameConfig.EVENT_ITEMS = {
         name = "五", icon = "🎏",
         image = "Textures/event/mayday_wu.png",
         sellPrice = 1000, quality = "purple",
-        desc = "五一活动信物「五」，击败各章节BOSS有机会掉落。集齐「五一快乐」四字前往中洲青云城「天官降福」处可兑换丰厚灵韵，也可单字兑换天庭福袋。",
+        desc = "活动已结束，可以出售换金币。",
         category = "event", eventId = "mayday_2026",
     },
     mayday_yi = {
         name = "一", icon = "🎏",
         image = "Textures/event/mayday_yi.png",
         sellPrice = 1000, quality = "purple",
-        desc = "五一活动信物「一」，击败各章节BOSS有机会掉落。集齐「五一快乐」四字前往中洲青云城「天官降福」处可兑换丰厚灵韵，也可单字兑换天庭福袋。",
+        desc = "活动已结束，可以出售换金币。",
         category = "event", eventId = "mayday_2026",
     },
     mayday_kuai = {
         name = "快", icon = "🎏",
         image = "Textures/event/mayday_kuai.png",
         sellPrice = 1000, quality = "purple",
-        desc = "五一活动信物「快」，击败各章节BOSS有机会掉落。集齐「五一快乐」四字前往中洲青云城「天官降福」处可兑换丰厚灵韵，也可单字兑换天庭福袋。",
+        desc = "活动已结束，可以出售换金币。",
         category = "event", eventId = "mayday_2026",
     },
     mayday_le = {
         name = "乐", icon = "🎏",
         image = "Textures/event/mayday_le.png",
         sellPrice = 1000, quality = "purple",
-        desc = "五一活动信物「乐」，击败各章节BOSS有机会掉落。集齐「五一快乐」四字前往中洲青云城「天官降福」处可兑换丰厚灵韵，也可单字兑换天庭福袋。",
+        desc = "活动已结束，可以出售换金币。",
         category = "event", eventId = "mayday_2026",
     },
     mayday_fudai = {
         name = "天庭福袋", icon = "🧧",
         image = "Textures/event/mayday_fudai.png",
         sellPrice = 1000, quality = "orange",
-        desc = "天庭赐下的福袋，击败各章节BOSS有机会掉落，也可用活动信物兑换。前往中洲青云城「天官降福」处开启，随机获得一种奖励。不可交易。",
+        desc = "活动已结束，可以出售换金币。",
         category = "event", eventId = "mayday_2026",
     },
 }
