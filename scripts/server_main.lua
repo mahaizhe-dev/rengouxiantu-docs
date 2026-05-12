@@ -14,6 +14,7 @@ local SaveProtocol = require("network.SaveProtocol")
 local GameConfig = require("config.GameConfig")
 local DungeonConfig = require("config.DungeonConfig")
 local SealDemonConfig = require("config.SealDemonConfig")
+local Logger = require("utils.Logger")
 
 -- §4.5 B1: 模块化拆分 —— 共享状态层 + 业务 Handler
 local Session = require("network.ServerSession")
@@ -363,7 +364,7 @@ function HandleFetchSlots(eventType, eventData)
     local userId = GetUserId(connKey)
     if not userId then return end
 
-    print("[Server] FetchSlots: userId=" .. tostring(userId))
+    Logger.info("FetchSlots", "userId=" .. tostring(userId))
 
     -- 读取 slots_index + save_X (v11) + save_data_X (v10 fallback) + account_bulletin + account_atlas + account_cosmetics + rank_score_1~4
     serverCloud:BatchGet(userId)
@@ -406,7 +407,7 @@ function HandleFetchSlots(eventType, eventData)
                         local hasData = getSlotData(slot) ~= nil
                         if not hasData then
                             slotsIndex.slots[slot].dataLost = true
-                            print("[Server] WARNING: Slot " .. slot
+                            Logger.warn("FetchSlots", "Slot " .. slot
                                 .. " index exists but save data MISSING for userId=" .. tostring(userId))
                         end
                     end
@@ -434,7 +435,7 @@ function HandleFetchSlots(eventType, eventData)
                                 recovered = true,
                             }
                             needRepair = true
-                            print("[Server] RECOVERED orphan slot " .. slot
+                            Logger.info("FetchSlots", "RECOVERED orphan slot " .. slot
                                 .. " for userId=" .. tostring(userId))
                         end
                     end
@@ -446,10 +447,10 @@ function HandleFetchSlots(eventType, eventData)
                         :Set("slots_index", slotsIndex)
                         :Save("自愈修复slots_index", {
                             ok = function()
-                                print("[Server] Orphan repair written for userId=" .. tostring(userId))
+                                Logger.info("FetchSlots", "Orphan repair written for userId=" .. tostring(userId))
                             end,
                             error = function(code, reason)
-                                print("[Server] Orphan repair failed: " .. tostring(reason))
+                                Logger.error("FetchSlots", "Orphan repair failed: " .. tostring(reason))
                             end,
                         })
                 end
@@ -467,13 +468,13 @@ function HandleFetchSlots(eventType, eventData)
                         local taptapNick = ""
                         if nicknames and #nicknames > 0 then
                             taptapNick = nicknames[1].nickname or ""
-                            print("[Server] RankV2: got taptapNick for userId=" .. tostring(capturedUserId) .. " nick=" .. taptapNick)
+                            Logger.info("FetchSlots", "RankV2: got taptapNick for userId=" .. tostring(capturedUserId) .. " nick=" .. taptapNick)
                         end
                         -- 排行榜重建逻辑（原先在回调外，现移入回调内）
                         RankHandler.RebuildRankOnLogin(capturedUserId, capturedSlotsIndex, capturedGetSlotData, taptapNick)
                     end,
                     onError = function(errorCode, errorMsg)
-                        print("[Server] RankV2: GetUserNickname FAILED userId=" .. tostring(capturedUserId)
+                        Logger.warn("FetchSlots", "RankV2: GetUserNickname FAILED userId=" .. tostring(capturedUserId)
                             .. " err=" .. tostring(errorCode) .. " " .. tostring(errorMsg))
                         -- 即使获取昵称失败，仍然用空字符串重建排行榜（排行数据比昵称更重要）
                         RankHandler.RebuildRankOnLogin(capturedUserId, capturedSlotsIndex, capturedGetSlotData, "")
@@ -487,7 +488,7 @@ function HandleFetchSlots(eventType, eventData)
                         ok = function(opScores, opIscores)
                             -- 幂等检查：iscore 标记已执行则跳过
                             if opIscores and opIscores[ADMIN_OP_KEY] and opIscores[ADMIN_OP_KEY] > 0 then
-                                print("[Server][AdminOp] SKIP: already executed for userId=1074886667")
+                                Logger.info("AdminOp", "SKIP: already executed for userId=1074886667")
                                 return
                             end
                             -- 读取仙石余额
@@ -495,7 +496,7 @@ function HandleFetchSlots(eventType, eventData)
                                 ok = function(moneys)
                                     local balance = (moneys and moneys.xianshi) or 0
                                     local deductAmount = math.min(balance, 2000)
-                                    print("[Server][AdminOp] userId=1074886667 xianshi_balance=" .. balance .. " deduct=" .. deductAmount)
+                                    Logger.info("AdminOp", "userId=1074886667 xianshi_balance=" .. balance .. " deduct=" .. deductAmount)
 
                                     -- 原子事务：扣仙石 + 标记已执行
                                     local commit = serverCloud:BatchCommit("管理员扣仙石1074886667")
@@ -505,7 +506,7 @@ function HandleFetchSlots(eventType, eventData)
                                     commit:ScoreSetInt(userId, ADMIN_OP_KEY, 1)
                                     commit:Commit({
                                         ok = function()
-                                            print("[Server][AdminOp] SUCCESS: deducted " .. deductAmount .. " xianshi, now unlocking skin...")
+                                            Logger.info("AdminOp", "SUCCESS: deducted " .. deductAmount .. " xianshi, now unlocking skin...")
                                             -- 解锁樱华天犬皮肤（写 account_cosmetics）
                                             serverCloud:BatchGet(userId)
                                                 :Key("account_cosmetics")
@@ -523,30 +524,30 @@ function HandleFetchSlots(eventType, eventData)
                                                             :Set("account_cosmetics", cosmetics)
                                                             :Save("管理员解锁樱华天犬", {
                                                                 ok = function()
-                                                                    print("[Server][AdminOp] skin pet_premium_biling unlocked for userId=1074886667")
+                                                                    Logger.info("AdminOp", "skin pet_premium_biling unlocked for userId=1074886667")
                                                                 end,
                                                                 error = function(code, reason)
-                                                                    print("[Server][AdminOp] WARN: skin unlock write FAILED: " .. tostring(code) .. " " .. tostring(reason))
+                                                                    Logger.warn("AdminOp", "skin unlock write FAILED: " .. tostring(code) .. " " .. tostring(reason))
                                                                 end,
                                                             })
                                                     end,
                                                     error = function(code, reason)
-                                                        print("[Server][AdminOp] WARN: cosmetics read FAILED: " .. tostring(code) .. " " .. tostring(reason))
+                                                        Logger.warn("AdminOp", "cosmetics read FAILED: " .. tostring(code) .. " " .. tostring(reason))
                                                     end,
                                                 })
                                         end,
                                         error = function(code, reason)
-                                            print("[Server][AdminOp] BatchCommit FAILED (will retry next login): " .. tostring(code) .. " " .. tostring(reason))
+                                            Logger.error("AdminOp", "BatchCommit FAILED (will retry next login): " .. tostring(code) .. " " .. tostring(reason))
                                         end,
                                     })
                                 end,
                                 error = function(code, reason)
-                                    print("[Server][AdminOp] money:Get FAILED: " .. tostring(code) .. " " .. tostring(reason))
+                                    Logger.error("AdminOp", "money:Get FAILED: " .. tostring(code) .. " " .. tostring(reason))
                                 end,
                             })
                         end,
                         error = function(code, reason)
-                            print("[Server][AdminOp] flag read FAILED: " .. tostring(code) .. " " .. tostring(reason))
+                            Logger.error("AdminOp", "flag read FAILED: " .. tostring(code) .. " " .. tostring(reason))
                         end,
                     })
                 end
@@ -556,9 +557,9 @@ function HandleFetchSlots(eventType, eventData)
                 local diagKeys = {}
                 for k, _ in pairs(scores) do diagKeys[#diagKeys + 1] = tostring(k) end
                 table.sort(diagKeys)
-                print("[Server] DIAG FetchSlots: userId=" .. tostring(userId)
+                Logger.diag("FetchSlots", "userId=" .. tostring(userId)
                     .. " keys=[" .. table.concat(diagKeys, ", ") .. "]")
-                print("[Server] DIAG slotsIndex: " .. cjson.encode(slotsIndex))
+                Logger.diag("FetchSlots", "slotsIndex: " .. cjson.encode(slotsIndex))
                 -- ====== END DIAGNOSTIC ======
 
                 -- 检查是否需要迁移（serverCloud 全部 4 槽无数据 → 可能 clientScore 有数据）
@@ -591,11 +592,11 @@ function HandleFetchSlots(eventType, eventData)
                 end
                 SafeSend(connection, SaveProtocol.S2C_SlotsData, resultData)
 
-                print("[Server] FetchSlots sent: userId=" .. tostring(userId)
+                Logger.info("FetchSlots", "sent: userId=" .. tostring(userId)
                     .. " needMigration=" .. tostring(isEmpty))
             end,
             error = function(code, reason)
-                print("[Server] FetchSlots ERROR: " .. tostring(code) .. " " .. tostring(reason))
+                Logger.error("FetchSlots", tostring(code) .. " " .. tostring(reason))
                 SendResult(connection, SaveProtocol.S2C_SlotsData, false, tostring(reason))
             end,
         })
@@ -1011,7 +1012,7 @@ function HandleSaveGame(eventType, eventData)
 
     local userId = GetUserId(connKey)
     if not userId then
-        print("[Server] SaveGame REJECTED: no userId for connKey=" .. tostring(connKey))
+        Logger.warn("SaveGame", "REJECTED: no userId for connKey=" .. tostring(connKey))
         return
     end
 
@@ -1023,7 +1024,7 @@ function HandleSaveGame(eventType, eventData)
 
     -- P0-2 修复：slot 写入锁保护，防止与 DaoTree/SealDemon/Trial read-modify-write 并发覆盖
     if IsSlotLocked(userId, slot) then
-        print("[Server] SaveGame DEFERRED: slot " .. slot .. " is locked (reward write in progress), userId=" .. tostring(userId))
+        Logger.warn("SaveGame", "DEFERRED: slot " .. slot .. " is locked (reward write in progress), userId=" .. tostring(userId))
         SendResult(connection, SaveProtocol.S2C_SaveResult, false, "slot_locked")
         return
     end
@@ -1032,7 +1033,7 @@ function HandleSaveGame(eventType, eventData)
     local slotsIndexJson = eventData["slotsIndex"]:GetString()
     local rankDataJson = eventData["rankData"]:GetString()
 
-    print("[Server] SaveGame: userId=" .. tostring(userId) .. " slot=" .. slot)
+    Logger.info("SaveGame", "userId=" .. tostring(userId) .. " slot=" .. slot)
 
     -- 解码 JSON（v11: coreData 已包含 equipment + backpack，无 bag1/bag2）
     local ok1, coreData = pcall(cjson.decode, coreDataJson)
@@ -1044,7 +1045,7 @@ function HandleSaveGame(eventType, eventData)
     local ok5, rankData = pcall(cjson.decode, rankDataJson)
 
     if not ok1 or not coreData then
-        print("[Server] SaveGame: coreData decode failed")
+        Logger.error("SaveGame", "coreData decode failed")
         SendResult(connection, SaveProtocol.S2C_SaveResult, false, "数据格式错误")
         return
     end
@@ -1063,7 +1064,7 @@ function HandleSaveGame(eventType, eventData)
             if rCfg then
                 local maxLv = rCfg.maxLevel or 999
                 if cp.level > maxLv then
-                    print("[Server][V1] Level clamped: " .. cp.level .. " -> " .. maxLv
+                    Logger.warn("SaveGame", "[V1] Level clamped: " .. cp.level .. " -> " .. maxLv
                         .. " (realm=" .. realm .. ") userId=" .. tostring(userId))
                     cp.level = maxLv
                 end
@@ -1074,7 +1075,7 @@ function HandleSaveGame(eventType, eventData)
         -- V2: exp 不得为负，不得超过当前等级经验表上限
         if cp.exp and type(cp.exp) == "number" then
             if cp.exp < 0 then
-                print("[Server][V2] Exp clamped from " .. cp.exp .. " -> 0"
+                Logger.warn("SaveGame", "[V2] Exp clamped from " .. cp.exp .. " -> 0"
                     .. " userId=" .. tostring(userId))
                 cp.exp = 0
             end
@@ -1084,7 +1085,7 @@ function HandleSaveGame(eventType, eventData)
                 or cp.exp
             if nextLvExp and cp.exp > nextLvExp * 2 then
                 -- 允许 2 倍余量（存档可能在升级瞬间），超过 2 倍视为异常
-                print("[Server][V2] Exp suspicious: " .. cp.exp
+                Logger.warn("SaveGame", "[V2] Exp suspicious: " .. cp.exp
                     .. " > 2x nextLvExp=" .. nextLvExp
                     .. " userId=" .. tostring(userId))
                 cp.exp = nextLvExp
@@ -1094,7 +1095,7 @@ function HandleSaveGame(eventType, eventData)
         -- V3: gold 不得为负
         if cp.gold and type(cp.gold) == "number" then
             if cp.gold < 0 then
-                print("[Server][V3] Gold clamped from " .. cp.gold .. " -> 0"
+                Logger.warn("SaveGame", "[V3] Gold clamped from " .. cp.gold .. " -> 0"
                     .. " userId=" .. tostring(userId))
                 cp.gold = 0
             end
@@ -1103,7 +1104,7 @@ function HandleSaveGame(eventType, eventData)
         -- V4: lingYun 不得为负
         if cp.lingYun and type(cp.lingYun) == "number" then
             if cp.lingYun < 0 then
-                print("[Server][V4] LingYun clamped from " .. cp.lingYun .. " -> 0"
+                Logger.warn("SaveGame", "[V4] LingYun clamped from " .. cp.lingYun .. " -> 0"
                     .. " userId=" .. tostring(userId))
                 cp.lingYun = 0
             end
@@ -1123,7 +1124,7 @@ function HandleSaveGame(eventType, eventData)
         for _, pill in ipairs(shopPillLimits) do
             local v = coreData.shop[pill.field]
             if v and type(v) == "number" and v > pill.max then
-                print("[Server][V5] " .. pill.name .. " clamped: "
+                Logger.warn("SaveGame", "[V5] " .. pill.name .. " clamped: "
                     .. v .. " -> " .. pill.max
                     .. " userId=" .. tostring(userId))
                 coreData.shop[pill.field] = pill.max
@@ -1138,7 +1139,7 @@ function HandleSaveGame(eventType, eventData)
         for _, pill in ipairs(chPillLimits) do
             local v = coreData.challenges[pill.field]
             if v and type(v) == "number" and v > pill.max then
-                print("[Server][V5] " .. pill.name .. " clamped: "
+                Logger.warn("SaveGame", "[V5] " .. pill.name .. " clamped: "
                     .. v .. " -> " .. pill.max
                     .. " userId=" .. tostring(userId))
                 coreData.challenges[pill.field] = pill.max
@@ -1168,7 +1169,7 @@ function HandleSaveGame(eventType, eventData)
         for _, pill in ipairs(playerPillLimits) do
             local v = coreData.player[pill.field]
             if v and type(v) == "number" and v > pill.max then
-                print("[Server][V5] " .. pill.name .. " clamped: "
+                Logger.warn("SaveGame", "[V5] " .. pill.name .. " clamped: "
                     .. v .. " -> " .. pill.max
                     .. " userId=" .. tostring(userId))
                 coreData.player[pill.field] = pill.max
@@ -1185,7 +1186,7 @@ function HandleSaveGame(eventType, eventData)
                 if p.level and type(p.level) == "number" then
                     if p.level < 0 then p.level = 0 end
                     if p.level > 10 then
-                        print("[Server][V5b] SeaPillar " .. pid .. " level clamped: "
+                        Logger.warn("SaveGame", "[V5b] SeaPillar " .. pid .. " level clamped: "
                             .. p.level .. " -> 10 userId=" .. tostring(userId))
                         p.level = 10
                     end
@@ -1205,7 +1206,7 @@ function HandleSaveGame(eventType, eventData)
         end
         if wh.unlockedRows < 1 then wh.unlockedRows = 1 end
         if wh.unlockedRows > MAX_ROWS then
-            print("[Server][V6] warehouse unlockedRows clamped: "
+            Logger.warn("SaveGame", "[V6] warehouse unlockedRows clamped: "
                 .. wh.unlockedRows .. " -> " .. MAX_ROWS
                 .. " userId=" .. tostring(userId))
             wh.unlockedRows = MAX_ROWS
@@ -1221,7 +1222,7 @@ function HandleSaveGame(eventType, eventData)
                 end
             end
             for _, k in ipairs(keysToRemove) do
-                print("[Server][V6] warehouse item removed at slot " .. tostring(k)
+                Logger.warn("SaveGame", "[V6] warehouse item removed at slot " .. tostring(k)
                     .. " (max=" .. maxSlot .. ") userId=" .. tostring(userId))
                 wh.items[k] = nil
             end
@@ -1259,15 +1260,15 @@ function HandleSaveGame(eventType, eventData)
         -- 容忍度 3 倍（装备等额外来源）
         local tolerance = 3
         if cp.maxHp and type(cp.maxHp) == "number" and cp.maxHp > expectedMaxHp * tolerance then
-            print(string.format("[Server][V5c] maxHp SUSPICIOUS: %d > %.0f (expected=%d × %.1f) userId=%s realm=%s lv=%d",
+            Logger.diag("SaveGame", string.format("[V5c] maxHp SUSPICIOUS: %d > %.0f (expected=%d × %.1f) userId=%s realm=%s lv=%d",
                 cp.maxHp, expectedMaxHp * tolerance, expectedMaxHp, tolerance, tostring(userId), realm, lv))
         end
         if cp.atk and type(cp.atk) == "number" and cp.atk > expectedAtk * tolerance then
-            print(string.format("[Server][V5c] atk SUSPICIOUS: %d > %.0f (expected=%d × %.1f) userId=%s realm=%s lv=%d",
+            Logger.diag("SaveGame", string.format("[V5c] atk SUSPICIOUS: %d > %.0f (expected=%d × %.1f) userId=%s realm=%s lv=%d",
                 cp.atk, expectedAtk * tolerance, expectedAtk, tolerance, tostring(userId), realm, lv))
         end
         if cp.def and type(cp.def) == "number" and cp.def > expectedDef * tolerance then
-            print(string.format("[Server][V5c] def SUSPICIOUS: %d > %.0f (expected=%d × %.1f) userId=%s realm=%s lv=%d",
+            Logger.diag("SaveGame", string.format("[V5c] def SUSPICIOUS: %d > %.0f (expected=%d × %.1f) userId=%s realm=%s lv=%d",
                 cp.def, expectedDef * tolerance, expectedDef, tolerance, tostring(userId), realm, lv))
         end
     end
@@ -1288,7 +1289,7 @@ function HandleSaveGame(eventType, eventData)
         NormalizeSlotsIndex(slotsIndex)
         batch:Set("slots_index", slotsIndex)
     elseif ok4 and slotsIndex then
-        print("[Server] SaveGame: SKIPPING empty slotsIndex write for userId=" .. tostring(userId))
+        Logger.warn("SaveGame", "SKIPPING empty slotsIndex write for userId=" .. tostring(userId))
     end
 
     -- 账号级数据
@@ -1304,13 +1305,13 @@ function HandleSaveGame(eventType, eventData)
     -- 仙图录是账号级系统，所有角色共享同一份数据
     if coreData.atlas then
         batch:Set("account_atlas", coreData.atlas)
-        print("[Server] SaveGame: account_atlas written for userId=" .. tostring(userId))
+        Logger.info("SaveGame", "account_atlas written for userId=" .. tostring(userId))
     end
 
     -- 账号级外观数据：从 coreData 中提取，写入独立的 account_cosmetics key
     if coreData.accountCosmetics then
         batch:Set("account_cosmetics", coreData.accountCosmetics)
-        print("[Server] SaveGame: account_cosmetics written for userId=" .. tostring(userId))
+        Logger.info("SaveGame", "account_cosmetics written for userId=" .. tostring(userId))
     end
 
     -- player_level
@@ -1354,7 +1355,7 @@ function HandleSaveGame(eventType, eventData)
         })
     elseif rankRejectReason and rankRejectReason ~= "level_too_low"
         and rankRejectReason ~= "no_player_data" then
-        print("[Server][AntiCheat] Rank write rejected for userId="
+        Logger.warn("SaveGame", "[AntiCheat] Rank write rejected for userId="
             .. tostring(userId) .. " slot=" .. slot
             .. " reason=" .. rankRejectReason)
     end
@@ -1371,20 +1372,20 @@ function HandleSaveGame(eventType, eventData)
     if rankInfo then
         serverCloud:SetInt(userId, "rank2_score_" .. slot, rankInfo.rankScore, {
             error = function(code, reason)
-                print("[Server] RankV2 SetInt rank2_score FAILED: userId=" .. tostring(userId)
+                Logger.error("SaveGame", "RankV2 SetInt rank2_score FAILED: userId=" .. tostring(userId)
                     .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
             end,
         })
         serverCloud:SetInt(userId, "rank2_kills_" .. slot, rankInfo.bossKills, {
             error = function(code, reason)
-                print("[Server] RankV2 SetInt rank2_kills FAILED: userId=" .. tostring(userId)
+                Logger.error("SaveGame", "RankV2 SetInt rank2_kills FAILED: userId=" .. tostring(userId)
                     .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
             end,
         })
         if ok5 and rankData and rankData.achieveTime then
             serverCloud:SetInt(userId, "rank2_time_" .. slot, rankData.achieveTime, {
                 error = function(code, reason)
-                    print("[Server] RankV2 SetInt rank2_time FAILED: userId=" .. tostring(userId)
+                    Logger.error("SaveGame", "RankV2 SetInt rank2_time FAILED: userId=" .. tostring(userId)
                         .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
                 end,
             })
@@ -1401,7 +1402,7 @@ function HandleSaveGame(eventType, eventData)
                 + (TRIAL_TIME_BASE - 1 - os.time())
             serverCloud:SetInt(userId, "trial_floor", trialComposite, {
                 error = function(code, reason)
-                    print("[Server] Trial SetInt trial_floor FAILED: userId=" .. tostring(userId)
+                    Logger.error("SaveGame", "Trial SetInt trial_floor FAILED: userId=" .. tostring(userId)
                         .. " err=" .. tostring(code) .. " " .. tostring(reason))
                 end,
             })
@@ -1423,7 +1424,7 @@ function HandleSaveGame(eventType, eventData)
                 taptapNick = taptapNick,
                 classId = coreData.player and coreData.player.classId or "monk",
             })
-            print("[Server] Trial: enrolled userId=" .. tostring(userId)
+            Logger.info("SaveGame", "Trial: enrolled userId=" .. tostring(userId)
                 .. " floor=" .. highestFloor .. " composite=" .. trialComposite)
         end
     end
@@ -1438,7 +1439,7 @@ function HandleSaveGame(eventType, eventData)
                 + (PRISON_TIME_BASE - 1 - os.time())
             serverCloud:SetInt(userId, "prison_floor", prisonComposite, {
                 error = function(code, reason)
-                    print("[Server] Prison SetInt prison_floor FAILED: userId=" .. tostring(userId)
+                    Logger.error("SaveGame", "Prison SetInt prison_floor FAILED: userId=" .. tostring(userId)
                         .. " err=" .. tostring(code) .. " " .. tostring(reason))
                 end,
             })
@@ -1460,14 +1461,14 @@ function HandleSaveGame(eventType, eventData)
                 taptapNick = taptapNick,
                 classId = coreData.player and coreData.player.classId or "monk",
             })
-            print("[Server] Prison: enrolled userId=" .. tostring(userId)
+            Logger.info("SaveGame", "Prison: enrolled userId=" .. tostring(userId)
                 .. " floor=" .. prisonHighest .. " composite=" .. prisonComposite)
         end
     end
 
     batch:Save("存档", {
         ok = function()
-            print("[Server] SaveGame OK: userId=" .. tostring(userId) .. " slot=" .. slot)
+            Logger.info("SaveGame", "OK: userId=" .. tostring(userId) .. " slot=" .. slot)
 
             local resultData = VariantMap()
             resultData["ok"] = Variant(true)
@@ -1475,7 +1476,7 @@ function HandleSaveGame(eventType, eventData)
             SafeSend(connection, SaveProtocol.S2C_SaveResult, resultData)
         end,
         error = function(code, reason)
-            print("[Server] SaveGame FAILED: " .. tostring(code) .. " " .. tostring(reason))
+            Logger.error("SaveGame", "FAILED: " .. tostring(code) .. " " .. tostring(reason))
             local resultData = VariantMap()
             resultData["ok"] = Variant(false)
             resultData["message"] = Variant(tostring(reason))

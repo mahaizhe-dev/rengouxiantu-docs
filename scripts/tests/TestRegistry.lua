@@ -109,6 +109,16 @@ TestRegistry.tests = {
         skip_reason   = nil,
     },
 
+    {
+        id            = "logger_smoke",
+        group         = "infra",
+        path          = "scripts/tests/test_logger_smoke.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
     ---------------------------------------------------------------------------
     -- engine_required: 依赖引擎运行时，第一版标记 skip
     ---------------------------------------------------------------------------

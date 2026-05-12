@@ -24,6 +24,7 @@ local MigrationPolicy = require("network.MigrationPolicy")
 
 ---@diagnostic disable-next-line: undefined-global
 local cjson = cjson
+local Logger = require("utils.Logger")
 
 local SaveSystemNet = {}
 
@@ -86,7 +87,7 @@ function SaveSystemNet.InitHandlers()
     SubscribeToEvent(SaveProtocol.S2C_CharResult, "SaveSystemNet_HandleCharResult")
     SubscribeToEvent(SaveProtocol.S2C_MigrateResult, "SaveSystemNet_HandleMigrateResult")
 
-    print("[SaveSystemNet] S2C handlers subscribed")
+    Logger.info("SaveSystemNet", "S2C handlers subscribed")
 end
 
 -- ============================================================================
@@ -96,13 +97,13 @@ end
 --- 标记网络已就绪，自动执行排队的 FetchSlots 请求
 function SaveSystemNet.OnNetworkReady()
     _networkReady = true
-    print("[SaveSystemNet] Network ready, _networkReady=true")
+    Logger.info("SaveSystemNet", "Network ready, _networkReady=true")
 
     -- 执行排队的 FetchSlots
     if _queuedFetchSlots then
         local cb = _queuedFetchSlots
         _queuedFetchSlots = nil
-        print("[SaveSystemNet] Executing queued FetchSlots...")
+        Logger.info("SaveSystemNet", "Executing queued FetchSlots...")
         SaveSystemNet.FetchSlots(cb)
     end
 end
@@ -111,7 +112,7 @@ end
 --- 带错误通知等待中的 FetchSlots 回调，避免 CharacterSelectScreen 挂起
 function SaveSystemNet.ClearQueue()
     if _queuedFetchSlots then
-        print("[SaveSystemNet] Clearing queued FetchSlots callback (with error notification)")
+        Logger.warn("SaveSystemNet", "Clearing queued FetchSlots callback (with error notification)")
         local cb = _queuedFetchSlots
         _queuedFetchSlots = nil
         -- 通知调用方连接失败，让 CharacterSelectScreen 立即显示重试 UI
@@ -136,14 +137,14 @@ function SaveSystemNet.FetchSlots(callback, _retryCount)
     if not serverConn then
         if not _networkReady then
             -- background_match 模式：服务器连接尚未就绪，排队等待 ServerReady
-            print("[SaveSystemNet] No server connection yet (background_match), queuing FetchSlots...")
+            Logger.diag("SaveSystemNet", "No server connection yet (background_match), queuing FetchSlots...")
             _queuedFetchSlots = callback
             return
         end
         -- 网络已就绪但连接暂时不可用 → 自动重试
         local retries = _retryCount or 0
         if retries < MAX_RETRY then
-            print("[SaveSystemNet] FetchSlots: no connection, retry " .. (retries + 1) .. "/" .. MAX_RETRY
+            Logger.warn("SaveSystemNet", "FetchSlots: no connection, retry " .. (retries + 1) .. "/" .. MAX_RETRY
                 .. " in " .. RETRY_INTERVAL .. "s")
             ScheduleDelayed(RETRY_INTERVAL, function()
                 SaveSystemNet.FetchSlots(callback, retries + 1)
@@ -151,7 +152,7 @@ function SaveSystemNet.FetchSlots(callback, _retryCount)
             return
         end
         -- 重试耗尽 → 报错
-        print("[SaveSystemNet] FetchSlots: no connection after " .. MAX_RETRY .. " retries")
+        Logger.error("SaveSystemNet", "FetchSlots: no connection after " .. MAX_RETRY .. " retries")
         if callback then callback(nil, "No server connection") end
         return
     end
@@ -160,7 +161,7 @@ function SaveSystemNet.FetchSlots(callback, _retryCount)
 
     local data = VariantMap()
     serverConn:SendRemoteEvent(SaveProtocol.C2S_FetchSlots, true, data)
-    print("[SaveSystemNet] C2S_FetchSlots sent")
+    Logger.info("SaveSystemNet", "C2S_FetchSlots sent")
 end
 
 --- S2C_SlotsData 处理
@@ -173,7 +174,7 @@ function SaveSystemNet_HandleSlotsData(eventType, eventData)
     if not ok then
         local message = nil
         pcall(function() message = eventData["message"]:GetString() end)
-        print("[SaveSystemNet] FetchSlots failed: " .. tostring(message))
+        Logger.error("SaveSystemNet", "FetchSlots failed: " .. tostring(message))
         if cb then cb(nil, message or "FetchSlots failed") end
         return
     end
@@ -223,7 +224,7 @@ function SaveSystemNet_HandleSlotsData(eventType, eventData)
             local SaveSerializer = require("systems.save.SaveSerializer")
             SaveSerializer.DeserializeAtlas(atlasData)
             AtlasSystem.loaded = true
-            print("[SaveSystemNet] account_atlas loaded at login")
+            Logger.info("SaveSystemNet", "account_atlas loaded at login")
         end
     end
 
@@ -235,23 +236,23 @@ function SaveSystemNet_HandleSlotsData(eventType, eventData)
         if ok4 and cosmeticsData then
             local GameState = require("core.GameState")
             GameState.accountCosmetics = cosmeticsData
-            print("[SaveSystemNet] account_cosmetics loaded at login")
+            Logger.info("SaveSystemNet", "account_cosmetics loaded at login")
         end
     end
 
     -- 正常路径
     local slotCount = 0
     if slotsIndex.slots then for _ in pairs(slotsIndex.slots) do slotCount = slotCount + 1 end end
-    print("[SaveSystemNet] FetchSlots ok: " .. slotCount .. " slots")
+    Logger.info("SaveSystemNet", "FetchSlots ok: " .. slotCount .. " slots")
 
     -- P0-4: 迁移状态统一判断（由 MigrationPolicy 收口）
     local migrationState = MigrationPolicy.Evaluate(needMigration, slotCount)
     if migrationState then
         -- flag=true: 走统一入口
-        print("[SaveSystemNet] MigrationPolicy: " .. MigrationPolicy.GetStateLabel(migrationState))
+        Logger.info("SaveSystemNet", "MigrationPolicy: " .. MigrationPolicy.GetStateLabel(migrationState))
         if MigrationPolicy.ShouldAutoMigrate(migrationState) then
             -- 当前不会进入此分支（迁移已废弃），保留扩展点
-            print("[SaveSystemNet] MigrationPolicy: auto-migrate triggered (state=" .. migrationState .. ")")
+            Logger.warn("SaveSystemNet", "MigrationPolicy: auto-migrate triggered (state=" .. migrationState .. ")")
         end
     else
         -- flag=false: 保持原有行为
@@ -259,15 +260,15 @@ function SaveSystemNet_HandleSlotsData(eventType, eventData)
         -- clientCloud → serverCloud 和 local_file → serverCloud 迁移不再触发
         -- 已迁移玩家不受影响：其 serverCloud 已有数据（needMigration=false）、本地导出文件已删除
         if needMigration then
-            print("[SaveSystemNet] needMigration=true but migration is DEPRECATED, treating as new player")
+            Logger.warn("SaveSystemNet", "needMigration=true but migration is DEPRECATED, treating as new player")
         end
     end
 
     -- ====== DIAGNOSTIC: 存档丢失排查 ======
-    print("[SaveSystemNet] DIAG userId=" .. tostring(userIdStr)
+    Logger.diag("SaveSystemNet", "DIAG userId=" .. tostring(userIdStr)
         .. " needMigration=" .. tostring(needMigration)
         .. " slotCount=" .. slotCount)
-    print("[SaveSystemNet] DIAG slotsIndex=" .. tostring(slotsIndexJson))
+    Logger.diag("SaveSystemNet", "DIAG slotsIndex=" .. tostring(slotsIndexJson))
     -- ====== END DIAGNOSTIC ======
     if cb then cb(slotsIndex, nil) end
 end
@@ -292,7 +293,7 @@ function SaveSystemNet.Load(slot, callback, _retryCount)
         -- 网络连接暂时不可用 → 自动重试
         local retries = _retryCount or 0
         if retries < MAX_RETRY then
-            print("[SaveSystemNet] Load: no connection, retry " .. (retries + 1) .. "/" .. MAX_RETRY
+            Logger.warn("SaveSystemNet", "Load: no connection, retry " .. (retries + 1) .. "/" .. MAX_RETRY
                 .. " in " .. RETRY_INTERVAL .. "s")
             ScheduleDelayed(RETRY_INTERVAL, function()
                 SaveSystemNet.Load(slot, callback, retries + 1)
@@ -300,7 +301,7 @@ function SaveSystemNet.Load(slot, callback, _retryCount)
             return
         end
         -- 重试耗尽 → 报错
-        print("[SaveSystemNet] Load: no connection after " .. MAX_RETRY .. " retries")
+        Logger.error("SaveSystemNet", "Load: no connection after " .. MAX_RETRY .. " retries")
         local SaveSystem = require("systems.SaveSystem")
         SaveSystem.loaded = false
         if callback then callback(false, "No server connection") end
@@ -310,7 +311,7 @@ function SaveSystemNet.Load(slot, callback, _retryCount)
     local data = VariantMap()
     data["slot"] = Variant(slot)
     serverConn:SendRemoteEvent(SaveProtocol.C2S_LoadGame, true, data)
-    print("[SaveSystemNet] C2S_LoadGame sent: slot=" .. slot)
+    Logger.info("SaveSystemNet", "C2S_LoadGame sent: slot=" .. slot)
 end
 
 --- S2C_LoadResult 处理
@@ -325,7 +326,7 @@ function SaveSystemNet_HandleLoadResult(eventType, eventData)
     if not ok then
         local message = nil
         pcall(function() message = eventData["message"]:GetString() end)
-        print("[SaveSystemNet] LoadGame failed: " .. tostring(message))
+        Logger.error("SaveSystemNet", "LoadGame failed: " .. tostring(message))
         SaveSystem.loaded = false
         if pending.callback then pending.callback(false, message or "Load failed") end
         return
@@ -337,7 +338,7 @@ function SaveSystemNet_HandleLoadResult(eventType, eventData)
     local saveDataJson = eventData["saveData"]:GetString()
     local decodeOk, saveData = pcall(cjson.decode, saveDataJson)
     if not decodeOk or type(saveData) ~= "table" then
-        print("[SaveSystemNet] LoadGame: saveData decode failed")
+        Logger.error("SaveSystemNet", "LoadGame: saveData decode failed")
         SaveSystem.loaded = false
         if pending.callback then pending.callback(false, "存档数据解码失败") end
         return
@@ -351,11 +352,11 @@ function SaveSystemNet_HandleLoadResult(eventType, eventData)
     }
     saveData.equipment = nil   -- 清除顶层，统一到 inventory 下
     saveData.backpack = nil
-    print("[SaveSystemNet] Inventory assembled from single-key network response")
+    Logger.info("SaveSystemNet", "Inventory assembled from single-key network response")
 
     -- 交给 SaveSystem.ProcessLoadedData 处理（版本迁移 + 反序列化）
     SaveSystem.ProcessLoadedData(slot, saveData, nil, pending.callback)
-    print("[SaveSystemNet] LoadGame ok: slot=" .. slot)
+    Logger.info("SaveSystemNet", "LoadGame ok: slot=" .. slot)
 end
 
 -- ============================================================================
@@ -386,7 +387,7 @@ function SaveSystemNet.CreateCharacter(slot, charName, slotsIndex, callback, cla
     data["charName"] = Variant(charName)
     data["classId"] = Variant(classId or GameConfig.PLAYER_CLASS)
     serverConn:SendRemoteEvent(SaveProtocol.C2S_CreateChar, true, data)
-    print("[SaveSystemNet] C2S_CreateChar sent: slot=" .. slot .. " name=" .. charName .. " class=" .. (classId or "default"))
+    Logger.info("SaveSystemNet", "C2S_CreateChar sent: slot=" .. slot .. " name=" .. charName .. " class=" .. (classId or "default"))
 end
 
 -- ============================================================================
@@ -413,7 +414,7 @@ function SaveSystemNet.DeleteCharacter(slot, slotsIndex, callback)
     local data = VariantMap()
     data["slot"] = Variant(slot)
     serverConn:SendRemoteEvent(SaveProtocol.C2S_DeleteChar, true, data)
-    print("[SaveSystemNet] C2S_DeleteChar sent: slot=" .. slot)
+    Logger.info("SaveSystemNet", "C2S_DeleteChar sent: slot=" .. slot)
 end
 
 --- S2C_CharResult 处理（创建和删除共用）
@@ -427,7 +428,7 @@ function SaveSystemNet_HandleCharResult(eventType, eventData)
     if not ok then
         local message = nil
         pcall(function() message = eventData["message"]:GetString() end)
-        print("[SaveSystemNet] " .. pending.action .. " failed: " .. tostring(message))
+        Logger.error("SaveSystemNet", pending.action .. " failed: " .. tostring(message))
         if pending.callback then pending.callback(false, message or "Operation failed") end
         return
     end
@@ -450,11 +451,11 @@ function SaveSystemNet_HandleCharResult(eventType, eventData)
                 decoded.slots = normalized
             end
             SaveSystem._cachedSlotsIndex = decoded
-            print("[SaveSystemNet] _cachedSlotsIndex updated from server response")
+            Logger.info("SaveSystemNet", "_cachedSlotsIndex updated from server response")
         end
     end)
 
-    print("[SaveSystemNet] " .. pending.action .. " ok")
+    Logger.info("SaveSystemNet", pending.action .. " ok")
     if pending.callback then pending.callback(true) end
 end
 
@@ -475,7 +476,7 @@ function SaveSystemNet.MigrateToServer(callback)
     if not cloudApi then
         -- Phase 2（multiplayer.enabled=true）：clientCloud 不注入，这是正常路径
         -- 返回成功（无数据可迁移），由调用方继续尝试 MigrateFromLocalFile
-        print("[SaveSystemNet] clientCloud/clientScore unavailable (Phase 2 normal), skipping clientCloud migration")
+        Logger.info("SaveSystemNet", "clientCloud/clientScore unavailable (Phase 2 normal), skipping clientCloud migration")
         _pendingMigrate = nil
         if callback then callback(true, "no_client_cloud") end
         return
@@ -550,7 +551,7 @@ function SaveSystemNet.MigrateToServer(callback)
             end
 
             if not hasData then
-                print("[SaveSystemNet] No clientScore data to migrate (truly new player)")
+                Logger.info("SaveSystemNet", "No clientScore data to migrate (truly new player)")
                 local cb = _pendingMigrate
                 _pendingMigrate = nil
                 -- 🔴 Bug fix: 明确返回 "no_data"，让调用方能区分"无数据"和"数据已迁移"
@@ -576,11 +577,11 @@ function SaveSystemNet.MigrateToServer(callback)
             evtData["payload"] = Variant(payloadJson)
             serverConn:SendRemoteEvent(SaveProtocol.C2S_MigrateData, true, evtData)
 
-            print("[SaveSystemNet] C2S_MigrateData sent: "
+            Logger.info("SaveSystemNet", "C2S_MigrateData sent: "
                 .. string.format("%.1fKB", #payloadJson / 1024))
         end,
         error = function(code, reason)
-            print("[SaveSystemNet] clientScore read failed: " .. tostring(reason))
+            Logger.error("SaveSystemNet", "clientScore read failed: " .. tostring(reason))
             local cb = _pendingMigrate
             _pendingMigrate = nil
             if cb then cb(false, "Failed to read clientScore: " .. tostring(reason)) end
@@ -602,7 +603,7 @@ function SaveSystemNet.MigrateFromLocalFile(callback)
     -- 检查平台（PC/Web 无持久化本地文件，直接跳过）
     local platform = GetPlatform()
     if platform == "Web" or platform == "Windows" then
-        print("[SaveSystemNet] MigrateFromLocalFile: skipping on " .. platform)
+        Logger.info("SaveSystemNet", "MigrateFromLocalFile: skipping on " .. platform)
         if callback then callback(true, "no_local_files") end
         return
     end
@@ -620,10 +621,10 @@ function SaveSystemNet.MigrateFromLocalFile(callback)
                     local ok, parsed = pcall(cjson.decode, content)
                     if ok and type(parsed) == "table" then
                         table.insert(exportSlots, { slot = slot, data = parsed })
-                        print("[SaveSystemNet] MigrateFromLocalFile: read slot " .. slot
+                        Logger.info("SaveSystemNet", "MigrateFromLocalFile: read slot " .. slot
                             .. " (" .. #content .. " bytes)")
                     else
-                        print("[SaveSystemNet] MigrateFromLocalFile: decode failed for slot " .. slot)
+                        Logger.error("SaveSystemNet", "MigrateFromLocalFile: decode failed for slot " .. slot)
                     end
                 end
             end
@@ -631,7 +632,7 @@ function SaveSystemNet.MigrateFromLocalFile(callback)
     end
 
     if #exportSlots == 0 then
-        print("[SaveSystemNet] MigrateFromLocalFile: no export files found")
+        Logger.info("SaveSystemNet", "MigrateFromLocalFile: no export files found")
         if callback then callback(true, "no_local_files") end
         return
     end
@@ -719,7 +720,7 @@ function SaveSystemNet.MigrateFromLocalFile(callback)
                 local filename = "save_export_" .. entry.slot .. ".json"
                 if fileSystem:FileExists(filename) then
                     fileSystem:Delete(filename)
-                    print("[SaveSystemNet] MigrateFromLocalFile: deleted " .. filename)
+                    Logger.info("SaveSystemNet", "MigrateFromLocalFile: deleted " .. filename)
                 end
             end
         end
@@ -731,7 +732,7 @@ function SaveSystemNet.MigrateFromLocalFile(callback)
     evtData["payload"] = Variant(payloadJson)
     serverConn:SendRemoteEvent(SaveProtocol.C2S_MigrateData, true, evtData)
 
-    print("[SaveSystemNet] MigrateFromLocalFile: C2S_MigrateData sent ("
+    Logger.info("SaveSystemNet", "MigrateFromLocalFile: C2S_MigrateData sent ("
         .. #exportSlots .. " slots, "
         .. string.format("%.1fKB", #payloadJson / 1024) .. ")")
 end
@@ -743,12 +744,12 @@ function SaveSystemNet_HandleMigrateResult(eventType, eventData)
     _pendingMigrate = nil
 
     if ok then
-        print("[SaveSystemNet] Migration successful!")
+        Logger.info("SaveSystemNet", "Migration successful!")
         if cb then cb(true) end
     else
         local message = nil
         pcall(function() message = eventData["message"]:GetString() end)
-        print("[SaveSystemNet] Migration failed: " .. tostring(message))
+        Logger.error("SaveSystemNet", "Migration failed: " .. tostring(message))
         if cb then cb(false, message or "Migration failed") end
     end
 end

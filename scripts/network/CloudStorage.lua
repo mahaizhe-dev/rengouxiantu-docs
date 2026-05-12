@@ -19,6 +19,7 @@ local FeatureFlags = require("config.FeatureFlags")
 
 ---@diagnostic disable-next-line: undefined-global
 local cjson = cjson
+local Logger = require("utils.Logger")
 
 local CloudStorage = {}
 
@@ -35,7 +36,7 @@ local _isNetworkMode = false
 ---@param enabled boolean
 function CloudStorage.SetNetworkMode(enabled)
     _isNetworkMode = enabled
-    print("[CloudStorage] Mode: " .. (enabled and "NETWORK" or "STANDALONE"))
+    Logger.info("CloudStorage", "Mode: " .. (enabled and "NETWORK" or "STANDALONE"))
 end
 
 --- 获取当前模式
@@ -87,12 +88,12 @@ function CloudStorage.Tick()
     local now = os.clock()
     for id, entry in pairs(_pendingCallbacks) do
         if now - entry.registeredAt > CALLBACK_TIMEOUT then
-            print("[CloudStorage] TIMEOUT: callback id=" .. id .. " expired after " .. CALLBACK_TIMEOUT .. "s")
+            Logger.warn("CloudStorage", "TIMEOUT: callback id=" .. id .. " expired after " .. CALLBACK_TIMEOUT .. "s")
             _pendingCallbacks[id] = nil
             if entry.events and entry.events.error then
                 local ok, err = pcall(entry.events.error, -2, "请求超时")
                 if not ok then
-                    print("[CloudStorage] TIMEOUT callback error: " .. tostring(err))
+                    Logger.error("CloudStorage", "TIMEOUT callback error: " .. tostring(err))
                 end
             end
         end
@@ -117,7 +118,7 @@ local function EnsureSubscribed()
     -- 排行榜结果
     SubscribeToEvent(SaveProtocol.S2C_RankListData, "CloudStorage_HandleRankListData")
 
-    print("[CloudStorage] Network event handlers subscribed")
+    Logger.info("CloudStorage", "Network event handlers subscribed")
 end
 
 -- ============================================================================
@@ -155,7 +156,7 @@ function CloudStorage.BatchGet()
         local api = clientCloud or clientScore
         if not api then
             -- multiplayer 构建回退到 standalone 但 clientScore 不可用
-            print("[CloudStorage] WARNING: BatchGet in standalone mode but clientScore is nil")
+            Logger.warn("CloudStorage", "BatchGet in standalone mode but clientScore is nil")
             local dummy = { _keys = {} }
             function dummy:Key(key) table.insert(self._keys, key); return self end
             function dummy:Fetch(events)
@@ -182,7 +183,7 @@ function CloudStorage.BatchGet()
 
     function builder:Fetch(events)
         -- 网络模式下不支持通用 BatchGet（应使用专用 C2S 事件）
-        print("[CloudStorage] WARNING: BatchGet:Fetch in network mode — not supported for generic use")
+        Logger.warn("CloudStorage", "BatchGet:Fetch in network mode — not supported for generic use")
         if events and events.error then
             events.error(-1, "BatchGet not supported in network mode, use specific C2S events")
         end
@@ -228,7 +229,7 @@ function CloudStorage.BatchSet()
     if not _isNetworkMode then
         local api = clientCloud or clientScore
         if not api then
-            print("[CloudStorage] WARNING: BatchSet in standalone mode but clientScore is nil")
+            Logger.warn("CloudStorage", "BatchSet in standalone mode but clientScore is nil")
             local dummy = { _sets = {}, _setInts = {}, _deletes = {} }
             function dummy:Set(k, v) return self end
             function dummy:SetInt(k, v) return self end
@@ -343,7 +344,7 @@ function CloudStorage.BatchSet()
             if serverConn then
                 serverConn:SendRemoteEvent(SaveProtocol.C2S_SaveGame, true, eventData)
             else
-                print("[CloudStorage] ERROR: No server connection for Save")
+                Logger.error("CloudStorage", "No server connection for Save")
                 if events and events.error then
                     events.error(-1, "No server connection")
                 end
@@ -357,13 +358,13 @@ function CloudStorage.BatchSet()
                 local reason = string.format(
                     "Unsupported non-save BatchSet in network mode: desc=%s keys=[%s]",
                     tostring(desc), table.concat(keyList, ", "))
-                print("[CloudStorage] STRICT: " .. reason)
+                Logger.warn("CloudStorage", "STRICT: " .. reason)
                 if events and events.error then
                     events.error(CloudStorage.ERR_UNSUPPORTED_BATCH, reason)
                 end
             else
                 -- 旧路径（flag=false）：保持原有假成功行为
-                print("[CloudStorage] Network BatchSet (non-save): desc=" .. tostring(desc) .. " — skipped")
+                Logger.warn("CloudStorage", "Network BatchSet (non-save): desc=" .. tostring(desc) .. " — skipped")
                 if events and events.ok then
                     events.ok()
                 end
@@ -385,7 +386,7 @@ function CloudStorage.Get(key, events)
     if not _isNetworkMode then
         local api = clientCloud or clientScore
         if not api then
-            print("[CloudStorage] WARNING: Get in standalone mode but clientScore is nil, key=" .. key)
+            Logger.warn("CloudStorage", "Get in standalone mode but clientScore is nil, key=" .. key)
             if events and events.error then
                 events.error(-1, "云存储不可用（服务器连接失败）")
             end
@@ -398,7 +399,7 @@ function CloudStorage.Get(key, events)
     -- 网络模式：VersionGuard 用 Get 读取 _code_ver
     -- 在网络模式下，VersionGuard 的版本检测由服务端握手替代
     -- 此处返回空数据（不报错），让 VersionGuard 的检查逻辑空转
-    print("[CloudStorage] Network Get: key=" .. key .. " — returning empty (server-side)")
+    Logger.diag("CloudStorage", "Network Get: key=" .. key .. " — returning empty (server-side)")
     if events and events.ok then
         events.ok({}, {}, {})
     end
@@ -416,7 +417,7 @@ function CloudStorage.SetInt(key, value, events)
     if not _isNetworkMode then
         local api = clientCloud or clientScore
         if not api then
-            print("[CloudStorage] WARNING: SetInt in standalone mode but clientScore is nil, key=" .. key)
+            Logger.warn("CloudStorage", "SetInt in standalone mode but clientScore is nil, key=" .. key)
             if events and events.error then
                 events.error(-1, "云存储不可用（服务器连接失败）")
             end
@@ -429,7 +430,7 @@ function CloudStorage.SetInt(key, value, events)
     -- 网络模式：VersionGuard 用 SetInt 写 _code_ver
     -- 在网络模式下，_code_ver 由 Save 时搭车写入服务端
     -- 此处直接返回成功
-    print("[CloudStorage] Network SetInt: key=" .. key .. " value=" .. value .. " — deferred to Save")
+    Logger.diag("CloudStorage", "Network SetInt: key=" .. key .. " value=" .. value .. " — deferred to Save")
     if events and events.ok then
         events.ok()
     end
@@ -449,7 +450,7 @@ function CloudStorage.GetRankList(key, start, count, events, ...)
     if not _isNetworkMode then
         local api = clientCloud or clientScore
         if not api then
-            print("[CloudStorage] WARNING: GetRankList in standalone mode but clientScore is nil")
+            Logger.warn("CloudStorage", "GetRankList in standalone mode but clientScore is nil")
             if events and events.error then
                 events.error(-1, "云存储不可用（服务器连接失败）")
             end
@@ -476,7 +477,7 @@ function CloudStorage.GetRankList(key, start, count, events, ...)
     if serverConn then
         serverConn:SendRemoteEvent(SaveProtocol.C2S_GetRankList, true, eventData)
     else
-        print("[CloudStorage] ERROR: No server connection for GetRankList")
+        Logger.error("CloudStorage", "No server connection for GetRankList")
         if events and events.error then
             events.error(-1, "No server connection")
         end
@@ -555,7 +556,7 @@ function CloudStorage_HandleRankListData(eventType, eventData)
             if events.error then events.error(-1, message or "GetRankList failed") end
         end
     else
-        print("[CloudStorage] WARNING: RankList response for key=" .. rankKey .. " has no matching callback (reqId=" .. tostring(requestId) .. ")")
+        Logger.warn("CloudStorage", "RankList response for key=" .. rankKey .. " has no matching callback (reqId=" .. tostring(requestId) .. ")")
     end
 end
 
