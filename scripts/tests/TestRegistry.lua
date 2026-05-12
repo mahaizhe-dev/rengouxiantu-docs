@@ -119,6 +119,16 @@ TestRegistry.tests = {
         skip_reason   = nil,
     },
 
+    {
+        id            = "save_system_net_state_machine",
+        group         = "save",
+        path          = "scripts/tests/test_save_system_net_state_machine.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
     ---------------------------------------------------------------------------
     -- engine_required: 依赖引擎运行时，第一版标记 skip
     ---------------------------------------------------------------------------

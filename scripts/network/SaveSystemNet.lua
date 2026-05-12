@@ -15,6 +15,11 @@
 --   - 回调签名与 SaveSystem 原方法完全一致，调用方无感知
 --   - 不重复 ProcessLoadedData 等复杂逻辑，而是回调后交给 SaveSystem 处理
 --   - Migration 在 FetchSlots 中自动触发，对调用方透明
+--
+-- R2 状态机收口：
+--   - 统一 single-flight reject 语义：同类请求 pending 时拒绝新请求
+--   - 统一晚到响应处理：无匹配 pending 时 warn+忽略
+--   - 统一辅助函数：beginPending / resolvePending / rejectPending / hasPending
 -- ============================================================================
 
 local SaveProtocol = require("network.SaveProtocol")
@@ -29,13 +34,96 @@ local Logger = require("utils.Logger")
 local SaveSystemNet = {}
 
 -- ============================================================================
--- 待处理回调（每类操作同一时刻最多一个待处理）
+-- R2: 统一 pending 状态管理
+--
+-- 每类动作（fetchSlots / load / char / migrate）同一时刻最多一个 pending。
+-- 语义：single-flight reject — pending 存在时新同类请求立即失败。
 -- ============================================================================
 
-local _pendingFetchSlots = nil   -- function(slotsIndex, error)
-local _pendingLoad = nil         -- { slot, callback }
-local _pendingChar = nil         -- { action, callback }
-local _pendingMigrate = nil      -- function(success, message)
+--- 动作类型常量
+local ACTION_FETCH_SLOTS = "fetchSlots"
+local ACTION_LOAD        = "load"
+local ACTION_CHAR        = "char"
+local ACTION_MIGRATE     = "migrate"
+
+--- 统一 pending 表：actionType → { callback, meta, createdAt }
+--- meta 存放动作特有信息（如 slot、action 名）
+local _pending = {}
+
+--- 检查某类动作是否有 pending 请求
+---@param actionType string
+---@return boolean
+local function hasPending(actionType)
+    return _pending[actionType] ~= nil
+end
+
+--- 开始一个 pending 请求（single-flight reject：已有则返回 false）
+---@param actionType string
+---@param callback function
+---@param meta table|nil 动作特有元数据
+---@return boolean success 是否成功开始（false = 已有同类 pending，被拒绝）
+local function beginPending(actionType, callback, meta)
+    if _pending[actionType] then
+        Logger.warn("SaveSystemNet", "REJECT: " .. actionType
+            .. " already pending, refusing new request")
+        return false
+    end
+    _pending[actionType] = {
+        callback = callback,
+        meta = meta or {},
+        createdAt = os.clock(),
+    }
+    Logger.diag("SaveSystemNet", "beginPending: " .. actionType)
+    return true
+end
+
+--- 解决一个 pending 请求（成功或失败），返回其 callback 和 meta
+--- 如果无匹配 pending，返回 nil（晚到响应）
+---@param actionType string
+---@return function|nil callback
+---@return table|nil meta
+local function resolvePending(actionType)
+    local entry = _pending[actionType]
+    _pending[actionType] = nil
+    if not entry then
+        Logger.warn("SaveSystemNet", "LATE-RESPONSE: " .. actionType
+            .. " response arrived but no matching pending (ignored)")
+        return nil, nil
+    end
+    Logger.diag("SaveSystemNet", "resolvePending: " .. actionType
+        .. " (elapsed=" .. string.format("%.1f", os.clock() - entry.createdAt) .. "s)")
+    return entry.callback, entry.meta
+end
+
+--- 拒绝一个 pending 请求并通知旧回调（用于 ClearQueue 等场景）
+---@param actionType string
+---@param errorMsg string
+local function rejectPending(actionType, errorMsg)
+    local entry = _pending[actionType]
+    _pending[actionType] = nil
+    if entry and entry.callback then
+        Logger.warn("SaveSystemNet", "rejectPending: " .. actionType .. " reason=" .. errorMsg)
+        entry.callback(nil, errorMsg)
+    end
+end
+
+--- 暴露给测试：获取当前 pending 状态快照
+function SaveSystemNet._getPendingSnapshot()
+    local snapshot = {}
+    for k, v in pairs(_pending) do
+        snapshot[k] = { meta = v.meta, createdAt = v.createdAt }
+    end
+    return snapshot
+end
+
+--- 暴露给测试：重置所有状态
+function SaveSystemNet._resetForTest()
+    _pending = {}
+    _networkReady = false
+    _queuedFetchSlots = nil
+    _handlersSubscribed = false
+    _delayedTasks = {}
+end
 
 local _handlersSubscribed = false
 local _networkReady = false       -- ServerReady 是否已触发
@@ -157,7 +245,11 @@ function SaveSystemNet.FetchSlots(callback, _retryCount)
         return
     end
 
-    _pendingFetchSlots = callback
+    -- R2: single-flight reject
+    if not beginPending(ACTION_FETCH_SLOTS, callback) then
+        if callback then callback(nil, "FetchSlots already pending") end
+        return
+    end
 
     local data = VariantMap()
     serverConn:SendRemoteEvent(SaveProtocol.C2S_FetchSlots, true, data)
@@ -166,8 +258,9 @@ end
 
 --- S2C_SlotsData 处理
 function SaveSystemNet_HandleSlotsData(eventType, eventData)
-    local cb = _pendingFetchSlots
-    _pendingFetchSlots = nil
+    -- R2: 统一 resolvePending
+    local cb = resolvePending(ACTION_FETCH_SLOTS)
+    if not cb then return end  -- 晚到响应，已在 resolvePending 中记录 warn
 
     local ok = eventData["ok"]:GetBool()
 
@@ -175,7 +268,7 @@ function SaveSystemNet_HandleSlotsData(eventType, eventData)
         local message = nil
         pcall(function() message = eventData["message"]:GetString() end)
         Logger.error("SaveSystemNet", "FetchSlots failed: " .. tostring(message))
-        if cb then cb(nil, message or "FetchSlots failed") end
+        cb(nil, message or "FetchSlots failed")
         return
     end
 
@@ -270,7 +363,7 @@ function SaveSystemNet_HandleSlotsData(eventType, eventData)
         .. " slotCount=" .. slotCount)
     Logger.diag("SaveSystemNet", "DIAG slotsIndex=" .. tostring(slotsIndexJson))
     -- ====== END DIAGNOSTIC ======
-    if cb then cb(slotsIndex, nil) end
+    cb(slotsIndex, nil)
 end
 
 -- ============================================================================
@@ -285,11 +378,8 @@ end
 function SaveSystemNet.Load(slot, callback, _retryCount)
     SaveSystemNet.InitHandlers()
 
-    _pendingLoad = { slot = slot, callback = callback }
-
     local serverConn = network:GetServerConnection()
     if not serverConn then
-        _pendingLoad = nil
         -- 网络连接暂时不可用 → 自动重试
         local retries = _retryCount or 0
         if retries < MAX_RETRY then
@@ -308,6 +398,12 @@ function SaveSystemNet.Load(slot, callback, _retryCount)
         return
     end
 
+    -- R2: single-flight reject
+    if not beginPending(ACTION_LOAD, callback, { slot = slot }) then
+        if callback then callback(false, "Load already pending") end
+        return
+    end
+
     local data = VariantMap()
     data["slot"] = Variant(slot)
     serverConn:SendRemoteEvent(SaveProtocol.C2S_LoadGame, true, data)
@@ -316,9 +412,9 @@ end
 
 --- S2C_LoadResult 处理
 function SaveSystemNet_HandleLoadResult(eventType, eventData)
-    local pending = _pendingLoad
-    _pendingLoad = nil
-    if not pending then return end
+    -- R2: 统一 resolvePending
+    local cb, meta = resolvePending(ACTION_LOAD)
+    if not cb then return end  -- 晚到响应，已在 resolvePending 中记录 warn
 
     local SaveSystem = require("systems.SaveSystem")
     local ok = eventData["ok"]:GetBool()
@@ -328,11 +424,11 @@ function SaveSystemNet_HandleLoadResult(eventType, eventData)
         pcall(function() message = eventData["message"]:GetString() end)
         Logger.error("SaveSystemNet", "LoadGame failed: " .. tostring(message))
         SaveSystem.loaded = false
-        if pending.callback then pending.callback(false, message or "Load failed") end
+        cb(false, message or "Load failed")
         return
     end
 
-    local slot = pending.slot
+    local slot = meta.slot
 
     -- 解码服务端发送的 JSON 数据
     local saveDataJson = eventData["saveData"]:GetString()
@@ -340,7 +436,7 @@ function SaveSystemNet_HandleLoadResult(eventType, eventData)
     if not decodeOk or type(saveData) ~= "table" then
         Logger.error("SaveSystemNet", "LoadGame: saveData decode failed")
         SaveSystem.loaded = false
-        if pending.callback then pending.callback(false, "存档数据解码失败") end
+        cb(false, "存档数据解码失败")
         return
     end
 
@@ -355,7 +451,7 @@ function SaveSystemNet_HandleLoadResult(eventType, eventData)
     Logger.info("SaveSystemNet", "Inventory assembled from single-key network response")
 
     -- 交给 SaveSystem.ProcessLoadedData 处理（版本迁移 + 反序列化）
-    SaveSystem.ProcessLoadedData(slot, saveData, nil, pending.callback)
+    SaveSystem.ProcessLoadedData(slot, saveData, nil, cb)
     Logger.info("SaveSystemNet", "LoadGame ok: slot=" .. slot)
 end
 
@@ -373,12 +469,15 @@ end
 function SaveSystemNet.CreateCharacter(slot, charName, slotsIndex, callback, classId)
     SaveSystemNet.InitHandlers()
 
-    _pendingChar = { action = "create", callback = callback }
-
     local serverConn = network:GetServerConnection()
     if not serverConn then
-        _pendingChar = nil
         if callback then callback(false, "No server connection") end
+        return
+    end
+
+    -- R2: single-flight reject（create 和 delete 共享 char pending）
+    if not beginPending(ACTION_CHAR, callback, { action = "create" }) then
+        if callback then callback(false, "Character operation already pending") end
         return
     end
 
@@ -402,12 +501,15 @@ end
 function SaveSystemNet.DeleteCharacter(slot, slotsIndex, callback)
     SaveSystemNet.InitHandlers()
 
-    _pendingChar = { action = "delete", callback = callback }
-
     local serverConn = network:GetServerConnection()
     if not serverConn then
-        _pendingChar = nil
         if callback then callback(false, "No server connection") end
+        return
+    end
+
+    -- R2: single-flight reject（create 和 delete 共享 char pending）
+    if not beginPending(ACTION_CHAR, callback, { action = "delete" }) then
+        if callback then callback(false, "Character operation already pending") end
         return
     end
 
@@ -419,17 +521,18 @@ end
 
 --- S2C_CharResult 处理（创建和删除共用）
 function SaveSystemNet_HandleCharResult(eventType, eventData)
-    local pending = _pendingChar
-    _pendingChar = nil
-    if not pending then return end
+    -- R2: 统一 resolvePending
+    local cb, meta = resolvePending(ACTION_CHAR)
+    if not cb then return end  -- 晚到响应，已在 resolvePending 中记录 warn
 
+    local actionName = (meta and meta.action) or "char"
     local ok = eventData["ok"]:GetBool()
 
     if not ok then
         local message = nil
         pcall(function() message = eventData["message"]:GetString() end)
-        Logger.error("SaveSystemNet", pending.action .. " failed: " .. tostring(message))
-        if pending.callback then pending.callback(false, message or "Operation failed") end
+        Logger.error("SaveSystemNet", actionName .. " failed: " .. tostring(message))
+        cb(false, message or "Operation failed")
         return
     end
 
@@ -455,8 +558,8 @@ function SaveSystemNet_HandleCharResult(eventType, eventData)
         end
     end)
 
-    Logger.info("SaveSystemNet", pending.action .. " ok")
-    if pending.callback then pending.callback(true) end
+    Logger.info("SaveSystemNet", actionName .. " ok")
+    cb(true)
 end
 
 -- ============================================================================
@@ -469,16 +572,19 @@ end
 function SaveSystemNet.MigrateToServer(callback)
     SaveSystemNet.InitHandlers()
 
-    _pendingMigrate = callback
-
     -- clientCloud 是推荐 API，clientScore 是废弃别名（兼容旧引擎）
     local cloudApi = clientCloud or clientScore
     if not cloudApi then
         -- Phase 2（multiplayer.enabled=true）：clientCloud 不注入，这是正常路径
         -- 返回成功（无数据可迁移），由调用方继续尝试 MigrateFromLocalFile
         Logger.info("SaveSystemNet", "clientCloud/clientScore unavailable (Phase 2 normal), skipping clientCloud migration")
-        _pendingMigrate = nil
         if callback then callback(true, "no_client_cloud") end
+        return
+    end
+
+    -- R2: single-flight reject
+    if not beginPending(ACTION_MIGRATE, callback) then
+        if callback then callback(false, "Migration already pending") end
         return
     end
 
@@ -552,20 +658,17 @@ function SaveSystemNet.MigrateToServer(callback)
 
             if not hasData then
                 Logger.info("SaveSystemNet", "No clientScore data to migrate (truly new player)")
-                local cb = _pendingMigrate
-                _pendingMigrate = nil
-                -- 🔴 Bug fix: 明确返回 "no_data"，让调用方能区分"无数据"和"数据已迁移"
-                -- 之前返回 cb(true) 时 migErr=nil，导致 clientHadData 误判为 true
-                if cb then cb(true, "no_data") end
+                -- R2: 通过 resolvePending 统一清理
+                local migCb = resolvePending(ACTION_MIGRATE)
+                if migCb then migCb(true, "no_data") end
                 return
             end
 
             -- 发送迁移数据到服务端
             local serverConn = network:GetServerConnection()
             if not serverConn then
-                local cb = _pendingMigrate
-                _pendingMigrate = nil
-                if cb then cb(false, "No server connection") end
+                local migCb = resolvePending(ACTION_MIGRATE)
+                if migCb then migCb(false, "No server connection") end
                 return
             end
 
@@ -582,9 +685,9 @@ function SaveSystemNet.MigrateToServer(callback)
         end,
         error = function(code, reason)
             Logger.error("SaveSystemNet", "clientScore read failed: " .. tostring(reason))
-            local cb = _pendingMigrate
-            _pendingMigrate = nil
-            if cb then cb(false, "Failed to read clientScore: " .. tostring(reason)) end
+            -- R2: 通过 resolvePending 统一清理
+            local migCb = resolvePending(ACTION_MIGRATE)
+            if migCb then migCb(false, "Failed to read clientScore: " .. tostring(reason)) end
         end,
     })
 end
@@ -713,9 +816,10 @@ function SaveSystemNet.MigrateFromLocalFile(callback)
         return
     end
 
-    _pendingMigrate = function(ok, msg)
+    -- R2: single-flight reject
+    -- 包装回调：成功时删除本地文件
+    local wrappedCallback = function(ok, msg)
         if ok then
-            -- 迁移成功 → 删除本地文件
             for _, entry in ipairs(exportSlots) do
                 local filename = "save_export_" .. entry.slot .. ".json"
                 if fileSystem:FileExists(filename) then
@@ -725,6 +829,11 @@ function SaveSystemNet.MigrateFromLocalFile(callback)
             end
         end
         if callback then callback(ok, msg) end
+    end
+
+    if not beginPending(ACTION_MIGRATE, wrappedCallback) then
+        if callback then callback(false, "Migration already pending") end
+        return
     end
 
     local payloadJson = cjson.encode(payload)
@@ -739,18 +848,20 @@ end
 
 --- S2C_MigrateResult 处理
 function SaveSystemNet_HandleMigrateResult(eventType, eventData)
+    -- R2: 统一 resolvePending
+    local cb = resolvePending(ACTION_MIGRATE)
+    if not cb then return end  -- 晚到响应，已在 resolvePending 中记录 warn
+
     local ok = eventData["ok"]:GetBool()
-    local cb = _pendingMigrate
-    _pendingMigrate = nil
 
     if ok then
         Logger.info("SaveSystemNet", "Migration successful!")
-        if cb then cb(true) end
+        cb(true)
     else
         local message = nil
         pcall(function() message = eventData["message"]:GetString() end)
         Logger.error("SaveSystemNet", "Migration failed: " .. tostring(message))
-        if cb then cb(false, message or "Migration failed") end
+        cb(false, message or "Migration failed")
     end
 end
 
