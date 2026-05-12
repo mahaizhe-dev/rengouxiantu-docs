@@ -1,7 +1,8 @@
 -- ============================================================================
 -- TestRunner.lua — 测试执行器
 --
--- P0-1: 统一测试入口与最小 CI 门禁
+-- P0-1:  统一测试入口与最小 CI 门禁
+-- P0-1A: 测试门禁收口与运行环境固化
 --
 -- 职责:
 --   1. 根据 group 过滤测试
@@ -94,6 +95,7 @@ function TestRunner.Run(tests, opts)
         passed       = 0,
         failed       = 0,
         skipped      = 0,
+        executed     = 0,    -- P0-1A: 实际执行的测试数（passed + failed）
         failed_cases = {},
     }
 
@@ -123,6 +125,7 @@ function TestRunner.Run(tests, opts)
             if not pcallOk then
                 -- pcall 本身捕获到异常（语法错误、require 失败等）
                 results.failed = results.failed + 1
+                results.executed = results.executed + 1
                 local errMsg = tostring(execOk) -- pcall 第二返回值是错误信息
                 results.failed_cases[#results.failed_cases + 1] = {
                     id    = test.id,
@@ -132,6 +135,7 @@ function TestRunner.Run(tests, opts)
             elseif not execOk then
                 -- 测试执行成功但有子测试失败
                 results.failed = results.failed + 1
+                results.executed = results.executed + 1
                 results.failed_cases[#results.failed_cases + 1] = {
                     id    = test.id,
                     error = detail or "unknown",
@@ -140,6 +144,7 @@ function TestRunner.Run(tests, opts)
             else
                 -- 全部通过
                 results.passed = results.passed + 1
+                results.executed = results.executed + 1
                 print(string.format("[PASS] %s (%s)", test.id, detail or "ok"))
             end
         end
@@ -147,8 +152,8 @@ function TestRunner.Run(tests, opts)
 
     -- 打印汇总
     print("")
-    print(string.format("[SUMMARY] total=%d passed=%d failed=%d skipped=%d",
-        results.total, results.passed, results.failed, results.skipped))
+    print(string.format("[SUMMARY] total=%d executed=%d passed=%d failed=%d skipped=%d",
+        results.total, results.executed, results.passed, results.failed, results.skipped))
 
     if #results.failed_cases > 0 then
         print("")

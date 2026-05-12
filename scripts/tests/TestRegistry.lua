@@ -1,13 +1,20 @@
 -- ============================================================================
 -- TestRegistry.lua — 测试注册表
 --
--- P0-1: 统一测试入口与最小 CI 门禁
+-- P0-1:  统一测试入口与最小 CI 门禁
+-- P0-1A: 测试门禁收口与运行环境固化
+--
 -- 维护所有测试的元数据，供 TestRunner 消费
 --
 -- mode:
 --   "run_file"       — dofile 执行，文件须 return { passed, failed, total }
 --   "require_runall"  — require 后调 M.RunAll()，须返回 pass, fail
 --   "skip"           — 跳过，仅记录
+--
+-- gate（门禁分类，P0-1A 新增）:
+--   "blocking"       — 阻断门禁：默认门禁命令只跑这些，必须全绿
+--   "non_blocking"   — 非阻断：可显式执行，不影响门禁结果
+--   "known_red"      — 已知问题：已知失败，隔离出门禁，需跟踪修复
 -- ============================================================================
 
 local TestRegistry = {}
@@ -24,6 +31,7 @@ TestRegistry.tests = {
         path          = "scripts/tests/test_runner_smoke.lua",
         mode          = "run_file",
         enabled       = true,
+        gate          = "blocking",
         skip_reason   = nil,
     },
 
@@ -37,6 +45,7 @@ TestRegistry.tests = {
         path          = "scripts/tests/test_save_optimization.lua",
         mode          = "run_file",
         enabled       = true,
+        gate          = "blocking",
         skip_reason   = nil,
     },
 
@@ -46,6 +55,7 @@ TestRegistry.tests = {
         path          = "scripts/tests/test_prison_tower.lua",
         mode          = "run_file",
         enabled       = true,
+        gate          = "blocking",
         skip_reason   = nil,
     },
 
@@ -55,6 +65,7 @@ TestRegistry.tests = {
         path          = "scripts/tests/test_recycle_system.lua",
         mode          = "run_file",
         enabled       = true,
+        gate          = "blocking",
         skip_reason   = nil,
     },
 
@@ -69,6 +80,7 @@ TestRegistry.tests = {
         mode          = "skip",
         entry         = "tests.test_event_system",
         enabled       = false,
+        gate          = "non_blocking",
         skip_reason   = "engine_required: config.EventConfig, systems.EventSystem, systems.LootSystem",
     },
 
@@ -79,6 +91,7 @@ TestRegistry.tests = {
         mode          = "skip",
         entry         = "tests.test_target_selector",
         enabled       = false,
+        gate          = "non_blocking",
         skip_reason   = "engine_required: core.GameState, systems.combat.TargetSelector",
     },
 
@@ -89,6 +102,7 @@ TestRegistry.tests = {
         mode          = "skip",
         entry         = "tests.test_pre_damage_hooks",
         enabled       = false,
+        gate          = "non_blocking",
         skip_reason   = "engine_required: core.GameState (player.AddPreDamageHook)",
     },
 
@@ -99,6 +113,7 @@ TestRegistry.tests = {
         mode          = "skip",
         entry         = "tests.test_buff_skill_callbacks",
         enabled       = false,
+        gate          = "non_blocking",
         skip_reason   = "engine_required: config.SkillData",
     },
 
@@ -109,6 +124,7 @@ TestRegistry.tests = {
         mode          = "skip",
         entry         = "tests.test_p1p2p3_refactor",
         enabled       = false,
+        gate          = "non_blocking",
         skip_reason   = "engine_required: systems.SkillSystem, config.SkillData, systems.CombatSystem",
     },
 
@@ -119,6 +135,7 @@ TestRegistry.tests = {
         mode          = "skip",
         entry         = "tests.test_challenge_fabao",
         enabled       = false,
+        gate          = "non_blocking",
         skip_reason   = "engine_required: config.GameConfig, config.EquipmentData, systems.ChallengeSystem",
     },
 
@@ -129,6 +146,7 @@ TestRegistry.tests = {
         mode          = "skip",
         entry         = "tests.test_batch_consumable",
         enabled       = false,
+        gate          = "non_blocking",
         skip_reason   = "engine_required: config.GameConfig, core.GameState, systems.InventorySystem",
     },
 
@@ -139,6 +157,7 @@ TestRegistry.tests = {
         mode          = "skip",
         entry         = "tests.test_dao_question",
         enabled       = false,
+        gate          = "non_blocking",
         skip_reason   = "engine_required: systems.DaoQuestionSystem",
     },
 
@@ -149,6 +168,7 @@ TestRegistry.tests = {
         mode          = "skip",
         entry         = "tests.test_p0_regression",
         enabled       = false,
+        gate          = "non_blocking",
         skip_reason   = "engine_required: systems.ArtifactSystem_tiandi, core.EventBus, network.RedeemHandler",
     },
 
@@ -159,6 +179,7 @@ TestRegistry.tests = {
         mode          = "skip",
         entry         = "tests.test_p1_regression",
         enabled       = false,
+        gate          = "non_blocking",
         skip_reason   = "engine_required: systems.InventorySystem, core.GameState, cache:GetFile",
     },
 
@@ -169,6 +190,7 @@ TestRegistry.tests = {
         mode          = "skip",
         entry         = "tests.test_hit_resolver",
         enabled       = false,
+        gate          = "non_blocking",
         skip_reason   = "engine_required: config.GameConfig, systems.combat.HitResolver",
     },
 
@@ -179,6 +201,7 @@ TestRegistry.tests = {
         mode          = "skip",
         entry         = "tests.test_combo_runner",
         enabled       = false,
+        gate          = "non_blocking",
         skip_reason   = "engine_required: core.GameState, systems.combat.ComboRunner, systems.CombatSystem",
     },
 
@@ -189,6 +212,7 @@ TestRegistry.tests = {
         mode          = "skip",
         entry         = "tests.test_battle_pipeline_regression",
         enabled       = false,
+        gate          = "non_blocking",
         skip_reason   = "engine_required: config.GameConfig, core.EventBus, systems.combat.BattleContracts",
     },
 
@@ -199,6 +223,7 @@ TestRegistry.tests = {
         mode          = "skip",
         entry         = "tests.c4c5_server_test",
         enabled       = false,
+        gate          = "non_blocking",
         skip_reason   = "engine_required: server-only, needs sCloud/serverCloud async runtime",
     },
 }
@@ -224,6 +249,39 @@ function TestRegistry.GetEnabled()
     local result = {}
     for _, t in ipairs(TestRegistry.tests) do
         if t.enabled then
+            result[#result + 1] = t
+        end
+    end
+    return result
+end
+
+--- 返回阻断门禁测试（gate == "blocking"）
+function TestRegistry.GetBlocking()
+    local result = {}
+    for _, t in ipairs(TestRegistry.tests) do
+        if t.gate == "blocking" then
+            result[#result + 1] = t
+        end
+    end
+    return result
+end
+
+--- 返回已知问题测试（gate == "known_red"）
+function TestRegistry.GetKnownRed()
+    local result = {}
+    for _, t in ipairs(TestRegistry.tests) do
+        if t.gate == "known_red" then
+            result[#result + 1] = t
+        end
+    end
+    return result
+end
+
+--- 按 gate 值过滤
+function TestRegistry.GetByGate(gate)
+    local result = {}
+    for _, t in ipairs(TestRegistry.tests) do
+        if t.gate == gate then
             result[#result + 1] = t
         end
     end

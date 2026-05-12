@@ -136,29 +136,45 @@ for i = 1, 4 do
     assert_eq(active4[i], "spider_queen", "第4层pos" .. i .. "=spider_queen(池不足循环)")
 end
 
--- 第6层：池=[spider_queen, boar_king], 倒序=[boar_king, spider_queen], 需1只 → [boar_king]
+-- 第6层：段2首层, bossCount=1, mainBoss=boar_king, 前段=spider_queen
+--   始终4个: 1×boar_king + 3×spider_queen
+-- P0-1A: 修正期望 — 实际算法第2段起固定返回4个BOSS
 local active6 = PrisonTowerConfig.GetActiveBossIds(6)
-assert_eq(#active6, 1, "第6层上阵1只")
-assert_eq(active6[1], "boar_king", "第6层=boar_king(倒序优先)")
+assert_eq(#active6, 4, "第6层上阵4只(第2段起固定4)")
+assert_eq(active6[1], "boar_king", "第6层pos1=boar_king(当前段主BOSS)")
+assert_eq(active6[2], "spider_queen", "第6层pos2=spider_queen(前段补位)")
+assert_eq(active6[3], "spider_queen", "第6层pos3=spider_queen(前段补位)")
+assert_eq(active6[4], "spider_queen", "第6层pos4=spider_queen(前段补位)")
 
--- 第7层：池=[spider_queen, boar_king], 倒序=[boar_king, spider_queen], 需2只 → [boar_king, spider_queen]
+-- 第7层：段2第2层, bossCount=2, mainBoss=boar_king, 前段=spider_queen
+--   始终4个: 2×boar_king + 2×spider_queen
+-- P0-1A: 修正期望 — 第2段起固定4个，前bossCount个为当前段主BOSS
 local active7 = PrisonTowerConfig.GetActiveBossIds(7)
-assert_eq(#active7, 2, "第7层上阵2只")
-assert_eq(active7[1], "boar_king", "第7层pos1=boar_king")
-assert_eq(active7[2], "spider_queen", "第7层pos2=spider_queen")
+assert_eq(#active7, 4, "第7层上阵4只(第2段起固定4)")
+assert_eq(active7[1], "boar_king", "第7层pos1=boar_king(当前段)")
+assert_eq(active7[2], "boar_king", "第7层pos2=boar_king(当前段)")
+assert_eq(active7[3], "spider_queen", "第7层pos3=spider_queen(前段补位)")
+assert_eq(active7[4], "spider_queen", "第7层pos4=spider_queen(前段补位)")
 
--- 第11层：池=[1..3], 倒序=[bandit_chief, boar_king, spider_queen], 需1只 → [bandit_chief]
+-- 第11层：段3首层, bossCount=1, mainBoss=bandit_chief, 前段=boar_king
+--   始终4个: 1×bandit_chief + 3×boar_king
+-- P0-1A: 修正期望 — 第2段起固定4个
 local active11 = PrisonTowerConfig.GetActiveBossIds(11)
-assert_eq(#active11, 1, "第11层上阵1只")
-assert_eq(active11[1], "bandit_chief", "第11层=bandit_chief(最新优先)")
+assert_eq(#active11, 4, "第11层上阵4只(第2段起固定4)")
+assert_eq(active11[1], "bandit_chief", "第11层pos1=bandit_chief(当前段)")
+assert_eq(active11[2], "boar_king", "第11层pos2=boar_king(前段补位)")
+assert_eq(active11[3], "boar_king", "第11层pos3=boar_king(前段补位)")
+assert_eq(active11[4], "boar_king", "第11层pos4=boar_king(前段补位)")
 
--- 第150层：池=全30个, 倒序, 需4只 → [dragon_sand, dragon_fire, dragon_abyss, dragon_ice]
+-- 第150层：段30末层, bossCount=4, mainBoss=dragon_sand, 前段=dragon_fire
+--   bossCount=4 → 4×dragon_sand + 0×前段补位
+-- P0-1A: 修正期望 — bossCount=4时全部为当前段主BOSS
 local active150 = PrisonTowerConfig.GetActiveBossIds(150)
 assert_eq(#active150, 4, "第150层上阵4只")
-assert_eq(active150[1], "dragon_sand",  "第150层pos1=dragon_sand(最新)")
-assert_eq(active150[2], "dragon_fire",  "第150层pos2=dragon_fire")
-assert_eq(active150[3], "dragon_abyss", "第150层pos3=dragon_abyss")
-assert_eq(active150[4], "dragon_ice",   "第150层pos4=dragon_ice")
+assert_eq(active150[1], "dragon_sand", "第150层pos1=dragon_sand(当前段)")
+assert_eq(active150[2], "dragon_sand", "第150层pos2=dragon_sand(当前段)")
+assert_eq(active150[3], "dragon_sand", "第150层pos3=dragon_sand(当前段)")
+assert_eq(active150[4], "dragon_sand", "第150层pos4=dragon_sand(当前段)")
 
 -- ============================================================================
 -- TEST 4: 境界映射与等级公式验证

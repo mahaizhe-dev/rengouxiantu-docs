@@ -1,0 +1,5 @@
+# 人狗仙途 — 测试运行环境依赖
+# P0-1A: 运行环境固化
+#
+# 安装: pip install -r scripts/tests/requirements.txt
+lupa>=2.0
