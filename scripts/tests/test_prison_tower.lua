@@ -586,8 +586,9 @@ print(string.rep("=", 60))
 
 if failed > 0 then
     print("\n  *** " .. failed .. " TEST(S) FAILED ***\n")
-    os.exit(1)
 else
     print("\n  ALL TESTS PASSED\n")
-    os.exit(0)
 end
+
+-- TestRunner 导出（P0-1: 统一测试入口）
+return { passed = passed, failed = failed, total = totalTests }

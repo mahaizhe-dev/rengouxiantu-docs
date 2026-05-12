@@ -935,3 +935,6 @@ if failed > 0 then
 else
     print("全部通过")
 end
+
+-- TestRunner 导出（P0-1: 统一测试入口）
+return { passed = passed, failed = failed, total = totalTests }

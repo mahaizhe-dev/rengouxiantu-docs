@@ -1007,3 +1007,6 @@ print("")
 print("不可脚本化（需要手动/真实环境）:")
 print("  会话崩溃恢复: 需真实 App 崩溃 → 重启检查存档完整性")
 print("  slot_locked 真实验证: 需双客户端同时写同一槽位")
+
+-- TestRunner 导出（P0-1: 统一测试入口）
+return { passed = passed, failed = failed, total = totalTests }
