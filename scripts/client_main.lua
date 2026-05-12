@@ -12,6 +12,7 @@
 --   - background_match：Start() 立即调用，serverConn 稍后通过 ServerReady 就绪
 -- ============================================================================
 
+local FeatureFlags = require("config.FeatureFlags")
 local SaveProtocol = require("network.SaveProtocol")
 local CloudStorage = require("network.CloudStorage")
 local GameConfig = require("config.GameConfig")

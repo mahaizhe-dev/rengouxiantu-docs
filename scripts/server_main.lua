@@ -9,6 +9,7 @@
 --   5. 版本握手（检查客户端 CODE_VERSION）
 -- ============================================================================
 
+local FeatureFlags = require("config.FeatureFlags")
 local SaveProtocol = require("network.SaveProtocol")
 local GameConfig = require("config.GameConfig")
 local DungeonConfig = require("config.DungeonConfig")
@@ -112,6 +113,15 @@ end
 -- ============================================================================
 
 function Start()
+    -- P0-2: 启动时输出功能开关快照
+    do
+        local snap = FeatureFlags.snapshot()
+        local parts = {}
+        for k, v in pairs(snap) do parts[#parts + 1] = k .. "=" .. tostring(v) end
+        table.sort(parts)
+        print("[FeatureFlags][Server] snapshot: " .. table.concat(parts, ", "))
+    end
+
     print("[Server-BOOT] Start() called at " .. tostring(os.time and os.time() or "?"))
     SampleStart()
 

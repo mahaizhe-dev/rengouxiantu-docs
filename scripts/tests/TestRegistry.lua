@@ -69,6 +69,16 @@ TestRegistry.tests = {
         skip_reason   = nil,
     },
 
+    {
+        id            = "feature_flags",
+        group         = "config",
+        path          = "scripts/tests/test_feature_flags.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
     ---------------------------------------------------------------------------
     -- engine_required: 依赖引擎运行时，第一版标记 skip
     ---------------------------------------------------------------------------

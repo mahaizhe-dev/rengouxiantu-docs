@@ -7,6 +7,7 @@ local UI = require("urhox-libs/UI")
 local InputManager = require("urhox-libs.Platform.InputManager")
 
 -- 游戏模块
+local FeatureFlags = require("config.FeatureFlags")
 local GameConfig = require("config.GameConfig")
 local EventConfig = require("config.EventConfig")
 local MonsterData = require("config.MonsterData")
@@ -206,6 +207,15 @@ end
 --- 游戏主逻辑初始化（供 client_main.lua 网络模式调用）
 --- 单机模式下由 Start() 直接调用
 function GameStart()
+    -- P0-2: 启动时输出功能开关快照
+    do
+        local snap = FeatureFlags.snapshot()
+        local parts = {}
+        for k, v in pairs(snap) do parts[#parts + 1] = k .. "=" .. tostring(v) end
+        table.sort(parts)
+        print("[FeatureFlags] snapshot: " .. table.concat(parts, ", "))
+    end
+
     -- 防御性初始化随机种子（Lua 5.4 会自动 seed，此处确保一致性）
     math.randomseed(os.time and os.time() or os.clock())
 
