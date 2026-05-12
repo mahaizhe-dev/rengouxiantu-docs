@@ -20,6 +20,7 @@
 local SaveProtocol = require("network.SaveProtocol")
 local CloudStorage = require("network.CloudStorage")
 local GameConfig = require("config.GameConfig")
+local MigrationPolicy = require("network.MigrationPolicy")
 
 ---@diagnostic disable-next-line: undefined-global
 local cjson = cjson
@@ -238,17 +239,29 @@ function SaveSystemNet_HandleSlotsData(eventType, eventData)
         end
     end
 
-    -- [已废弃] 迁移逻辑已正式关闭
-    -- clientCloud → serverCloud 和 local_file → serverCloud 迁移不再触发
-    -- 已迁移玩家不受影响：其 serverCloud 已有数据（needMigration=false）、本地导出文件已删除
-    if needMigration then
-        print("[SaveSystemNet] needMigration=true but migration is DEPRECATED, treating as new player")
-    end
-
     -- 正常路径
     local slotCount = 0
     if slotsIndex.slots then for _ in pairs(slotsIndex.slots) do slotCount = slotCount + 1 end end
     print("[SaveSystemNet] FetchSlots ok: " .. slotCount .. " slots")
+
+    -- P0-4: 迁移状态统一判断（由 MigrationPolicy 收口）
+    local migrationState = MigrationPolicy.Evaluate(needMigration, slotCount)
+    if migrationState then
+        -- flag=true: 走统一入口
+        print("[SaveSystemNet] MigrationPolicy: " .. MigrationPolicy.GetStateLabel(migrationState))
+        if MigrationPolicy.ShouldAutoMigrate(migrationState) then
+            -- 当前不会进入此分支（迁移已废弃），保留扩展点
+            print("[SaveSystemNet] MigrationPolicy: auto-migrate triggered (state=" .. migrationState .. ")")
+        end
+    else
+        -- flag=false: 保持原有行为
+        -- [已废弃] 迁移逻辑已正式关闭
+        -- clientCloud → serverCloud 和 local_file → serverCloud 迁移不再触发
+        -- 已迁移玩家不受影响：其 serverCloud 已有数据（needMigration=false）、本地导出文件已删除
+        if needMigration then
+            print("[SaveSystemNet] needMigration=true but migration is DEPRECATED, treating as new player")
+        end
+    end
 
     -- ====== DIAGNOSTIC: 存档丢失排查 ======
     print("[SaveSystemNet] DIAG userId=" .. tostring(userIdStr)

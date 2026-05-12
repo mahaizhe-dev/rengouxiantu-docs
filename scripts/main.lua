@@ -14,6 +14,7 @@ local MonsterData = require("config.MonsterData")
 local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
 local CloudStorage = require("network.CloudStorage")  -- P1-SAVE-2: Tick 超时清理
+local MigrationPolicy = require("network.MigrationPolicy")  -- P0-4: 迁移状态统一判断
 local Utils = require("core.Utils")
 local Player = require("entities.Player")
 local Pet = require("entities.Pet")
@@ -272,8 +273,10 @@ function GameStart()
 
     -- 7. PC(WASM) 平台迁移拦截：检查 clientCloud 标记，无备份则禁止进入
     -- Phase 2（multiplayer.enabled=true）时 clientCloud 为 nil，跳过整段拦截
+    -- P0-4: 当 SAVE_MIGRATION_SINGLE_ENTRY=true 时，由 MigrationPolicy 统一判断是否需要 PC 拦截
     local platform = GetPlatform()
-    if clientCloud and (platform == "Web" or platform == "Windows") then
+    local pcMigrationNeeded = MigrationPolicy.IsPCMigrationCheckNeeded()
+    if pcMigrationNeeded and clientCloud and (platform == "Web" or platform == "Windows") then
         -- 先显示全屏遮罩阻止操作，等待 clientCloud 查询结果
         local blockOverlay = UI.Panel {
             id = "pcMigrationBlock",

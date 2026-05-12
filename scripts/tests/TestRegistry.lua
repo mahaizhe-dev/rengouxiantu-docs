@@ -99,6 +99,16 @@ TestRegistry.tests = {
         skip_reason   = nil,
     },
 
+    {
+        id            = "migration_state_policy",
+        group         = "save",
+        path          = "scripts/tests/test_migration_state_policy.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
     ---------------------------------------------------------------------------
     -- engine_required: 依赖引擎运行时，第一版标记 skip
     ---------------------------------------------------------------------------
