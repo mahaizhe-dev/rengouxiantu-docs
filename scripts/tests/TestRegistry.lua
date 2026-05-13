@@ -169,6 +169,16 @@ TestRegistry.tests = {
         skip_reason   = nil,
     },
 
+    {
+        id            = "bm_s3_handle_sell_integration",
+        group         = "system",
+        path          = "scripts/tests/test_bm_s3_handle_sell_integration.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
     ---------------------------------------------------------------------------
     -- R3: 服务壳契约测试
     ---------------------------------------------------------------------------
