@@ -82,10 +82,21 @@ end
 -- P1-SAVE-2: 回调超时清理
 local CALLBACK_TIMEOUT = 30  -- 秒
 
+-- N1: 延迟任务队列（由 CloudStorage.Tick() 驱动）
+local _delayedTasks = {}  -- { { deadline = os.clock()+delay, fn = function } }
+
+--- 注册延迟执行任务（仅 CloudStorage 内部使用）
+---@param delaySec number
+---@param fn function
+local function ScheduleDelayedLocal(delaySec, fn)
+    table.insert(_delayedTasks, { deadline = os.clock() + delaySec, fn = fn })
+end
+
 --- 定期调用，清理超时的 pending 回调（防止内存泄漏）
 --- 由外部 Update 循环每隔一段时间调用
 function CloudStorage.Tick()
     local now = os.clock()
+    -- P1-SAVE-2: 回调超时清理
     for id, entry in pairs(_pendingCallbacks) do
         if now - entry.registeredAt > CALLBACK_TIMEOUT then
             Logger.warn("CloudStorage", "TIMEOUT: callback id=" .. id .. " expired after " .. CALLBACK_TIMEOUT .. "s")
@@ -96,6 +107,20 @@ function CloudStorage.Tick()
                     Logger.error("CloudStorage", "TIMEOUT callback error: " .. tostring(err))
                 end
             end
+        end
+    end
+    -- N1: 驱动延迟任务队列
+    local i = 1
+    while i <= #_delayedTasks do
+        if now >= _delayedTasks[i].deadline then
+            local fn = _delayedTasks[i].fn
+            table.remove(_delayedTasks, i)
+            local ok, err = pcall(fn)
+            if not ok then
+                Logger.error("CloudStorage", "Delayed task error: " .. tostring(err))
+            end
+        else
+            i = i + 1
         end
     end
 end
@@ -477,9 +502,25 @@ function CloudStorage.GetRankList(key, start, count, events, ...)
     if serverConn then
         serverConn:SendRemoteEvent(SaveProtocol.C2S_GetRankList, true, eventData)
     else
-        Logger.error("CloudStorage", "No server connection for GetRankList")
-        if events and events.error then
-            events.error(-1, "No server connection")
+        -- N1: 只读请求容错 — unstable 状态下延迟 2s 重试（最多 1 次）
+        local NetworkStatus = require("network.NetworkStatus")
+        local retryCount = events and events._n1RetryCount or 0
+        if NetworkStatus.IsUnstable() and not NetworkStatus.IsDisconnected() and retryCount < 1 then
+            Logger.warn("CloudStorage", "GetRankList: no conn but unstable, retry in 2s (attempt " .. (retryCount + 1) .. ")")
+            -- 取消已注册的回调（将在重试中重新注册）
+            if requestId then
+                _pendingCallbacks[requestId] = nil
+            end
+            -- 标记重试次数，防止无限循环
+            if events then events._n1RetryCount = (retryCount + 1) end
+            ScheduleDelayedLocal(2.0, function()
+                CloudStorage.GetRankList(key, start, count, events, table.unpack(extraKeys))
+            end)
+        else
+            Logger.error("CloudStorage", "No server connection for GetRankList")
+            if events and events.error then
+                events.error(-1, "No server connection")
+            end
         end
     end
 end

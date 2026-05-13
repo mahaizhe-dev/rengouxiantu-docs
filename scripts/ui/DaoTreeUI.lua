@@ -45,6 +45,12 @@ local DAILY_LIMIT = 3
 ---@param eventName string
 ---@param fields table
 local function SendToServer(eventName, fields)
+    -- N1: 持续断连时阻断高风险操作
+    local NetworkStatus = require("network.NetworkStatus")
+    if NetworkStatus.IsDisconnected() then
+        print("[DaoTreeUI] Blocked by sustained disconnect: " .. eventName)
+        return false
+    end
     local serverConn = network:GetServerConnection()
     if not serverConn then
         print("[DaoTreeUI] No server connection")

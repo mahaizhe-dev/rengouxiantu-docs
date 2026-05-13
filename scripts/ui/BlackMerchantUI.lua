@@ -128,6 +128,14 @@ local C = {
 ---@param eventName string
 ---@param fields table|nil
 local function SendToServer(eventName, fields)
+    -- N1: 持续断连时阻断高风险操作
+    local NetworkStatus = require("network.NetworkStatus")
+    if NetworkStatus.IsDisconnected() then
+        print("[BlackMerchantUI] Blocked by sustained disconnect: " .. eventName)
+        pendingRequest_ = false
+        return false
+    end
+
     -- 节流：0.5s 内不重复发送（使用引擎计时器，os.clock 在 WASM 下可能返回 0）
     local now = time.elapsedTime
     if now - lastSendTime_ < THROTTLE_INTERVAL then

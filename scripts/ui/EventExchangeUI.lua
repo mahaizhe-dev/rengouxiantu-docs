@@ -74,6 +74,13 @@ local statusKeepUntil_ = 0
 -- ============================================================================
 
 local function SendToServer(eventName, fields)
+    -- N1: 持续断连时阻断高风险操作
+    local NetworkStatus = require("network.NetworkStatus")
+    if NetworkStatus.IsDisconnected() then
+        print("[EventExchangeUI] Blocked by sustained disconnect: " .. eventName)
+        return false
+    end
+
     local now = time.elapsedTime  -- os.clock() 在 WASM 下可能返回 0
     if now - lastSendTime_ < THROTTLE_INTERVAL then
         print("[EventExchangeUI] Throttled: " .. eventName .. " now=" .. tostring(now) .. " last=" .. tostring(lastSendTime_))

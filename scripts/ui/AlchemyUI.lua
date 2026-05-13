@@ -98,6 +98,12 @@ local function SendBuyPill(pillId, callback)
         print("[AlchemyUI] SendBuyPill: already pending for " .. pillId .. ", ignoring")
         return
     end
+    -- N1: 持续断连时阻断高风险 C2S 操作
+    local NetworkStatus = require("network.NetworkStatus")
+    if NetworkStatus.IsDisconnected() then
+        print("[AlchemyUI] SendBuyPill blocked by sustained disconnect: " .. pillId)
+        return
+    end
     local SaveProtocol = require("network.SaveProtocol")
     local serverConn = network:GetServerConnection()
     if not serverConn then

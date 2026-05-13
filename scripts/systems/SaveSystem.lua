@@ -8,6 +8,7 @@ local GameConfig = require("config.GameConfig")
 local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
 local CloudStorage = require("network.CloudStorage")
+local NetworkStatus = require("network.NetworkStatus")
 
 -- SaveState 返回的共享表 = SaveSystem 表本身
 -- 所有子模块通过 SS 引用同一张表来读写运行时状态
@@ -42,6 +43,7 @@ function SaveSystem.Init()
     SaveSystem._connCheckTimer = 0
     SaveSystem._lastConnState = true
     SaveSystem._disconnected = false
+    NetworkStatus.Reset()
     SaveSystem._dirty = false
     SaveSystem._lastSaveTime = 0
     -- 注意：_cachedSlotsIndex 和 _cachedCharName 由 CharacterSelectScreen 设置，
@@ -86,18 +88,21 @@ function SaveSystem.Update(dt)
     if not SaveSystem.loaded then return end
     if not SaveSystem.activeSlot then return end
 
-    -- W1: 连接状态轮询（每 5s 检测一次，仅网络模式）
+    -- W1: 连接状态轮询（每 3s 采样，N1: 连续失败阈值+恢复滞回）
     if CloudStorage.IsNetworkMode() then
         SaveSystem._connCheckTimer = SaveSystem._connCheckTimer + dt
-        if SaveSystem._connCheckTimer >= 5 then
+        if SaveSystem._connCheckTimer >= 3 then
+            local elapsed = SaveSystem._connCheckTimer
             SaveSystem._connCheckTimer = 0
             local connected = network:GetServerConnection() ~= nil
-            if connected ~= SaveSystem._lastConnState then
-                SaveSystem._lastConnState = connected
-                if not connected then
-                    EventBus.Emit("connection_lost")
-                else
-                    EventBus.Emit("connection_restored")
+            local event = NetworkStatus.RecordSample(connected, elapsed)
+            if event then
+                EventBus.Emit(event)
+                -- 兼容已有逻辑：同步 _disconnected / _lastConnState
+                if event == "connection_lost" then
+                    SaveSystem._lastConnState = false
+                elseif event == "connection_restored" then
+                    SaveSystem._lastConnState = true
                 end
             end
         end

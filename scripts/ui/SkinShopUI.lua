@@ -77,6 +77,12 @@ local SEND_COOLDOWN = 0.5
 ---@param fields table|nil
 ---@return boolean
 local function SendToServer(eventName, fields)
+    -- N1: 持续断连时阻断高风险操作
+    local NetworkStatus = require("network.NetworkStatus")
+    if NetworkStatus.IsDisconnected() then
+        print("[SkinShopUI] Blocked by sustained disconnect: " .. eventName)
+        return false
+    end
     local serverConn = network.serverConnection
     if not serverConn then
         print("[SkinShopUI] no server connection")

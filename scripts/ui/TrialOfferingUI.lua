@@ -152,6 +152,16 @@ local function BuildOfferingPanel(npc)
                 self:SetText("领取中...")
                 self:SetStyle({ backgroundColor = {100, 100, 110, 200} })
 
+                -- N1: 持续断连时阻断高风险操作
+                local NetworkStatus = require("network.NetworkStatus")
+                if NetworkStatus.IsDisconnected() then
+                    print("[TrialOfferingUI] Blocked by sustained disconnect")
+                    claimingAt_ = 0
+                    self:SetDisabled(false)
+                    self:SetText("网络中断")
+                    self:SetStyle({ backgroundColor = {80, 80, 90, 200} })
+                    return
+                end
                 -- 发送 C2S 请求到服务端
                 local serverConn = network:GetServerConnection()
                 if serverConn then

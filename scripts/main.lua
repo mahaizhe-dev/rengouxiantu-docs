@@ -988,39 +988,113 @@ function InitGame(classId)
         print("[Main] save_warning_clear: save succeeded, warnings cleared")
     end)
 
-    -- W1: 断线感知横幅 — 持续显示直到连接恢复
+    -- W1: 分层网络状态提示（N1 升级）
+    -- 层级1: connection_unstable → 底部轻横幅（短暂波动）
+    -- 层级2: connection_lost → 全屏阻断弹窗（持续断连）
+    -- connection_restored → 清除所有提示
     ---@type table|nil
     local disconnectBanner_ = nil
+    ---@type table|nil
+    local disconnectOverlay_ = nil
 
-    EventBus.On("connection_lost", function()
+    local function ShowUnstableBanner()
         if disconnectBanner_ or not uiRoot_ then return end
         disconnectBanner_ = UI.Panel {
             id = "disconnectBanner",
             position = "absolute",
             bottom = 0, left = 0, right = 0,
             height = 32,
-            backgroundColor = {200, 60, 20, 220},
+            backgroundColor = {200, 150, 20, 220},
             justifyContent = "center",
             alignItems = "center",
             zIndex = 2500,
             children = {
                 UI.Label {
-                    text = "网络连接已断开，存档已暂停...",
+                    text = "网络波动中，请稍候...",
                     fontSize = 14,
                     fontColor = {255, 255, 255, 255},
                 },
             },
         }
         uiRoot_:AddChild(disconnectBanner_)
-        print("[Main] Disconnect banner shown")
-    end)
+    end
 
-    EventBus.On("connection_restored", function()
+    local function ShowDisconnectOverlay()
+        if disconnectOverlay_ or not uiRoot_ then return end
+        -- 升级横幅为红色
         if disconnectBanner_ then
             uiRoot_:RemoveChild(disconnectBanner_)
             disconnectBanner_ = nil
-            print("[Main] Disconnect banner hidden")
         end
+        disconnectOverlay_ = UI.Panel {
+            id = "disconnectOverlay",
+            position = "absolute",
+            top = 0, left = 0, right = 0, bottom = 0,
+            backgroundColor = {0, 0, 0, 180},
+            justifyContent = "center",
+            alignItems = "center",
+            zIndex = 9000,
+            children = {
+                UI.Panel {
+                    width = 300, height = 200,
+                    backgroundColor = {40, 40, 50, 240},
+                    borderRadius = 12,
+                    justifyContent = "center",
+                    alignItems = "center",
+                    paddingTop = 20, paddingBottom = 20,
+                    paddingLeft = 20, paddingRight = 20,
+                    children = {
+                        UI.Label {
+                            text = "网络连接已中断",
+                            fontSize = 20,
+                            fontColor = {255, 80, 60, 255},
+                            marginBottom = 12,
+                        },
+                        UI.Label {
+                            text = "当前进度可能无法同步\n高风险操作已暂停",
+                            fontSize = 14,
+                            fontColor = {220, 220, 220, 255},
+                            marginBottom = 16,
+                            textAlign = "center",
+                        },
+                        UI.Label {
+                            text = "请检查网络后重新连接\n或重新登录游戏",
+                            fontSize = 13,
+                            fontColor = {180, 180, 180, 255},
+                            textAlign = "center",
+                        },
+                    },
+                },
+            },
+        }
+        uiRoot_:AddChild(disconnectOverlay_)
+    end
+
+    local function ClearAllDisconnectUI()
+        if disconnectBanner_ then
+            uiRoot_:RemoveChild(disconnectBanner_)
+            disconnectBanner_ = nil
+        end
+        if disconnectOverlay_ then
+            uiRoot_:RemoveChild(disconnectOverlay_)
+            disconnectOverlay_ = nil
+        end
+    end
+
+    EventBus.On("connection_unstable", function()
+        if disconnectOverlay_ then return end  -- 已经在阻断状态，不降级
+        ShowUnstableBanner()
+        print("[Main] Network unstable banner shown")
+    end)
+
+    EventBus.On("connection_lost", function()
+        ShowDisconnectOverlay()
+        print("[Main] Disconnect overlay shown (sustained disconnect)")
+    end)
+
+    EventBus.On("connection_restored", function()
+        ClearAllDisconnectUI()
+        print("[Main] All disconnect UI cleared (connection restored)")
     end)
 
     print("[Main] Game initialized!")

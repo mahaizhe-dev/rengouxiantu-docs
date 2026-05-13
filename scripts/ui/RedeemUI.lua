@@ -83,6 +83,15 @@ end
 -- ============================================================================
 
 local function SendRedeemRequest(code)
+    -- N1: 持续断连时阻断高风险操作
+    local NetworkStatus = require("network.NetworkStatus")
+    if NetworkStatus.IsDisconnected() then
+        print("[RedeemUI] Blocked by sustained disconnect")
+        statusLabel_:SetText("网络中断，请稍后再试")
+        statusLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        pending_ = false
+        return
+    end
     local serverConn = network:GetServerConnection()
     if not serverConn then
         statusLabel_:SetText("无服务器连接")
