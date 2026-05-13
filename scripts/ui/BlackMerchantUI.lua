@@ -479,7 +479,10 @@ local function BuildItemCard(itemId)
 
     local maxStock = cfg.max_stock or BMConfig.MAX_STOCK
     local canBuy = realmOk_ and stock > 0 and xianshi_ >= buyPrice
-    local canSell = realmOk_ and held > 0 and stock < maxStock
+    -- BM-S4B: 消耗品整类禁售 — 只要存在锁定堆叠，整个 itemId 禁止卖出
+    local isEquipItem = cfg.itemType == "equipment"
+    local hasLockedStacks = (not isEquipItem) and InventorySystem.HasAnyLockedConsumable(itemId) or false
+    local canSell = realmOk_ and held > 0 and stock < maxStock and (not hasLockedStacks)
 
     local nameText = cfg.name
     if cfg.isBoss then
@@ -605,12 +608,17 @@ local function BuildItemCard(itemId)
                         end,
                     },
                     UI.Button {
-                        text = "出售",
+                        text = hasLockedStacks and "🔒锁定" or "出售",
                         width = 48, height = 26,
                         fontSize = 11, fontWeight = "bold",
                         borderRadius = T.radius.sm,
                         backgroundColor = canSell and C.sellBtnColor or C.disabledBtn,
                         onClick = function()
+                            -- BM-S4B: 整类禁售实时检查（items_ 可能在构建后更新）
+                            if not isEquipItem and InventorySystem.HasAnyLockedConsumable(itemId) then
+                                SetStatus(TradeLock.LOCK_MESSAGE, C.textError, 3)
+                                return
+                            end
                             local d = items_[itemId] or {}
                             local curHeld = d.held or 0
                             local curStock = d.stock or 0

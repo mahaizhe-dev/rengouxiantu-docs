@@ -182,6 +182,24 @@ function M.GenerateBatchId()
     return string.format("bm_%d_%d", os.time(), math.random(1000, 9999))
 end
 
+--- 判断指定消耗品是否存在任何锁定堆叠（整类禁售判定）
+--- BM-S4B: 只要有一个堆叠被锁，整个 consumableId 禁止卖出
+---@param getItemFn fun(i: number): table|nil
+---@param maxSlots number
+---@param consumableId string
+---@return boolean hasLocked 是否存在锁定堆叠
+function M.HasAnyLockedConsumable(getItemFn, maxSlots, consumableId)
+    for i = 1, maxSlots do
+        local item = getItemFn(i)
+        if item and item.category == "consumable" and item.consumableId == consumableId then
+            if M.IsLocked(item) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 --- 计算指定消耗品的未锁定数量（客户端用）
 ---@param getItemFn fun(i: number): table|nil
 ---@param maxSlots number

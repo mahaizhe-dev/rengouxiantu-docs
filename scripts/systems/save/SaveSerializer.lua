@@ -348,10 +348,9 @@ function SaveSerializer.SerializeItemFull(item)
         petExp = item.petExp,
         isSkillBook = item.isSkillBook,
         bookTier = item.bookTier,
-        -- BM-S4A: 交易保护锁字段
-        bmLockUntil = item.bmLockUntil,
-        bmLockSource = item.bmLockSource,
-        bmLockBatchId = item.bmLockBatchId,
+        -- BM-S4B: 交易保护锁字段不落盘（锁为临时态，存档成功即清除）
+        -- bmLockUntil / bmLockSource / bmLockBatchId 故意省略
+        -- 见 BlackMarketTradeLock.ClearAllOnSaveSuccess()
     }
 end
 

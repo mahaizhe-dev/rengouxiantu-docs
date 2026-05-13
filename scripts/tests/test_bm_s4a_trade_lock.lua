@@ -410,9 +410,9 @@ end)
 -- H. SaveSerializer 锁字段持久化验证
 -- ============================================================================
 
-print("  --- H. SaveSerializer 锁字段持久化 ---")
+print("  --- H. SaveSerializer 锁字段剥离验证（BM-S4B 反转） ---")
 
--- 直接加载 SaveSerializer 并验证 SerializeItemFull 保留锁字段
+-- 直接加载 SaveSerializer 并验证 SerializeItemFull 剥离锁字段
 local _serModules = {
     "systems.save.SaveSerializer",
     "systems.save.SaveState",
@@ -428,24 +428,28 @@ end
 local serOk, SaveSerializer = pcall(require, "systems.save.SaveSerializer")
 
 if serOk and SaveSerializer and SaveSerializer.SerializeItemFull then
-    test("H1: SerializeItemFull preserves bmLockUntil", function()
+    test("H1: SerializeItemFull strips bmLock* fields (BM-S4B)", function()
         local item = {
             id = "test_item", name = "Test", category = "consumable",
             consumableId = "herb_01", count = 5,
             bmLockUntil = 1700000000, bmLockSource = "black_market", bmLockBatchId = "bm_123_456",
         }
         local serialized = SaveSerializer.SerializeItemFull(item)
-        assertEqual(serialized.bmLockUntil, 1700000000)
-        assertEqual(serialized.bmLockSource, "black_market")
-        assertEqual(serialized.bmLockBatchId, "bm_123_456")
+        -- BM-S4B: 锁字段不落盘，序列化结果中不应存在
+        assertEqual(serialized.bmLockUntil, nil, "bmLockUntil should be stripped")
+        assertEqual(serialized.bmLockSource, nil, "bmLockSource should be stripped")
+        assertEqual(serialized.bmLockBatchId, nil, "bmLockBatchId should be stripped")
     end)
 
-    test("H2: SerializeItemFull omits nil lock fields", function()
+    test("H2: SerializeItemFull preserves non-lock fields normally", function()
         local item = {
             id = "test_item", name = "Test", category = "consumable",
             consumableId = "herb_02", count = 3,
         }
         local serialized = SaveSerializer.SerializeItemFull(item)
+        assertEqual(serialized.id, "test_item")
+        assertEqual(serialized.consumableId, "herb_02")
+        assertEqual(serialized.count, 3)
         assertEqual(serialized.bmLockUntil, nil)
         assertEqual(serialized.bmLockSource, nil)
         assertEqual(serialized.bmLockBatchId, nil)

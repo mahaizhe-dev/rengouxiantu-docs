@@ -772,6 +772,18 @@ function InventorySystem.CountUnlockedConsumable(consumableId)
     )
 end
 
+--- BM-S4B: 判断指定消耗品是否存在任何锁定堆叠（整类禁售）
+---@param consumableId string
+---@return boolean
+function InventorySystem.HasAnyLockedConsumable(consumableId)
+    if not manager_ then return false end
+    return TradeLock.HasAnyLockedConsumable(
+        function(i) return manager_:GetInventoryItem(i) end,
+        GameConfig.BACKPACK_SIZE,
+        consumableId
+    )
+end
+
 --- 消耗指定数量的消耗品
 --- BM-S4A: 仅消耗未锁定的堆叠，锁定堆叠跳过
 ---@param consumableId string
