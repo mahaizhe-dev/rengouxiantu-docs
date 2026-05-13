@@ -16,6 +16,7 @@ local InventorySystem = require("systems.InventorySystem")
 local FormatUtils = require("utils.FormatUtils")
 local LootSystem = require("systems.LootSystem")
 local IconUtils = require("utils.IconUtils")
+local WarehouseSystem = require("systems.WarehouseSystem")  -- HOTFIX-BM-01
 local cjson = cjson or require("cjson") ---@diagnostic disable-line: undefined-global
 
 local BlackMerchantUI = {}
@@ -376,6 +377,12 @@ local function ShowConfirmDialog(action, itemId)
                                             SendBuy(itemId, 1)
                                             SetStatus("购买中...", C.xianshiColor)
                                         else
+                                            -- HOTFIX-BM-01: 仓库未同步时拦截卖出
+                                            if WarehouseSystem.IsDirty() then
+                                                SetStatus("仓库数据同步中，请稍后再试", C.textError, 3)
+                                                print("[BlackMerchantUI] SELL BLOCKED: warehouse dirty")
+                                                return
+                                            end
                                             SendSell(itemId, 1)
                                             SetStatus("出售中...", C.xianshiColor)
                                         end
@@ -1528,6 +1535,8 @@ function BlackMerchantUI_HandleBMResult(eventType, eventData)
         EventBus.Emit("save_request")
         SetStatus("购入 " .. itemName .. " ×" .. amount, C.textSuccess)
     else
+        -- HOTFIX-BM-01: 跟踪本地扣除是否成功
+        local localDeductOk = false
         if isEquip then
             -- 按 equipId 匹配移除装备（不论附魔/洗练状态）
             local manager = InventorySystem.GetManager()
@@ -1542,12 +1551,21 @@ function BlackMerchantUI_HandleBMResult(eventType, eventData)
                         remaining = remaining - 1
                     end
                 end
+                localDeductOk = (remaining <= 0)
             end
         else
-            InventorySystem.ConsumeConsumable(itemId, amount)
+            localDeductOk = InventorySystem.ConsumeConsumable(itemId, amount)
         end
-        EventBus.Emit("save_request")
-        SetStatus("售出 " .. itemName .. " ×" .. amount, C.textSuccess)
+        -- HOTFIX-BM-01: 本地扣除失败 → 不请求保存（防止仓库副本覆盖服务端已扣数据）
+        if localDeductOk then
+            EventBus.Emit("save_request")
+            SetStatus("售出 " .. itemName .. " ×" .. amount, C.textSuccess)
+        else
+            print("[BlackMerchantUI] WARNING: sell ok but local deduct FAILED for "
+                .. tostring(itemId) .. " x" .. tostring(amount)
+                .. " — save_request SUPPRESSED to prevent warehouse duplication")
+            SetStatus("售出成功，但本地同步异常，请重新加载", C.textError, 5)
+        end
     end
 
     RefreshCurrency()

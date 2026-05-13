@@ -10,6 +10,11 @@ local EventBus = require("core.EventBus")
 
 local WarehouseSystem = {}
 
+-- ── HOTFIX-BM-01: 仓库脏标记（未同步状态显式语义） ──
+-- true = 仓库自上次成功存档后发生过变更，服务端 saveData 尚未反映本地仓库/背包真实状态
+-- 黑市卖出前读此标记来决定是否拦截
+WarehouseSystem._dirty = false
+
 -- ── 运行时数据（GameState 上挂载） ──
 -- GameState.warehouse = {
 --     unlockedRows = 1,             -- 已解锁排数
@@ -24,6 +29,22 @@ function WarehouseSystem.Init()
             items = {},
         }
     end
+end
+
+--- HOTFIX-BM-01: 查询仓库是否处于未同步状态
+---@return boolean
+function WarehouseSystem.IsDirty()
+    return WarehouseSystem._dirty == true
+end
+
+--- HOTFIX-BM-01: 手动标记脏（供测试或外部调用）
+function WarehouseSystem.MarkDirty()
+    WarehouseSystem._dirty = true
+end
+
+--- HOTFIX-BM-01: 清除脏标记（存档成功或加载时调用）
+function WarehouseSystem.ClearDirty()
+    WarehouseSystem._dirty = false
 end
 
 --- 获取已解锁排数
@@ -83,8 +104,10 @@ function WarehouseSystem.StoreItem(bagSlot)
     GameState.warehouse.items[targetSlot] = item
     mgr:SetInventoryItem(bagSlot, nil)
 
+    WarehouseSystem._dirty = true  -- HOTFIX-BM-01: 标记未同步
     EventBus.Emit("warehouse_changed")
     EventBus.Emit("inventory_changed")
+    EventBus.Emit("save_request")  -- HOTFIX-BM-01: 仓库操作后即时请求存档
     print("[Warehouse] Store item '" .. (item.name or "?") .. "' bag#" .. bagSlot .. " -> wh#" .. targetSlot)
     return true, nil
 end
@@ -114,8 +137,10 @@ function WarehouseSystem.StoreItemToSlot(bagSlot, whSlot)
     GameState.warehouse.items[whSlot] = item
     mgr:SetInventoryItem(bagSlot, nil)
 
+    WarehouseSystem._dirty = true  -- HOTFIX-BM-01: 标记未同步
     EventBus.Emit("warehouse_changed")
     EventBus.Emit("inventory_changed")
+    EventBus.Emit("save_request")  -- HOTFIX-BM-01: 仓库操作后即时请求存档
     return true, nil
 end
 
@@ -145,8 +170,10 @@ function WarehouseSystem.RetrieveItem(whSlot)
     mgr:SetInventoryItem(targetSlot, item)
     GameState.warehouse.items[whSlot] = nil
 
+    WarehouseSystem._dirty = true  -- HOTFIX-BM-01: 标记未同步
     EventBus.Emit("warehouse_changed")
     EventBus.Emit("inventory_changed")
+    EventBus.Emit("save_request")  -- HOTFIX-BM-01: 仓库操作后即时请求存档
     print("[Warehouse] Retrieve item '" .. (item.name or "?") .. "' wh#" .. whSlot .. " -> bag#" .. targetSlot)
     return true, nil
 end
@@ -174,8 +201,10 @@ function WarehouseSystem.UnlockNextRow()
     player.gold = player.gold - cost
     wh.unlockedRows = nextRow
 
+    WarehouseSystem._dirty = true  -- HOTFIX-BM-01: 标记未同步
     EventBus.Emit("warehouse_changed")
     EventBus.Emit("gold_changed")
+    EventBus.Emit("save_request")  -- HOTFIX-BM-01: 仓库操作后即时请求存档
     print("[Warehouse] Unlocked row " .. nextRow .. ", cost " .. cost .. " gold")
     return true, nil
 end
@@ -266,5 +295,20 @@ function WarehouseSystem.Deserialize(data)
 
     print("[Warehouse] Deserialized: " .. (data.unlockedRows or 1) .. " rows unlocked")
 end
+
+-- ============================================================================
+-- HOTFIX-BM-01: 存档事件订阅 — 清除脏标记
+-- ============================================================================
+EventBus.On("game_saved", function()
+    if WarehouseSystem._dirty then
+        WarehouseSystem._dirty = false
+        print("[Warehouse] Dirty flag cleared (game_saved)")
+    end
+end)
+
+EventBus.On("game_loaded", function()
+    WarehouseSystem._dirty = false
+    print("[Warehouse] Dirty flag cleared (game_loaded)")
+end)
 
 return WarehouseSystem

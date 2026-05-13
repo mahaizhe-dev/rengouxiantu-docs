@@ -129,6 +129,16 @@ TestRegistry.tests = {
         skip_reason   = nil,
     },
 
+    {
+        id            = "bm_warehouse_consistency",
+        group         = "system",
+        path          = "scripts/tests/test_bm_warehouse_consistency.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
     ---------------------------------------------------------------------------
     -- engine_required: 依赖引擎运行时，第一版标记 skip
     ---------------------------------------------------------------------------
