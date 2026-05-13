@@ -61,8 +61,21 @@ end
 print("\n[test_bm_s2_unified_sync_gate] === BM-S2 统一黑市未同步门禁测试 ===\n")
 
 -- ============================================================================
--- Stubs
+-- Stubs（设置前保存原始 package.loaded，测试结束后恢复）
 -- ============================================================================
+
+local _stubModules = {
+    "core.EventBus", "core.GameState",
+    "config.GameConfig", "config.EquipmentData", "config.BlackMerchantConfig",
+    "systems.SkillSystem", "systems.WineSystem", "config.WarehouseConfig",
+    "urhox-libs/UI",
+    "systems.BlackMarketSyncState", "systems.save.SaveSession",
+    "systems.WarehouseSystem", "systems.InventorySystem",
+}
+local _origPackageLoaded = {}
+for _, k in ipairs(_stubModules) do
+    _origPackageLoaded[k] = package.loaded[k]  -- nil is fine, means "not loaded"
+end
 
 -- EventBus stub: 追踪事件发射和允许手动触发回调
 local _eventHandlers = {}
@@ -440,5 +453,12 @@ end)
 -- ============================================================================
 
 print("\n[test_bm_s2_unified_sync_gate] " .. passed .. "/" .. total .. " passed, " .. failed .. " failed\n")
+
+-- ============================================================================
+-- Cleanup: 恢复 package.loaded，避免污染后续测试
+-- ============================================================================
+for _, k in ipairs(_stubModules) do
+    package.loaded[k] = _origPackageLoaded[k]
+end
 
 return { passed = passed, failed = failed, total = total }
