@@ -1,15 +1,15 @@
 -- ============================================================================
 -- test_bm_s3_handle_sell_integration.lua
--- BM-S3R 真实 HandleSell() 拒绝路径集成测试
+-- BM-S3R / BM-S4A HandleSell() 拒绝路径集成测试
 --
--- 验证 HandleSell() 被 SellGuard 拒绝时的服务端副作用：
---   I1. 高风险商品 → HandleSell 返回错误
+-- 验证 HandleSell() 在持有量不足 / 锁态保护时的服务端副作用：
+--   I1. 高风险商品 → HandleSell 返回错误（BM-S4A: 锁态校验替代 SellGuard 全拦截）
 --   I2. 拒绝时不调用 MoneyAdd(userId, "xianshi", ...)
 --   I3. 拒绝时不调用 TradeLogger.LogPublic(..., "sell", ...)
 --   I4. 拒绝时 sellActive_ 锁正确释放
---   I5. 拒绝时返回明确错误消息"该商品暂不支持出售"
+--   I5. 拒绝时返回明确错误消息"持有量不足"（BM-S4A: backpack 为空时）
 --   I6. 所有分类的高风险商品均触发相同拒绝行为
---   I7. 自动回收路径 grep 验证 — SellGuard 未被 RecycleTick 引用
+--   I7. BM-S4A 锁态校验需读取存档（触发 ServerGetSlotData）
 --
 -- 测试方法：构造 stub serverCloud / connection / eventData / Session / TradeLogger，
 -- 直接调用 HandleSell() 并断言副作用。
@@ -151,6 +151,8 @@ function stubBackpackUtils.RemoveFromBackpack(backpack, itemId, amount) end
 function stubBackpackUtils.CountEquipmentItem(backpack, equipId) return 0 end
 function stubBackpackUtils.AddEquipmentToBackpack(backpack, equip) end
 function stubBackpackUtils.RemoveEquipmentFromBackpack(backpack, equipId, amount) end
+-- BM-S4A: 新增锁态计数，返回 0 表示无可卖出的未锁定堆叠
+function stubBackpackUtils.CountUnlockedItem(backpack, consumableId) return 0 end
 
 package.loaded["network.BackpackUtils"] = stubBackpackUtils
 
@@ -400,7 +402,7 @@ test("I4: 拒绝时 sellActive_ 锁正确释放（可再次调用）", function(
     assertTrue(reason ~= "操作过于频繁", "should not be rate limited on second call")
 end)
 
-test("I5: 拒绝时返回明确错误消息'该商品暂不支持出售'", function()
+test("I5: 拒绝时返回明确错误消息'持有量不足'（BM-S4A 锁态校验替代 SellGuard）", function()
     resetSpyLog()
     local ed = makeEventData({
         consumableId = "sha_hai_ling_box",
@@ -411,7 +413,8 @@ test("I5: 拒绝时返回明确错误消息'该商品暂不支持出售'", funct
     local sendCall = findSpyCall("SafeSend")
     assertTrue(sendCall ~= nil, "should have SafeSend call")
     local respData = sendCall.args[2]
-    assertEqual(respData["reason"], "该商品暂不支持出售", "error message")
+    -- BM-S4A: backpack 为空 → held=0 < amount → reason="持有量不足"
+    assertEqual(respData["reason"], "持有量不足", "error message")
 end)
 
 test("I6: 多分类高风险商品均触发相同拒绝行为", function()
@@ -460,7 +463,7 @@ test("I6: 多分类高风险商品均触发相同拒绝行为", function()
     end
 end)
 
-test("I7: 拒绝时不触发 ServerGetSlotData（不读取存档）", function()
+test("I7: BM-S4A 锁态校验需读取存档（触发 ServerGetSlotData）", function()
     resetSpyLog()
     local ed = makeEventData({
         consumableId = "dragon_scale_abyss",
@@ -468,11 +471,10 @@ test("I7: 拒绝时不触发 ServerGetSlotData（不读取存档）", function()
     })
     Handler.HandleSell("C2S_BMSell", ed)
 
-    -- SellGuard 在步骤 2.5 拦截，不应走到步骤 4 的 ServerGetSlotData
-    -- 注意：warmUpRealmCache 会调用 ServerGetSlotData，但我们在这里
-    -- resetSpyLog 后再调 HandleSell，所以只有 HandleSell 的调用会被记录
+    -- BM-S4A: SellGuard 全拦截已移除，锁态校验在步骤 4.5（读取存档后），
+    -- 因此 ServerGetSlotData 会被调用
     local slotCall = findSpyCall("ServerGetSlotData")
-    assertEqual(slotCall, nil, "ServerGetSlotData should NOT be called after SellGuard rejection")
+    assertTrue(slotCall ~= nil, "ServerGetSlotData should be called for lock check (BM-S4A)")
 end)
 
 test("I8: 拒绝时不触发 BatchCommit", function()

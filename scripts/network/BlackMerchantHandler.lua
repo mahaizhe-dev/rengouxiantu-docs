@@ -13,6 +13,7 @@ local TradeLogger = require("network.BlackMerchantTradeLogger")
 local BackpackUtils = require("network.BackpackUtils")
 local LootSystem = require("systems.LootSystem")
 local SellGuard = require("network.BlackMarketSellGuard")
+local TradeLock = require("systems.BlackMarketTradeLock")
 
 local cjson = cjson ---@diagnostic disable-line: undefined-global
 
@@ -411,6 +412,9 @@ function M.HandleBuy(eventType, eventData)
                                 local oldHeld = CountItemHeld(backpack, consumableId)
                                 -- 装备类：逐件创建初始状态装备放入背包
                                 -- 消耗品类：堆叠放入
+                                -- BM-S4A: 为本次购入生成批次 ID
+                                local batchId = TradeLock.GenerateBatchId()
+
                                 if isEquip then
                                     for _ = 1, amount do
                                         local newEquip = LootSystem.CreateSpecialEquipment(cfg.equipId)
@@ -421,6 +425,22 @@ function M.HandleBuy(eventType, eventData)
                                 else
                                     AddToBackpack(backpack, consumableId, amount, cfg.name)
                                 end
+
+                                -- BM-S4A: 为刚购入的堆叠写入保护锁
+                                -- 标记所有匹配 consumableId 且尚未锁定的堆叠
+                                -- （AddToBackpack 只向未锁定堆叠合并或创建新堆叠，所以未锁定即为本次新增/合入的）
+                                if not isEquip then
+                                    for i = 1, BackpackUtils.MAX_BACKPACK_SLOTS do
+                                        local key = tostring(i)
+                                        local bpItem = backpack[key]
+                                        if bpItem and bpItem.category == "consumable"
+                                            and bpItem.consumableId == consumableId
+                                            and not TradeLock.IsLockedServerSide(bpItem) then
+                                            TradeLock.ApplyLock(bpItem, batchId)
+                                        end
+                                    end
+                                end
+
                                 saveData.backpack = backpack
 
                                 local charName = (saveData.player and saveData.player.charName)
@@ -544,16 +564,9 @@ function M.HandleSell(eventType, eventData)
         return
     end
 
-    -- 2.5 BM-S3: 服务端卖出权威校验 — 高风险商品一律拒卖
-    local sellAllowed, guardReason = SellGuard.CheckSellAllowed(consumableId)
-    if not sellAllowed then
-        sellActive_[connKey] = nil
-        print("[BlackMerchant][Sell] BLOCKED by SellGuard: userId=" .. tostring(userId)
-            .. " id=" .. consumableId .. " reason=" .. tostring(guardReason))
-        SendError(connection, SaveProtocol.S2C_BlackMerchantResult,
-            "该商品暂不支持出售")
-        return
-    end
+    -- 2.5 BM-S4A: 卖出前置白名单校验（SellGuard 保留为后备，优先使用锁态检查）
+    -- SellGuard 的全拦截已被 BM-S4A 锁机制替代，此处不再调用
+    -- 实际的锁态校验在读取存档后进行（见下方 §4.5）
 
     -- 3. amount 校验
     if not amount or amount < 1 then
@@ -578,10 +591,20 @@ function M.HandleSell(eventType, eventData)
         local isEquip = cfg.itemType == "equipment"
         local held = CountItemHeld(backpack, consumableId)
 
-        if held < amount then
+        -- BM-S4A §4.5: 服务端锁态校验 — 只允许卖出未锁定的堆叠
+        local unlockedHeld
+        if isEquip then
+            unlockedHeld = held  -- 装备不参与锁机制
+        else
+            unlockedHeld = BackpackUtils.CountUnlockedItem(backpack, consumableId)
+        end
+
+        if unlockedHeld < amount then
             sellActive_[connKey] = nil
-            SendError(connection, SaveProtocol.S2C_BlackMerchantResult,
-                "持有量不足")
+            local reason = (held >= amount)
+                and "部分商品处于交易保护期，请稍后再试"
+                or "持有量不足"
+            SendError(connection, SaveProtocol.S2C_BlackMerchantResult, reason)
             return
         end
 

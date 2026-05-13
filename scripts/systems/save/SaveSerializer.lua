@@ -348,6 +348,10 @@ function SaveSerializer.SerializeItemFull(item)
         petExp = item.petExp,
         isSkillBook = item.isSkillBook,
         bookTier = item.bookTier,
+        -- BM-S4A: 交易保护锁字段
+        bmLockUntil = item.bmLockUntil,
+        bmLockSource = item.bmLockSource,
+        bmLockBatchId = item.bmLockBatchId,
     }
 end
 

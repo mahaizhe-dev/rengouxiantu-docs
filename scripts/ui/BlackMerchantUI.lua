@@ -18,6 +18,7 @@ local LootSystem = require("systems.LootSystem")
 local IconUtils = require("utils.IconUtils")
 local WarehouseSystem = require("systems.WarehouseSystem")  -- HOTFIX-BM-01
 local BlackMarketSyncState = require("systems.BlackMarketSyncState")  -- BM-S2: 统一门禁
+local TradeLock = require("systems.BlackMarketTradeLock")  -- BM-S4A: 交易保护锁
 local cjson = cjson or require("cjson") ---@diagnostic disable-line: undefined-global
 
 local BlackMerchantUI = {}
@@ -392,6 +393,17 @@ local function ShowConfirmDialog(action, itemId)
                                                 SetStatus("背包数据未同步，请稍后再试", C.textError, 3)
                                                 print("[BlackMerchantUI] SELL BLOCKED: " .. tostring(reason))
                                                 return
+                                            end
+                                            -- BM-S4A: 交易保护锁门禁 — 检查未锁定物品是否足够
+                                            local cfgLock = BMConfig.ITEMS[itemId]
+                                            local isEquipLock = cfgLock and cfgLock.itemType == "equipment"
+                                            if not isEquipLock then
+                                                local unlocked = InventorySystem.CountUnlockedConsumable(itemId)
+                                                if unlocked < 1 then
+                                                    SetStatus(TradeLock.LOCK_MESSAGE, C.textError, 3)
+                                                    print("[BlackMerchantUI] SELL BLOCKED by TradeLock: " .. tostring(itemId))
+                                                    return
+                                                end
                                             end
                                             SendSell(itemId, 1)
                                             SetStatus("出售中...", C.xianshiColor)
@@ -1541,6 +1553,19 @@ function BlackMerchantUI_HandleBMResult(eventType, eventData)
             end
         else
             InventorySystem.AddConsumable(itemId, amount)
+            -- BM-S4A: 买入后为本地新增消耗品加锁
+            local batchId = TradeLock.GenerateBatchId()
+            local mgr = InventorySystem.GetManager()
+            if mgr then
+                for i = 1, GameConfig.BACKPACK_SIZE do
+                    local bpItem = mgr:GetInventoryItem(i)
+                    if bpItem and bpItem.category == "consumable"
+                        and bpItem.consumableId == itemId
+                        and not TradeLock.IsLocked(bpItem) then
+                        TradeLock.ApplyLock(bpItem, batchId)
+                    end
+                end
+            end
         end
         EventBus.Emit("save_request")
         SetStatus("购入 " .. itemName .. " ×" .. amount, C.textSuccess)

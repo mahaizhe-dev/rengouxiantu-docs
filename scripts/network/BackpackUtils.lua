@@ -5,6 +5,8 @@
 -- 使用方：BlackMerchantHandler、EventHandler 等需要操作存档背包的模块
 -- ============================================================================
 
+local TradeLock = require("systems.BlackMarketTradeLock")
+
 local BackpackUtils = {}
 
 BackpackUtils.MAX_BACKPACK_SLOTS = 60  -- 与 GameConfig.BACKPACK_SIZE 一致（bag1: 1-30, bag2: 31-60）
@@ -40,21 +42,24 @@ end
 ---@return integer remaining 未能放入的剩余数量（0 = 全部放入）
 function BackpackUtils.AddToBackpack(backpack, consumableId, amount, itemName)
     local remaining = amount
-    -- 先堆叠到已有槽位
+    -- 先堆叠到已有槽位（BM-S4A: 跳过锁定堆叠，新物品不合并进锁定堆叠）
     for i = 1, BackpackUtils.MAX_BACKPACK_SLOTS do
         if remaining <= 0 then break end
         local key = tostring(i)
         local item = backpack[key]
         if item and item.category == "consumable" and item.consumableId == consumableId then
-            local cur = item.count or 1
-            if cur < BackpackUtils.MAX_STACK then
-                local space = BackpackUtils.MAX_STACK - cur
-                if remaining <= space then
-                    item.count = cur + remaining
-                    remaining = 0
-                else
-                    item.count = BackpackUtils.MAX_STACK
-                    remaining = remaining - space
+            -- BM-S4A: 锁定堆叠不接受新的未锁定物品合并
+            if not TradeLock.IsLockedServerSide(item) then
+                local cur = item.count or 1
+                if cur < BackpackUtils.MAX_STACK then
+                    local space = BackpackUtils.MAX_STACK - cur
+                    if remaining <= space then
+                        item.count = cur + remaining
+                        remaining = 0
+                    else
+                        item.count = BackpackUtils.MAX_STACK
+                        remaining = remaining - space
+                    end
                 end
             end
         end
@@ -94,17 +99,38 @@ function BackpackUtils.RemoveFromBackpack(backpack, consumableId, amount)
         local key = tostring(i)
         local item = backpack[key]
         if item and item.category == "consumable" and item.consumableId == consumableId then
-            local cur = item.count or 1
-            if cur <= remaining then
-                backpack[key] = nil
-                remaining = remaining - cur
-            else
-                item.count = cur - remaining
-                remaining = 0
+            -- BM-S4A: 跳过锁定堆叠
+            if not TradeLock.IsLockedServerSide(item) then
+                local cur = item.count or 1
+                if cur <= remaining then
+                    backpack[key] = nil
+                    remaining = remaining - cur
+                else
+                    item.count = cur - remaining
+                    remaining = 0
+                end
             end
         end
     end
     return remaining
+end
+
+--- BM-S4A: 统计指定消耗品的未锁定数量（服务端用）
+---@param backpack table|nil
+---@param consumableId string
+---@return integer unlocked 未锁定的总数量
+function BackpackUtils.CountUnlockedItem(backpack, consumableId)
+    if not backpack then return 0 end
+    local total = 0
+    for _, item in pairs(backpack) do
+        if type(item) == "table"
+            and item.category == "consumable"
+            and item.consumableId == consumableId
+            and not TradeLock.IsLockedServerSide(item) then
+            total = total + (item.count or 1)
+        end
+    end
+    return total
 end
 
 -- ============================================================================

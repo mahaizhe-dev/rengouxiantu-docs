@@ -7,6 +7,7 @@ local GameConfig = require("config.GameConfig")
 local EquipmentData = require("config.EquipmentData")
 local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
+local TradeLock = require("systems.BlackMarketTradeLock")
 
 local InventorySystem = {}
 
@@ -187,18 +188,31 @@ function InventorySystem.SortBackpack()
     end
 
     -- 合并同类消耗品堆叠（受 MAX_STACK_COUNT 限制）
+    -- BM-S4A: 锁定堆叠与未锁定堆叠不合并，不同批次锁定堆叠也不合并
     local MAX_STACK = GameConfig.MAX_STACK_COUNT
-    local merged = {}       -- consumableId → { item1, item2, ... } 合并后的堆叠列表
+    local mergeGroups = {}  -- mergeKey → { item1, item2, ... } 合并后的堆叠列表
     local result = {}       -- 最终物品列表
+
+    --- 生成合并分组键：consumableId + 锁状态 + 批次
+    local function getMergeKey(item)
+        local cId = item.consumableId
+        if TradeLock.IsLocked(item) then
+            local batch = item.bmLockBatchId or "_nobatch_"
+            return cId .. "|locked|" .. batch
+        else
+            return cId .. "|unlocked"
+        end
+    end
+
     for _, item in ipairs(items) do
         if item.category == "consumable" and item.consumableId then
-            local cId = item.consumableId
-            if not merged[cId] then
-                merged[cId] = {}
+            local key = getMergeKey(item)
+            if not mergeGroups[key] then
+                mergeGroups[key] = {}
             end
             -- 尝试塞入已有的未满堆叠
             local placed = false
-            for _, stack in ipairs(merged[cId]) do
+            for _, stack in ipairs(mergeGroups[key]) do
                 if stack.count < MAX_STACK then
                     local space = MAX_STACK - stack.count
                     local move = math.min(item.count or 1, space)
@@ -226,7 +240,7 @@ function InventorySystem.SortBackpack()
                         newItem.id = require("core.Utils").NextId()
                     end
                     newItem.count = stackAmt
-                    table.insert(merged[cId], newItem)
+                    table.insert(mergeGroups[key], newItem)
                     remaining = remaining - stackAmt
                 end
             end
@@ -235,7 +249,7 @@ function InventorySystem.SortBackpack()
         end
     end
     -- 将合并后的消耗品堆叠加入结果
-    for _, stacks in pairs(merged) do
+    for _, stacks in pairs(mergeGroups) do
         for _, stack in ipairs(stacks) do
             result[#result + 1] = stack
         end
@@ -598,27 +612,32 @@ function InventorySystem.AddConsumable(consumableId, amount)
 
     local MAX_STACK = GameConfig.MAX_STACK_COUNT  -- 9999
 
-    -- 查找已有的未满堆叠
+    -- 查找已有的未满堆叠（BM-S4A: 跳过锁定堆叠，新物品不合并进锁定堆叠）
     for i = 1, GameConfig.BACKPACK_SIZE do
         local item = manager_:GetInventoryItem(i)
         if item and item.category == "consumable" and item.consumableId == consumableId then
-            local cur = item.count or 1
-            if cur < MAX_STACK then
-                local space = MAX_STACK - cur
-                if amount <= space then
-                    -- 当前堆叠能装下全部
-                    item.count = cur + amount
-                    EventBus.Emit("inventory_item_added", item, i)
-                    return true, originalAmount
-                else
-                    -- 填满当前堆叠，剩余溢出到新堆叠
-                    item.count = MAX_STACK
-                    amount = amount - space
-                    EventBus.Emit("inventory_item_added", item, i)
-                    -- 继续循环查找下一个未满堆叠
+            -- BM-S4A: 锁定堆叠不接受新的未锁定物品合并
+            if TradeLock.IsLocked(item) then
+                -- skip locked stack
+            else
+                local cur = item.count or 1
+                if cur < MAX_STACK then
+                    local space = MAX_STACK - cur
+                    if amount <= space then
+                        -- 当前堆叠能装下全部
+                        item.count = cur + amount
+                        EventBus.Emit("inventory_item_added", item, i)
+                        return true, originalAmount
+                    else
+                        -- 填满当前堆叠，剩余溢出到新堆叠
+                        item.count = MAX_STACK
+                        amount = amount - space
+                        EventBus.Emit("inventory_item_added", item, i)
+                        -- 继续循环查找下一个未满堆叠
+                    end
                 end
             end
-            -- 此堆叠已满，继续查找下一个
+            -- 此堆叠已满或锁定，继续查找下一个
         end
     end
 
@@ -680,15 +699,30 @@ function InventorySystem.CountConsumable(consumableId)
     return total
 end
 
+--- BM-S4A: 统计某种消耗品的未锁定数量（用于消费/使用前检查）
+---@param consumableId string
+---@return number unlocked 未锁定的总数量
+---@return number locked 锁定中的总数量
+function InventorySystem.CountUnlockedConsumable(consumableId)
+    if not manager_ then return 0, 0 end
+    return TradeLock.CountUnlockedConsumable(
+        function(i) return manager_:GetInventoryItem(i) end,
+        GameConfig.BACKPACK_SIZE,
+        consumableId
+    )
+end
+
 --- 消耗指定数量的消耗品
+--- BM-S4A: 仅消耗未锁定的堆叠，锁定堆叠跳过
 ---@param consumableId string
 ---@param amount number
 ---@return boolean success
 function InventorySystem.ConsumeConsumable(consumableId, amount)
     if not manager_ then return false end
 
-    -- 先检查总量是否足够
-    if InventorySystem.CountConsumable(consumableId) < amount then
+    -- BM-S4A: 检查未锁定数量是否足够（锁定堆叠不参与消耗）
+    local unlocked = InventorySystem.CountUnlockedConsumable(consumableId)
+    if unlocked < amount then
         return false
     end
 
@@ -697,13 +731,18 @@ function InventorySystem.ConsumeConsumable(consumableId, amount)
         if remaining <= 0 then break end
         local item = manager_:GetInventoryItem(i)
         if item and item.category == "consumable" and item.consumableId == consumableId then
-            local has = item.count or 1
-            if has <= remaining then
-                remaining = remaining - has
-                manager_:SetInventoryItem(i, nil)  -- 全部用完，移除
+            -- BM-S4A: 跳过锁定堆叠
+            if TradeLock.IsLocked(item) then
+                -- skip locked stack
             else
-                item.count = has - remaining
-                remaining = 0
+                local has = item.count or 1
+                if has <= remaining then
+                    remaining = remaining - has
+                    manager_:SetInventoryItem(i, nil)  -- 全部用完，移除
+                else
+                    item.count = has - remaining
+                    remaining = 0
+                end
             end
         end
     end
@@ -976,13 +1015,18 @@ function InventorySystem.UseBatchConsumable(consumableId, count)
         return false, "参数错误"
     end
 
-    -- 检查库存
-    local have = InventorySystem.CountConsumable(consumableId)
-    if have <= 0 then
+    -- BM-S4A: 使用未锁定数量做库存检查（锁定堆叠不可操作）
+    local unlocked = InventorySystem.CountUnlockedConsumable(consumableId)
+    if unlocked <= 0 then
+        -- 如果有锁定的但没有未锁定的，给出保护期提示
+        local total = InventorySystem.CountConsumable(consumableId)
+        if total > 0 then
+            return false, TradeLock.LOCK_MESSAGE
+        end
         return false, "物品不足"
     end
-    -- 夹紧到实际拥有量
-    count = math.min(count, have)
+    -- 夹紧到未锁定拥有量
+    count = math.min(count, unlocked)
 
     -- 查配置（用于 category 判断）
     local cfgData = GameConfig.CONSUMABLES[consumableId]
@@ -1117,9 +1161,9 @@ function InventorySystem._SellBatchConsumable(consumableId, count)
     local unitPrice = cfgData.sellPrice or 1
     local sellCurrency = cfgData.sellCurrency  -- nil = 金币
 
-    -- 夹紧到库存
-    local have = InventorySystem.CountConsumable(consumableId)
-    count = math.min(count, have)
+    -- BM-S4A: 夹紧到未锁定库存
+    local unlocked = InventorySystem.CountUnlockedConsumable(consumableId)
+    count = math.min(count, unlocked)
     if count <= 0 then return false, "物品不足" end
 
     -- 原子扣除
@@ -1157,9 +1201,13 @@ function InventorySystem._UseTokenBox(boxId, tokenId)
     local tokenData = GameConfig.CONSUMABLES[tokenId]
     if not boxData or not tokenData then return false, "物品配置不存在" end
 
-    -- 检查库存
-    local have = InventorySystem.CountConsumable(boxId)
-    if have <= 0 then return false, boxData.name .. "不足" end
+    -- BM-S4A: 检查未锁定库存
+    local unlocked = InventorySystem.CountUnlockedConsumable(boxId)
+    if unlocked <= 0 then
+        local total = InventorySystem.CountConsumable(boxId)
+        if total > 0 then return false, TradeLock.LOCK_MESSAGE end
+        return false, boxData.name .. "不足"
+    end
 
     -- 检查背包空间（令牌已有堆叠或有空位）
     local canAdd = InventorySystem.CountConsumable(tokenId) > 0 or InventorySystem.GetFreeSlots() > 0

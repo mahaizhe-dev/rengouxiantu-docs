@@ -977,6 +977,14 @@ local MIGRATIONS = {
         data.version = 23
         return data
     end,
+
+    -- BM-S4A: 黑市交易保护锁（bmLockUntil / bmLockSource / bmLockBatchId）
+    -- 新字段 nil-safe，旧存档不存在即为无锁，无需实际数据变更
+    [24] = function(data)
+        print("[SaveSystem] v23→v24 migration: blackMarketTradeLock fields (noop)")
+        data.version = 24
+        return data
+    end,
 }
 
 -- ============================================================================

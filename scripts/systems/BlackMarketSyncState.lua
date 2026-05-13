@@ -102,6 +102,19 @@ end
 
 EventBus.On("game_saved", function()
     BlackMarketSyncState.ClearAll()
+    -- BM-S4A: 存档成功 → 清除所有交易保护锁
+    local ok, TradeLock = pcall(require, "systems.BlackMarketTradeLock")
+    if ok and TradeLock then
+        local InventorySystem = require("systems.InventorySystem")
+        local GameConfig = require("config.GameConfig")
+        local mgr = InventorySystem.GetManager()
+        if mgr then
+            TradeLock.ClearAllOnSaveSuccess(
+                function(i) return mgr:GetInventoryItem(i) end,
+                GameConfig.BACKPACK_SIZE
+            )
+        end
+    end
 end)
 
 EventBus.On("game_loaded", function()
