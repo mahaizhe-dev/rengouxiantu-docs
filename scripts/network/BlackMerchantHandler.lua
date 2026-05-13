@@ -1335,18 +1335,21 @@ function M.RecycleTick(dt)
         ok = function(moneys)
             local cloudDate = moneys[BMConfig.RECYCLE_DATE_KEY] or 0
             local todayNum = tonumber(today) or 0
-            local gap = todayNum - cloudDate
+            -- BM-S4D: 用 YYYYMMDD 数值差推进云端日期值（Add 增量）
+            local numericGap = todayNum - cloudDate
+            -- BM-S4D: 用真实日差判断是否跨天 / 异常（跨月跨年不再失真）
+            local realGap = BMConfig.RealDayGap(todayNum, cloudDate)
 
-            if gap <= 0 then
+            if realGap <= 0 then
                 print("[BlackMerchant][Recycle] 当日已执行 (cloud=" .. tostring(cloudDate) .. ")")
                 return
             end
 
-            -- 时间篡改防护：gap > MAX_RECYCLE_GAP → 仅推进日期，不执行回收
-            if gap > (BMConfig.MAX_RECYCLE_GAP or 2) then
-                print("[BlackMerchant][Recycle] gap=" .. gap .. "天 > 上限"
+            -- 时间篡改防护：realGap > MAX_RECYCLE_GAP → 仅推进日期，不执行回收
+            if realGap > (BMConfig.MAX_RECYCLE_GAP or 2) then
+                print("[BlackMerchant][Recycle] realGap=" .. realGap .. "天 > 上限"
                     .. tostring(BMConfig.MAX_RECYCLE_GAP) .. ", 疑似时间异常或长期停机, 仅更新日期")
-                serverCloud.money:Add(BMConfig.SYSTEM_UID, BMConfig.RECYCLE_DATE_KEY, gap, {
+                serverCloud.money:Add(BMConfig.SYSTEM_UID, BMConfig.RECYCLE_DATE_KEY, numericGap, {
                     ok = function()
                         print("[BlackMerchant][Recycle] 日期已跳转至: " .. today .. " (无回收)")
                     end,
@@ -1360,9 +1363,9 @@ function M.RecycleTick(dt)
             end
 
             -- 2. 先占坑：更新云端日期（在处理任何商品之前）
-            serverCloud.money:Add(BMConfig.SYSTEM_UID, BMConfig.RECYCLE_DATE_KEY, gap, {
+            serverCloud.money:Add(BMConfig.SYSTEM_UID, BMConfig.RECYCLE_DATE_KEY, numericGap, {
                 ok = function()
-                    print("[BlackMerchant][Recycle] 日期已占坑: " .. today .. " (gap=" .. gap .. ")")
+                    print("[BlackMerchant][Recycle] 日期已占坑: " .. today .. " (realGap=" .. realGap .. ")")
                     -- 3. 占坑成功后才执行回收（fire-and-forget，失败可接受）
                     M.ExecuteRecycle(function(ok, summary)
                         if ok then

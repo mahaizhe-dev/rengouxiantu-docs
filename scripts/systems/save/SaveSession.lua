@@ -97,4 +97,30 @@ function SaveSession.GetOpCount()
     return _opCount
 end
 
+--- 存档成功后清除会话活跃状态（BM-S4D 收口）
+--- game_saved 表示数据已成功持久化，此前积累的脏会话已被覆盖，
+--- 可以安全清除 _active，不会丢弃未保存数据。
+function SaveSession.ClearOnSave()
+    if _active then
+        print("[SaveSession] ClearOnSave: cleared stale session"
+            .. " (ops=" .. _opCount
+            .. ", elapsed=" .. string.format("%.1f", os.clock() - _startTime) .. "s)")
+    end
+    _active    = false
+    _opCount   = 0
+    _startTime = 0
+end
+
+-- ============================================================================
+-- 事件订阅：存档 / 加载成功时清除会话活跃状态
+-- ============================================================================
+
+EventBus.On("game_saved", function()
+    SaveSession.ClearOnSave()
+end)
+
+EventBus.On("game_loaded", function()
+    SaveSession.ClearOnSave()
+end)
+
 return SaveSession

@@ -250,6 +250,30 @@ TestRegistry.tests = {
     },
 
     ---------------------------------------------------------------------------
+    -- BM-S4D: 黑市状态边界与自动回收过天收口
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "bm_s4d_syncstate_after_save",
+        group         = "system",
+        path          = "scripts/tests/test_bm_s4d_syncstate_after_save.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "bm_s4d_recycle_day_rollover",
+        group         = "system",
+        path          = "scripts/tests/test_bm_recycle_day_rollover.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
     -- R3: 服务壳契约测试
     ---------------------------------------------------------------------------
 

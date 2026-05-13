@@ -334,4 +334,35 @@ BMConfig.RECYCLE_DATE_KEY = "bm_recycle_date"
 --- 防止篡改本地时钟跳天获利。正常值 1（过天），2 兼容时区偏移。
 BMConfig.MAX_RECYCLE_GAP = 2
 
+--- 将 YYYYMMDD 整数转为 os.time 时间戳（BM-S4D 收口）
+--- 用于计算两个日期之间的真实天数差，避免跨月/跨年时数值减法失真。
+---@param dateNum number YYYYMMDD 格式整数（如 20260531）
+---@return number|nil 成功返回 os.time 时间戳，格式无效返回 nil
+function BMConfig.DateToTime(dateNum)
+    if type(dateNum) ~= "number" or dateNum < 19700101 then return nil end
+    local s = tostring(math.floor(dateNum))
+    if #s ~= 8 then return nil end
+    local y = tonumber(s:sub(1, 4))
+    local m = tonumber(s:sub(5, 6))
+    local d = tonumber(s:sub(7, 8))
+    if not y or not m or not d then return nil end
+    if m < 1 or m > 12 or d < 1 or d > 31 then return nil end
+    return os.time({ year = y, month = m, day = d, hour = 12 })
+end
+
+--- 计算两个 YYYYMMDD 日期之间的真实天数差（BM-S4D 收口）
+--- 跨月/跨年均能正确返回，例如 20260531→20260601 返回 1。
+---@param todayNum number 今天的 YYYYMMDD 整数
+---@param cloudDate number 云端存储的 YYYYMMDD 整数
+---@return number 真实天数差（todayNum > cloudDate 时为正数），解析失败回退为数值差
+function BMConfig.RealDayGap(todayNum, cloudDate)
+    local t1 = BMConfig.DateToTime(todayNum)
+    local t2 = BMConfig.DateToTime(cloudDate)
+    if t1 and t2 then
+        return math.floor((t1 - t2) / 86400)
+    end
+    -- 降级回退：解析失败仍用数值差（不应触发）
+    return todayNum - cloudDate
+end
+
 return BMConfig
