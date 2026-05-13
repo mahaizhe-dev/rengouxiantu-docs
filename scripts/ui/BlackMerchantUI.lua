@@ -313,56 +313,43 @@ local function ShowConfirmDialog(action, itemId)
         and ("商店库存 " .. stock .. "/" .. itemMaxStock .. "\n余额 " .. xianshi_ .. " 仙石")
         or  ("背包持有 " .. held .. "\n余额 " .. xianshi_ .. " 仙石")
 
-    confirmDialog_ = UI.Panel {
-        position = "absolute",
-        width = "100%", height = "100%",
-        justifyContent = "center", alignItems = "center",
-        backgroundColor = {0, 0, 0, 160},
-        zIndex = 200,
-        onClick = function()
-            HideConfirmDialog()
-        end,
-        children = {
-            UI.Panel {
-                width = "80%", maxWidth = 360,
-                backgroundColor = C.panelBg,
-                borderRadius = T.radius.lg,
-                borderWidth = 1, borderColor = C.cardBorder,
-                padding = T.spacing.lg,
-                gap = T.spacing.md,
-                onClick = function() end,  -- 阻止穿透关闭
-                children = {
-                    -- 标题
-                    UI.Label {
-                        text = titleText,
-                        fontSize = T.fontSize.lg, fontWeight = "bold",
-                        fontColor = C.titleGold,
-                        textAlign = "center", width = "100%",
-                    },
-                    -- 分隔线
-                    UI.Panel { width = "100%", height = 1, backgroundColor = C.separator },
-                    -- 交易详情
-                    UI.Label {
-                        text = detailText,
-                        fontSize = T.fontSize.md,
-                        fontColor = {230, 230, 240, 255},
-                        textAlign = "center", width = "100%",
-                    },
-                    -- 附加信息
-                    UI.Label {
-                        text = infoText,
-                        fontSize = T.fontSize.sm,
-                        fontColor = C.textMuted,
-                        textAlign = "center", width = "100%",
-                    },
-                    -- BM-S4AR: 买入时显示保护期提醒
-                    isBuy and UI.Label {
-                        text = "🔒 买入后将独立存放并锁定保护，存档成功后解除",
-                        fontSize = T.fontSize.xs,
-                        fontColor = {255, 160, 100, 240},
-                        textAlign = "center", width = "100%",
-                    } or nil,
-                    -- 按钮行
+    -- BM-S4C1: 先构建弹窗内容列表，避免 nil 截断 children 数组
+    local dialogContent = {
+        -- 标题
+        UI.Label {
+            text = titleText,
+            fontSize = T.fontSize.lg, fontWeight = "bold",
+            fontColor = C.titleGold,
+            textAlign = "center", width = "100%",
+        },
+        -- 分隔线
+        UI.Panel { width = "100%", height = 1, backgroundColor = C.separator },
+        -- 交易详情
+        UI.Label {
+            text = detailText,
+            fontSize = T.fontSize.md,
+            fontColor = {230, 230, 240, 255},
+            textAlign = "center", width = "100%",
+        },
+        -- 附加信息
+        UI.Label {
+            text = infoText,
+            fontSize = T.fontSize.sm,
+            fontColor = C.textMuted,
+            textAlign = "center", width = "100%",
+        },
+    }
+    -- BM-S4AR: 买入时显示保护期提醒（条件插入，不产生 nil 空洞）
+    if isBuy then
+        table.insert(dialogContent, UI.Label {
+            text = "🔒 买入后将独立存放并锁定保护，存档成功后解除",
+            fontSize = T.fontSize.xs,
+            fontColor = {255, 160, 100, 240},
+            textAlign = "center", width = "100%",
+        })
+    end
+    -- 按钮行（始终追加，buy/sell 均可见）
+    table.insert(dialogContent,
                     UI.Panel {
                         width = "100%", flexDirection = "row",
                         justifyContent = "center", gap = T.spacing.md,
@@ -418,8 +405,28 @@ local function ShowConfirmDialog(action, itemId)
                                 return btn
                             end)(),
                         },
-                    },
-                },
+                    }
+    )
+
+    confirmDialog_ = UI.Panel {
+        position = "absolute",
+        width = "100%", height = "100%",
+        justifyContent = "center", alignItems = "center",
+        backgroundColor = {0, 0, 0, 160},
+        zIndex = 200,
+        onClick = function()
+            HideConfirmDialog()
+        end,
+        children = {
+            UI.Panel {
+                width = "80%", maxWidth = 360,
+                backgroundColor = C.panelBg,
+                borderRadius = T.radius.lg,
+                borderWidth = 1, borderColor = C.cardBorder,
+                padding = T.spacing.lg,
+                gap = T.spacing.md,
+                onClick = function() end,  -- 阻止穿透关闭
+                children = dialogContent,
             },
         },
     }
