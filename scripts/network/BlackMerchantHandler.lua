@@ -12,6 +12,7 @@ local TradeLogger = require("network.BlackMerchantTradeLogger")
 
 local BackpackUtils = require("network.BackpackUtils")
 local LootSystem = require("systems.LootSystem")
+local SellGuard = require("network.BlackMarketSellGuard")
 
 local cjson = cjson ---@diagnostic disable-line: undefined-global
 
@@ -540,6 +541,17 @@ function M.HandleSell(eventType, eventData)
     if not cfg then
         sellActive_[connKey] = nil
         SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "无效商品")
+        return
+    end
+
+    -- 2.5 BM-S3: 服务端卖出权威校验 — 高风险商品一律拒卖
+    local sellAllowed, guardReason = SellGuard.CheckSellAllowed(consumableId)
+    if not sellAllowed then
+        sellActive_[connKey] = nil
+        print("[BlackMerchant][Sell] BLOCKED by SellGuard: userId=" .. tostring(userId)
+            .. " id=" .. consumableId .. " reason=" .. tostring(guardReason))
+        SendError(connection, SaveProtocol.S2C_BlackMerchantResult,
+            "该商品暂不支持出售")
         return
     end
 

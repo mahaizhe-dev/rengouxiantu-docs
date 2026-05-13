@@ -159,6 +159,16 @@ TestRegistry.tests = {
         skip_reason   = nil,
     },
 
+    {
+        id            = "bm_s3_sell_guard",
+        group         = "system",
+        path          = "scripts/tests/test_bm_s3_sell_guard.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
     ---------------------------------------------------------------------------
     -- R3: 服务壳契约测试
     ---------------------------------------------------------------------------
