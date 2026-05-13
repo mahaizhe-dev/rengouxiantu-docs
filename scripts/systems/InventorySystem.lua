@@ -10,6 +10,15 @@ local EventBus = require("core.EventBus")
 
 local InventorySystem = {}
 
+-- HOTFIX-BM-01A: 黑市敏感消耗品集合
+-- 这些道具可在黑市卖出，本地消费后若未同步到服务端，会形成卖出漏洞窗口
+-- ConsumeConsumable 成功后检查此集合，命中则置脏 + 补发 save_request
+InventorySystem._BM_SENSITIVE_CONSUMABLES = {
+    wubao_token_box  = true,  -- 乌堡令盒
+    sha_hai_ling_box = true,  -- 沙海令盒
+    taixu_token_box  = true,  -- 太虚令盒
+}
+
 ---@type InventoryManager|nil
 local manager_ = nil
 
@@ -705,6 +714,15 @@ function InventorySystem.ConsumeConsumable(consumableId, amount)
     end
 
     EventBus.Emit("consumable_used", consumableId, amount)
+
+    -- HOTFIX-BM-01A: 黑市敏感道具消费后标记未同步，防止卖出窗口利用
+    if InventorySystem._BM_SENSITIVE_CONSUMABLES[consumableId] then
+        local _WS = require("systems.WarehouseSystem")
+        _WS.MarkDirty()
+        EventBus.Emit("save_request")
+        print("[InventorySystem] HOTFIX-BM-01A: BM-sensitive '" .. consumableId .. "' consumed, dirty=true")
+    end
+
     return true
 end
 

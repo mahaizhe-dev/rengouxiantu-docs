@@ -377,10 +377,10 @@ local function ShowConfirmDialog(action, itemId)
                                             SendBuy(itemId, 1)
                                             SetStatus("购买中...", C.xianshiColor)
                                         else
-                                            -- HOTFIX-BM-01: 仓库未同步时拦截卖出
+                                            -- HOTFIX-BM-01A: 背包未同步时拦截卖出（仓库存取 + 敏感道具消费）
                                             if WarehouseSystem.IsDirty() then
-                                                SetStatus("仓库数据同步中，请稍后再试", C.textError, 3)
-                                                print("[BlackMerchantUI] SELL BLOCKED: warehouse dirty")
+                                                SetStatus("背包数据未同步，请稍后再试", C.textError, 3)
+                                                print("[BlackMerchantUI] SELL BLOCKED: backpack unsync (dirty)")
                                                 return
                                             end
                                             SendSell(itemId, 1)
