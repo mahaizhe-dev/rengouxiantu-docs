@@ -5,10 +5,11 @@
 -- 升级为基于操作类型的统一未同步门。
 --
 -- 设计原则：
---   1. 不依赖物品名称白名单 — 以操作类型（消耗、仓库存取）为粒度
---   2. 新增黑市商品自动进入门禁 — 只要走 ConsumeConsumable 就被覆盖
+--   1. 不依赖手写物品名称白名单 — 消耗路径由 BMConfig.ITEMS 驱动（BM-S2R 收口）
+--   2. 新增黑市商品自动进入门禁 — 只要在 BMConfig.ITEMS 中且走 ConsumeConsumable 就被覆盖
 --   3. 保留 BM-01/BM-01A 止血效果 — 仓库和消耗路径均不退化
 --   4. 结合 SaveSession 活跃状态 — 覆盖延迟窗口内的未落盘操作
+--   5. 非黑市消耗品（exp_pill、lingyun_fruit 等）不误拦黑市卖出
 --
 -- 脏标记语义：
 --   _dirtyConsume   = true: 存在消耗操作尚未同步到服务端

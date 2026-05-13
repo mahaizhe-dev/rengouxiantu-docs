@@ -5,7 +5,7 @@
 --   A. 状态层：哪些操作置脏，哪些事件清脏
 --   B. 行为层：黑市卖出是否在脏状态下被正确拦截
 --
--- 验证范围（9.1 必测场景）：
+-- 验证范围（9.1 必测场景 + BM-S2R 反例）：
 --   T1.  初始状态：门禁不阻断
 --   T2.  MarkConsumeUsed 置消耗脏 → IsBlocked = true
 --   T3.  MarkWarehouseOp 置仓库脏 → IsBlocked = true
@@ -14,13 +14,16 @@
 --   T6.  game_loaded 清除所有脏标记
 --   T7.  仓库存入后 → IsBlocked = true（行为层）
 --   T8.  仓库取出后 → IsBlocked = true（行为层）
---   T9.  ConsumeConsumable(令牌盒) → IsBlocked = true（行为层）
---   T10. ConsumeConsumable(gold_brick) → IsBlocked = true（行为层）
---   T11. ConsumeConsumable(附灵玉) → IsBlocked = true（行为层）
+--   T9.  ConsumeConsumable(令牌盒) → IsBlocked = true（行为层·正例）
+--   T10. ConsumeConsumable(gold_brick) → IsBlocked = true（行为层·正例）
+--   T11. ConsumeConsumable(附灵玉 lingyu_xuesha_lv1) → IsBlocked = true（行为层·正例）
 --   T12. 正常未脏状态 → IsBlocked = false, 卖出不被拦截
 --   T13. ClearAll 后 → IsBlocked = false
 --   T14. 消耗脏和仓库脏独立：清消耗不影响仓库
 --   T15. 旧白名单兼容：_BM_SENSITIVE_CONSUMABLES 为空表
+--   T16. ConsumeConsumable(exp_pill) → NOT blocked（反例·非黑市消耗品）
+--   T17. ConsumeConsumable(lingyun_fruit) → NOT blocked（反例·非黑市消耗品）
+--   T18. ConsumeConsumable(item_guardian_token) → NOT blocked（反例·非黑市消耗品）
 --
 -- 纯 Lua 测试，通过 stub 替代引擎依赖。
 -- ============================================================================
@@ -104,8 +107,22 @@ package.loaded["config.GameConfig"] = {
     CONSUMABLES = {
         wubao_token_box  = { name = "乌堡令盒", sellPrice = 100 },
         gold_brick       = { name = "金砖", sellPrice = 50000, sellCurrency = "gold" },
-        lingyu_basic     = { name = "基础附灵玉", sellPrice = 10 },
+        lingyu_xuesha_lv1 = { name = "血煞附灵玉", sellPrice = 10 },
         herb_pill        = { name = "草药丸", sellPrice = 5 },
+        -- 非黑市消耗品（BM-S2R 反例）
+        exp_pill             = { name = "经验丹", sellPrice = 0 },
+        lingyun_fruit        = { name = "凌云果", sellPrice = 0 },
+        item_guardian_token  = { name = "守护令", sellPrice = 0 },
+    },
+}
+
+-- BlackMerchantConfig stub（BM-S2R: InventorySystem 用 BMConfig.ITEMS 过滤门禁）
+package.loaded["config.BlackMerchantConfig"] = {
+    ITEMS = {
+        wubao_token_box    = { buy_price = 2,  sell_price = 4,  category = "consumable_mat" },
+        gold_brick         = { buy_price = 2,  sell_price = 5,  category = "consumable_mat" },
+        lingyu_xuesha_lv1  = { buy_price = 20, sell_price = 40, category = "lingyu" },
+        herb_pill          = { buy_price = 1,  sell_price = 2,  category = "herb" },
     },
 }
 
@@ -358,10 +375,10 @@ test("T10: ConsumeConsumable(gold_brick) → IsBlocked = true", function()
     assertEqual(reason, "consume_unsync", "reason")
 end)
 
-test("T11: ConsumeConsumable(附灵玉) → IsBlocked = true", function()
+test("T11: ConsumeConsumable(附灵玉 lingyu_xuesha_lv1) → IsBlocked = true", function()
     resetGame()
-    addConsumable("lingyu_basic", 1)
-    local ok = InventorySystem.ConsumeConsumable("lingyu_basic", 1)
+    addConsumable("lingyu_xuesha_lv1", 1)
+    local ok = InventorySystem.ConsumeConsumable("lingyu_xuesha_lv1", 1)
     assertTrue(ok, "consume should succeed")
     local blocked, reason = BlackMarketSyncState.IsBlocked()
     assertTrue(blocked, "should be blocked after lingyu consume")
@@ -380,6 +397,42 @@ test("T15: 旧白名单兼容 — _BM_SENSITIVE_CONSUMABLES 为空表", function
     -- 确认旧字段仍存在但为空
     assertTrue(type(InventorySystem._BM_SENSITIVE_CONSUMABLES) == "table", "should be table")
     assertEqual(next(InventorySystem._BM_SENSITIVE_CONSUMABLES), nil, "should be empty")
+end)
+
+-- ============================================================================
+-- C. BM-S2R 反例：非黑市消耗品不触发门禁
+-- ============================================================================
+
+print("  --- 反例（BM-S2R） ---")
+
+test("T16: ConsumeConsumable(exp_pill) → NOT blocked（非黑市消耗品）", function()
+    resetGame()
+    addConsumable("exp_pill", 1)
+    local ok = InventorySystem.ConsumeConsumable("exp_pill", 1)
+    assertTrue(ok, "consume should succeed")
+    local blocked, reason = BlackMarketSyncState.IsBlocked()
+    assertFalse(blocked, "exp_pill is NOT in BMConfig.ITEMS, should NOT trigger gate")
+    assertEqual(reason, nil, "reason should be nil")
+end)
+
+test("T17: ConsumeConsumable(lingyun_fruit) → NOT blocked（非黑市消耗品）", function()
+    resetGame()
+    addConsumable("lingyun_fruit", 1)
+    local ok = InventorySystem.ConsumeConsumable("lingyun_fruit", 1)
+    assertTrue(ok, "consume should succeed")
+    local blocked, reason = BlackMarketSyncState.IsBlocked()
+    assertFalse(blocked, "lingyun_fruit is NOT in BMConfig.ITEMS, should NOT trigger gate")
+    assertEqual(reason, nil, "reason should be nil")
+end)
+
+test("T18: ConsumeConsumable(item_guardian_token) → NOT blocked（非黑市消耗品）", function()
+    resetGame()
+    addConsumable("item_guardian_token", 1)
+    local ok = InventorySystem.ConsumeConsumable("item_guardian_token", 1)
+    assertTrue(ok, "consume should succeed")
+    local blocked, reason = BlackMarketSyncState.IsBlocked()
+    assertFalse(blocked, "item_guardian_token is NOT in BMConfig.ITEMS, should NOT trigger gate")
+    assertEqual(reason, nil, "reason should be nil")
 end)
 
 -- ============================================================================

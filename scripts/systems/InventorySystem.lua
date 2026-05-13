@@ -710,11 +710,14 @@ function InventorySystem.ConsumeConsumable(consumableId, amount)
 
     EventBus.Emit("consumable_used", consumableId, amount)
 
-    -- BM-S2: 所有消耗操作统一标记黑市未同步门禁
-    -- 不再依赖物品白名单，新增可消耗的黑市商品自动覆盖
+    -- BM-S2R: 黑市可卖物消耗才置脏（非黑市消耗品不触发门禁）
+    -- BMConfig 加载失败时保守置脏（fail-closed）
     local _okBMS, _BMS = pcall(require, "systems.BlackMarketSyncState")
     if _okBMS and _BMS then
-        _BMS.MarkConsumeUsed(consumableId)
+        local _okBMC, _BMC = pcall(require, "config.BlackMerchantConfig")
+        if (not _okBMC) or (not _BMC) or (_BMC.ITEMS and _BMC.ITEMS[consumableId]) then
+            _BMS.MarkConsumeUsed(consumableId)
+        end
     end
 
     return true
