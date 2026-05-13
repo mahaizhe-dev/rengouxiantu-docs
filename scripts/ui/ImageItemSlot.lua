@@ -5,9 +5,11 @@
 
 local Widget = require("urhox-libs/UI/Core/Widget")
 local Panel = require("urhox-libs/UI/Widgets/Panel")
+local Label = require("urhox-libs/UI/Widgets/Label")
 local ItemSlot = require("urhox-libs/UI/Components/ItemSlot")
 local T = require("config.UITheme")
 local IconUtils = require("utils.IconUtils")
+local TradeLock = require("systems.BlackMarketTradeLock")
 
 ---@class ImageItemSlot : ItemSlot
 local ImageItemSlot = ItemSlot:Extend("ImageItemSlot")
@@ -29,6 +31,23 @@ function ImageItemSlot:Init(props)
     }
     self.imageOverlay_:SetVisible(false)
     Widget.AddChild(self, self.imageOverlay_)
+
+    -- BM-S4AR: 锁图标覆盖层（右上角小标签）
+    local lockSize = math.max(14, math.floor(self.props.size * 0.3))
+    self.lockOverlay_ = Label {
+        text = "🔒",
+        fontSize = math.max(9, lockSize - 4),
+        fontColor = {255, 180, 80, 255},
+        textAlign = "center",
+        position = "absolute",
+        top = 1,
+        right = 1,
+        width = lockSize,
+        height = lockSize,
+        pointerEvents = "none",
+    }
+    self.lockOverlay_:SetVisible(false)
+    Widget.AddChild(self, self.lockOverlay_)
 
     -- Re-run display update now that image overlay exists
     self:UpdateDisplay()
@@ -139,6 +158,15 @@ function ImageItemSlot:UpdateDisplay()
             self.props.borderColor = {60, 65, 75, 255}
             self.props.borderWidth = 1
             self.props.backgroundColor = {30, 35, 50, 220}
+        end
+    end
+
+    -- BM-S4AR: 锁图标显示/隐藏
+    if self.lockOverlay_ then
+        if item and TradeLock.IsLocked(item) then
+            self.lockOverlay_:SetVisible(true)
+        else
+            self.lockOverlay_:SetVisible(false)
         end
     end
 end

@@ -133,6 +133,43 @@ function BackpackUtils.CountUnlockedItem(backpack, consumableId)
     return total
 end
 
+--- BM-S4AR: 强制新建锁定堆叠（黑市买入专用，绝不合并已有堆叠）
+---@param backpack table
+---@param consumableId string
+---@param amount integer
+---@param itemName string|nil
+---@param batchId string 批次 ID（由 TradeLock.GenerateBatchId() 生成）
+---@param duration number|nil 锁时长秒数（默认 TradeLock.LOCK_DURATION）
+---@return integer remaining 未能放入的剩余数量（0 = 全部放入）
+function BackpackUtils.AddLockedNewStack(backpack, consumableId, amount, itemName, batchId, duration)
+    local remaining = amount
+    local dur = duration or TradeLock.LOCK_DURATION
+    local lockUntil = os.time() + dur
+    while remaining > 0 do
+        local placed = false
+        for i = 1, BackpackUtils.MAX_BACKPACK_SLOTS do
+            local key = tostring(i)
+            if not backpack[key] then
+                local addCount = remaining > BackpackUtils.MAX_STACK and BackpackUtils.MAX_STACK or remaining
+                backpack[key] = {
+                    category = "consumable",
+                    consumableId = consumableId,
+                    count = addCount,
+                    name = itemName,
+                    bmLockUntil = lockUntil,
+                    bmLockSource = TradeLock.SOURCE_BLACK_MARKET,
+                    bmLockBatchId = batchId,
+                }
+                remaining = remaining - addCount
+                placed = true
+                break
+            end
+        end
+        if not placed then break end
+    end
+    return remaining
+end
+
 -- ============================================================================
 -- 装备操作辅助函数（服务端存档 backpack 格式）
 -- 装备格式: { id=N, name="...", equipId="...", slot="ring1", quality="orange", ... }

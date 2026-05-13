@@ -684,6 +684,66 @@ function InventorySystem.AddConsumable(consumableId, amount)
     return true, originalAmount
 end
 
+--- BM-S4AR: 强制新建锁定堆叠（黑市买入专用，绝不合并已有堆叠）
+---@param consumableId string
+---@param amount number
+---@param batchId string 批次 ID（由 TradeLock.GenerateBatchId() 生成）
+---@param duration number|nil 锁时长秒数（默认 TradeLock.LOCK_DURATION）
+---@return boolean allSuccess
+---@return number addedCount
+function InventorySystem.AddConsumableLockedNewStack(consumableId, amount, batchId, duration)
+    if not manager_ then return false, 0 end
+    amount = amount or 1
+    local originalAmount = amount
+
+    local MAX_STACK = GameConfig.MAX_STACK_COUNT  -- 9999
+    local dur = duration or TradeLock.LOCK_DURATION
+    local lockUntil = os.time() + dur
+
+    -- 查找消耗品配置
+    local foodData = GameConfig.PET_FOOD[consumableId]
+    local matData = GameConfig.PET_MATERIALS[consumableId]
+    local PetSkillData = require("config.PetSkillData")
+    local bookData = PetSkillData.SKILL_BOOKS[consumableId]
+    local eventData = GameConfig.EVENT_ITEMS and GameConfig.EVENT_ITEMS[consumableId]
+    local consumableData = GameConfig.CONSUMABLES[consumableId]
+    local data = foodData or matData or bookData or eventData or consumableData
+    if not data then return false, 0 end
+
+    -- 循环创建新堆叠（跳过所有已有堆叠，直接找空位）
+    while amount > 0 do
+        local stackAmount = math.min(amount, MAX_STACK)
+        local item = {
+            id = require("core.Utils").NextId(),
+            name = data.name,
+            icon = data.icon,
+            image = data.image or nil,
+            category = "consumable",
+            consumableId = consumableId,
+            count = stackAmount,
+            sellPrice = data.sellPrice or 1,
+            quality = data.quality or "white",
+            desc = data.desc,
+            petExp = foodData and foodData.exp or nil,
+            isSkillBook = bookData and true or nil,
+            skillId = bookData and bookData.skillId or nil,
+            bookTier = bookData and bookData.tier or nil,
+            -- BM-S4AR: 创建时即带锁元数据
+            bmLockUntil = lockUntil,
+            bmLockSource = TradeLock.SOURCE_BLACK_MARKET,
+            bmLockBatchId = batchId,
+        }
+        local success, idx = manager_:AddToInventory(item)
+        if success then
+            EventBus.Emit("inventory_item_added", item, idx)
+            amount = amount - stackAmount
+        else
+            return false, originalAmount - amount
+        end
+    end
+    return true, originalAmount
+end
+
 --- 统计某种消耗品的总数量
 ---@param consumableId string
 ---@return number

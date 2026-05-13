@@ -423,22 +423,11 @@ function M.HandleBuy(eventType, eventData)
                                         end
                                     end
                                 else
-                                    AddToBackpack(backpack, consumableId, amount, cfg.name)
-                                end
-
-                                -- BM-S4A: 为刚购入的堆叠写入保护锁
-                                -- 标记所有匹配 consumableId 且尚未锁定的堆叠
-                                -- （AddToBackpack 只向未锁定堆叠合并或创建新堆叠，所以未锁定即为本次新增/合入的）
-                                if not isEquip then
-                                    for i = 1, BackpackUtils.MAX_BACKPACK_SLOTS do
-                                        local key = tostring(i)
-                                        local bpItem = backpack[key]
-                                        if bpItem and bpItem.category == "consumable"
-                                            and bpItem.consumableId == consumableId
-                                            and not TradeLock.IsLockedServerSide(bpItem) then
-                                            TradeLock.ApplyLock(bpItem, batchId)
-                                        end
-                                    end
+                                    -- BM-S4AR: 强制新建锁定堆叠，绝不合并到已有堆叠
+                                    -- 替代旧的 AddToBackpack + 后置遍历锁定模式
+                                    BackpackUtils.AddLockedNewStack(
+                                        backpack, consumableId, amount, cfg.name, batchId
+                                    )
                                 end
 
                                 saveData.backpack = backpack

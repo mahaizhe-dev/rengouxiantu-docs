@@ -355,6 +355,13 @@ local function ShowConfirmDialog(action, itemId)
                         fontColor = C.textMuted,
                         textAlign = "center", width = "100%",
                     },
+                    -- BM-S4AR: 买入时显示保护期提醒
+                    isBuy and UI.Label {
+                        text = "🔒 买入后将独立存放并锁定保护，存档成功后解除",
+                        fontSize = T.fontSize.xs,
+                        fontColor = {255, 160, 100, 240},
+                        textAlign = "center", width = "100%",
+                    } or nil,
                     -- 按钮行
                     UI.Panel {
                         width = "100%", flexDirection = "row",
@@ -1265,6 +1272,14 @@ function BlackMerchantUI.Create(parentOverlay)
                                         width = "100%",
                                         marginTop = 4,
                                     },
+                                    -- BM-S4AR: 交易保护期常驻提示
+                                    UI.Label {
+                                        text = "🔒 买入的消耗品将独立存放并进入保护期，期间不可使用/出售/存仓。存档成功或5分钟后自动解除。",
+                                        fontSize = T.fontSize.xs,
+                                        fontColor = {255, 160, 100, 255},
+                                        width = "100%",
+                                        marginTop = 4,
+                                    },
                                 },
                             },
                         },
@@ -1552,20 +1567,9 @@ function BlackMerchantUI_HandleBMResult(eventType, eventData)
                 end
             end
         else
-            InventorySystem.AddConsumable(itemId, amount)
-            -- BM-S4A: 买入后为本地新增消耗品加锁
+            -- BM-S4AR: 强制新建锁定堆叠，绝不合并到已有堆叠
             local batchId = TradeLock.GenerateBatchId()
-            local mgr = InventorySystem.GetManager()
-            if mgr then
-                for i = 1, GameConfig.BACKPACK_SIZE do
-                    local bpItem = mgr:GetInventoryItem(i)
-                    if bpItem and bpItem.category == "consumable"
-                        and bpItem.consumableId == itemId
-                        and not TradeLock.IsLocked(bpItem) then
-                        TradeLock.ApplyLock(bpItem, batchId)
-                    end
-                end
-            end
+            InventorySystem.AddConsumableLockedNewStack(itemId, amount, batchId)
         end
         EventBus.Emit("save_request")
         SetStatus("购入 " .. itemName .. " ×" .. amount, C.textSuccess)

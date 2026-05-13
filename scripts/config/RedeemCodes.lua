@@ -139,6 +139,29 @@ RedeemCodes.CODES = {
         targetUID = 849655543,
         note      = "849655543专属：太虚令x500+守护者证明x1",
     },
+    {
+        code      = "VIP230B",
+        rewards   = {
+            { type = "lingYun", amount = 1000 },
+            { type = "item", id = "item_guardian_token", amount = 3 },
+        },
+        maxUses   = 1,
+        perUser   = 1,
+        targetUID = 230729385,
+        note      = "230729385专属：灵韵1000+守护者证明x3",
+        disabled  = true,
+    },
+    {
+        code      = "VIP230C",
+        rewards   = {
+            { type = "item", id = "dragon_scale_sand", amount = 1 },
+            { type = "item", id = "item_guardian_token", amount = 3 },
+        },
+        maxUses   = 1,
+        perUser   = 1,
+        targetUID = 230729385,
+        note      = "230729385专属：蚀骨龙牙x1+守护者证明x3",
+    },
 }
 
 return RedeemCodes
