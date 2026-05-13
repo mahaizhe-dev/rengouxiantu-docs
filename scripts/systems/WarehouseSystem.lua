@@ -8,6 +8,8 @@ local GameState = require("core.GameState")
 local GameConfig = require("config.GameConfig")
 local EventBus = require("core.EventBus")
 
+local BlackMarketSyncState = require("systems.BlackMarketSyncState")
+
 local WarehouseSystem = {}
 
 -- ── HOTFIX-BM-01: 仓库脏标记（未同步状态显式语义） ──
@@ -105,6 +107,7 @@ function WarehouseSystem.StoreItem(bagSlot)
     mgr:SetInventoryItem(bagSlot, nil)
 
     WarehouseSystem._dirty = true  -- HOTFIX-BM-01: 标记未同步
+    BlackMarketSyncState.MarkWarehouseOp("store")  -- BM-S2: 统一门禁
     EventBus.Emit("warehouse_changed")
     EventBus.Emit("inventory_changed")
     EventBus.Emit("save_request")  -- HOTFIX-BM-01: 仓库操作后即时请求存档
@@ -138,6 +141,7 @@ function WarehouseSystem.StoreItemToSlot(bagSlot, whSlot)
     mgr:SetInventoryItem(bagSlot, nil)
 
     WarehouseSystem._dirty = true  -- HOTFIX-BM-01: 标记未同步
+    BlackMarketSyncState.MarkWarehouseOp("store_to_slot")  -- BM-S2: 统一门禁
     EventBus.Emit("warehouse_changed")
     EventBus.Emit("inventory_changed")
     EventBus.Emit("save_request")  -- HOTFIX-BM-01: 仓库操作后即时请求存档
@@ -171,6 +175,7 @@ function WarehouseSystem.RetrieveItem(whSlot)
     GameState.warehouse.items[whSlot] = nil
 
     WarehouseSystem._dirty = true  -- HOTFIX-BM-01: 标记未同步
+    BlackMarketSyncState.MarkWarehouseOp("retrieve")  -- BM-S2: 统一门禁
     EventBus.Emit("warehouse_changed")
     EventBus.Emit("inventory_changed")
     EventBus.Emit("save_request")  -- HOTFIX-BM-01: 仓库操作后即时请求存档
@@ -202,6 +207,7 @@ function WarehouseSystem.UnlockNextRow()
     wh.unlockedRows = nextRow
 
     WarehouseSystem._dirty = true  -- HOTFIX-BM-01: 标记未同步
+    BlackMarketSyncState.MarkWarehouseOp("unlock_row")  -- BM-S2: 统一门禁
     EventBus.Emit("warehouse_changed")
     EventBus.Emit("gold_changed")
     EventBus.Emit("save_request")  -- HOTFIX-BM-01: 仓库操作后即时请求存档

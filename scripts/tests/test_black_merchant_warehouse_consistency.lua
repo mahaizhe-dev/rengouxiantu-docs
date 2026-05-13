@@ -1,18 +1,19 @@
 -- ============================================================================
--- test_black_merchant_warehouse_consistency.lua — HOTFIX-BM-01A 黑市一致性测试
+-- test_black_merchant_warehouse_consistency.lua — HOTFIX-BM-01/01A 黑市一致性测试
 --
--- 在 BM-01 测试基础上扩展，覆盖 BM-01A 新增的本地消耗品漏洞场景：
+-- BM-S2 升级：消耗路径改为通过 BlackMarketSyncState 统一门禁，
+-- 不再直接设 WarehouseSystem._dirty。本测试同步更新为验证新语义。
 --
 --   T1. 仓库存放 → dirty + save_request
 --   T2. 仓库取出 → dirty + save_request
---   T3. BM 敏感消耗品消费 → dirty + save_request              (BM-01A NEW)
---   T4. 非 BM 敏感消耗品消费 → 不置脏                          (BM-01A NEW)
+--   T3. BM 消耗品消费 → BlackMarketSyncState 阻断              (BM-S2 升级)
+--   T4. 非 BM 敏感消耗品消费 → 同样被门禁覆盖                  (BM-S2 升级)
 --   T5. game_saved → 清除 dirty
 --   T6. game_loaded → 清除 dirty
---   T7. dirty=true 时卖出守卫条件成立（IsDirty 返回 true）
+--   T7. 消耗后 → BlackMarketSyncState.IsBlocked 返回 true
 --   T8. 本地扣除失败 → 不发 save_request
---   T9. 本地扣除成功 → 发 save_request
---   T10. _BM_SENSITIVE_CONSUMABLES 包含 3 个令牌盒              (BM-01A NEW)
+--   T9. 消耗成功 → BlackMarketSyncState 阻断（不退化）          (BM-S2 升级)
+--   T10. 旧白名单已废弃，BlackMarketSyncState 覆盖全量消耗品     (BM-S2 升级)
 --   T11. 消耗+存档+再消耗 → dirty 正确跟踪全链路                (BM-01A NEW)
 --
 -- 纯 Lua 测试，通过 stub 替代引擎依赖。
@@ -87,6 +88,10 @@ local function clearModuleCache()
     package.loaded["config.EquipmentData"] = nil
     package.loaded["systems.WarehouseSystem"] = nil
     package.loaded["systems.InventorySystem"] = nil
+    -- BM-S2: BMS 在 EventBus 上注册 game_saved/game_loaded 监听器，
+    -- 跨测试文件运行时必须随 EventBus 一起清除，否则 handler 注册在旧实例上
+    package.loaded["systems.BlackMarketSyncState"] = nil
+    package.loaded["systems.save.SaveSession"] = nil
 end
 
 clearModuleCache()
@@ -186,6 +191,9 @@ end
 local function resetState()
     _emittedEvents = {}
     WarehouseSystem._dirty = false
+    -- BM-S2: 清除统一门禁脏标记
+    local BMS = require("systems.BlackMarketSyncState")
+    BMS.ClearAll()
     -- 重置 GameState.warehouse
     GameState.warehouse = {
         unlockedRows = 1,
@@ -235,22 +243,23 @@ end)
 -- T3: BM 敏感消耗品消费 → dirty + save_request  (BM-01A 核心)
 -- ============================================================================
 
-test("T3. BM 敏感消耗品消费 → dirty + save_request (wubao_token_box)", function()
+test("T3. BM 消耗品消费 → BlackMarketSyncState 阻断 (wubao_token_box)", function()
     resetState()
-    -- 在背包放入 1 个乌堡令盒
     _mockBackpack[1] = {
         name = "乌堡令盒", id = "box_001", category = "consumable",
         consumableId = "wubao_token_box", count = 1,
     }
-    -- 清除事件记录
     _emittedEvents = {}
     local ok = InventorySystem.ConsumeConsumable("wubao_token_box", 1)
     assertTrue(ok, "ConsumeConsumable should succeed")
-    assertTrue(WarehouseSystem.IsDirty(), "dirty must be true after BM-sensitive consume")
-    assertTrue(countEvent("save_request") >= 1, "save_request must be emitted for BM-sensitive consume")
+    -- BM-S2: 消耗路径通过 BlackMarketSyncState 阻断，不再直接设 WarehouseSystem._dirty
+    local BMS = require("systems.BlackMarketSyncState")
+    local blocked, reason = BMS.IsBlocked()
+    assertTrue(blocked, "BlackMarketSyncState must block after BM-sensitive consume")
+    assertEqual(reason, "consume_unsync", "reason should be consume_unsync")
 end)
 
-test("T3b. BM 敏感消耗品消费 → dirty (sha_hai_ling_box)", function()
+test("T3b. BM 消耗品消费 → BlackMarketSyncState 阻断 (sha_hai_ling_box)", function()
     resetState()
     _mockBackpack[1] = {
         name = "沙海令盒", id = "box_002", category = "consumable",
@@ -259,10 +268,11 @@ test("T3b. BM 敏感消耗品消费 → dirty (sha_hai_ling_box)", function()
     _emittedEvents = {}
     local ok = InventorySystem.ConsumeConsumable("sha_hai_ling_box", 1)
     assertTrue(ok, "ConsumeConsumable should succeed")
-    assertTrue(WarehouseSystem.IsDirty(), "dirty must be true after sha_hai_ling_box consume")
+    local BMS = require("systems.BlackMarketSyncState")
+    assertTrue(BMS.IsBlocked(), "BlackMarketSyncState must block after sha_hai_ling_box consume")
 end)
 
-test("T3c. BM 敏感消耗品消费 → dirty (taixu_token_box)", function()
+test("T3c. BM 消耗品消费 → BlackMarketSyncState 阻断 (taixu_token_box)", function()
     resetState()
     _mockBackpack[1] = {
         name = "太虚令盒", id = "box_003", category = "consumable",
@@ -271,14 +281,15 @@ test("T3c. BM 敏感消耗品消费 → dirty (taixu_token_box)", function()
     _emittedEvents = {}
     local ok = InventorySystem.ConsumeConsumable("taixu_token_box", 1)
     assertTrue(ok, "ConsumeConsumable should succeed")
-    assertTrue(WarehouseSystem.IsDirty(), "dirty must be true after taixu_token_box consume")
+    local BMS = require("systems.BlackMarketSyncState")
+    assertTrue(BMS.IsBlocked(), "BlackMarketSyncState must block after taixu_token_box consume")
 end)
 
 -- ============================================================================
--- T4: 非 BM 敏感消耗品消费 → 不置脏
+-- T4: 非令牌盒消耗品 → 仓库不置脏，但 BlackMarketSyncState 阻断 (BM-S2)
 -- ============================================================================
 
-test("T4. 非 BM 敏感消耗品消费 → 不置脏 (exp_pill)", function()
+test("T4. 非令牌盒消耗品 → 仓库不置脏，但 BlackMarketSyncState 阻断 (BM-S2)", function()
     resetState()
     _mockBackpack[1] = {
         name = "修炼果", id = "pill_001", category = "consumable",
@@ -287,11 +298,15 @@ test("T4. 非 BM 敏感消耗品消费 → 不置脏 (exp_pill)", function()
     _emittedEvents = {}
     local ok = InventorySystem.ConsumeConsumable("exp_pill", 1)
     assertTrue(ok, "ConsumeConsumable should succeed")
-    assertFalse(WarehouseSystem.IsDirty(), "dirty must remain false for non-BM-sensitive item")
-    -- save_request 只来自 consumable_used 但不来自 BM-01A 分支
-    -- 确认没有因为 BM-01A 发 save_request
-    -- (consumable_used 本身不发 save_request，所以总计 0)
-    assertEqual(countEvent("save_request"), 0, "no save_request for non-sensitive consumable")
+    -- BM-S2: 仓库 dirty 不受消耗影响
+    assertFalse(WarehouseSystem.IsDirty(), "warehouse dirty must remain false")
+    -- BM-S2: 所有消耗操作都经过 BlackMarketSyncState 门禁
+    local BMS = require("systems.BlackMarketSyncState")
+    local blocked, reason = BMS.IsBlocked()
+    assertTrue(blocked, "BlackMarketSyncState must block after ANY consume (BM-S2)")
+    assertEqual(reason, "consume_unsync", "reason should be consume_unsync")
+    -- 消耗路径不发 save_request（仅仓库路径发）
+    assertEqual(countEvent("save_request"), 0, "no save_request from consume path")
 end)
 
 -- ============================================================================
@@ -319,18 +334,22 @@ test("T6. game_loaded 事件清除 dirty", function()
 end)
 
 -- ============================================================================
--- T7: dirty=true 时 IsDirty 返回 true（卖出守卫条件成立）
+-- T7: 消耗后 BlackMarketSyncState.IsBlocked 返回 true（卖出守卫）
 -- ============================================================================
 
-test("T7. dirty=true → IsDirty 返回 true（卖出守卫拦截）", function()
+test("T7. 消耗后 → BlackMarketSyncState.IsBlocked 返回 true（卖出守卫）", function()
     resetState()
-    -- 消费敏感道具造成 dirty
+    -- 消费敏感道具
     _mockBackpack[1] = {
         name = "乌堡令盒", id = "box_010", category = "consumable",
         consumableId = "wubao_token_box", count = 1,
     }
     InventorySystem.ConsumeConsumable("wubao_token_box", 1)
-    assertTrue(WarehouseSystem.IsDirty(), "sell guard condition must hold")
+    -- BM-S2: 卖出守卫通过 BlackMarketSyncState 判定
+    local BMS = require("systems.BlackMarketSyncState")
+    assertTrue(BMS.IsBlocked(), "sell guard (BlackMarketSyncState) must hold")
+    -- 仓库 dirty 不受消耗影响
+    assertFalse(WarehouseSystem.IsDirty(), "warehouse dirty should remain false from consume path")
 end)
 
 -- ============================================================================
@@ -350,7 +369,7 @@ end)
 -- T9: 本地扣除成功 → 发 save_request（对 BM 敏感品）
 -- ============================================================================
 
-test("T9. 本地扣除成功(BM-sensitive) → 发 save_request", function()
+test("T9. 本地扣除成功 → BlackMarketSyncState 阻断（BM-S2 不发 save_request）", function()
     resetState()
     _mockBackpack[1] = {
         name = "乌堡令盒", id = "box_020", category = "consumable",
@@ -359,52 +378,66 @@ test("T9. 本地扣除成功(BM-sensitive) → 发 save_request", function()
     _emittedEvents = {}
     local ok = InventorySystem.ConsumeConsumable("wubao_token_box", 1)
     assertTrue(ok, "ConsumeConsumable should succeed")
-    assertTrue(countEvent("save_request") >= 1, "save_request should be emitted")
+    -- BM-S2: 消耗路径不再直接发 save_request，改为通过 BlackMarketSyncState 门禁
+    local BMS = require("systems.BlackMarketSyncState")
+    assertTrue(BMS.IsBlocked(), "BlackMarketSyncState must block after consume")
+    -- 消耗路径不发 save_request（仅仓库路径发）
+    assertEqual(countEvent("save_request"), 0, "consume path does not emit save_request in BM-S2")
 end)
 
 -- ============================================================================
 -- T10: _BM_SENSITIVE_CONSUMABLES 包含 3 个令牌盒
 -- ============================================================================
 
-test("T10. _BM_SENSITIVE_CONSUMABLES 包含 3 个令牌盒", function()
+test("T10. BM-S2: 旧白名单已废弃（空表），BlackMarketSyncState 覆盖全量消耗品", function()
+    -- BM-S2: _BM_SENSITIVE_CONSUMABLES 保留空表供向后兼容
     local set = InventorySystem._BM_SENSITIVE_CONSUMABLES
-    assertTrue(set ~= nil, "set must exist")
-    assertTrue(set["wubao_token_box"] == true, "wubao_token_box must be in set")
-    assertTrue(set["sha_hai_ling_box"] == true, "sha_hai_ling_box must be in set")
-    assertTrue(set["taixu_token_box"] == true, "taixu_token_box must be in set")
-    -- 确认没有多余条目
+    assertTrue(set ~= nil, "set must exist (backward compat)")
     local count = 0
     for _ in pairs(set) do count = count + 1 end
-    assertEqual(count, 3, "set should have exactly 3 entries")
+    assertEqual(count, 0, "BM-S2: whitelist should be empty (superseded by BlackMarketSyncState)")
+
+    -- 验证 BlackMarketSyncState 覆盖任意消耗品
+    resetState()
+    _mockBackpack[1] = {
+        name = "随机道具", id = "rand_001", category = "consumable",
+        consumableId = "random_item_xyz", count = 1,
+    }
+    InventorySystem.ConsumeConsumable("random_item_xyz", 1)
+    local BMS = require("systems.BlackMarketSyncState")
+    assertTrue(BMS.IsBlocked(), "BlackMarketSyncState blocks for ANY consumable, not just whitelisted")
 end)
 
 -- ============================================================================
 -- T11: 消耗+存档+再消耗 → dirty 正确跟踪全链路
 -- ============================================================================
 
-test("T11. 全链路：消费→存档→再消费→dirty 正确跟踪", function()
+test("T11. 全链路：消费→存档→再消费→BlackMarketSyncState 正确跟踪", function()
     resetState()
+    local BMS = require("systems.BlackMarketSyncState")
+
     -- 1. 消费敏感道具
     _mockBackpack[1] = {
         name = "乌堡令盒", id = "box_030", category = "consumable",
         consumableId = "wubao_token_box", count = 2,
     }
     InventorySystem.ConsumeConsumable("wubao_token_box", 1)
-    assertTrue(WarehouseSystem.IsDirty(), "dirty after first consume")
+    assertTrue(BMS.IsBlocked(), "blocked after first consume")
+    assertTrue(BMS.IsConsumeDirty(), "consume dirty after first consume")
 
-    -- 2. 存档成功
+    -- 2. 存档成功 → 清除脏标记
     EventBus.Emit("game_saved")
-    assertFalse(WarehouseSystem.IsDirty(), "clean after save")
+    assertFalse(BMS.IsBlocked(), "clean after save")
+    assertFalse(BMS.IsConsumeDirty(), "consume dirty cleared after save")
 
     -- 3. 再消费一个
     _emittedEvents = {}
     InventorySystem.ConsumeConsumable("wubao_token_box", 1)
-    assertTrue(WarehouseSystem.IsDirty(), "dirty after second consume")
-    assertTrue(countEvent("save_request") >= 1, "save_request emitted again")
+    assertTrue(BMS.IsBlocked(), "blocked after second consume")
 
     -- 4. 再次存档
     EventBus.Emit("game_saved")
-    assertFalse(WarehouseSystem.IsDirty(), "clean after second save")
+    assertFalse(BMS.IsBlocked(), "clean after second save")
 end)
 
 -- ============================================================================

@@ -17,6 +17,7 @@ local FormatUtils = require("utils.FormatUtils")
 local LootSystem = require("systems.LootSystem")
 local IconUtils = require("utils.IconUtils")
 local WarehouseSystem = require("systems.WarehouseSystem")  -- HOTFIX-BM-01
+local BlackMarketSyncState = require("systems.BlackMarketSyncState")  -- BM-S2: 统一门禁
 local cjson = cjson or require("cjson") ---@diagnostic disable-line: undefined-global
 
 local BlackMerchantUI = {}
@@ -377,10 +378,11 @@ local function ShowConfirmDialog(action, itemId)
                                             SendBuy(itemId, 1)
                                             SetStatus("购买中...", C.xianshiColor)
                                         else
-                                            -- HOTFIX-BM-01A: 背包未同步时拦截卖出（仓库存取 + 敏感道具消费）
-                                            if WarehouseSystem.IsDirty() then
+                                            -- BM-S2: 统一黑市未同步门禁（替代 BM-01A 白名单方案）
+                                            local blocked, reason = BlackMarketSyncState.IsBlocked()
+                                            if blocked then
                                                 SetStatus("背包数据未同步，请稍后再试", C.textError, 3)
-                                                print("[BlackMerchantUI] SELL BLOCKED: backpack unsync (dirty)")
+                                                print("[BlackMerchantUI] SELL BLOCKED: " .. tostring(reason))
                                                 return
                                             end
                                             SendSell(itemId, 1)

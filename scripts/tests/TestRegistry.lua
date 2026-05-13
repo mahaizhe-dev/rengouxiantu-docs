@@ -149,6 +149,16 @@ TestRegistry.tests = {
         skip_reason   = nil,
     },
 
+    {
+        id            = "bm_s2_unified_sync_gate",
+        group         = "system",
+        path          = "scripts/tests/test_bm_s2_unified_sync_gate.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
     ---------------------------------------------------------------------------
     -- R3: 服务壳契约测试
     ---------------------------------------------------------------------------
