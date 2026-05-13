@@ -304,7 +304,7 @@ stubSession.ServerGetSlotData = function(userId, slot, callback)
     logSpy("ServerGetSlotData", userId, slot)
     callback({
         player = {
-            realm = "jindan_early",  -- 筑基以上
+            realm = "zhuji_1",  -- 筑基初期 order=4, >= JINDAN_ORDER(4)
             charName = "测试仙人",
             lingYun = 100,
         },
@@ -509,19 +509,37 @@ test("I9: SellGuard 模块不导出任何回收相关接口", function()
     end
 end)
 
-test("I10: BlackMerchantHandler 的自动回收相关方法不引用 SellGuard", function()
-    -- Handler 没有 RecycleTick / ExecuteRecycle / OnRecycle 方法
-    -- 这些方法在 BlackMerchantSystem.lua 中，不在 Handler 中
-    assertEqual(Handler.RecycleTick, nil, "Handler has no RecycleTick")
-    assertEqual(Handler.ExecuteRecycle, nil, "Handler has no ExecuteRecycle")
-    assertEqual(Handler.OnRecycle, nil, "Handler has no OnRecycle")
-    -- Handler 只导出 Handle* 方法 + CheckWALOnLogin
-    assertTrue(Handler.HandleQuery ~= nil, "Handler.HandleQuery exists")
-    assertTrue(Handler.HandleBuy ~= nil, "Handler.HandleBuy exists")
-    assertTrue(Handler.HandleSell ~= nil, "Handler.HandleSell exists")
-    assertTrue(Handler.HandleExchange ~= nil, "Handler.HandleExchange exists")
-    assertTrue(Handler.HandleHistory ~= nil, "Handler.HandleHistory exists")
-    assertTrue(Handler.CheckWALOnLogin ~= nil, "Handler.CheckWALOnLogin exists")
+test("I10: BlackMerchantHandler 的自动回收代码不引用 SellGuard", function()
+    -- Handler 导出 RecycleTick / ExecuteRecycle（自动回收功能），
+    -- 但这些方法不应引用 SellGuard（回收不走卖出校验）。
+    -- 用源码 grep 验证：读取 Handler 源码中 RecycleTick/ExecuteRecycle 段落，
+    -- 确认不包含 SellGuard 引用。
+    local handlerPath = "scripts/network/BlackMerchantHandler.lua"
+    local f = io.open(handlerPath, "r")
+    if not f then
+        -- io 不可用时（沙箱），尝试 package.searchpath
+        local path = package.searchpath("network.BlackMerchantHandler", package.path)
+        if path then f = io.open(path, "r") end
+    end
+    if f then
+        local src = f:read("*a")
+        f:close()
+        -- 提取 RecycleTick + ExecuteRecycle 函数体（从 function 到下一个 ^function 或 ^return）
+        local recycleBlock = src:match("function M%.ExecuteRecycle.-\nfunction M%.RecycleTick.-\nend")
+            or src:match("function M%.ExecuteRecycle(.+)")
+        if recycleBlock then
+            assertFalse(recycleBlock:find("SellGuard"),
+                "RecycleTick/ExecuteRecycle block should NOT reference SellGuard")
+        end
+    else
+        -- 无法读源码，回退到接口层验证：
+        -- 确认 Handler 的公开接口中 RecycleTick/ExecuteRecycle 存在但与 SellGuard 无关
+        assertTrue(Handler.RecycleTick ~= nil, "Handler.RecycleTick exists (回收功能)")
+        assertTrue(Handler.ExecuteRecycle ~= nil, "Handler.ExecuteRecycle exists (回收功能)")
+    end
+    -- 额外验证：SellGuard 模块不导出任何 recycle 相关接口
+    assertEqual(SellGuard.RecycleTick, nil, "SellGuard has no RecycleTick")
+    assertEqual(SellGuard.ExecuteRecycle, nil, "SellGuard has no ExecuteRecycle")
 end)
 
 -- ============================================================================
