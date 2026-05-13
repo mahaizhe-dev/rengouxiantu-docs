@@ -580,20 +580,18 @@ function M.HandleSell(eventType, eventData)
         local isEquip = cfg.itemType == "equipment"
         local held = CountItemHeld(backpack, consumableId)
 
-        -- BM-S4A §4.5: 服务端锁态校验 — 只允许卖出未锁定的堆叠
-        local unlockedHeld
-        if isEquip then
-            unlockedHeld = held  -- 装备不参与锁机制
-        else
-            unlockedHeld = BackpackUtils.CountUnlockedItem(backpack, consumableId)
+        -- BM-S4C: 服务端整类禁售 — 消耗品存在任意锁堆则整类拒绝卖出
+        if not isEquip and BackpackUtils.HasAnyLockedItem(backpack, consumableId) then
+            sellActive_[connKey] = nil
+            SendError(connection, SaveProtocol.S2C_BlackMerchantResult,
+                "该商品处于黑市交易保护期，请稍后再试")
+            return
         end
 
-        if unlockedHeld < amount then
+        -- 持有量校验（装备不参与锁机制，消耗品已过锁门，用总持有量判断即可）
+        if held < amount then
             sellActive_[connKey] = nil
-            local reason = (held >= amount)
-                and "部分商品处于交易保护期，请稍后再试"
-                or "持有量不足"
-            SendError(connection, SaveProtocol.S2C_BlackMerchantResult, reason)
+            SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "持有量不足")
             return
         end
 

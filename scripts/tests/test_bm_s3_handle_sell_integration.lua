@@ -153,6 +153,8 @@ function stubBackpackUtils.AddEquipmentToBackpack(backpack, equip) end
 function stubBackpackUtils.RemoveEquipmentFromBackpack(backpack, equipId, amount) end
 -- BM-S4A: 新增锁态计数，返回 0 表示无可卖出的未锁定堆叠
 function stubBackpackUtils.CountUnlockedItem(backpack, consumableId) return 0 end
+-- BM-S4C: 整类锁判定，空背包返回 false（无锁堆叠）
+function stubBackpackUtils.HasAnyLockedItem(backpack, consumableId) return false end
 
 package.loaded["network.BackpackUtils"] = stubBackpackUtils
 

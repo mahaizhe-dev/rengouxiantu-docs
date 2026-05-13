@@ -133,6 +133,24 @@ function BackpackUtils.CountUnlockedItem(backpack, consumableId)
     return total
 end
 
+--- BM-S4C: 判断指定消耗品是否存在任何锁定堆叠（服务端整类禁售判定）
+--- 只要有一个堆叠被锁，整个 consumableId 禁止卖出
+---@param backpack table|nil
+---@param consumableId string
+---@return boolean hasLocked 是否存在锁定堆叠
+function BackpackUtils.HasAnyLockedItem(backpack, consumableId)
+    if not backpack then return false end
+    for _, item in pairs(backpack) do
+        if type(item) == "table"
+            and item.category == "consumable"
+            and item.consumableId == consumableId
+            and TradeLock.IsLockedServerSide(item) then
+            return true
+        end
+    end
+    return false
+end
+
 --- BM-S4AR: 强制新建锁定堆叠（黑市买入专用，绝不合并已有堆叠）
 ---@param backpack table
 ---@param consumableId string

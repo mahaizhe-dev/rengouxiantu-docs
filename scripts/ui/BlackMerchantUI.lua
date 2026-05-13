@@ -394,23 +394,20 @@ local function ShowConfirmDialog(action, itemId)
                                             SendBuy(itemId, 1)
                                             SetStatus("购买中...", C.xianshiColor)
                                         else
-                                            -- BM-S2: 统一黑市未同步门禁（替代 BM-01A 白名单方案）
+                                            -- BM-S4C: L1 同类锁门（优先级最高）
+                                            local cfgLock = BMConfig.ITEMS[itemId]
+                                            local isEquipLock = cfgLock and cfgLock.itemType == "equipment"
+                                            if not isEquipLock and InventorySystem.HasAnyLockedConsumable(itemId) then
+                                                SetStatus(TradeLock.LOCK_MESSAGE, C.textError, 3)
+                                                print("[BlackMerchantUI] SELL BLOCKED by TradeLock (L1): " .. tostring(itemId))
+                                                return
+                                            end
+                                            -- BM-S4C: L2 全局未同步门
                                             local blocked, reason = BlackMarketSyncState.IsBlocked()
                                             if blocked then
                                                 SetStatus("背包数据未同步，请稍后再试", C.textError, 3)
-                                                print("[BlackMerchantUI] SELL BLOCKED: " .. tostring(reason))
+                                                print("[BlackMerchantUI] SELL BLOCKED by SyncState (L2): " .. tostring(reason))
                                                 return
-                                            end
-                                            -- BM-S4A: 交易保护锁门禁 — 检查未锁定物品是否足够
-                                            local cfgLock = BMConfig.ITEMS[itemId]
-                                            local isEquipLock = cfgLock and cfgLock.itemType == "equipment"
-                                            if not isEquipLock then
-                                                local unlocked = InventorySystem.CountUnlockedConsumable(itemId)
-                                                if unlocked < 1 then
-                                                    SetStatus(TradeLock.LOCK_MESSAGE, C.textError, 3)
-                                                    print("[BlackMerchantUI] SELL BLOCKED by TradeLock: " .. tostring(itemId))
-                                                    return
-                                                end
                                             end
                                             SendSell(itemId, 1)
                                             SetStatus("出售中...", C.xianshiColor)
