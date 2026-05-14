@@ -139,7 +139,7 @@ main.lua ── 初始化 UI / 创建游戏世界 / 主循环
 
 | 参数 | 当前值 |
 |------|--------|
-| `CURRENT_SAVE_VERSION` | **23**（v23: 新增镇狱塔 prisonTower 字段） |
+| `CURRENT_SAVE_VERSION` | **24**（v24: 黑市交易保护锁 BM-S4A） |
 | `MAX_SLOTS` | 4 |
 | `AUTO_SAVE_INTERVAL` | **120 秒** |
 | `CHECKPOINT_INTERVAL` | 5（每 5 次存档写一次定期备份） |
