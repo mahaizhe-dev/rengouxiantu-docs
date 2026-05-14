@@ -387,11 +387,8 @@ local function ShowConfirmDialog(action, itemId)
                                                 SetStatus(TradeLock.LOCK_MESSAGE, C.textError, 3)
                                                 print("[BlackMerchantUI] CONFIRM BLOCKED (L1): " .. tostring(cfmDetail))
                                                 return
-                                            elseif cfmReason == "global_unsync" then
-                                                SetStatus("背包数据未同步，请稍后再试", C.textError, 3)
-                                                print("[BlackMerchantUI] CONFIRM BLOCKED (L2): " .. tostring(cfmDetail))
-                                                return
                                             end
+                                            -- HOTFIX-SELL-01: global_unsync(L2) 不再阻止确认卖出，仅 locked_item(L1) 拦截
                                             SendSell(itemId, 1)
                                             SetStatus("出售中...", C.xianshiColor)
                                         end
@@ -623,11 +620,8 @@ local function BuildItemCard(itemId)
                                 SetStatus(TradeLock.LOCK_MESSAGE, C.textError, 3)
                                 print("[BlackMerchantUI] SELL BTN BLOCKED (L1): " .. tostring(curDetail))
                                 return
-                            elseif curReason == "global_unsync" then
-                                SetStatus("背包数据未同步，请稍后再试", C.textError, 3)
-                                print("[BlackMerchantUI] SELL BTN BLOCKED (L2): " .. tostring(curDetail))
-                                return
                             end
+                            -- HOTFIX-SELL-01: global_unsync(L2) 不再阻止卖出按钮，仅 locked_item(L1) 拦截
                             local d = items_[itemId] or {}
                             local curHeld = d.held or 0
                             local curStock = d.stock or 0

@@ -1,10 +1,11 @@
 -- ============================================================================
 -- test_bm_fix01_card_sell_split.lua
--- BM-FIX-01: 黑市商品级可售逻辑纠偏 — 4 条真实路径验证
+-- BM-FIX-01 + HOTFIX-SELL-01: 黑市商品级可售逻辑纠偏 — 4 条真实路径验证
 --
--- 验证目标（直接对应 BM-FIX-01 §7）：
+-- 验证目标（直接对应 BM-FIX-01 §7 + HOTFIX-SELL-01 §6）：
 --   路径1: A锁住，B未锁 → A显示🔒锁定，B显示出售
---   路径2: 顶部全局未同步时 → B仍显示出售，确认出售被挡
+--   路径2: 顶部全局未同步时 → B仍显示出售
+--          HOTFIX-SELL-01: onClick/confirm 也不再被 L2 拦截
 --   路径3: 不再出现"整个黑市所有商品卡变成不可售/同步中"
 --   路径4: 锁图标、强制新堆、按钮缺失修复不回退
 --
@@ -155,29 +156,27 @@ local function simulateCardDecision(itemId, held, stock, realmOk)
     return { canSell = canSell, btnText = btnText }
 end
 
---- 模拟 onClick 中的实时拦截（完全复刻 L620-629 逻辑）
+--- 模拟 onClick 中的实时拦截（HOTFIX-SELL-01: 仅 L1 拦截，L2 不再阻止）
 ---@param itemId string
----@return string|nil blockReason nil=放行, "locked_item"/"global_unsync"=拦截
+---@return string|nil blockReason nil=放行, "locked_item"=拦截
 local function simulateOnClickBlock(itemId)
     local curReason = SyncState.GetSellBlockReason(itemId)
     if curReason == "locked_item" then
         return "locked_item"
-    elseif curReason == "global_unsync" then
-        return "global_unsync"
     end
+    -- HOTFIX-SELL-01: global_unsync 不再拦截 onClick
     return nil
 end
 
---- 模拟确认弹窗最终防线（完全复刻 L386-394 逻辑）
+--- 模拟确认弹窗最终防线（HOTFIX-SELL-01: 仅 L1 拦截，L2 不再阻止）
 ---@param itemId string
----@return string|nil blockReason nil=放行, "locked_item"/"global_unsync"=拦截
+---@return string|nil blockReason nil=放行, "locked_item"=拦截
 local function simulateConfirmBlock(itemId)
     local cfmReason = SyncState.GetSellBlockReason(itemId)
     if cfmReason == "locked_item" then
         return "locked_item"
-    elseif cfmReason == "global_unsync" then
-        return "global_unsync"
     end
+    -- HOTFIX-SELL-01: global_unsync 不再拦截确认弹窗
     return nil
 end
 
@@ -242,22 +241,22 @@ test("P2-1: L2脏 → B卡片仍显示出售、canSell=true", function()
     assertTrue(cardB.canSell, "L2脏时B卡片仍可售")
 end)
 
-test("P2-2: L2脏 → onClick拦截返回global_unsync", function()
+test("P2-2: HOTFIX-SELL-01: L2脏 → onClick不再拦截，放行", function()
     _lockedItems = {}
     SyncState.ClearAll()
     SyncState.MarkConsumeUsed("some_consume")
 
     local block = simulateOnClickBlock("herb_002")
-    assertEqual(block, "global_unsync", "onClick被L2拦截")
+    assertEqual(block, nil, "HOTFIX-SELL-01: onClick不再被L2拦截")
 end)
 
-test("P2-3: L2脏 → 确认弹窗最终防线拦截", function()
+test("P2-3: HOTFIX-SELL-01: L2脏 → 确认弹窗不再拦截，放行", function()
     _lockedItems = {}
     SyncState.ClearAll()
     SyncState.MarkWarehouseOp("test_warehouse")
 
     local block = simulateConfirmBlock("herb_002")
-    assertEqual(block, "global_unsync", "确认弹窗被L2拦截")
+    assertEqual(block, nil, "HOTFIX-SELL-01: 确认弹窗不再被L2拦截")
 end)
 
 test("P2-4: L2脏 + A锁住 → A显示🔒锁定，B显示出售，两者独立", function()
@@ -274,12 +273,12 @@ test("P2-4: L2脏 + A锁住 → A显示🔒锁定，B显示出售，两者独立
     assertEqual(cardB.btnText, "出售", "B显示出售（L2不影响卡片）")
     assertTrue(cardB.canSell, "B卡片可售（L2不影响卡片）")
 
-    -- 但 B 的 onClick 会被 L2 拦截
+    -- HOTFIX-SELL-01: B 的 onClick 也不再被 L2 拦截
     local blockB = simulateOnClickBlock("herb_002")
-    assertEqual(blockB, "global_unsync", "B的onClick被L2拦截")
+    assertEqual(blockB, nil, "HOTFIX-SELL-01: B的onClick不再被L2拦截")
 end)
 
-test("P2-5: SaveSession脏 → 卡片仍显示出售，onClick拦截", function()
+test("P2-5: HOTFIX-SELL-01: SaveSession脏 → 卡片仍显示出售，onClick也放行", function()
     _lockedItems = {}
     SyncState.ClearAll()
     SaveSession.MarkDirty()
@@ -289,7 +288,7 @@ test("P2-5: SaveSession脏 → 卡片仍显示出售，onClick拦截", function(
     assertTrue(cardB.canSell, "SaveSession脏 → 卡片可售")
 
     local block = simulateOnClickBlock("herb_002")
-    assertEqual(block, "global_unsync", "SaveSession脏 → onClick拦截")
+    assertEqual(block, nil, "HOTFIX-SELL-01: SaveSession脏 → onClick也不拦截")
 
     -- 清理
     EventBus.Emit("game_saved")
@@ -368,9 +367,9 @@ test("P3-4: L1+L2同时存在 → 只有被锁的商品显示🔒，其余仍出
     assertEqual(card2.btnText, "出售", "未锁商品显示出售")
     assertEqual(card3.btnText, "出售", "未锁商品显示出售")
 
-    -- 但所有未锁商品的 onClick 都被 L2 拦截
-    assertEqual(simulateOnClickBlock("herb_002"), "global_unsync")
-    assertEqual(simulateOnClickBlock("herb_003"), "global_unsync")
+    -- HOTFIX-SELL-01: 未锁商品的 onClick 不再被 L2 拦截
+    assertEqual(simulateOnClickBlock("herb_002"), nil)
+    assertEqual(simulateOnClickBlock("herb_003"), nil)
 
     SyncState.ClearAll()
 end)
@@ -407,32 +406,32 @@ test("P4-2: game_saved → 锁清除 → 商品恢复可售", function()
     assertEqual(after.btnText, "出售", "存档后出售")
 end)
 
-test("P4-3: onClick多层防线完整 — L1拦截 → L2拦截 → 放行", function()
+test("P4-3: HOTFIX-SELL-01: onClick仅L1拦截 — L1拦截 → L2放行 → 全清放行", function()
     -- 场景1: L1 拦截
     _lockedItems = { herb_001 = true }
     SyncState.ClearAll()
     assertEqual(simulateOnClickBlock("herb_001"), "locked_item", "L1拦截")
 
-    -- 场景2: L2 拦截（无L1）
+    -- 场景2: HOTFIX-SELL-01: L2 不再拦截（无L1）
     _lockedItems = {}
     SyncState.MarkConsumeUsed("x")
-    assertEqual(simulateOnClickBlock("herb_001"), "global_unsync", "L2拦截")
+    assertEqual(simulateOnClickBlock("herb_001"), nil, "HOTFIX-SELL-01: L2不再拦截onClick")
 
     -- 场景3: 全部清除 → 放行
     SyncState.ClearAll()
     assertEqual(simulateOnClickBlock("herb_001"), nil, "无阻断 → 放行")
 end)
 
-test("P4-4: 确认弹窗多层防线完整 — L1拦截 → L2拦截 → 放行", function()
+test("P4-4: HOTFIX-SELL-01: 确认弹窗仅L1拦截 — L1拦截 → L2放行 → 全清放行", function()
     -- 场景1: L1 拦截
     _lockedItems = { herb_001 = true }
     SyncState.ClearAll()
     assertEqual(simulateConfirmBlock("herb_001"), "locked_item", "确认L1拦截")
 
-    -- 场景2: L2 拦截
+    -- 场景2: HOTFIX-SELL-01: L2 不再拦截
     _lockedItems = {}
     SyncState.MarkWarehouseOp("x")
-    assertEqual(simulateConfirmBlock("herb_001"), "global_unsync", "确认L2拦截")
+    assertEqual(simulateConfirmBlock("herb_001"), nil, "HOTFIX-SELL-01: L2不再拦截确认弹窗")
 
     -- 场景3: 放行
     SyncState.ClearAll()

@@ -188,25 +188,26 @@ do
     assert_eq(reason_after, "none", "T4b: game_saved 后 → none（解锁）")
 end
 
--- T5: onClick 仍做 L2 实时拦截
+-- T5: HOTFIX-SELL-01 — GetSellBlockReason 底层仍返回 global_unsync（API 行为不变），
+--     但 onClick/confirm 不再以此拦截卖出
 do
     _lockedItems = {}
     SyncState.MarkWarehouseOp("test_op")
 
     local reason, detail = SyncState.GetSellBlockReason("herb_001")
-    -- onClick 逻辑：检查 curReason == "global_unsync" 则拦截
-    assert_eq(reason, "global_unsync", "T5: onClick L2 拦截仍生效")
+    -- 底层 API 仍返回 global_unsync（未修改 SyncState 本身）
+    assert_eq(reason, "global_unsync", "T5: GetSellBlockReason 底层仍返回 global_unsync")
 
     SyncState.ClearAll()
 end
 
--- T6: 确认弹窗仍做 L2 最终防线
+-- T6: IsBlocked 底层 API 行为不变（HOTFIX-SELL-01 不修改 SyncState 本身）
 do
     _lockedItems = {}
     SaveSession.MarkDirty()
 
     local blocked, reason = SyncState.IsBlocked()
-    assert_true(blocked, "T6a: SaveSession 脏时 IsBlocked=true（确认弹窗防线）")
+    assert_true(blocked, "T6a: SaveSession 脏时 IsBlocked=true（底层 API 不变）")
     assert_eq(reason, "save_session_active", "T6b: 原因 save_session_active")
 
     EventBus.Emit("game_saved")
