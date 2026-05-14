@@ -482,7 +482,8 @@ local function BuildItemCard(itemId)
     -- BM-S4E: 统一卖出判定 — 所有卖出拦截收敛至 GetSellBlockReason
     local isEquipItem = cfg.itemType == "equipment"
     local sellBlockReason = BlackMarketSyncState.GetSellBlockReason(itemId)
-    local canSell = realmOk_ and held > 0 and stock < maxStock and sellBlockReason == "none"
+    -- PRE-C5-A1 Principle B: 卡片级 canSell 只查 L1(locked_item)，L2 留给 onClick 实时拦截
+    local canSell = realmOk_ and held > 0 and stock < maxStock and sellBlockReason ~= "locked_item"
 
     local nameText = cfg.name
     if cfg.isBoss then
@@ -609,9 +610,8 @@ local function BuildItemCard(itemId)
                     },
                     UI.Button {
                         -- BM-S4E: 按钮文本同步反映统一判定结果
-                        text = sellBlockReason == "locked_item" and "🔒锁定"
-                            or sellBlockReason == "global_unsync" and "⏳同步中"
-                            or "出售",
+                        -- PRE-C5-A1 Principle B: 卡片只显示 L1 状态，不显示 L2 "⏳同步中"
+                        text = sellBlockReason == "locked_item" and "🔒锁定" or "出售",
                         width = 48, height = 26,
                         fontSize = 11, fontWeight = "bold",
                         borderRadius = T.radius.sm,
