@@ -502,7 +502,10 @@ function CloudStorage.GetRankList(key, start, count, events, ...)
     if serverConn then
         serverConn:SendRemoteEvent(SaveProtocol.C2S_GetRankList, true, eventData)
     else
-        -- N1: 只读请求容错 — unstable 状态下延迟 2s 重试（最多 1 次）
+        -- N1: 只读请求容错 — unstable 状态下延迟重试（最多 1 次）
+        -- [N1R] 注：ScheduleDelayedLocal(2.0) 的 deadline 为 os.clock()+2s，
+        -- 但 Tick() 由主循环每 5s 调用一次，实际执行延迟为 2~7s（取决于 Tick 周期相位）。
+        -- 此为已知设计权衡：排行榜为弱实时请求，5s 级别延迟可接受，无需加快 Tick 频率。
         local NetworkStatus = require("network.NetworkStatus")
         local retryCount = events and events._n1RetryCount or 0
         if NetworkStatus.IsUnstable() and not NetworkStatus.IsDisconnected() and retryCount < 1 then

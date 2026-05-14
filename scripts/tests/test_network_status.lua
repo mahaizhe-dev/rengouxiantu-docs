@@ -17,6 +17,11 @@
 --   T11. Reset 恢复初始状态
 --   T12. 2 次失败不触发 connection_lost（阈值 3）
 --   T13. 只读容错：CloudStorage 延迟重试结构验证
+--   T14. DISCONNECTED 后再失败不重复触发
+--   T15. [N1R] SUSTAINED_DISCONNECT_DELAY 残留常量已删除
+--   T16. [N1R] dt 参数不影响状态机判定（纯计数驱动）
+--   T17. [N1R] unstable 恢复不足后重新失败场景
+--   T18. [N1R] Reset 后无 _sustainedTimer 字段
 -- ============================================================================
 
 local passed = 0
@@ -184,6 +189,55 @@ assert_eq(ev, "connection_lost", "T13: 重新累计第 3 次失败才 connection
 print("\n-- T14: DISCONNECTED 后再失败不重复触发 --")
 ev = NetworkStatus.RecordSample(false, 3.0)
 assert_nil(ev, "T14: 已 DISCONNECTED 状态下再失败无事件")
+
+-- ============================================================================
+-- N1R 收口补充测试
+-- ============================================================================
+
+-- T15: SUSTAINED_DISCONNECT_DELAY 已删除 — 常量不存在
+print("\n-- T15: [N1R] 残留常量已删除 --")
+assert_nil(NetworkStatus.SUSTAINED_DISCONNECT_DELAY,
+    "T15: SUSTAINED_DISCONNECT_DELAY 不存在")
+assert_nil(NetworkStatus._sustainedTimer,
+    "T15: _sustainedTimer 不存在")
+
+-- T16: dt 参数不影响状态迁移 — 无论 dt 大小，纯计数驱动
+print("\n-- T16: [N1R] dt 参数不影响状态机判定 --")
+NetworkStatus.Reset()
+-- 用 dt=0 和 dt=999 分别测试，结果应完全一致
+local ev1 = NetworkStatus.RecordSample(false, 0)    -- dt=0
+assert_eq(ev1, "connection_unstable", "T16a: dt=0 首次失败 → unstable")
+NetworkStatus.Reset()
+local ev2 = NetworkStatus.RecordSample(false, 999)  -- dt=999
+assert_eq(ev2, "connection_unstable", "T16b: dt=999 首次失败 → unstable（与 dt=0 一致）")
+-- 继续用 dt=0 累积到 disconnected
+NetworkStatus.RecordSample(false, 0)  -- fail 2
+local ev3 = NetworkStatus.RecordSample(false, 0)  -- fail 3
+assert_eq(ev3, "connection_lost", "T16c: dt=0 累积 3 次失败 → disconnected")
+-- 用 dt=0 恢复
+NetworkStatus.RecordSample(true, 0)   -- success 1
+local ev4 = NetworkStatus.RecordSample(true, 0)   -- success 2
+assert_eq(ev4, "connection_restored", "T16d: dt=0 恢复 → connected")
+
+-- T17: unstable → disconnected 中间穿插恢复不足（1次成功）→ 重新失败
+print("\n-- T17: [N1R] unstable 恢复不足后重新失败 --")
+NetworkStatus.Reset()
+NetworkStatus.RecordSample(false, 3.0)  -- fail 1 → unstable
+NetworkStatus.RecordSample(true, 3.0)   -- success 1（不够恢复）
+assert_eq(NetworkStatus.GetState(), "unstable", "T17a: 1 次成功仍 unstable")
+-- 再失败：failCount 被重置了，从 1 开始
+ev = NetworkStatus.RecordSample(false, 3.0)  -- fail 1（新周期）
+-- 由于已经是 unstable，且 failCount=1 with oldState=unstable，不触发 connection_unstable
+assert_nil(ev, "T17b: unstable 态下再次首次失败无事件（已是 unstable）")
+assert_eq(NetworkStatus.GetState(), "unstable", "T17c: 状态仍为 unstable")
+NetworkStatus.RecordSample(false, 3.0)  -- fail 2
+ev = NetworkStatus.RecordSample(false, 3.0)  -- fail 3
+assert_eq(ev, "connection_lost", "T17d: 从 unstable 累计 3 次失败 → disconnected")
+
+-- T18: Reset 后不存在 _sustainedTimer 字段
+print("\n-- T18: [N1R] Reset 后无 _sustainedTimer --")
+NetworkStatus.Reset()
+assert_nil(NetworkStatus._sustainedTimer, "T18: Reset 后无 _sustainedTimer 字段")
 
 -- ============================================================================
 -- 结果汇总

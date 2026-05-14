@@ -29,12 +29,8 @@ NetworkStatus.DISCONNECT_THRESHOLD = 3
 -- 恢复时需要连续成功多少次才判定为已恢复（滞回防抖）
 NetworkStatus.RESTORE_THRESHOLD = 2
 
--- 从 unstable 升级到 disconnected 的额外等待（秒）
--- 在 DISCONNECT_THRESHOLD 次失败后，再等此时长确认持续断连
-NetworkStatus.SUSTAINED_DISCONNECT_DELAY = 5.0
-
--- 持续断连计时器
-NetworkStatus._sustainedTimer = 0
+-- [N1R] 已删除: SUSTAINED_DISCONNECT_DELAY / _sustainedTimer
+-- 状态机为纯计数驱动，dt 参数不参与判定，无需时间计时器
 
 -- ============================================================================
 -- 查询接口
@@ -78,7 +74,6 @@ function NetworkStatus.RecordSample(connected, dt)
 
     if connected then
         NetworkStatus._consecutiveFailCount = 0
-        NetworkStatus._sustainedTimer = 0
         NetworkStatus._consecutiveSuccessCount = NetworkStatus._consecutiveSuccessCount + 1
 
         if oldState == NetworkStatus.STATE_CONNECTED then
@@ -102,7 +97,6 @@ function NetworkStatus.RecordSample(connected, dt)
         if NetworkStatus._consecutiveFailCount == 1 and oldState == NetworkStatus.STATE_CONNECTED then
             -- 第一次失败：进入不稳定状态
             NetworkStatus._state = NetworkStatus.STATE_UNSTABLE
-            NetworkStatus._sustainedTimer = 0
             return "connection_unstable"
         elseif NetworkStatus._consecutiveFailCount >= NetworkStatus.DISCONNECT_THRESHOLD
                and oldState ~= NetworkStatus.STATE_DISCONNECTED then
@@ -120,7 +114,6 @@ function NetworkStatus.Reset()
     NetworkStatus._state = NetworkStatus.STATE_CONNECTED
     NetworkStatus._consecutiveFailCount = 0
     NetworkStatus._consecutiveSuccessCount = 0
-    NetworkStatus._sustainedTimer = 0
 end
 
 return NetworkStatus
