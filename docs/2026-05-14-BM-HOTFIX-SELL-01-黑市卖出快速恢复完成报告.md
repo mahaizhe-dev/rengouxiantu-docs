@@ -193,5 +193,5 @@ regression: total=4, skipped=4 (engine_required) ✅
 
 ## 10. Commit
 
-- SHA: `待补填`
+- SHA: `e515c77`
 - Message: `hotfix(BM-HOTFIX-SELL-01): 移除 onClick/confirm 的 global_unsync(L2) 拦截，恢复未锁商品卖出`
