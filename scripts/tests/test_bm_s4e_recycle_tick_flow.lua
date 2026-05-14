@@ -350,6 +350,206 @@ do
     assert_eq(r2.log[1], "same_day_skip", "T12b: 内存占位命中")
 end
 
+-- T13: 多天连续模拟 — 证明"后续过天"会正确触发回收
+--      模拟 Day1→Day2→Day3→Day4 连续四天，每天都应触发一次回收
+--      这直接回答了"首日触发，后续不触发"的疑问
+do
+    print("  --- T13: 多天连续模拟 (Day1→Day2→Day3→Day4) ---")
+
+    -- 初始状态：云端日期为 Day0 (20260513)，进程刚启动
+    local memDate = nil       -- 进程刚启动，内存无占位
+    local cloudDate = 20260513
+
+    local days = { "20260514", "20260515", "20260516", "20260517" }
+
+    for i, todayStr in ipairs(days) do
+        -- 每天第一次 tick
+        local r = SimulateRecycleTick({
+            recycleEnabled = true,
+            lastRecycleDate = memDate,
+            todayStr = todayStr,
+            cloudDate = cloudDate,
+            moneyGetOk = true,
+            moneyAddOk = true,
+        })
+        assert_eq(r.executeRecycleCalled, true,
+            string.format("T13-Day%d: 第%d天(%s)执行回收", i, i, todayStr))
+        assert_eq(r.realGap, 1,
+            string.format("T13-Day%d: realGap = 1", i))
+
+        -- 更新状态（模拟回收成功后的副作用）
+        memDate = r.lastRecycleDate          -- 内存占位更新
+        cloudDate = tonumber(todayStr)       -- 云端日期推进
+
+        -- 同一天第二次 tick — 应该幂等
+        local r2 = SimulateRecycleTick({
+            recycleEnabled = true,
+            lastRecycleDate = memDate,
+            todayStr = todayStr,
+            cloudDate = cloudDate,
+            moneyGetOk = true,
+            moneyAddOk = true,
+        })
+        assert_eq(r2.executeRecycleCalled, false,
+            string.format("T13-Day%d: 同天第二次幂等", i))
+    end
+end
+
+-- T14: 多天连续含跨月 — 0529→0530→0531→0601→0602
+--      证明跨月边界不会中断连续回收
+do
+    print("  --- T14: 多天连续含跨月 (0529→0530→0531→0601→0602) ---")
+
+    local memDate = nil
+    local cloudDate = 20260528  -- Day0
+
+    local days = { "20260529", "20260530", "20260531", "20260601", "20260602" }
+
+    for i, todayStr in ipairs(days) do
+        local r = SimulateRecycleTick({
+            recycleEnabled = true,
+            lastRecycleDate = memDate,
+            todayStr = todayStr,
+            cloudDate = cloudDate,
+            moneyGetOk = true,
+            moneyAddOk = true,
+        })
+        assert_eq(r.executeRecycleCalled, true,
+            string.format("T14-Day%d: %s 执行回收", i, todayStr))
+        assert_eq(r.realGap, 1,
+            string.format("T14-Day%d: realGap = 1", i))
+
+        memDate = r.lastRecycleDate
+        cloudDate = tonumber(todayStr)
+    end
+end
+
+-- T15: 多天连续含跨年 — 1229→1230→1231→0101→0102 (2026→2027)
+--      证明跨年边界不会中断连续回收
+do
+    print("  --- T15: 多天连续含跨年 (1229→1230→1231→0101→0102) ---")
+
+    local memDate = nil
+    local cloudDate = 20261228  -- Day0
+
+    local days = { "20261229", "20261230", "20261231", "20270101", "20270102" }
+
+    for i, todayStr in ipairs(days) do
+        local r = SimulateRecycleTick({
+            recycleEnabled = true,
+            lastRecycleDate = memDate,
+            todayStr = todayStr,
+            cloudDate = cloudDate,
+            moneyGetOk = true,
+            moneyAddOk = true,
+        })
+        assert_eq(r.executeRecycleCalled, true,
+            string.format("T15-Day%d: %s 执行回收", i, todayStr))
+        assert_eq(r.realGap, 1,
+            string.format("T15-Day%d: realGap = 1", i))
+
+        memDate = r.lastRecycleDate
+        cloudDate = tonumber(todayStr)
+    end
+end
+
+-- T16: 进程重启后恢复 — 模拟 Day1 回收后进程崩溃重启，
+--      Day2 靠云端日期恢复正确状态
+do
+    print("  --- T16: 进程重启后恢复 ---")
+
+    -- Day1: 正常回收
+    local r1 = SimulateRecycleTick({
+        recycleEnabled = true,
+        lastRecycleDate = nil,
+        todayStr = "20260520",
+        cloudDate = 20260519,
+        moneyGetOk = true,
+        moneyAddOk = true,
+    })
+    assert_eq(r1.executeRecycleCalled, true, "T16-Day1: 正常回收")
+
+    -- 模拟进程崩溃重启：memDate 清零，cloudDate 已在云端
+    local memDate_after_restart = nil  -- 进程重启，内存丢失
+
+    -- Day1 重启后同天再次 tick — 靠云端拦截
+    local r1b = SimulateRecycleTick({
+        recycleEnabled = true,
+        lastRecycleDate = memDate_after_restart,
+        todayStr = "20260520",
+        cloudDate = 20260520,  -- 云端已更新到 Day1
+        moneyGetOk = true,
+        moneyAddOk = true,
+    })
+    assert_eq(r1b.executeRecycleCalled, false, "T16-Day1-restart: 云端拦截不重复回收")
+    assert_eq(r1b.log[1], "cloud_same_day", "T16-Day1-restart: cloud_same_day")
+
+    -- Day2: 过天后正常触发
+    local r2 = SimulateRecycleTick({
+        recycleEnabled = true,
+        lastRecycleDate = r1b.lastRecycleDate,
+        todayStr = "20260521",
+        cloudDate = 20260520,
+        moneyGetOk = true,
+        moneyAddOk = true,
+    })
+    assert_eq(r2.executeRecycleCalled, true, "T16-Day2: 重启后过天正常回收")
+end
+
+-- T17: 网络抖动重试 — Day1 首次 money:Get 失败，
+--      重试成功后正常回收；Day2 继续正常
+do
+    print("  --- T17: 网络抖动重试 ---")
+
+    -- Day1 首次 tick: 云端读取失败
+    local r1a = SimulateRecycleTick({
+        recycleEnabled = true,
+        lastRecycleDate = nil,
+        todayStr = "20260520",
+        cloudDate = 20260519,
+        moneyGetOk = false,
+        moneyAddOk = true,
+    })
+    assert_eq(r1a.executeRecycleCalled, false, "T17-Day1-fail: 读取失败不回收")
+    assert_eq(r1a.lastRecycleDate, nil, "T17-Day1-fail: 内存占位清除可重试")
+
+    -- Day1 重试 tick: 成功
+    local r1b = SimulateRecycleTick({
+        recycleEnabled = true,
+        lastRecycleDate = r1a.lastRecycleDate,  -- nil，可重试
+        todayStr = "20260520",
+        cloudDate = 20260519,
+        moneyGetOk = true,
+        moneyAddOk = true,
+    })
+    assert_eq(r1b.executeRecycleCalled, true, "T17-Day1-retry: 重试成功回收")
+
+    -- Day2: 继续正常
+    local r2 = SimulateRecycleTick({
+        recycleEnabled = true,
+        lastRecycleDate = r1b.lastRecycleDate,
+        todayStr = "20260521",
+        cloudDate = 20260520,
+        moneyGetOk = true,
+        moneyAddOk = true,
+    })
+    assert_eq(r2.executeRecycleCalled, true, "T17-Day2: 次日正常回收")
+end
+
+-- T18: 2天间隔 — realGap=2 仍在 MAX_RECYCLE_GAP 内，正常回收
+do
+    local r = SimulateRecycleTick({
+        recycleEnabled = true,
+        lastRecycleDate = nil,
+        todayStr = "20260516",
+        cloudDate = 20260514,
+        moneyGetOk = true,
+        moneyAddOk = true,
+    })
+    assert_eq(r.executeRecycleCalled, true, "T18: 间隔2天仍回收 (realGap=2 <= MAX_RECYCLE_GAP)")
+    assert_eq(r.realGap, 2, "T18: realGap = 2")
+end
+
 -- ============================================================================
 -- 结果汇总
 -- ============================================================================
