@@ -50,6 +50,34 @@ function BlackMarketSyncState.MarkWarehouseOp(reason)
     print("[BlackMarketSyncState] warehouse dirty: " .. tostring(reason))
 end
 
+--- BM-S4E: 统一卖出判定入口 — 前端所有卖出拦截必须走这一个函数
+--- 合并 L1 同类锁 + L2 全局未同步，返回单一阻断原因
+--- 消除"按钮亮起但确认阶段才拦"的交互分裂
+---@param itemId string|nil 商品 ID（传 nil 则只检查 L2）
+---@return string reason "none" | "locked_item" | "global_unsync"
+---@return string|nil detail 详细原因（用于日志）
+function BlackMarketSyncState.GetSellBlockReason(itemId)
+    -- L1: 同类锁门（优先级最高）
+    if itemId then
+        local okCfg, BMConfig = pcall(require, "config.BlackMerchantConfig")
+        local cfgItem = okCfg and BMConfig and BMConfig.ITEMS and BMConfig.ITEMS[itemId]
+        local isEquip = cfgItem and cfgItem.itemType == "equipment"
+        if not isEquip then
+            local okInv, InventorySystem = pcall(require, "systems.InventorySystem")
+            if okInv and InventorySystem and InventorySystem.HasAnyLockedConsumable
+                    and InventorySystem.HasAnyLockedConsumable(itemId) then
+                return "locked_item", "L1: " .. tostring(itemId) .. " has locked stacks"
+            end
+        end
+    end
+    -- L2: 全局未同步
+    local blocked, reason = BlackMarketSyncState.IsBlocked()
+    if blocked then
+        return "global_unsync", "L2: " .. tostring(reason)
+    end
+    return "none", nil
+end
+
 --- 查询是否应阻断黑市卖出
 --- 三合一条件：消耗脏 OR 仓库脏 OR SaveSession 活跃延迟窗口
 ---@return boolean blocked

@@ -381,19 +381,15 @@ local function ShowConfirmDialog(action, itemId)
                                             SendBuy(itemId, 1)
                                             SetStatus("购买中...", C.xianshiColor)
                                         else
-                                            -- BM-S4C: L1 同类锁门（优先级最高）
-                                            local cfgLock = BMConfig.ITEMS[itemId]
-                                            local isEquipLock = cfgLock and cfgLock.itemType == "equipment"
-                                            if not isEquipLock and InventorySystem.HasAnyLockedConsumable(itemId) then
+                                            -- BM-S4E: 统一判定入口 — 确认弹窗最终防线
+                                            local cfmReason, cfmDetail = BlackMarketSyncState.GetSellBlockReason(itemId)
+                                            if cfmReason == "locked_item" then
                                                 SetStatus(TradeLock.LOCK_MESSAGE, C.textError, 3)
-                                                print("[BlackMerchantUI] SELL BLOCKED by TradeLock (L1): " .. tostring(itemId))
+                                                print("[BlackMerchantUI] CONFIRM BLOCKED (L1): " .. tostring(cfmDetail))
                                                 return
-                                            end
-                                            -- BM-S4C: L2 全局未同步门
-                                            local blocked, reason = BlackMarketSyncState.IsBlocked()
-                                            if blocked then
+                                            elseif cfmReason == "global_unsync" then
                                                 SetStatus("背包数据未同步，请稍后再试", C.textError, 3)
-                                                print("[BlackMerchantUI] SELL BLOCKED by SyncState (L2): " .. tostring(reason))
+                                                print("[BlackMerchantUI] CONFIRM BLOCKED (L2): " .. tostring(cfmDetail))
                                                 return
                                             end
                                             SendSell(itemId, 1)
@@ -483,10 +479,10 @@ local function BuildItemCard(itemId)
 
     local maxStock = cfg.max_stock or BMConfig.MAX_STOCK
     local canBuy = realmOk_ and stock > 0 and xianshi_ >= buyPrice
-    -- BM-S4B: 消耗品整类禁售 — 只要存在锁定堆叠，整个 itemId 禁止卖出
+    -- BM-S4E: 统一卖出判定 — 所有卖出拦截收敛至 GetSellBlockReason
     local isEquipItem = cfg.itemType == "equipment"
-    local hasLockedStacks = (not isEquipItem) and InventorySystem.HasAnyLockedConsumable(itemId) or false
-    local canSell = realmOk_ and held > 0 and stock < maxStock and (not hasLockedStacks)
+    local sellBlockReason = BlackMarketSyncState.GetSellBlockReason(itemId)
+    local canSell = realmOk_ and held > 0 and stock < maxStock and sellBlockReason == "none"
 
     local nameText = cfg.name
     if cfg.isBoss then
@@ -612,15 +608,24 @@ local function BuildItemCard(itemId)
                         end,
                     },
                     UI.Button {
-                        text = hasLockedStacks and "🔒锁定" or "出售",
+                        -- BM-S4E: 按钮文本同步反映统一判定结果
+                        text = sellBlockReason == "locked_item" and "🔒锁定"
+                            or sellBlockReason == "global_unsync" and "⏳同步中"
+                            or "出售",
                         width = 48, height = 26,
                         fontSize = 11, fontWeight = "bold",
                         borderRadius = T.radius.sm,
                         backgroundColor = canSell and C.sellBtnColor or C.disabledBtn,
                         onClick = function()
-                            -- BM-S4B: 整类禁售实时检查（items_ 可能在构建后更新）
-                            if not isEquipItem and InventorySystem.HasAnyLockedConsumable(itemId) then
+                            -- BM-S4E: 统一判定 — 实时重查（items_ 可能在构建后更新）
+                            local curReason, curDetail = BlackMarketSyncState.GetSellBlockReason(itemId)
+                            if curReason == "locked_item" then
                                 SetStatus(TradeLock.LOCK_MESSAGE, C.textError, 3)
+                                print("[BlackMerchantUI] SELL BTN BLOCKED (L1): " .. tostring(curDetail))
+                                return
+                            elseif curReason == "global_unsync" then
+                                SetStatus("背包数据未同步，请稍后再试", C.textError, 3)
+                                print("[BlackMerchantUI] SELL BTN BLOCKED (L2): " .. tostring(curDetail))
                                 return
                             end
                             local d = items_[itemId] or {}

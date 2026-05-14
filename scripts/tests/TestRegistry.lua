@@ -274,6 +274,30 @@ TestRegistry.tests = {
     },
 
     ---------------------------------------------------------------------------
+    -- BM-S4E: 黑市可售状态一致性与自动回收集成收口
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "bm_s4e_sell_block_consistency",
+        group         = "system",
+        path          = "scripts/tests/test_bm_s4e_sell_block_consistency.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "bm_s4e_recycle_tick_flow",
+        group         = "system",
+        path          = "scripts/tests/test_bm_s4e_recycle_tick_flow.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
     -- R3: 服务壳契约测试
     ---------------------------------------------------------------------------
 
