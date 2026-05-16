@@ -263,7 +263,7 @@ return function(M)
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- BOSS必掉乌堡令
             -- ②专属材料
             { chance = 0.02, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木2%
-            { chance = 0.05, type = "consumable", consumableId = "spirit_pill_2" },  -- 灵兽丹·贰5%
+            { chance = 0.10, type = "consumable", consumableId = "spirit_pill_2" },  -- 灵兽丹·贰10%
             -- ③专属装备
             { chance = 0.05, type = "special_equip", equipId = "wu_armor_ch2" },  -- 乌煞重铠5%
             { chance = 0.03, type = "special_equip", equipId = "wu_hammer_ch2" },  -- 傻大锤3%
@@ -300,7 +300,7 @@ return function(M)
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- BOSS必掉乌堡令
             -- ②专属材料
             { chance = 0.02, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木2%
-            { chance = 0.05, type = "consumable", consumableId = "spirit_pill_2" },  -- 灵兽丹·贰5%
+            { chance = 0.10, type = "consumable", consumableId = "spirit_pill_2" },  -- 灵兽丹·贰10%
             -- ③专属装备
             { chance = 0.05, type = "special_equip", equipId = "wu_necklace_ch2" },  -- 乌骨牙链5%
             { chance = 0.03, type = "special_equip", equipId = "wu_hammer_ch2" },  -- 傻大锤3%
@@ -378,7 +378,7 @@ return function(M)
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- BOSS必掉乌堡令
             -- ②专属材料
             { chance = 0.02, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木2%
-            { chance = 0.05, type = "consumable", consumableId = "spirit_pill_2" },  -- 灵兽丹·贰5%
+            { chance = 0.10, type = "consumable", consumableId = "spirit_pill_2" },  -- 灵兽丹·贰10%
             -- ③装备掉落
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
             -- ④专属装备
@@ -468,7 +468,7 @@ return function(M)
             { chance = 0.05, type = "consumable", consumableId = "demon_essence" },
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- 王级BOSS必掉乌堡令
             -- ②专属材料
-            { chance = 0.05, type = "consumable", consumableId = "spirit_pill_2" },  -- 灵兽丹·贰5%
+            { chance = 0.10, type = "consumable", consumableId = "spirit_pill_2" },  -- 灵兽丹·贰10%
             -- ③装备掉落
             { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "orange" },
             -- ④专属装备

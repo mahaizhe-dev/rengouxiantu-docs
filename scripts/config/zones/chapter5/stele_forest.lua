@@ -32,7 +32,6 @@ stele_forest.spawns = {
 }
 stele_forest.decorations = {
     -- 悟剑碑林：倒碑散落与卷轴残页
-    { type = "toppled_stele",     x = 61, y = 23, w = 2, h = 1 },
     { type = "toppled_stele",     x = 70, y = 26, w = 2, h = 1 },
     { type = "toppled_stele",     x = 63, y = 31, w = 2, h = 1 },
     { type = "toppled_stele",     x = 73, y = 37, w = 2, h = 1 },
