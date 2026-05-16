@@ -233,11 +233,11 @@ function LootSystem.GenerateDrops(dropTable, monster)
         return { items = {}, gold = 0, exp = 0, materials = {}, lingYun = 0 }
     end
 
-    -- 等级差衰减：超过10级不掉经验
+    -- 等级差衰减：超过15级不掉经验
     local player = GameState.player
     local levelDiff = (player and player.level or 0) - (monster.level or 0)
     local exp = monster.expReward or 0
-    if levelDiff > 10 then
+    if levelDiff > 15 then
         exp = 0
     end
 
@@ -249,8 +249,8 @@ function LootSystem.GenerateDrops(dropTable, monster)
         lingYun = 0,
     }
 
-    -- 金币（等级差>10不掉落）
-    if monster.goldReward and levelDiff <= 10 then
+    -- 金币（等级差>15不掉落）
+    if monster.goldReward and levelDiff <= 15 then
         result.gold = Utils.RandomInt(monster.goldReward[1], monster.goldReward[2])
     end
 
@@ -280,9 +280,9 @@ function LootSystem.GenerateDrops(dropTable, monster)
                     local pool = entry.consumablePool
                     cId = pool[math.random(1, #pool)]
                 end
-                -- 等级差>10: 宠物食物不掉落（与经验衰减一致）
+                -- 等级差>15: 宠物食物不掉落（与经验衰减一致）
                 local isPetFood = GameConfig.PET_FOOD[cId]
-                if not (isPetFood and levelDiff > 10) then
+                if not (isPetFood and levelDiff > 15) then
                     local cAmount = entry.amount and Utils.RandomInt(entry.amount[1], entry.amount[2]) or 1
                     if not result.consumables then result.consumables = {} end
                     result.consumables[cId] = (result.consumables[cId] or 0) + cAmount

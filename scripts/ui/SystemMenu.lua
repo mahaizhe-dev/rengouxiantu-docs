@@ -219,6 +219,16 @@ local function BuildDropSummary(monster)
             else
                 table.insert(parts, "套装灵器")
             end
+        elseif entry.type == "equipment_pool" and entry.pool then
+            -- 共享池掉落：遍历池中每个装备项并显示名称
+            for _, pItem in ipairs(entry.pool) do
+                if pItem.equipId and not seenSpecial[pItem.equipId] then
+                    seenSpecial[pItem.equipId] = true
+                    local spec = EquipmentData.SpecialEquipment[pItem.equipId]
+                    local eName = spec and spec.name or pItem.equipId
+                    table.insert(parts, eName)
+                end
+            end
         end
     end
 
@@ -950,7 +960,7 @@ function SystemMenu.Create(parentOverlay, callbacks)
                                     }),
                                     SystemMenu._RuleSection("经验与掉落规则", {
                                         "击败怪物获得经验，经验随怪物等级提升",
-                                        "等级差超过10级：无经验、金币、宠物食物",
+                                        "等级差超过15级：无经验、金币、宠物食物",
                                         "境界满级后经验最多积累到99%",
                                         "必须突破境界才能继续获取经验升级",
                                     }),

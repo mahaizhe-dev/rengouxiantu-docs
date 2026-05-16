@@ -2464,8 +2464,9 @@ MonsterData.WORLD_DROP_POOLS = {
     boss_pill_ch2 = {
         bossLabel = "1%",
         items = {
-            { type = "consumable", consumableId = "zhuji_pill" },   -- 筑基丹
-            { type = "consumable", consumableId = "exp_pill" },     -- 修炼果
+            { type = "consumable", consumableId = "zhuji_pill" },       -- 筑基丹
+            { type = "consumable", consumableId = "exp_pill" },         -- 修炼果
+            { type = "consumable", consumableId = "wubao_token_box" },  -- 乌堡令盒
         },
     },
     -- 虎王专属：中级技能书共享5%，随机掉1本

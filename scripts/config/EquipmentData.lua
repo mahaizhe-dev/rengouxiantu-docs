@@ -252,7 +252,7 @@ EquipmentData.SpecialEquipment = {
     jade_gourd = {
         name = "酒葫芦",
         slot = "treasure",
-        icon = "image/gourd_green.png",
+        icon = "icon_jade_gourd.png",
         quality = "green",
         tier = 1,
         sellPrice = 100,
@@ -269,7 +269,7 @@ EquipmentData.SpecialEquipment = {
     boar_patrol_helmet = {
         name = "猪妖铁盔",
         slot = "helmet",
-        icon = "icon_helmet.png",
+        icon = "icon_boar_patrol_helmet.png",
         quality = "purple",
         tier = 1,
         sellPrice = 100,
@@ -324,7 +324,7 @@ EquipmentData.SpecialEquipment = {
     bandit_second_belt = {
         name = "霸刀腰带",
         slot = "belt",
-        icon = "icon_belt.png",
+        icon = "icon_bandit_second_belt.png",
         quality = "purple",
         tier = 3,
         sellPrice = 300,
@@ -422,7 +422,7 @@ EquipmentData.SpecialEquipment = {
     tiger_set_cape = {
         name = "虎纹战袍",
         slot = "cape",
-        icon = "icon_cape.png",
+        icon = "icon_tiger_set_cape.png",
         quality = "purple",
         tier = 4,
         sellPrice = 400,
@@ -1318,6 +1318,60 @@ EquipmentData.SpecialEquipment = {
         },
     },
 
+    -- 乌大傻掉落：T5紫色铠甲
+    -- 主属性: 4 × 6.0(T5) × 1.3(紫) = 31.2
+    -- 副属性: 紫色3条, 中值×1.0
+    wu_armor_ch2 = {
+        name = "乌煞重铠",
+        slot = "armor",
+        icon = "icon_wu_armor_ch2.png",
+        quality = "purple",
+        tier = 5,
+        sellPrice = 500,
+        mainStat = { def = 31.2 },
+        subStats = {
+            { stat = "maxHp", name = "生命值", value = 24.0 },      -- 6 × 4.0(SUB_T5) = 24.0
+            { stat = "hpRegen", name = "生命回复", value = 2.0 },   -- 0.5 × 4.0(SUB_T5) = 2.0
+            { stat = "def", name = "防御力", value = 4.8 },          -- 1.2 × 4.0(SUB_T5) = 4.8
+        },
+    },
+
+    -- 乌二傻掉落：T5紫色项链
+    -- 主属性: 0.03 × 3.0(PCT_T5) × 1.3(紫) = 0.117
+    -- 副属性: 紫色3条, 中值×1.0
+    wu_necklace_ch2 = {
+        name = "乌骨牙链",
+        slot = "necklace",
+        icon = "icon_wu_necklace_ch2.png",
+        quality = "purple",
+        tier = 5,
+        sellPrice = 500,
+        mainStat = { critRate = 0.117 },
+        subStats = {
+            { stat = "atk", name = "攻击力", value = 6.0 },          -- 1.5 × 4.0(SUB_T5) = 6.0
+            { stat = "critRate", name = "暴击率", value = 0.025 },   -- 0.01 × 2.5(PCT_SUB_T5) = 0.025
+            { stat = "def", name = "防御力", value = 4.8 },          -- 1.2 × 4.0(SUB_T5) = 4.8
+        },
+    },
+
+    -- 乌大傻/乌二傻3%掉落：T5橙色武器
+    -- 主属性: 5 × 6.0(T5) × 1.5(橙) = 45
+    -- 副属性: 橙色3条, 中值×1.1
+    wu_hammer_ch2 = {
+        name = "傻大锤",
+        slot = "weapon",
+        icon = "icon_wu_hammer_ch2.png",
+        quality = "orange",
+        tier = 5,
+        sellPrice = 500,
+        mainStat = { atk = 45 },
+        subStats = {
+            { stat = "hpRegen", name = "生命回复", value = 2.2 },   -- 0.5 × 4.0(SUB_T5) × 1.1(橙) = 2.2
+            { stat = "killHeal", name = "击杀回血", value = 13.2 }, -- 3 × 4.0(SUB_T5) × 1.1(橙) = 13.2
+            { stat = "fortune", name = "福缘", value = 7 },         -- linearGrowth: floor(5 × 1.5) = 7
+        },
+    },
+
     -- #帝尊贰戒（万仇/万海3%独立掉落）：T5 橙/稀世 戒指
     -- 主属性: 3 × 6.0(T5) × 1.5(橙) = 27
     -- 副属性: 橙色3条, linearGrowth: floor(5 × 1.5) = 7
@@ -1773,6 +1827,9 @@ EquipmentData.Collection = {
                 "wu_ring_chou",
                 "wu_ring_hai",
                 "wu_boots_ch2",
+                "wu_armor_ch2",
+                "wu_necklace_ch2",
+                "wu_hammer_ch2",
                 "dizun_ring_ch2",
                 "fabao_xuehaitu_t5",
                 "fabao_haoqiyin_t5",
@@ -1870,6 +1927,9 @@ EquipmentData.Collection = {
         "wu_ring_chou",
         "wu_ring_hai",
         "wu_boots_ch2",
+        "wu_armor_ch2",
+        "wu_necklace_ch2",
+        "wu_hammer_ch2",
         "dizun_ring_ch2",
         "fabao_xuehaitu_t5",
         "fabao_haoqiyin_t5",
@@ -2007,12 +2067,24 @@ EquipmentData.Collection = {
             desc = "乌万海的戒指，深沉如海，暗藏杀机。",
         },
         wu_boots_ch2 = {
-            bonus = { atk = 3, maxHp = 15 },
+            bonus = { atk = 5, maxHp = 20 },
             desc = "踏云而行，十中避一，轻灵飘逸。",
         },
+        wu_armor_ch2 = {
+            bonus = { def = 4, maxHp = 12 },
+            desc = "乌大傻以蛮力锤锻的玄铁重铠，沉若铁山，硬抗百拳。",
+        },
+        wu_necklace_ch2 = {
+            bonus = { atk = 4, maxHp = 12 },
+            desc = "乌二傻以妖骨獠牙穿就的项链，锋锐嗜血，一击致命。",
+        },
+        wu_hammer_ch2 = {
+            bonus = { maxHp = 12 },
+            desc = "大傻二傻合力铸就的蛮荒巨锤，一锤落地，山崩石裂。",
+        },
         dizun_ring_ch2 = {
-            bonus = { wisdom = 3 },
-            desc = "帝尊再铸之戒，双煞淬炼，悟性渐深。",
+            bonus = { fortune = 3 },
+            desc = "帝尊再铸之戒，双煞淬炼，福缘深厚。",
         },
         -- 法宝图鉴（第二章·T5）
         fabao_xuehaitu_t5 = {

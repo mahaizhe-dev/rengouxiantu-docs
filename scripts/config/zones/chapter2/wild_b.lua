@@ -31,8 +31,6 @@ wild_b.spawns = {
     { type = "black_boar",  x = 20, y = 14 },
     { type = "black_boar",  x = 7,  y = 15 },
     { type = "black_boar",  x = 15, y = 19 },
-    { type = "black_boar",  x = 23, y = 18 },
-    { type = "black_boar",  x = 12, y = 22 },
     -- 赤鬃野猪 Lv.19 精英（2只，分布两端）
     { type = "red_boar_elite", x = 8,  y = 10 },
     { type = "red_boar_elite", x = 21, y = 20 },

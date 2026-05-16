@@ -79,6 +79,7 @@ return function(M)
             { chance = 0.25, type = "consumable", consumableId = "beast_meat" },
             -- ②专属材料
             { chance = 0.15, type = "consumable", consumableId = "spirit_pill" },
+            { chance = 0.05, type = "consumable", consumableId = "qi_pill" },      -- 练气丹5%
             -- ③装备掉落
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "purple" },
             -- ④专属装备
@@ -130,7 +131,8 @@ return function(M)
             -- ②专属材料
             { chance = 0.20, type = "consumable", consumableId = "spirit_pill_2" },
             { chance = 0.05, type = "world_drop", pool = "snake_books" },  -- 中级技能书5%（随机1本）
-            { chance = 0.02, type = "consumable", consumableId = "snake_fruit" },  -- 灵蛇果2%
+            { chance = 0.03, type = "consumable", consumableId = "snake_fruit" },  -- 灵蛇果3%
+            { chance = 0.05, type = "consumable", consumableId = "qi_pill" },      -- 练气丹5%
             -- ③装备掉落
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "purple" },
             -- ④专属装备
@@ -233,6 +235,80 @@ return function(M)
         },
     }
 
+    -- ===================== 第二章：乌堡巡逻BOSS Lv.33 =====================
+    M.Types.wu_dasha = {
+        name = "乌大傻",
+        icon = "💀",
+        portrait = "Textures/monster_wu_dasha.png",
+        zone = "wu_fortress_north",
+        category = "boss",
+        race = "undead",
+        level = 33,
+        realm = "zhuji_2",  -- 筑基中期
+        bodyColor = {120, 50, 50, 255},
+        phases = 2,
+        skills = { "ground_pound" },
+        phaseConfig = {
+            { threshold = 0.5, atkMult = 1.4, speedMult = 1.2,
+              announce = "乌大傻怒吼一声，符文暴涨！",
+              addSkill = "rect_sweep" },
+        },
+        dropTable = {
+            -- ①常规掉落
+            { chance = 1.0, type = "lingYun", amount = {1, 1} },
+            { chance = 0.50, type = "lingYun", amount = {1, 1} },
+            { chance = 0.15, type = "consumable", consumableId = "beast_meat" },
+            { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
+            { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- BOSS必掉乌堡令
+            -- ②专属材料
+            { chance = 0.02, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木2%
+            -- ③专属装备
+            { chance = 0.05, type = "special_equip", equipId = "wu_armor_ch2" },  -- 乌煞重铠5%
+            { chance = 0.03, type = "special_equip", equipId = "wu_hammer_ch2" },  -- 傻大锤3%
+            -- ④装备掉落
+            { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
+            -- ⑤世界掉落
+            { chance = 0.02, type = "world_drop", pool = "ch2" },
+            { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1%
+        },
+    }
+    M.Types.wu_ersha = {
+        name = "乌二傻",
+        icon = "💀",
+        portrait = "Textures/monster_wu_ersha.png",
+        zone = "wu_fortress_south",
+        category = "boss",
+        race = "undead",
+        level = 33,
+        realm = "zhuji_2",  -- 筑基中期
+        bodyColor = {80, 60, 70, 255},
+        phases = 2,
+        skills = { "whirlwind" },
+        phaseConfig = {
+            { threshold = 0.5, atkMult = 1.4, speedMult = 1.3,
+              announce = "乌二傻双爪泛起寒光！",
+              addSkill = "fire_zone" },
+        },
+        dropTable = {
+            -- ①常规掉落
+            { chance = 1.0, type = "lingYun", amount = {1, 1} },
+            { chance = 0.50, type = "lingYun", amount = {1, 1} },
+            { chance = 0.15, type = "consumable", consumableId = "beast_meat" },
+            { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
+            { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- BOSS必掉乌堡令
+            -- ②专属材料
+            { chance = 0.02, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木2%
+            -- ③专属装备
+            { chance = 0.05, type = "special_equip", equipId = "wu_necklace_ch2" },  -- 乌骨牙链5%
+            { chance = 0.03, type = "special_equip", equipId = "wu_hammer_ch2" },  -- 傻大锤3%
+            -- ④装备掉落
+            { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
+            -- ⑤世界掉落
+            { chance = 0.02, type = "world_drop", pool = "ch2" },
+            { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1%
+        },
+    }
+
     -- ===================== 第二章：乌堡北堡BOSS Lv.29 =====================
     M.Types.wu_dibei = {
         name = "乌地北",
@@ -259,13 +335,14 @@ return function(M)
             { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- BOSS必掉乌堡令
             -- ②专属材料
-            { chance = 0.01, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木1%
+            { chance = 0.02, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木2%
             -- ③装备掉落
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "purple" },
             -- ④专属装备
             { chance = 0.05, type = "equipment", equipId = "wu_shoulder_ch2" },   -- 玄铁肩甲5%
             -- ⑤世界掉落
             { chance = 0.02, type = "world_drop", pool = "ch2" },
+            { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1%
         },
     }
 
@@ -296,13 +373,14 @@ return function(M)
             { chance = 0.02, type = "consumable", consumableId = "demon_essence" },
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- BOSS必掉乌堡令
             -- ②专属材料
-            { chance = 0.01, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木1%
+            { chance = 0.02, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木2%
             -- ③装备掉落
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
             -- ④专属装备
-            { chance = 0.08, type = "equipment", equipId = "wu_weapon_ch2" },     -- 南刀·裂风8%
+            { chance = 0.05, type = "equipment", equipId = "wu_weapon_ch2" },     -- 南刀·裂风5%
             -- ⑤世界掉落
             { chance = 0.02, type = "world_drop", pool = "ch2" },
+            { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1%
         },
     }
 
@@ -347,11 +425,9 @@ return function(M)
             { chance = 0.05, type = "equipment", equipId = "wu_ring_chou" },      -- 乌堡戒·仇5%
             -- ⑤帝尊贰戒（2%独立掉落）
             { chance = 0.02, type = "equipment", equipId = "dizun_ring_ch2" },
-            -- ⑤.5 乌堡令盒（0.1%独立掉落）
-            { chance = 0.001, type = "consumable", consumableId = "wubao_token_box" },
             -- ⑥世界掉落
             { chance = 0.02, type = "world_drop", pool = "ch2" },
-            { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果共享1%
+            { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1%
         },
     }
 
@@ -395,11 +471,9 @@ return function(M)
             { chance = 0.02, type = "equipment", equipId = "wu_boots_ch2" },      -- 踏云靴2%
             -- ⑤帝尊贰戒（2%独立掉落）
             { chance = 0.02, type = "equipment", equipId = "dizun_ring_ch2" },
-            -- ⑤.5 乌堡令盒（0.1%独立掉落）
-            { chance = 0.001, type = "consumable", consumableId = "wubao_token_box" },
             -- ⑥世界掉落
             { chance = 0.02, type = "world_drop", pool = "ch2" },
-            { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果共享1%
+            { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1%
         },
     }
 

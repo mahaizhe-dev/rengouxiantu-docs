@@ -274,7 +274,7 @@ PetSkillData.SKILL_BOOKS = {
 PetSkillData.UPGRADE_COST = {
     [2] = {
         pathA = { bookCount = 1, lingYun = 0,  successRate = 0.20 },  -- 普通升级：20%成功率
-        pathB = { bookCount = 1, lingYun = 50, successRate = 1.0  },  -- 精研升级：100%成功率
+        pathB = { bookCount = 1, lingYun = 100, successRate = 1.0  },  -- 精研升级：100%成功率
     },
     [3] = {
         pathA = { bookCount = 1, lingYun = 0,    successRate = 0.10 },  -- 普通升级：10%成功率

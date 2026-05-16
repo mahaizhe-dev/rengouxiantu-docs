@@ -27,7 +27,7 @@ QuestData_ch2.ZONE_QUESTS = {
                 reward = {
                     type = "material_bundle",
                     items = {
-                        { itemId = "gold_bar", count = 5 },
+                        { itemId = "gold_bar", count = 10 },
                         { itemId = "lingYun",  count = 10 },
                     },
                 },
@@ -77,14 +77,19 @@ QuestData_ch2.ZONE_QUESTS = {
                     count = 3,
                 },
             },
-            -- 主线5：让他们安息 → 无奖励，完成后可解封
+            -- 主线5：让他们安息 → 奖励：T5橙装3选1
             {
                 id = "kill_blood_puppets",
                 name = "让他们安息",
                 desc = "击败乌家血傀，让那些被炼成傀儡的修士安息",
                 targetType = "wu_blood_puppet",
                 targetCount = 100,
-                reward = nil,
+                reward = {
+                    type = "equipment_pick",
+                    tier = 5,
+                    quality = "orange",
+                    count = 3,
+                },
             },
             -- 主线6：攻破大门 → 解除封印（交互步骤）
             {
