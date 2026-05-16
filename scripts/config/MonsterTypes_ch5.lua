@@ -205,7 +205,7 @@ M.Types.ch5_frost_luan = {
         { chance = 1.0, type = "lingYun", amount = {14, 22} },
         { chance = 0.40, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.01, type = "consumable", consumableId = "jiuzhuan_jindan" },
+        { chance = 0.02, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹2%
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },
         { chance = 0.02, type = "equipment", equipId = "hanchi_ring_ch5" },  -- 寒池灵戒2%（灵器）
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
@@ -281,7 +281,6 @@ M.Types.ch5_han_bailian = {
         { chance = 1.0, type = "lingYun", amount = {15, 25} },
         { chance = 0.60, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.015, type = "consumable", consumableId = "jiuzhuan_jindan" },
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },
         { chance = 0.01, type = "equipment", equipId = "bailian_belt_ch5" },  -- 百炼熔带1%（橙）
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
@@ -358,7 +357,6 @@ M.Types.ch5_shi_guanlan = {
         { chance = 1.0, type = "lingYun", amount = {16, 28} },
         { chance = 0.80, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.015, type = "consumable", consumableId = "jiuzhuan_jindan" },
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },
         { chance = 0.01, type = "equipment", equipId = "guanlan_necklace_ch5" },  -- 观澜碑坠1%（橙）
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
@@ -435,7 +433,6 @@ M.Types.ch5_ning_qiwu = {
         { chance = 1.0, type = "lingYun", amount = {18, 30} },
         { chance = 1.0, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.02, type = "consumable", consumableId = "jiuzhuan_jindan" },
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },
         { chance = 0.005, type = "equipment", equipId = "qijian_boots_ch5" },  -- 栖剑行靴0.5%（灵器）共享1%二选一
         { chance = 0.005, type = "equipment", equipId = "suxin_ring_ch5" },  -- 宿心残戒0.5%（橙）共享1%二选一
@@ -496,7 +493,6 @@ M.Types.ch5_wen_suzhang = {
         { chance = 1.0, type = "lingYun", amount = {20, 35} },
         { chance = 1.0, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.02, type = "consumable", consumableId = "jiuzhuan_jindan" },
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },
         { chance = 0.005, type = "equipment", equipId = "cangzhen_armor_ch5" },  -- 藏真玄衣0.5%（灵器）共享1%二选一
         { chance = 0.005, type = "equipment", equipId = "cangzhen_helmet_ch5" },  -- 藏真玄冠0.5%（灵器）共享1%二选一
@@ -536,7 +532,6 @@ M.Types.ch5_blood_general = {
         { chance = 1.0, type = "lingYun", amount = {10, 10} },
         { chance = 0.50, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.01, type = "consumable", consumableId = "jiuzhuan_jindan" },
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },
         { chance = 0.0025, type = "equipment", equipId = "tuxue_belt_ch5" },  -- 屠血命绶0.25%（灵器）共享0.5%二选一
         { chance = 0.0025, type = "equipment", equipId = "tuxue_shoulder_ch5" },  -- 屠血魔肩0.25%（灵器）共享0.5%二选一
@@ -575,7 +570,6 @@ M.Types.ch5_abyss_marshal = {
         { chance = 1.0, type = "lingYun", amount = {25, 40} },
         { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = 2 },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.02, type = "consumable", consumableId = "jiuzhuan_jindan" },
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },
         { chance = 0.01, type = "equipment", equipId = "shiyuan_cape_ch5" },  -- 噬渊魔氅1%（灵器）
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },  -- 帝尊伍戒0.5%
@@ -617,7 +611,6 @@ M.Types.ch5_sword_zhu = {
         { chance = 1.0, type = "lingYun", amount = {30, 50} },
         { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = 3 },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },
         { chance = 0.01, type = "consumable", consumableId = "gold_brick" },
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },       -- 帝尊伍戒0.5%
         { chance = 0.005, type = "equipment", equipId = "fengyin_zhuxian_ch5" },   -- 封印·诛仙0.5%
@@ -654,7 +647,6 @@ M.Types.ch5_sword_xian = {
         { chance = 1.0, type = "lingYun", amount = {30, 50} },
         { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = 3 },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },
         { chance = 0.01, type = "consumable", consumableId = "gold_brick" },
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },       -- 帝尊伍戒0.5%
         { chance = 0.005, type = "equipment", equipId = "fengyin_xianxian_ch5" }, -- 封印·陷仙0.5%
@@ -691,7 +683,6 @@ M.Types.ch5_sword_lu = {
         { chance = 1.0, type = "lingYun", amount = {30, 50} },
         { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = 3 },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },
         { chance = 0.01, type = "consumable", consumableId = "gold_brick" },
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },       -- 帝尊伍戒0.5%
         { chance = 0.005, type = "equipment", equipId = "fengyin_luxian_ch5" },   -- 封印·戮仙0.5%
@@ -728,7 +719,6 @@ M.Types.ch5_sword_jue = {
         { chance = 1.0, type = "lingYun", amount = {30, 50} },
         { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = 3 },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },
         { chance = 0.01, type = "consumable", consumableId = "gold_brick" },
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },       -- 帝尊伍戒0.5%
         { chance = 0.005, type = "equipment", equipId = "fengyin_juexian_ch5" },  -- 封印·绝仙0.5%

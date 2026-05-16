@@ -35,7 +35,6 @@ bandit_camp.spawns = {
     { type = "bandit_small", x = 22, y = 16 },   -- 避开 fence(10~12,24)
     { type = "bandit_small", x = 25, y = 42 },   -- 避开 barrel(24,36) 和边界
     { type = "bandit_small", x = 7,  y = 44 },   -- 避开边界 x=2
-    { type = "bandit_small", x = 14, y = 43 },   -- 南部（避开南墙 y=46~48）
     -- 山贼护卫 Lv.11~13 练气初期（数量较少）
     { type = "bandit_guard", x = 10, y = 22 },   -- 安全
     { type = "bandit_guard", x = 22, y = 32 },   -- 安全

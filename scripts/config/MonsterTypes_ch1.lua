@@ -24,7 +24,7 @@ return function(M)
     M.Types.boar_patrol = {
         name = "拦路猪妖",
         icon = "🐗",
-        portrait = "Textures/monster_boar_small.png",
+        portrait = "Textures/monster_boar_patrol.png",
         zone = "narrow_trail",
         category = "boss",
         race = "boar",
@@ -46,8 +46,10 @@ return function(M)
             -- ③装备掉落
             { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "green" },
             -- ④专属装备
-            { chance = 0.20, type = "equipment", equipId = "boar_patrol_helmet", quality = "purple" },
-            -- ⑤世界掉落
+            { chance = 0.50, type = "equipment", equipId = "boar_patrol_helmet", quality = "purple" },
+            -- ⑤灵兽丹
+            { chance = 0.10, type = "consumable", consumableId = "spirit_pill" },
+            -- ⑥世界掉落
             { chance = 0.005, type = "world_drop", pool = "ch1" },
         },
     }
@@ -104,14 +106,14 @@ return function(M)
         },
         dropTable = {
             -- ①常规掉落
-            { chance = 0.30, type = "lingYun", amount = {1, 1} },
+            { chance = 0.40, type = "lingYun", amount = {1, 1} },
             { chance = 0.30, type = "consumable", consumableId = "spirit_meat" },
-            -- ②专属材料
-            { chance = 0.10, type = "consumable", consumableId = "spirit_pill" },
-            -- ③装备掉落
+            -- ②装备掉落
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "purple" },
-            -- ④专属装备
+            -- ③专属装备
             { chance = 0.30, type = "equipment", equipId = "spider_queen_ring", quality = "purple" },
+            -- ④灵兽丹
+            { chance = 0.20, type = "consumable", consumableId = "spirit_pill" },
             -- ⑤世界掉落
             { chance = 0.01, type = "world_drop", pool = "ch1" },
         },
@@ -170,12 +172,12 @@ return function(M)
             -- ①常规掉落
             { chance = 0.60, type = "lingYun", amount = {1, 1} },
             { chance = 0.35, type = "consumable", consumableId = "spirit_meat" },
-            -- ②专属材料
-            { chance = 0.20, type = "consumable", consumableId = "spirit_pill" },
-            -- ③装备掉落
+            -- ②装备掉落
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "purple" },
-            -- ④专属装备
+            -- ③专属装备
             { chance = 0.20, type = "equipment", equipId = "boar_king_weapon", quality = "purple" },
+            -- ④灵兽丹
+            { chance = 0.30, type = "consumable", consumableId = "spirit_pill" },
             -- ⑤世界掉落
             { chance = 0.01, type = "world_drop", pool = "ch1" },
         },
@@ -234,15 +236,17 @@ return function(M)
         },
         dropTable = {
             -- ①灵韵
-            { chance = 0.30, type = "lingYun", amount = {1, 1} },
+            { chance = 0.80, type = "lingYun", amount = {1, 1} },
             -- ②消耗品
             { chance = 0.25, type = "consumable", consumableId = "spirit_meat" },
-            { chance = 0.10, type = "consumable", consumableId = "spirit_pill" },
+            { chance = 0.05, type = "consumable", consumableId = "qi_pill" },
             -- ③装备掉落
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "purple" },
             -- ④专属装备
             { chance = 0.15, type = "equipment", equipId = "bandit_second_belt", quality = "purple" },
-            -- ⑤世界掉落
+            -- ⑤灵兽丹
+            { chance = 0.40, type = "consumable", consumableId = "spirit_pill" },
+            -- ⑥世界掉落
             { chance = 0.01, type = "world_drop", pool = "ch1" },
         },
     }
@@ -312,7 +316,9 @@ return function(M)
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "purple" },
             -- ④专属装备
             { chance = 0.10, type = "equipment", equipId = "boss_cape", quality = "purple" },
-            -- ⑤世界掉落
+            -- ⑤灵兽丹
+            { chance = 0.50, type = "consumable", consumableId = "spirit_pill" },
+            -- ⑥世界掉落
             { chance = 0.01, type = "world_drop", pool = "ch1" },
         },
     }
@@ -363,8 +369,8 @@ return function(M)
             { chance = 0.50, type = "lingYun", amount = {1, 1} },
             { chance = 0.20, type = "consumable", consumableId = "spirit_meat" },
             { chance = 0.05, type = "consumable", consumableId = "immortal_bone" },
-            -- ②专属材料
-            { chance = 0.50, type = "consumable", consumableId = "spirit_pill", amount = {1, 2} },
+            -- ②灵兽丹（必掉1个）
+            { chance = 1.0, type = "consumable", consumableId = "spirit_pill" },
             { chance = 0.05, type = "world_drop", pool = "tiger_books" },  -- 中级技能书5%（随机1本）
             { chance = 0.05, type = "consumable", consumableId = "tiger_bone" },  -- 虎骨5%
             -- ③装备掉落
@@ -372,7 +378,6 @@ return function(M)
             -- ④专属装备
             { chance = 0.10, type = "equipment", equipId = "tiger_set_weapon", quality = "purple" },
             { chance = 0.10, type = "equipment", equipId = "tiger_set_armor", quality = "purple" },
-            { chance = 0.05, type = "equipment", equipId = "tiger_set_necklace", quality = "orange" },
             -- 虎王血珀+虎纹战袍 10%共享池（二选一等权）
             { chance = 0.10, type = "equipment_pool", pool = {
                 { equipId = "tiger_set_necklace", quality = "orange" },

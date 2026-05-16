@@ -40,7 +40,6 @@ spider_cave.spawns = {
     { type = "spider_small", x = 60, y = 68 },   -- 安全
     { type = "spider_small", x = 56, y = 60 },   -- 安全
     { type = "spider_small", x = 54, y = 75 },   -- 安全
-    { type = "spider_small", x = 59, y = 70 },   -- 安全
     -- 精英蜘蛛（Lv.6）
     { type = "spider_elite", x = 49, y = 62 },   -- 安全
     { type = "spider_elite", x = 56, y = 72 },   -- 安全

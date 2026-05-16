@@ -167,7 +167,7 @@ GameConfig.PET_MATERIALS = {
     spirit_pill_2 = { name = "灵兽丹·贰", icon = "icon_spirit_pill_2.png", sellPrice = 1000, quality = "purple", desc = "以珍稀灵药炼制的高阶丹药。\n用途：宠物2阶突破的必需材料。" },
     spirit_pill_3 = { name = "灵兽丹·叁", icon = "icon_spirit_pill_3.png", sellPrice = 3000, quality = "orange", desc = "以天材地宝炼制的极品丹药。\n用途：宠物3阶突破的必需材料。" },
     spirit_pill_4 = { name = "灵兽丹·肆", icon = "icon_spirit_pill_4.png", sellPrice = 10000, quality = "red", desc = "以万年灵药炼制的仙品丹药，丹纹隐现。\n用途：宠物4阶突破的必需材料。\n获取：八卦海·龙域BOSS掉落" },
-    spirit_pill_5 = { name = "灵兽丹·伍", icon = "icon_spirit_pill_4.png", sellPrice = 20000, quality = "red", desc = "以太古灵药炼制的仙品丹药，丹光流转。\n用途：宠物5阶突破的必需材料。" },
+    spirit_pill_5 = { name = "灵兽丹·伍", icon = "icon_spirit_pill_5.png", sellPrice = 20000, quality = "red", desc = "以太古灵药炼制的仙品丹药，丹光流转。\n用途：宠物5阶突破的必需材料。" },
     spirit_pill_6 = { name = "灵兽丹·陆", icon = "icon_spirit_pill_4.png", sellPrice = 40000, quality = "red", desc = "以混沌灵药炼制的极仙丹药，丹雷隐现。\n用途：宠物6阶突破的必需材料。" },
     spirit_pill_7 = { name = "灵兽丹·柒", icon = "icon_spirit_pill_4.png", sellPrice = 80000, quality = "red", desc = "以鸿蒙灵药炼制的至仙丹药，天象异变。\n用途：宠物7阶突破的必需材料。" },
     qi_pill = { name = "练气丹", icon = "icon_qi_pill.png", sellPrice = 0, quality = "purple", desc = "以灵韵凝炼而成的修炼丹药。\n用途：突破修炼境界的必需品。\n炼制：10灵韵 → 1颗\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },

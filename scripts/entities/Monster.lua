@@ -98,6 +98,11 @@ function Monster.New(data, spawnX, spawnY)
     self.patrolPauseTimer = 0     -- 到达路点后的停顿计时
     self.patrolPauseTarget = 0    -- 本次停顿目标时长
     self.patrolReturnNodeIndex = nil  -- 脱战后回归的路点索引
+    self.patrolStuckTimer = 0         -- 巡逻卡住计时
+    self.patrolStuckCheckTimer = 0    -- 巡逻卡住检测间隔计时
+    self.patrolStuckLastX = spawnX    -- 巡逻卡住检测参考位置
+    self.patrolStuckLastY = spawnY
+    self.patrolSkipCount = 0          -- 连续跳过路点计数（瞬移兜底）
 
     -- 掉落
     self.dropTable = data.dropTable or {}
@@ -552,6 +557,11 @@ function Monster:SetPatrolConfig(config)
     self.patrolPauseTimer = 0
     self.patrolPauseTarget = 0
     self.patrolReturnNodeIndex = nil
+    self.patrolStuckTimer = 0
+    self.patrolStuckCheckTimer = 0
+    self.patrolStuckLastX = self.x
+    self.patrolStuckLastY = self.y
+    self.patrolSkipCount = 0
     -- 路点巡逻时使用较大的 leash 半径，覆盖整个巡逻范围
     -- 计算路点离出生点的最大距离作为 leash 参考
     local maxDistSq = 0
@@ -622,6 +632,9 @@ function Monster:UpdateWaypointPatrol(dt, gameMap)
     local cfg = self.patrolConfig
     local nodes = self.patrolNodes
     local arrivalDistSq = (cfg.arrivalDist or 0.45) ^ 2
+    local PATROL_STUCK_CHECK = 0.4   -- 巡逻卡住检测间隔（秒）
+    local PATROL_STUCK_THRESH = 1.5  -- 判定卡住时间（秒，快速恢复）
+    local PATROL_MAX_SKIP = 2        -- 连续跳过路点上限，超过则瞬移
 
     if self.state == "idle" then
         -- 到达路点后停顿
@@ -632,6 +645,11 @@ function Monster:UpdateWaypointPatrol(dt, gameMap)
             local nd = nodes[self.patrolNodeIndex]
             self.patrolTarget = { x = nd.x, y = nd.y }
             self.state = "patrol"
+            -- 重置巡逻卡住检测
+            self.patrolStuckTimer = 0
+            self.patrolStuckCheckTimer = 0
+            self.patrolStuckLastX = self.x
+            self.patrolStuckLastY = self.y
         end
     elseif self.state == "patrol" then
         if not self.patrolTarget then
@@ -651,10 +669,75 @@ function Monster:UpdateWaypointPatrol(dt, gameMap)
             self.patrolPauseTimer = 0
             self.patrolPauseTarget = (cfg.pauseMin or 0.8)
                 + math_random() * ((cfg.pauseMax or 1.6) - (cfg.pauseMin or 0.8))
+            self.patrolStuckTimer = 0
+            self.patrolSkipCount = 0  -- 正常到达，重置跳过计数
         else
             self:MoveToward(self.patrolTarget.x, self.patrolTarget.y, GameConfig.MONSTER_SPEED, dt, gameMap)
+
+            -- 巡逻卡住检测
+            self.patrolStuckCheckTimer = self.patrolStuckCheckTimer + dt
+            if self.patrolStuckCheckTimer >= PATROL_STUCK_CHECK then
+                local movedSq = DistanceSq(self.x, self.y, self.patrolStuckLastX, self.patrolStuckLastY)
+                if movedSq < STUCK_MOVE_SQ then
+                    self.patrolStuckTimer = self.patrolStuckTimer + self.patrolStuckCheckTimer
+                else
+                    self.patrolStuckTimer = 0
+                end
+                self.patrolStuckLastX = self.x
+                self.patrolStuckLastY = self.y
+                self.patrolStuckCheckTimer = 0
+
+                if self.patrolStuckTimer >= PATROL_STUCK_THRESH then
+                    self.patrolStuckTimer = 0
+                    self.patrolSkipCount = self.patrolSkipCount + 1
+
+                    if self.patrolSkipCount >= PATROL_MAX_SKIP then
+                        -- 连续跳过多个路点仍卡住，瞬移到最近可行走路点
+                        local targetIdx = self:FindNearestReachablePatrolNode(gameMap)
+                        local nd = nodes[targetIdx]
+                        self.x = nd.x
+                        self.y = nd.y
+                        self.patrolNodeIndex = targetIdx
+                        self.patrolTarget = nil
+                        self.state = "idle"
+                        self.patrolPauseTimer = 0
+                        self.patrolPauseTarget = 0.5
+                        self.patrolSkipCount = 0
+                        print("[Monster] " .. self.name .. " 巡逻瞬移脱困 -> (" .. nd.x .. "," .. nd.y .. ")")
+                    else
+                        -- 跳过当前路点，前往下一个
+                        self.patrolNodeIndex = self.patrolNodeIndex % #nodes + 1
+                        local nd = nodes[self.patrolNodeIndex]
+                        self.patrolTarget = { x = nd.x, y = nd.y }
+                        self.patrolStuckLastX = self.x
+                        self.patrolStuckLastY = self.y
+                        print("[Monster] " .. self.name .. " 巡逻卡住，跳过路点 -> #" .. self.patrolNodeIndex)
+                    end
+                end
+            end
         end
     end
+end
+
+--- 查找最近的可行走巡逻路点（用于瞬移脱困）
+---@param gameMap table
+---@return number 路点索引
+function Monster:FindNearestReachablePatrolNode(gameMap)
+    local nodes = self.patrolNodes
+    if not nodes then return 1 end
+    local bestIdx, bestDist = 1, 999999
+    for i = 1, #nodes do
+        local nd = nodes[i]
+        -- 优先选择可行走的路点
+        if not gameMap or gameMap:IsWalkable(nd.x, nd.y) then
+            local dSq = DistanceSq(self.x, self.y, nd.x, nd.y)
+            if dSq < bestDist then
+                bestDist = dSq
+                bestIdx = i
+            end
+        end
+    end
+    return bestIdx
 end
 
 --- 移向目标
@@ -669,14 +752,42 @@ function Monster:MoveToward(tx, ty, speed, dt, gameMap)
     -- 应用减速效果
     local actualSpeed = speed * self:GetSpeedMultiplier()
 
-    local newX = self.x + nx * actualSpeed * dt
-    local newY = self.y + ny * actualSpeed * dt
+    local stepX = nx * actualSpeed * dt
+    local stepY = ny * actualSpeed * dt
+    local newX = self.x + stepX
+    local newY = self.y + stepY
 
-    if gameMap and gameMap:IsWalkable(newX, self.y) then
+    if not gameMap then
         self.x = newX
-    end
-    if gameMap and gameMap:IsWalkable(self.x, newY) then
         self.y = newY
+        return
+    end
+
+    -- 优先尝试对角线移动（同时更新 X 和 Y）
+    if gameMap:IsWalkable(newX, newY) then
+        self.x = newX
+        self.y = newY
+    else
+        -- 对角线不可行，分轴滑行
+        local movedX, movedY = false, false
+        if gameMap:IsWalkable(newX, self.y) then
+            self.x = newX
+            movedX = true
+        end
+        if gameMap:IsWalkable(self.x, newY) then
+            self.y = newY
+            movedY = true
+        end
+        -- 两轴都卡住时，尝试沿单轴以全速滑行（避免在拐角处完全停住）
+        if not movedX and not movedY then
+            local slideX = self.x + (nx > 0 and 1 or (nx < 0 and -1 or 0)) * actualSpeed * dt * 0.5
+            local slideY = self.y + (ny > 0 and 1 or (ny < 0 and -1 or 0)) * actualSpeed * dt * 0.5
+            if math.abs(nx) > math.abs(ny) then
+                if gameMap:IsWalkable(slideX, self.y) then self.x = slideX end
+            else
+                if gameMap:IsWalkable(self.x, slideY) then self.y = slideY end
+            end
+        end
     end
 end
 

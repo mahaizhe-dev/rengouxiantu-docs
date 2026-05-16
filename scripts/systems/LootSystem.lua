@@ -322,6 +322,34 @@ function LootSystem.GenerateDrops(dropTable, monster)
                         result.consumables[picked.consumableId] = (result.consumables[picked.consumableId] or 0) + 1
                     end
                 end
+            elseif entry.type == "equipment_pool" then
+                -- 装备池：命中后从 pool 中随机选 count 个（不重复）
+                local pool = entry.pool
+                if pool and #pool > 0 then
+                    local count = 1
+                    if entry.count then
+                        if type(entry.count) == "table" then
+                            count = Utils.RandomInt(entry.count[1], entry.count[2])
+                        else
+                            count = entry.count
+                        end
+                    end
+                    count = math.min(count, #pool)
+                    -- Fisher-Yates 取 count 个不重复
+                    local indices = {}
+                    for i = 1, #pool do indices[i] = i end
+                    for i = 1, count do
+                        local j = math.random(i, #pool)
+                        indices[i], indices[j] = indices[j], indices[i]
+                        local picked = pool[indices[i]]
+                        if picked.equipId then
+                            local item = LootSystem.CreateSpecialEquipment(picked.equipId)
+                            if item then
+                                table.insert(result.items, item)
+                            end
+                        end
+                    end
+                end
             elseif entry.type == "material" then
                 table.insert(result.materials, entry.materialId)
             elseif entry.type == "lingYun" then
