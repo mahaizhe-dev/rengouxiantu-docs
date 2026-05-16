@@ -720,6 +720,7 @@ function RebuildWorld(chapterId, spawnOverride)
     ChallengeUI.SetGameMap(gameMap_, camera_)
     TrialTowerUI.SetGameMap(gameMap_, camera_)
     PrisonTowerUI.SetGameMap(gameMap_, camera_)
+    MobileControls.SetGameMap(gameMap_)
 
     -- 7. 定位玩家/宠物到出生点
     local spawn = spawnOverride or newZoneData.SPAWN_POINT or { x = 40.5, y = 40.5 }

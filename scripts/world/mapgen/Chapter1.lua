@@ -81,9 +81,23 @@ function GameMap:PlaceDecorations()
         elseif d.type == "crack" then
             -- 裂谷占 1 格不可通行（危险区域）
             self:SetTile(d.x, d.y, T.WALL)
+        elseif d.type == "ruined_pillar" or d.type == "anvil" then
+            -- ch5: 单格不可通行装饰
+            self:SetTile(d.x, d.y, T.WALL)
+        elseif d.type == "toppled_stele"
+            or d.type == "burning_shelf" then
+            -- ch5: 多格不可通行装饰
+            local w = d.w or 1
+            local h = d.h or 1
+            for dy = 0, h - 1 do
+                for dx = 0, w - 1 do
+                    self:SetTile(d.x + dx, d.y + dy, T.WALL)
+                end
+            end
         end
         -- tree/lantern/flower/sign/stall/campfire/weapon_rack/cobweb/mushroom/crystal/
-        -- stalactite/bush/flag/bone_pile/stone_tablet/healing_spring 仅作为视觉装饰，不阻挡移动
+        -- stalactite/bush/flag/bone_pile/stone_tablet/healing_spring/
+        -- ice_shard 仅作为视觉装饰，不阻挡移动
     end
 
     -- 预提取治愈泉列表，避免运行时每帧遍历全部装饰物

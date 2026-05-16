@@ -39,10 +39,25 @@ bandit_camp.spawns = {
     -- 山贼护卫 Lv.11~13 练气初期（数量较少）
     { type = "bandit_guard", x = 10, y = 22 },   -- 安全
     { type = "bandit_guard", x = 22, y = 32 },   -- 安全
-    -- 二大王 Lv.11 精英 练气初期
-    { type = "bandit_second",    x = 13, y = 28 },  -- 安全
-    -- 军师 Lv.12 精英 练气初期
-    { type = "bandit_strategist", x = 18, y = 22 }, -- 安全
+    -- 二大王 Lv.11 Boss 练气初期（巡逻Boss：fortress_loop，覆盖主寨）
+    {
+        type = "bandit_second", x = 13, y = 28,
+        patrolPreset = "fortress_loop",
+        patrol = {
+            nodes = {
+                { x = 13, y = 18 },   -- 篝火旁
+                { x = 20, y = 14 },   -- 东北帐篷区
+                { x = 24, y = 24 },   -- 瞭望塔前
+                { x = 19, y = 30 },   -- 中部篝火
+                { x = 10, y = 35 },   -- 西南
+                { x = 8,  y = 25 },   -- 西侧木栅附近
+            },
+        },
+    },
+    -- 军师 Lv.12 精英 练气初期（3个刷新点）
+    { type = "bandit_strategist", x = 18, y = 22 }, -- 中部
+    { type = "bandit_strategist", x = 8,  y = 33 }, -- 西南区域
+    { type = "bandit_strategist", x = 24, y = 12 }, -- 东北区域
 
     -- ===== 山贼寨后山 (33,4)→(47,20) Lv.11~15 =====
     -- 山贼护卫 Lv.11~13 练气初期（后山主力）

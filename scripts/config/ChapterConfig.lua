@@ -57,6 +57,20 @@ ChapterConfig.CHAPTERS = {
         },
     },
 
+    [5] = {
+        id = 5,
+        name = "伍章·太虚之殇",
+        zoneDataModule = "config.ZoneData_ch5",
+        spawnPoint = { x = 40.5, y = 9.5 },    -- 前营出生点（ZoneData_ch5 已定义）
+        mapWidth = 80,
+        mapHeight = 80,
+        requirements = {
+            minRealm = "heti_2",            -- 合体中期
+            questChain = "bagua_zone",      -- 第四章主线完成
+            prevChapterId = 4,
+        },
+    },
+
     -- ========================================================================
     -- 特殊章节（100+ ID 段，与剧情章节隔离）
     -- ========================================================================

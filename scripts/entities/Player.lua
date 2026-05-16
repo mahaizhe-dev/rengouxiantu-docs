@@ -275,6 +275,7 @@ function Player:_RecalcStatsCache()
     if cs and cs.GetBuffDefPercent then
         defBonus = defBonus + cs.GetBuffDefPercent()
     end
+    defBonus = defBonus + (self.equipDefPercent or 0)  -- 套装百分比防御加成
     if defBonus > 0 then
         defBase = math.floor(defBase * (1 + defBonus))
     end
@@ -847,6 +848,7 @@ function Player:TakeDamage(damage, source)
                 return 0  -- 完全闪避，不受伤害
             end
         end
+
     end
 
     -- 减伤计算（dmgReduce 为小数比例，如 0.05 = 5%，上限 75%）

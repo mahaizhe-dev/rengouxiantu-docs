@@ -178,6 +178,39 @@ local function GetTileColors()
         cachedTileColors[TILE.HERB_FIELD]       = {60, 130, 50}      -- 药田（翠绿田地）
         cachedTileColors[TILE.MARKET_STREET]    = {210, 185, 140}    -- 商业街（暖黄石板）
     end
+    -- ch5 瓦片颜色
+    if TILE.CH5_CAMP_DIRT then
+        cachedTileColors[TILE.CH5_CAMP_DIRT]        = {140, 115, 80}     -- 暖土色（前营泥土）
+        cachedTileColors[TILE.CH5_CAMP_FLAGSTONE]   = {155, 145, 130}    -- 灰石板色
+        cachedTileColors[TILE.CH5_RUIN_BLUESTONE]   = {95, 110, 125}     -- 青灰石
+        cachedTileColors[TILE.CH5_RUIN_CRACKED]     = {110, 100, 90}     -- 暗裂石
+        cachedTileColors[TILE.CH5_FORGE_BLACKSTONE] = {45, 40, 38}       -- 焦黑石
+        cachedTileColors[TILE.CH5_FORGE_MOLTEN]     = {130, 55, 25}      -- 暗红熔裂
+        cachedTileColors[TILE.CH5_COURTYARD_MOSS]   = {85, 105, 80}      -- 苔绿院石
+        cachedTileColors[TILE.CH5_COLD_JADE]        = {140, 175, 180}    -- 冰玉青
+        cachedTileColors[TILE.CH5_COLD_ICE_EDGE]    = {180, 210, 220}    -- 冰边白蓝
+        cachedTileColors[TILE.CH5_STELE_PALE]       = {175, 170, 160}    -- 苍白碑石
+        cachedTileColors[TILE.CH5_LIBRARY_BURNT]    = {70, 55, 45}       -- 焚烧深褐
+        cachedTileColors[TILE.CH5_PALACE_WHITE]     = {200, 200, 195}    -- 白玉石
+        cachedTileColors[TILE.CH5_PALACE_CORRUPTED] = {160, 140, 155}    -- 侵蚀紫脉
+        cachedTileColors[TILE.CH5_BLOOD_RITUAL]     = {120, 35, 30}      -- 暗红血祭
+        cachedTileColors[TILE.CH5_ABYSS_CHARRED]    = {50, 42, 40}       -- 深渊焦岩
+        cachedTileColors[TILE.CH5_ABYSS_FLESH]      = {90, 40, 45}       -- 血肉暗红
+        cachedTileColors[TILE.CH5_CORRIDOR_DARK]    = {55, 55, 65}       -- 冷暗石
+        cachedTileColors[TILE.CH5_CORRIDOR_SWORD]   = {100, 95, 110}     -- 剑金属冷灰
+        cachedTileColors[TILE.CH5_VOID]             = {15, 10, 20}       -- 虚空深黑
+        cachedTileColors[TILE.CH5_WALL]             = {80, 75, 70}       -- 废墟墙
+        cachedTileColors[TILE.CH5_CLIFF]            = {65, 60, 55}       -- 断崖
+        cachedTileColors[TILE.CH5_SEALED_GATE]      = {100, 80, 40}      -- 封印门暗金
+        cachedTileColors[TILE.CH5_BRIDGE]           = {150, 140, 125}    -- 桥面石色
+        cachedTileColors[TILE.CH5_CITY_WALL]        = {70, 75, 90}       -- 剑气城墙（暗蓝灰）
+        cachedTileColors[TILE.CH5_WALL_BATTLEMENT]  = {60, 65, 80}       -- 城垛（深蓝灰）
+        cachedTileColors[TILE.CH5_WALL_COLLAPSED]   = {95, 85, 75}       -- 坍塌废墟（暖灰碎石）
+        cachedTileColors[TILE.CH5_BLOOD_RIVER]      = {110, 25, 20}      -- 血河（暗红）
+        cachedTileColors[TILE.CH5_STELE_INTACT]     = {155, 150, 140}    -- 完整石碑（灰白碑石）
+        cachedTileColors[TILE.CH5_STELE_BROKEN]     = {135, 125, 115}    -- 断壁残碑（暗灰碎碑）
+        cachedTileColors[TILE.CH5_LAVA_WALL]        = {180, 60, 15}      -- 岩浆墙（橙红熔岩）
+    end
     return cachedTileColors, TILE
 end
 
@@ -237,8 +270,20 @@ local REGION_LABEL_DEFS = {
     { key = "mz_yaochi",     name = "瑶池",       color = {200, 180, 220, 255} },
     { key = "mz_rift",       name = "天裂峡谷",   color = {120, 100, 160, 255} },
     { key = "mz_battle_jie", name = "仙劫战场",   color = {160, 130, 170, 255}, subtitle = "合体期", subtitleColor = {200, 160, 160, 200} },
-    { key = "mz_battle_luo", name = "仙陨战场",   color = {160, 130, 170, 255}, subtitle = "Lv.140 渡劫期", subtitleColor = {200, 160, 160, 200} },
+    { key = "mz_battle_luo", name = "仙陨战场",   color = {160, 130, 170, 255}, subtitle = "Lv.140 谪仙境", subtitleColor = {200, 160, 160, 200} },
     { key = "mz_battle_yun", name = "仙殒战场",   color = {160, 130, 170, 255}, subtitle = "Lv.120 大乘期", subtitleColor = {200, 160, 160, 200} },
+    -- ch5
+    { key = "ch5_front_camp",      name = "前营",       color = {200, 180, 140, 255} },
+    { key = "ch5_broken_gate",     name = "裂山门",     color = {160, 150, 140, 255} },
+    { key = "ch5_sword_plaza",     name = "问剑坪",     color = {140, 160, 180, 255} },
+    { key = "ch5_cold_pool",       name = "洗剑寒池",   color = {160, 200, 210, 255} },
+    { key = "ch5_stele_forest",    name = "悟剑碑林",   color = {190, 185, 175, 255} },
+    { key = "ch5_forge",           name = "铸剑地炉",   color = {180, 100, 60, 255} },
+    { key = "ch5_sword_court",     name = "栖剑别院",   color = {130, 160, 130, 255} },
+    { key = "ch5_library",         name = "藏经书阁",   color = {140, 120, 100, 255} },
+    { key = "ch5_sword_palace",    name = "剑宫",       color = {220, 215, 210, 255} },
+    { key = "ch5_demon_abyss",     name = "镇魔深渊",   color = {180, 80, 80, 255} },
+    { key = "ch5_sword_corridor",  name = "剑气长城",   color = {120, 120, 140, 255} },
 }
 
 local function GetZoneLabels()

@@ -460,7 +460,7 @@ local function BuildBestiaryContent(chapterIndex)
     end
 
     -- ==================== 世界掉落栏 ====================
-    local CHAPTER_POOL_MAP = { [1] = "ch1", [2] = "ch2", [3] = "ch3", [4] = "ch4" }
+    local CHAPTER_POOL_MAP = { [1] = "ch1", [2] = "ch2", [3] = "ch3", [4] = "ch4", [5] = "ch5" }
     local poolId = CHAPTER_POOL_MAP[chapterIndex]
     local pool = poolId and MonsterData.WORLD_DROP_POOLS[poolId]
     if pool and pool.items and #pool.items > 0 then
@@ -964,7 +964,7 @@ function SystemMenu.Create(parentOverlay, callbacks)
                                         "每个境界有等级上限，达到后需突破",
                                         "突破需要消耗金币和对应材料",
                                         "突破成功后提升等级上限和基础属性",
-                                        "境界：凡人→练气→筑基→金丹→…→渡劫",
+                                        "境界：凡人→练气→筑基→金丹→…→谪仙",
                                     }),
                                     SystemMenu._RuleSection("装备系统", {
                                         "装备品质：白 → 绿 → 蓝 → 紫 → 橙 → 红",

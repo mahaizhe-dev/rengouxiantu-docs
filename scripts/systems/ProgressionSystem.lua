@@ -108,12 +108,20 @@ function ProgressionSystem.CanBreakthrough(targetRealm)
                 return false, "九转金丹不足 (需要 " .. cost.jiuzhuanJindan .. ", 当前 " .. jdCount .. ")"
             end
         end
-        -- 渡劫丹消耗（大乘及以上阶段）
+        -- 渡劫丹消耗（大乘阶段）
         if cost.dujieDan then
             local InventorySystem = require("systems.InventorySystem")
             local djCount = InventorySystem.CountConsumable("dujie_dan")
             if djCount < cost.dujieDan then
                 return false, "渡劫丹不足 (需要 " .. cost.dujieDan .. ", 当前 " .. djCount .. ")"
+            end
+        end
+        -- 仙丹消耗（谪仙阶段）
+        if cost.xianDan then
+            local InventorySystem = require("systems.InventorySystem")
+            local xdCount = InventorySystem.CountConsumable("xian_dan")
+            if xdCount < cost.xianDan then
+                return false, "仙丹不足 (需要 " .. cost.xianDan .. ", 当前 " .. xdCount .. ")"
             end
         end
         -- 灵韵消耗
@@ -166,6 +174,10 @@ function ProgressionSystem.Breakthrough(targetRealm)
         if cost.dujieDan then
             local InventorySystem = require("systems.InventorySystem")
             InventorySystem.ConsumeConsumable("dujie_dan", cost.dujieDan)
+        end
+        if cost.xianDan then
+            local InventorySystem = require("systems.InventorySystem")
+            InventorySystem.ConsumeConsumable("xian_dan", cost.xianDan)
         end
         if cost.lingYun then
             player.lingYun = player.lingYun - cost.lingYun

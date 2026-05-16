@@ -58,6 +58,7 @@ function QuestSystem.Init()
         { name = "config.QuestData_ch2", label = "Ch2" },
         { name = "config.QuestData_ch3", label = "Ch3" },
         { name = "config.QuestData_ch4", label = "Ch4" },
+        { name = "config.QuestData_ch5", label = "Ch5" },
         { name = "config.QuestData_mz",  label = "MZ" },
     }
     for _, chMod in ipairs(chapterModules) do
@@ -688,6 +689,12 @@ function QuestSystem.Update(dt)
                     promptColor = {80, 200, 240, 255}    -- 第四章：海蓝色
                 elseif chain and chain.chapter == 3 then
                     promptColor = {220, 180, 60, 255}    -- 第三章：沙金色
+                elseif chain and chain.chapter == 5 then
+                    if sealData.sealColor == "red" then
+                        promptColor = {255, 60, 40, 255}     -- 第五章剑宫：血红色
+                    else
+                        promptColor = {220, 230, 255, 255}   -- 第五章城墙：冰白色
+                    end
                 elseif chain and chain.chapter == 2 then
                     promptColor = {255, 60, 40, 255}     -- 第二章：血红色
                 else

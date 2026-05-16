@@ -38,6 +38,7 @@ boar_forest.spawns = {
     -- 精英（Lv.9 野猪统领）
     { type = "boar_captain", x = 15, y = 65 },  -- 安全
     { type = "boar_captain", x = 28, y = 74 },  -- 安全
+    { type = "boar_captain", x = 10, y = 71 },  -- 西部森林补点
     -- BOSS（深处，Lv.10）
     { type = "boar_king",  x = 20, y = 70 },    -- 安全
 }

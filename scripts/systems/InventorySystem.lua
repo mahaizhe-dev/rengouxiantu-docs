@@ -371,6 +371,7 @@ function InventorySystem.RecalcEquipStats()
     local totalPetSyncRate = 0
     local totalBloodRageChance = 0
     local totalHeavyHitRate = 0
+    local totalDefPercent = 0
     local activeSetAoes = {}
     for setId, count in pairs(setCounts) do
         local setData = EquipmentData.SetBonuses[setId]
@@ -387,6 +388,7 @@ function InventorySystem.RecalcEquipStats()
                         totalPetSyncRate = totalPetSyncRate + (bonus.bonuses.petSyncRate or 0)
                         totalBloodRageChance = totalBloodRageChance + (bonus.bonuses.bloodRageChance or 0)
                         totalHeavyHitRate = totalHeavyHitRate + (bonus.bonuses.heavyHitRate or 0)
+                        totalDefPercent = totalDefPercent + (bonus.bonuses.defPercent or 0)
                     end
                     -- 收集活跃的套装AOE效果（8件套触发技能）
                     if bonus.aoeEffect then
@@ -419,6 +421,7 @@ function InventorySystem.RecalcEquipStats()
     player.equipPetSyncRate = totalPetSyncRate
     player.equipBloodRageChance = totalBloodRageChance
     player.equipHeavyHitRate = totalHeavyHitRate
+    player.equipDefPercent = totalDefPercent
     -- 仙劫套装8件套AOE效果列表
     player.activeSetAoes = activeSetAoes
 

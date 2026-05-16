@@ -109,8 +109,8 @@ local function CreateChapterCard(chapterId)
             },
         },
     }
-    -- 施工中提示（中洲专属）
-    if chapterId == 101 then
+    -- 施工中提示
+    if chapterId == 5 or chapterId == 101 then
         table.insert(cardChildren, UI.Label {
             text = "⚙ 施工中，部分内容待开放",
             fontSize = 11,

@@ -386,6 +386,17 @@ function RealmPanel.Refresh()
                     fontColor = djOk and {150, 255, 150, 255} or {255, 150, 150, 255},
                 })
             end
+            if cost.xianDan then
+                local InventorySystem = require("systems.InventorySystem")
+                local xdCount = InventorySystem.CountConsumable("xian_dan")
+                local xdOk = xdCount >= cost.xianDan
+                reqList:AddChild(UI.Label {
+                    text = (xdOk and "✅" or "❌") .. " 仙丹 "
+                        .. xdCount .. "/" .. cost.xianDan,
+                    fontSize = T.fontSize.xs,
+                    fontColor = xdOk and {150, 255, 150, 255} or {255, 150, 150, 255},
+                })
+            end
             if cost.lingYun then
                 local lyOk = player.lingYun >= cost.lingYun
                 reqList:AddChild(UI.Label {

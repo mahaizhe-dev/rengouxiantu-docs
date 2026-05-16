@@ -15,13 +15,14 @@ local DecoGeneric = require("rendering.DecoGeneric")
 local DecoDesert  = require("rendering.DecoDesert")
 local DecoDivine  = require("rendering.DecoDivine")
 local DecoSea     = require("rendering.DecoSea")
+local DecoCh5     = require("rendering.DecoCh5")
 
 local M = {}
 
 -- ============================================================================
 -- 合并子模块函数到 M 表（保持 M.RenderXxx 接口不变）
 -- ============================================================================
-local SUB_MODULES = { DecoTown, DecoDungeon, DecoGeneric, DecoDesert, DecoDivine, DecoSea }
+local SUB_MODULES = { DecoTown, DecoDungeon, DecoGeneric, DecoDesert, DecoDivine, DecoSea, DecoCh5 }
 
 for _, sub in ipairs(SUB_MODULES) do
     for k, v in pairs(sub) do
@@ -100,6 +101,9 @@ local DECORATION_RENDER_KEYS = {
     "incense_burner",
     "treasure_crate",
     "tianji_pavilion",
+    -- ch5 太虚遗址装饰
+    "ruined_pillar", "anvil", "ice_shard",
+    "toppled_stele", "burning_shelf",
 }
 
 local DECORATION_RENDER_METHOD = {
@@ -135,6 +139,12 @@ local DECORATION_RENDER_METHOD = {
     incense_burner = "RenderIncenseBurner",
     treasure_crate = "RenderTreasureCrate",
     tianji_pavilion = "RenderTianjiPavilion",
+    -- ch5 太虚遗址装饰
+    ruined_pillar = "RenderRuinedPillar",
+    anvil = "RenderAnvil",
+    ice_shard = "RenderIceShard",
+    toppled_stele = "RenderToppledStele",
+    burning_shelf = "RenderBurningShelf",
 }
 
 local function initDecorationRenderFN()

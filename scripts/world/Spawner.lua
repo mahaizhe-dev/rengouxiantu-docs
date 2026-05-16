@@ -4,6 +4,7 @@
 
 local ActiveZoneData = require("config.ActiveZoneData")
 local MonsterData = require("config.MonsterData")
+local PatrolPresets = require("config.PatrolPresets")
 local Monster = require("entities.Monster")
 local GameState = require("core.GameState")
 local GameConfig = require("config.GameConfig")
@@ -63,6 +64,15 @@ function Spawner:Init(gameMap)
 
             local monster = Monster.New(monsterType, sx, sy)
             monster.typeId = sp.type  -- 设置类型ID用于任务追踪
+
+            -- 注入路点巡逻配置（如果出生点配置了 patrolPreset 或 patrol）
+            if sp.patrolPreset or sp.patrol then
+                local patrolCfg = PatrolPresets.Resolve(sp.patrolPreset, sp.patrol)
+                if patrolCfg then
+                    monster:SetPatrolConfig(patrolCfg)
+                end
+            end
+
             GameState.AddMonster(monster)
 
             local spData = {

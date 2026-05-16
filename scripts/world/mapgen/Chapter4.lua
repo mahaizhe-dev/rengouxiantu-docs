@@ -236,8 +236,8 @@ end
 function GameMap:BuildCh4Terrain()
     local T = zd.TILE
     local layout = zd.LAYOUT
-    if not layout then
-        print("[Chapter4] No LAYOUT in ZoneData, skipping")
+    if not layout or not layout.center then
+        print("[Chapter4] No LAYOUT.center in ZoneData, skipping")
         return
     end
 

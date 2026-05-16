@@ -24,6 +24,22 @@ narrow_trail.spawns = {
     { type = "spider_trail", x = 64, y = 41 },   -- 安全
     { type = "spider_trail", x = 70, y = 45 },   -- 安全
     { type = "spider_trail", x = 75, y = 41 },   -- 安全
+    { type = "spider_trail", x = 61, y = 38 },   -- 中部补点
+    -- 巡逻Boss：拦路猪妖（waypoint_loop，覆盖主通路）
+    {
+        type = "boar_patrol", x = 66, y = 39,
+        patrolPreset = "waypoint_loop",
+        patrol = {
+            nodes = {
+                { x = 58, y = 34 },
+                { x = 64, y = 35 },
+                { x = 71, y = 34 },
+                { x = 75, y = 39 },
+                { x = 69, y = 45 },
+                { x = 60, y = 43 },
+            },
+        },
+    },
 }
 
 -- 装饰物

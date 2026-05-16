@@ -4,6 +4,7 @@
 -- Ch2: 筑基丹 + 灵蛇丹 + 金刚丹 + 乌堡令盒
 -- Ch3: 金丹沙 + 元婴果 + 千锤百炼丹 + 沙海令盒
 -- Ch4: 九转金丹（500灵韵/颗） + 太虚令盒
+-- Ch5: 渡劫丹（1000灵韵/颗）
 -- 中洲(101): 阵营丹药（凝力丹/凝甲丹/凝元丹/凝魂丹/凝息丹）
 -- ============================================================================
 
@@ -136,6 +137,11 @@ local DRAGON_BLOOD_PILL = {
 
 -- 龙血丹已炼制次数（运行时状态，由存档恢复）
 local dragonBloodPillCount_ = 0
+
+-- ===== Ch5 配方 =====
+
+-- 渡劫丹配置
+local DUJIE_DAN_COST = 1000  -- 灵韵/颗
 
 -- ===== 令牌盒配方（通用） =====
 local TOKEN_BOX_LINGYUN_COST = 100   -- 灵韵消耗
@@ -635,6 +641,50 @@ local function BuildCh4Content()
 end
 
 -- ============================================================================
+-- Ch5 内容构建
+-- ============================================================================
+
+--- 构建 Ch5 内容（渡劫丹）
+local function BuildCh5Content()
+    local player = GameState.player
+    if not player then return {} end
+
+    local dujieDanCount = InventorySystem.CountConsumable("dujie_dan")
+    local canCraft = player.lingYun >= DUJIE_DAN_COST
+
+    return {
+        -- 渡劫丹区
+        UI.Label {
+            text = "⚡ 炼制渡劫丹",
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {180, 140, 255, 240},
+        },
+        UI.Label {
+            text = "以九天雷髓与万年灵液淬炼而成，大乘及以上境界突破必需品。",
+            fontSize = T.fontSize.xs,
+            fontColor = {200, 180, 150, 200},
+        },
+        UI.Label {
+            text = "当前渡劫丹: " .. dujieDanCount .. " 颗",
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {180, 140, 255, 255}, textAlign = "center",
+        },
+        UI.Label {
+            text = "灵韵: " .. player.lingYun .. " (需要 " .. DUJIE_DAN_COST .. ")",
+            fontSize = T.fontSize.xs, textAlign = "center",
+            fontColor = canCraft and {130, 230, 130, 255} or {255, 130, 100, 255},
+        },
+        UI.Button {
+            text = "炼制渡劫丹 (" .. DUJIE_DAN_COST .. " 灵韵 → 1颗)",
+            width = "100%", height = T.size.dialogBtnH,
+            fontSize = T.fontSize.sm,
+            backgroundColor = canCraft and {120, 80, 200, 220} or {80, 80, 90, 200},
+            onClick = function() AlchemyUI.DoCraftDujieDan() end,
+        },
+    }
+end
+
+-- ============================================================================
 -- 中洲·阵营丹药内容构建
 -- ============================================================================
 
@@ -721,6 +771,8 @@ local function RefreshUI()
     local children
     if chapter >= 101 then
         children = BuildMidlandContent()
+    elseif chapter >= 5 then
+        children = BuildCh5Content()
     elseif chapter >= 4 then
         children = BuildCh4Content()
     elseif chapter >= 3 then
@@ -1131,6 +1183,41 @@ function AlchemyUI.DoCraftJiuzhuanJindan()
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
     SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
+    RefreshUI()
+end
+
+-- ============================================================================
+-- Ch5 炼制函数
+-- ============================================================================
+
+--- 炼制渡劫丹：消耗灵韵，产出渡劫丹到背包
+function AlchemyUI.DoCraftDujieDan()
+    local player = GameState.player
+    if not player then return end
+
+    if player.lingYun < DUJIE_DAN_COST then
+        resultLabel_:SetText("灵韵不足！炼制需要 " .. DUJIE_DAN_COST .. " 灵韵")
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+
+    local canAdd = InventorySystem.CountConsumable("dujie_dan") > 0 or InventorySystem.GetFreeSlots() > 0
+    if not canAdd then
+        resultLabel_:SetText("背包已满，无法炼制！")
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+
+    player.lingYun = player.lingYun - DUJIE_DAN_COST
+    InventorySystem.AddConsumable("dujie_dan", 1)
+
+    local newCount = InventorySystem.CountConsumable("dujie_dan")
+    resultLabel_:SetText("炼制成功！获得渡劫丹 ×1 (共 " .. newCount .. " 颗)")
+    resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
+    EventBus.Emit("alchemy_success")
+    SaveSession.MarkDirty()
     RefreshUI()
 end
 

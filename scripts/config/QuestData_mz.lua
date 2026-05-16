@@ -30,7 +30,7 @@ QuestData_mz.ZONE_QUESTS = {
 }
 
 -- 封印数据：三大战场入口（南侧桥头，2行深红色封印）
--- requiredRealmOrder: 境界 order 门槛（合体16/大乘19/渡劫23）
+-- requiredRealmOrder: 境界 order 门槛（合体16/大乘19/谪仙23）
 -- requiredRealmName: 显示用境界名
 -- realmDriven: true 表示此封印由境界驱动（交互解封），而非任务链驱动
 QuestData_mz.SEALS = {
@@ -63,11 +63,11 @@ QuestData_mz.SEALS = {
         },
         originalTile = TileTypes.TILE.BRIDGE_FLOOR,
         sealTile = TileTypes.TILE.SEAL_RED,
-        promptText = "仙陨封印：需渡劫期修为（Lv.140）方可解封",
+        promptText = "仙陨封印：需谪仙境修为（Lv.140）方可解封",
         promptRange = 3.0,
         realmDriven = true,
         requiredRealmOrder = 23,
-        requiredRealmName = "渡劫期",
+        requiredRealmName = "谪仙境",
         requiredLevel = 140,
     },
     mz_battle_yun = {

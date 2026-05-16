@@ -10,12 +10,16 @@ local DeathScreen = require("ui.DeathScreen")
 
 require "urhox-libs.UI.VirtualControls"
 
+local TileTypes = require("config.TileTypes")
+
 local MobileControls = {}
 
 ---@type VirtualJoystick|nil
 local joystick_ = nil
 ---@type VirtualButton|nil
 local npcButton_ = nil
+---@type table|nil
+local gameMapRef_ = nil
 
 --- 创建虚拟摇杆和交互按钮
 function MobileControls.Create()
@@ -139,7 +143,38 @@ function MobileControls._onNPCInteract()
 
             -- 没有宝箱时尝试福源果交互
             local FortuneFruitSystem = require("systems.FortuneFruitSystem")
-            FortuneFruitSystem.TryInteract()
+            if FortuneFruitSystem.TryInteract() then return end
+
+            -- 第5章特殊地块交互（祀剑池、铸剑地炉）
+            if gameMapRef_ and GameState.currentChapter == 5 then
+                local px = math.floor(GameState.player.x + 0.5)
+                local py = math.floor(GameState.player.y + 0.5)
+                local T = TileTypes.TILE
+                -- 检查玩家脚下及四周共5格
+                local checkOffsets = { {0,0}, {1,0}, {-1,0}, {0,1}, {0,-1} }
+                for _, off in ipairs(checkOffsets) do
+                    local tile = gameMapRef_:GetTile(px + off[1], py + off[2])
+                    if tile == T.CH5_BLOOD_POOL then
+                        NPCDialog.Show({
+                            name = "祀剑池",
+                            subtitle = "太虚剑宫",
+                            dialog = "池中血水翻涌，隐隐有剑气冲霄。传闻上古剑修以精血祭剑，方能铸出通灵神兵。\n\n祀剑池。敬请期待。",
+                            buttons = {},
+                            interactType = "coming_soon",
+                        })
+                        return
+                    elseif tile == T.CH5_FURNACE then
+                        NPCDialog.Show({
+                            name = "铸剑地炉",
+                            subtitle = "太虚锻造坊",
+                            dialog = "炉火虽已熄灭千年，炉壁上的符文仍泛着微光。此炉曾锻造出无数传世神兵。\n\n铸剑地炉，敬请期待。",
+                            buttons = {},
+                            interactType = "coming_soon",
+                        })
+                        return
+                    end
+                end
+            end
         end
     end
 end
@@ -157,11 +192,18 @@ function MobileControls.IsCreated()
     return joystick_ ~= nil
 end
 
+--- 注入 GameMap 引用（由 main.lua 在 RebuildWorld 时调用）
+---@param gameMap table
+function MobileControls.SetGameMap(gameMap)
+    gameMapRef_ = gameMap
+end
+
 --- 销毁所有虚拟控件（退出游戏时调用）
 function MobileControls.Destroy()
     VirtualControls.Clear()
     joystick_ = nil
     npcButton_ = nil
+    gameMapRef_ = nil
     print("[MobileControls] Destroyed")
 end
 

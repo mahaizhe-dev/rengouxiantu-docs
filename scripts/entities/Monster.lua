@@ -91,6 +91,14 @@ function Monster.New(data, spawnX, spawnY)
     self.patrolWaitTimer = 0
     self.idleTimer = 0
 
+    -- 路点巡逻（由 Spawner 通过 SetPatrolConfig 注入）
+    self.patrolConfig = nil       -- 完整巡逻配置（由 PatrolPresets.Resolve 生成）
+    self.patrolNodes = nil        -- 路点列表 {{x,y}, ...}
+    self.patrolNodeIndex = 0      -- 当前目标路点索引
+    self.patrolPauseTimer = 0     -- 到达路点后的停顿计时
+    self.patrolPauseTarget = 0    -- 本次停顿目标时长
+    self.patrolReturnNodeIndex = nil  -- 脱战后回归的路点索引
+
     -- 掉落
     self.dropTable = data.dropTable or {}
     self.expReward = data.expReward or stats.expReward
@@ -299,7 +307,7 @@ function Monster:Update(dt, player, pet, gameMap)
             return
         end
 
-        if self.patrolRadius > 0 then
+        if self.patrolNodes or self.patrolRadius > 0 then
             self:UpdatePatrol(dt, gameMap)
         else
             self.state = "idle"
@@ -488,15 +496,36 @@ function Monster:Update(dt, player, pet, gameMap)
             end
         end
 
-        if distToSpawnSq < 0.25 then
-            self.state = "idle"
-            self.x = self.spawnX
-            self.y = self.spawnY
-            -- 不满血，继续在 idle 中渐进回血
+        -- 路点巡逻 Boss：回到最近路点而非出生点
+        if self.patrolNodes and self.patrolConfig
+            and self.patrolConfig.returnMode == "resume_patrol" then
+            -- 首次进入 return：记录最近路点
+            if not self.patrolReturnNodeIndex then
+                self.patrolReturnNodeIndex = self:FindNearestPatrolNode()
+            end
+            local retNode = self.patrolNodes[self.patrolReturnNodeIndex]
+            local distToNodeSq = DistanceSq(self.x, self.y, retNode.x, retNode.y)
+            if distToNodeSq < 0.25 then
+                -- 到达路点，恢复巡逻
+                self.state = "idle"
+                self.patrolNodeIndex = self.patrolReturnNodeIndex
+                self.patrolReturnNodeIndex = nil
+                self.patrolPauseTimer = 0
+                self.patrolPauseTarget = 0  -- 立即开始下一段巡逻
+            else
+                local returnSpeed = GameConfig.MONSTER_SPEED * GameConfig.RETURN_SPEED_MULT
+                self:MoveToward(retNode.x, retNode.y, returnSpeed, dt, gameMap)
+            end
         else
-            -- 加速回巢
-            local returnSpeed = GameConfig.MONSTER_SPEED * GameConfig.RETURN_SPEED_MULT
-            self:MoveToward(self.spawnX, self.spawnY, returnSpeed, dt, gameMap)
+            -- 普通怪物：回出生点
+            if distToSpawnSq < 0.25 then
+                self.state = "idle"
+                self.x = self.spawnX
+                self.y = self.spawnY
+            else
+                local returnSpeed = GameConfig.MONSTER_SPEED * GameConfig.RETURN_SPEED_MULT
+                self:MoveToward(self.spawnX, self.spawnY, returnSpeed, dt, gameMap)
+            end
         end
     end
 
@@ -511,10 +540,58 @@ function Monster:Update(dt, player, pet, gameMap)
     end
 end
 
+--- 设置路点巡逻配置（由 Spawner 调用）
+---@param config table PatrolPresets.Resolve 生成的最终配置
+function Monster:SetPatrolConfig(config)
+    if not config or not config.nodes or #config.nodes < 2 then
+        return
+    end
+    self.patrolConfig = config
+    self.patrolNodes = config.nodes
+    self.patrolNodeIndex = 1
+    self.patrolPauseTimer = 0
+    self.patrolPauseTarget = 0
+    self.patrolReturnNodeIndex = nil
+    -- 路点巡逻时使用较大的 leash 半径，覆盖整个巡逻范围
+    -- 计算路点离出生点的最大距离作为 leash 参考
+    local maxDistSq = 0
+    for i = 1, #self.patrolNodes do
+        local nd = self.patrolNodes[i]
+        local dSq = DistanceSq(self.spawnX, self.spawnY, nd.x, nd.y)
+        if dSq > maxDistSq then maxDistSq = dSq end
+    end
+    -- leash = 路点最远距离 + 追击余量（5格），至少 10
+    local maxDist = maxDistSq ^ 0.5
+    self.leashRadius = math_max(maxDist + 5, 10)
+end
+
+--- 查找距当前位置最近的路点索引
+---@return number
+function Monster:FindNearestPatrolNode()
+    local nodes = self.patrolNodes
+    if not nodes then return 1 end
+    local bestIdx, bestDist = 1, 999999
+    for i = 1, #nodes do
+        local dSq = DistanceSq(self.x, self.y, nodes[i].x, nodes[i].y)
+        if dSq < bestDist then
+            bestDist = dSq
+            bestIdx = i
+        end
+    end
+    return bestIdx
+end
+
 --- 巡逻 AI
 ---@param dt number
 ---@param gameMap table
 function Monster:UpdatePatrol(dt, gameMap)
+    -- 路点巡逻模式
+    if self.patrolNodes then
+        self:UpdateWaypointPatrol(dt, gameMap)
+        return
+    end
+
+    -- 原始半径巡逻模式
     if not self.patrolTarget then
         self.patrolWaitTimer = self.patrolWaitTimer + dt
         if self.patrolWaitTimer < 2.0 then return end
@@ -532,6 +609,48 @@ function Monster:UpdatePatrol(dt, gameMap)
         if distSq < PATROL_ARRIVE_SQ then
             self.patrolTarget = nil
             self.state = "idle"
+        else
+            self:MoveToward(self.patrolTarget.x, self.patrolTarget.y, GameConfig.MONSTER_SPEED, dt, gameMap)
+        end
+    end
+end
+
+--- 路点循环巡逻 AI
+---@param dt number
+---@param gameMap table
+function Monster:UpdateWaypointPatrol(dt, gameMap)
+    local cfg = self.patrolConfig
+    local nodes = self.patrolNodes
+    local arrivalDistSq = (cfg.arrivalDist or 0.45) ^ 2
+
+    if self.state == "idle" then
+        -- 到达路点后停顿
+        self.patrolPauseTimer = self.patrolPauseTimer + dt
+        if self.patrolPauseTimer >= self.patrolPauseTarget then
+            -- 选择下一个路点
+            self.patrolNodeIndex = self.patrolNodeIndex % #nodes + 1
+            local nd = nodes[self.patrolNodeIndex]
+            self.patrolTarget = { x = nd.x, y = nd.y }
+            self.state = "patrol"
+        end
+    elseif self.state == "patrol" then
+        if not self.patrolTarget then
+            -- 容错：没有目标时回到 idle
+            self.state = "idle"
+            self.patrolPauseTimer = 0
+            self.patrolPauseTarget = (cfg.pauseMin or 0.8)
+                + math_random() * ((cfg.pauseMax or 1.6) - (cfg.pauseMin or 0.8))
+            return
+        end
+
+        local distSq = DistanceSq(self.x, self.y, self.patrolTarget.x, self.patrolTarget.y)
+        if distSq < arrivalDistSq then
+            -- 到达路点
+            self.patrolTarget = nil
+            self.state = "idle"
+            self.patrolPauseTimer = 0
+            self.patrolPauseTarget = (cfg.pauseMin or 0.8)
+                + math_random() * ((cfg.pauseMax or 1.6) - (cfg.pauseMin or 0.8))
         else
             self:MoveToward(self.patrolTarget.x, self.patrolTarget.y, GameConfig.MONSTER_SPEED, dt, gameMap)
         end
@@ -905,6 +1024,14 @@ function Monster:Respawn()
     self.attackTimer = 0
     self.currentPhase = 1
     self.patrolTarget = nil
+    self.patrolWaitTimer = 0
+    -- 路点巡逻状态重置
+    if self.patrolNodes then
+        self.patrolNodeIndex = 1
+        self.patrolPauseTimer = 0
+        self.patrolPauseTarget = 0
+        self.patrolReturnNodeIndex = nil
+    end
     self.debuffs = {}
     self.isSlowed = false
     self.isVulnerable = false

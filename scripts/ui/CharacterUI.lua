@@ -723,7 +723,7 @@ local function BuildTab1Content()
                         text = "【洗髓境】瑶池灵液洗炼筋骨，淬炼肉身所得之境界。\n"
                             .. "【灵体增伤】攻击时额外造成" .. washLv .. "%伤害，独立乘算于最终伤害。\n"
                             .. "【灵体护身】受击时额外抵消" .. washLv .. "%伤害，独立乘算于最终减伤。\n"
-                            .. "当前第" .. washLv .. "重，上限第26重（渡劫巅峰）。",
+                            .. "当前第" .. washLv .. "重，上限第26重（谪仙巅峰）。",
                         fontSize = T.fontSize.xs,
                         fontColor = {180, 215, 240, 220},
                         whiteSpace = "normal",

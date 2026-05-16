@@ -20,9 +20,41 @@ return function(M)
         },
     }
 
+    -- ===================== 羊肠小径巡逻BOSS Lv.3 =====================
+    M.Types.boar_patrol = {
+        name = "拦路猪妖",
+        icon = "🐗",
+        portrait = "Textures/monster_boar_small.png",
+        zone = "narrow_trail",
+        category = "boss",
+        race = "boar",
+        level = 3,
+        respawnTime = 60,  -- 新手区快速刷新
+        bodyColor = {160, 100, 50, 255},
+        phases = 2,
+        skills = { "rect_sweep" },
+        phaseConfig = {
+            { threshold = 0.5, atkMult = 1.25, speedMult = 1.15,
+              announce = "拦路猪妖暴怒地嚎叫起来！" },
+        },
+        dropTable = {
+            -- ①灵韵
+            { chance = 0.20, type = "lingYun", amount = {1, 1} },
+            -- ②消耗品
+            { chance = 0.50, type = "consumable", consumableId = "meat_bone" },
+            { chance = 0.10, type = "consumable", consumableId = "spirit_meat" },
+            -- ③装备掉落
+            { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "green" },
+            -- ④专属装备
+            { chance = 0.20, type = "equipment", equipId = "boar_patrol_helmet", quality = "purple" },
+            -- ⑤世界掉落
+            { chance = 0.005, type = "world_drop", pool = "ch1" },
+        },
+    }
+
     -- ===================== 蜘蛛洞 Lv.3~5 + 精英6 =====================
     M.Types.spider_small = {
-        name = "小蜘蛛",
+        name = "洞穴蜘蛛",
         icon = "🕷️",
         portrait = "Textures/monster_spider_small.png",
         zone = "spider_cave",
@@ -79,7 +111,7 @@ return function(M)
             -- ③装备掉落
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "purple" },
             -- ④专属装备
-            { chance = 0.12, type = "equipment", equipId = "spider_queen_ring", quality = "purple" },
+            { chance = 0.30, type = "equipment", equipId = "spider_queen_ring", quality = "purple" },
             -- ⑤世界掉落
             { chance = 0.01, type = "world_drop", pool = "ch1" },
         },
@@ -143,7 +175,7 @@ return function(M)
             -- ③装备掉落
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "purple" },
             -- ④专属装备
-            { chance = 0.10, type = "equipment", equipId = "boar_king_weapon", quality = "purple" },
+            { chance = 0.20, type = "equipment", equipId = "boar_king_weapon", quality = "purple" },
             -- ⑤世界掉落
             { chance = 0.01, type = "world_drop", pool = "ch1" },
         },
@@ -187,16 +219,31 @@ return function(M)
         icon = "⚔️",
         portrait = "Textures/monster_bandit_second.png",
         zone = "bandit_camp",
-        category = "elite",
+        category = "boss",
         race = "bandit",
         level = 11,
+        respawnTime = 90,  -- 第1章BOSS: 1分30秒
         realm = "lianqi_1",  -- 练气初期
         bodyColor = {140, 70, 50, 255},
+        phases = 2,
         skills = { "whirlwind" },
+        phaseConfig = {
+            { threshold = 0.5, atkMult = 1.3, speedMult = 1.2,
+              announce = "二大王举起双刀，杀气暴涨！",
+              addSkill = "cross_smash" },
+        },
         dropTable = {
-            { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "purple" },
-            { chance = 0.18, type = "consumable", consumableId = "spirit_meat" },
-            { chance = 0.005, type = "world_drop", pool = "ch1" },  -- 世界掉落0.5%
+            -- ①灵韵
+            { chance = 0.30, type = "lingYun", amount = {1, 1} },
+            -- ②消耗品
+            { chance = 0.25, type = "consumable", consumableId = "spirit_meat" },
+            { chance = 0.10, type = "consumable", consumableId = "spirit_pill" },
+            -- ③装备掉落
+            { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "purple" },
+            -- ④专属装备
+            { chance = 0.15, type = "equipment", equipId = "bandit_second_belt", quality = "purple" },
+            -- ⑤世界掉落
+            { chance = 0.01, type = "world_drop", pool = "ch1" },
         },
     }
     M.Types.bandit_strategist = {
@@ -326,6 +373,11 @@ return function(M)
             { chance = 0.10, type = "equipment", equipId = "tiger_set_weapon", quality = "purple" },
             { chance = 0.10, type = "equipment", equipId = "tiger_set_armor", quality = "purple" },
             { chance = 0.05, type = "equipment", equipId = "tiger_set_necklace", quality = "orange" },
+            -- 虎王血珀+虎纹战袍 10%共享池（二选一等权）
+            { chance = 0.10, type = "equipment_pool", pool = {
+                { equipId = "tiger_set_necklace", quality = "orange" },
+                { equipId = "tiger_set_cape", quality = "purple" },
+            }},
             -- ⑤练气丹（5%掉落）
             { chance = 0.05, type = "consumable", consumableId = "qi_pill" },
             -- ⑥帝尊壹戒（3%独立掉落）

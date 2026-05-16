@@ -25,6 +25,7 @@ require("world.mapgen.Chapter1")(GameMap, _zdProxy)
 require("world.mapgen.Chapter2")(GameMap, _zdProxy)
 require("world.mapgen.Chapter3")(GameMap, _zdProxy)
 require("world.mapgen.Chapter4")(GameMap, _zdProxy)
+require("world.mapgen.Chapter5")(GameMap, _zdProxy)
 
 --- 创建地图
 ---@param zoneDataOverride table|nil 可选的 ZoneData 模块（用于多章节切换），不传则使用默认 ZoneData
@@ -214,6 +215,11 @@ function GameMap:Generate()
     self:BuildCh4Terrain()
 
     -- ================================================================
+    -- 第五章太虚之殇地形（废墟 + 双路分流 + 剑宫 + 深渊 + 回廊）
+    -- ================================================================
+    self:BuildCh5Terrain()
+
+    -- ================================================================
     -- 区域间岩块分隔
     -- ================================================================
     self:BuildZoneBarriers()
@@ -376,6 +382,32 @@ function GameMap:GetTileColor(tileType)
         colors[T.CORAL_WALL]  = C.coral_wall  or {100, 70, 90, 255}
         colors[T.ROCK_REEF]   = C.rock_reef   or {80, 75, 70, 255}
         colors[T.SEA_SAND]    = C.sea_sand    or {210, 200, 160, 255}
+    end
+    -- 第五章瓦片颜色（从 ZoneData_ch5.TILE_COLORS 合并）
+    if T.CH5_VOID then
+        colors[T.CH5_CAMP_DIRT]        = {140, 115, 80, 255}
+        colors[T.CH5_CAMP_FLAGSTONE]   = {155, 145, 130, 255}
+        colors[T.CH5_RUIN_BLUESTONE]   = {95, 110, 125, 255}
+        colors[T.CH5_RUIN_CRACKED]     = {110, 100, 90, 255}
+        colors[T.CH5_FORGE_BLACKSTONE] = {45, 40, 38, 255}
+        colors[T.CH5_FORGE_MOLTEN]     = {130, 55, 25, 255}
+        colors[T.CH5_COURTYARD_MOSS]   = {85, 105, 80, 255}
+        colors[T.CH5_COLD_JADE]        = {140, 175, 180, 255}
+        colors[T.CH5_COLD_ICE_EDGE]    = {180, 210, 220, 255}
+        colors[T.CH5_STELE_PALE]       = {175, 170, 160, 255}
+        colors[T.CH5_LIBRARY_BURNT]    = {70, 55, 45, 255}
+        colors[T.CH5_PALACE_WHITE]     = {200, 200, 195, 255}
+        colors[T.CH5_PALACE_CORRUPTED] = {160, 140, 155, 255}
+        colors[T.CH5_BLOOD_RITUAL]     = {120, 35, 30, 255}
+        colors[T.CH5_ABYSS_CHARRED]    = {50, 42, 40, 255}
+        colors[T.CH5_ABYSS_FLESH]      = {90, 40, 45, 255}
+        colors[T.CH5_CORRIDOR_DARK]    = {55, 55, 65, 255}
+        colors[T.CH5_CORRIDOR_SWORD]   = {130, 135, 145, 255}
+        colors[T.CH5_VOID]             = {15, 12, 18, 255}
+        colors[T.CH5_WALL]             = {75, 75, 80, 255}
+        colors[T.CH5_CLIFF]            = {60, 55, 50, 255}
+        colors[T.CH5_SEALED_GATE]      = {100, 70, 110, 255}
+        colors[T.CH5_BRIDGE]           = {130, 125, 115, 255}
     end
     colors._default = C.grass
     _tileColorCache = colors

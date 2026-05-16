@@ -130,7 +130,7 @@ EquipmentData.TIER_SLOT_NAMES = {
         belt = "九霄带", boots = "九霄靴", ring1 = "九霄戒", ring2 = "九霄戒",
         necklace = "九霄链", cape = "九霄披风", treasure = "九霄珠", exclusive = "无",
     },
-    -- T11 渡劫（Lv.120+）
+    -- T11 谪仙（Lv.120+）
     [11] = {
         weapon = "破天剑", helmet = "天劫盔", armor = "天劫甲", shoulder = "天劫肩",
         belt = "天劫带", boots = "天劫靴", ring1 = "天劫戒", ring2 = "天劫戒",
@@ -139,7 +139,7 @@ EquipmentData.TIER_SLOT_NAMES = {
 }
 
 -- 阶级倍率（T1~T11）
--- T1凡人 T2凡人 T3练气 T4练气 T5筑基 T6金丹 T7元婴 T8化神 T9合体 T10大乘 T11渡劫
+-- T1凡人 T2凡人 T3练气 T4练气 T5筑基 T6金丹 T7元婴 T8化神 T9合体 T10大乘 T11谪仙
 EquipmentData.TIER_MULTIPLIER = {
     [1]  = 1.0,
     [2]  = 2.0,
@@ -263,6 +263,25 @@ EquipmentData.SpecialEquipment = {
         skillId = "jade_gourd_heal",  -- 治愈技能，CD30秒，回血10秒
     },
 
+    -- 拦路猪妖掉落：T1紫色头盔
+    -- 主属性(maxHp): 20 × 1.0(T1) × 1.3(紫) = 26
+    -- 副属性: 紫色3条, subBase × SUB_T1(1.0) × 1.3(紫)
+    boar_patrol_helmet = {
+        name = "猪妖铁盔",
+        slot = "helmet",
+        icon = "icon_helmet.png",
+        quality = "purple",
+        tier = 1,
+        sellPrice = 100,
+        mainStat = { maxHp = 26 },
+        subStats = {
+            { stat = "def", name = "防御力", value = 1.56 },      -- 1.2 × 1.0(SUB_T1) × 1.3(紫) = 1.56
+            { stat = "atk", name = "攻击力", value = 1.95 },      -- 1.5 × 1.0(SUB_T1) × 1.3(紫) = 1.95
+            { stat = "hpRegen", name = "生命回复", value = 0.65 }, -- 0.5 × 1.0(SUB_T1) × 1.3(紫) = 0.65
+        },
+        desc = "拦路猪妖用粗铁敲出的简陋头盔，虽然做工粗糙，但意外地结实。",
+    },
+
     -- 猪三哥掉落：T2紫色武器
     -- 主属性: 5 × 2.0(T2) × 1.3(紫) = 13
     -- 副属性: 紫色3条, 中值×1.0
@@ -297,6 +316,25 @@ EquipmentData.SpecialEquipment = {
             { stat = "maxHp", name = "生命值", value = 13.2 },   -- 6 × 2.2(T3) = 13.2
             { stat = "atk", name = "攻击力", value = 3.3 },      -- 1.5 × 2.2(T3) = 3.3
         },
+    },
+
+    -- 二大王掉落：T3紫色腰带
+    -- 主属性(maxHp): 15 × 3.0(T3) × 1.3(紫) = 58.5
+    -- 副属性: 紫色3条, subBase × SUB_T3(2.2) × 1.3(紫)
+    bandit_second_belt = {
+        name = "霸刀腰带",
+        slot = "belt",
+        icon = "icon_belt.png",
+        quality = "purple",
+        tier = 3,
+        sellPrice = 300,
+        mainStat = { maxHp = 58.5 },
+        subStats = {
+            { stat = "def", name = "防御力", value = 3.43 },       -- 1.2 × 2.2(SUB_T3) × 1.3(紫) = 3.432
+            { stat = "atk", name = "攻击力", value = 4.29 },       -- 1.5 × 2.2(SUB_T3) × 1.3(紫) = 4.29
+            { stat = "killHeal", name = "击杀回血", value = 8.58 }, -- 3 × 2.2(SUB_T3) × 1.3(紫) = 8.58
+        },
+        desc = "这条腰带宽如手掌，据说二大王靠它挡住过大大王的全力一刀。",
     },
 
     -- 蛛母掉落：T2紫色戒指
@@ -377,6 +415,25 @@ EquipmentData.SpecialEquipment = {
             cooldown = 3,          -- 内置CD 3秒
             -- 刷新逻辑：CD期间不可触发，持续期间再次触发重置duration
         },
+    },
+    -- 虎王掉落：T4紫色披风（与虎王血珀共享10%池）
+    -- 主属性(dmgReduce): 0.02 × 2.5(PCT_T4) × 1.3(紫) = 0.065
+    -- 副属性: 紫色3条, subBase × SUB_T4(3.0) × 1.3(紫)
+    tiger_set_cape = {
+        name = "虎纹战袍",
+        slot = "cape",
+        icon = "icon_cape.png",
+        quality = "purple",
+        tier = 4,
+        sellPrice = 400,
+        setId = "tiger_king",
+        mainStat = { dmgReduce = 0.065 },
+        subStats = {
+            { stat = "atk", name = "攻击力", value = 5.85 },     -- 1.5 × 3.0(SUB_T4) × 1.3(紫) = 5.85
+            { stat = "maxHp", name = "生命值", value = 23.4 },   -- 6 × 3.0(SUB_T4) × 1.3(紫) = 23.4
+            { stat = "physique", name = "体魄", value = 5 },     -- linearGrowth: floor(4 × 1.3) = 5
+        },
+        desc = "虎王亲自以虎皮缝制的战袍，纹路似活物般蜿蜒，穿上便如虎添翼。",
     },
 
     -- #帝尊壹戒（虎王5%独立掉落）：T3 橙/稀世 戒指
@@ -1338,6 +1395,348 @@ EquipmentData.SpecialEquipment = {
         name = "龙极令", slot = "exclusive", quality = "cyan", tier = 9,
         isFabaoCollection = true, fabaoTemplateId = "fabao_longjiling", fabaoTier = 9,
     },
+
+    -- ===================== 第五章·太虚遗藏（章节专属装备） =====================
+
+    -- #1 镇派石履（护山石傀·入口Boss）：T9 橙色 鞋子
+    -- 主属性: 0.03 × 7.0(T9pct) × 1.5(橙) = 0.315
+    -- 副属性: 橙色3条, 中值×1.1
+    zhenpai_boots_ch5 = {
+        name = "镇派石履",
+        slot = "boots",
+        icon = "icon_zhenpai_boots_ch5.png",
+        quality = "orange",
+        tier = 9,
+        sellPrice = 1500,
+        mainStat = { speed = 0.315 },
+        subStats = {
+            { stat = "def", name = "防御力", value = 14.52 },        -- 1.2 × 11.0 × 1.1 = 14.52
+            { stat = "maxHp", name = "生命值", value = 72.6 },       -- 6 × 11.0 × 1.1 = 72.6
+            { stat = "constitution", name = "根骨", value = 13 },    -- floor(9 × 1.5) = 13
+        },
+    },
+
+    -- #2 问锋雷纹坠（问剑长老·裴千岳）：T9 青/灵器 项链
+    -- 主属性: 0.03 × 7.0(T9pct) × 1.8(灵器) = 0.378
+    -- 副属性: 灵器3条, 中值×1.0
+    wenfeng_necklace_ch5 = {
+        name = "问锋雷纹坠",
+        slot = "necklace",
+        icon = "icon_wenfeng_necklace_ch5.png",
+        quality = "cyan",
+        tier = 9,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { critRate = 0.378 },
+        subStats = {
+            { stat = "atk", name = "攻击力", value = 16.5 },        -- 1.5 × 11.0 = 16.5
+            { stat = "wisdom", name = "悟性", value = 16 },          -- floor(9 × 1.8) = 16
+            { stat = "killHeal", name = "击杀回血", value = 33 },    -- 3 × 11.0 = 33
+        },
+        spiritStat = { stat = "wisdom", name = "悟性", value = 8 }, -- floor(9×1.8×0.5) = 8
+    },
+
+    -- #3 寒池霜华戒（洗剑霜鸾）：T9 青/灵器 戒指
+    -- 主属性: 3 × 17.0(T9) × 1.8(灵器) = 91.8
+    -- 副属性: 灵器3条, 中值×1.0
+    hanchi_ring_ch5 = {
+        name = "寒池霜华戒",
+        slot = "ring1",
+        icon = "icon_hanchi_ring_ch5.png",
+        quality = "cyan",
+        tier = 9,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { atk = 91.8 },
+        subStats = {
+            { stat = "critRate", name = "暴击率", value = 0.06 },    -- 0.01 × 6.0 = 0.06
+            { stat = "physique", name = "体魄", value = 16 },        -- floor(9 × 1.8) = 16
+            { stat = "hpRegen", name = "生命回复", value = 5.5 },    -- 0.5 × 11.0 = 5.5
+        },
+        spiritStat = { stat = "physique", name = "体魄", value = 8 }, -- floor(9×1.8×0.5) = 8
+    },
+
+    -- #4 百炼火绶（铸剑长老·韩百炼）：T10 橙色 腰带
+    -- 主属性: 6 × 21.0(T10) × 1.5(橙) × 2.5(腰带主属性倍率) = 472.5
+    -- 副属性: 橙色3条, 中值×1.1
+    bailian_belt_ch5 = {
+        name = "百炼火绶",
+        slot = "belt",
+        icon = "icon_bailian_belt_ch5.png",
+        quality = "orange",
+        tier = 10,
+        sellPrice = 2000,
+        mainStat = { maxHp = 472.5 },
+        subStats = {
+            { stat = "hpRegen", name = "生命回复", value = 7.15 },   -- 0.5 × 13.0 × 1.1 = 7.15
+            { stat = "maxHp", name = "生命值", value = 85.8 },       -- 6 × 13.0 × 1.1 = 85.8
+            { stat = "physique", name = "体魄", value = 15 },        -- floor(10 × 1.5) = 15
+        },
+    },
+
+    -- #5 观澜碑佩（守碑长老·石观澜）：T10 橙色 项链
+    -- 主属性: 0.03 × 8.0(T10pct) × 1.5(橙) = 0.36
+    -- 副属性: 橙色3条, 中值×1.1
+    guanlan_necklace_ch5 = {
+        name = "观澜碑佩",
+        slot = "necklace",
+        icon = "icon_guanlan_necklace_ch5.png",
+        quality = "orange",
+        tier = 10,
+        sellPrice = 2000,
+        mainStat = { critRate = 0.36 },
+        subStats = {
+            { stat = "critDmg", name = "暴击伤害", value = 0.4125 }, -- 0.05 × 7.5(PCT_SUB_T10) × 1.1 = 0.4125
+            { stat = "atk", name = "攻击力", value = 21.45 },        -- 1.5 × 13.0 × 1.1 = 21.45
+            { stat = "wisdom", name = "悟性", value = 15 },          -- floor(10 × 1.5) = 15
+        },
+    },
+
+    -- #6 宿心残戒（别院院主·宁栖梧，共享1%二选一）：T10 橙色 戒指
+    -- 主属性: 3 × 21.0(T10) × 1.5(橙) = 94.5
+    -- 副属性: 橙色3条, 中值×1.1
+    suxin_ring_ch5 = {
+        name = "宿心残戒",
+        slot = "ring1",
+        icon = "icon_suxin_ring_ch5.png",
+        quality = "orange",
+        tier = 10,
+        sellPrice = 2000,
+        mainStat = { atk = 94.5 },
+        subStats = {
+            { stat = "atk", name = "攻击力", value = 21.45 },        -- 1.5 × 13.0 × 1.1 = 21.45
+            { stat = "critDmg", name = "暴击伤害", value = 0.4125 }, -- 0.05 × 7.5 × 1.1 = 0.4125
+            { stat = "heavyHit", name = "重击伤害", value = 114.4 }, -- 8 × 13.0 × 1.1 = 114.4
+        },
+    },
+
+    -- #7 藏真玄衣（藏经阁主·温素章，共享1%二选一）：T10 青/灵器 衣服
+    -- 主属性: 1.2 × 21.0(T10) × 1.8(灵器) × 4(衣服主属性倍率) = 181.44 → 设计值151.2（按标准公式）
+    -- 副属性: 灵器3条, 中值×1.0
+    cangzhen_armor_ch5 = {
+        name = "藏真玄衣",
+        slot = "armor",
+        icon = "icon_cangzhen_armor_ch5.png",
+        quality = "cyan",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { def = 151.2 },
+        subStats = {
+            { stat = "physique", name = "体魄", value = 18 },        -- floor(10 × 1.8) = 18
+            { stat = "constitution", name = "根骨", value = 18 },    -- floor(10 × 1.8) = 18
+            { stat = "critDmg", name = "暴击伤害", value = 0.375 },  -- 0.05 × 7.5 = 0.375
+        },
+        specialEffect = {
+            type = "hp_regen_percent",
+            name = "泽渊生息",
+            regenPercent = 0.02,      -- 每秒恢复2%最大生命值
+            stopWhenFull = true,      -- 血满不再恢复
+        },
+    },
+
+    -- #8 噬渊魔氅（镇渊魔帅·噬渊血犼）：T10 青/灵器 披风
+    -- 主属性: 0.02 × 8.0(T10pct) × 1.8(灵器) = 0.288
+    -- 副属性: 灵器3条, 中值×1.0
+    shiyuan_cape_ch5 = {
+        name = "噬渊魔氅",
+        slot = "cape",
+        icon = "icon_shiyuan_cape_ch5.png",
+        quality = "cyan",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { dmgReduce = 0.288 },
+        subStats = {
+            { stat = "atk", name = "攻击力", value = 19.5 },         -- 1.5 × 13.0 = 19.5
+            { stat = "critRate", name = "暴击率", value = 0.075 },   -- 0.01 × 7.5 = 0.075
+            { stat = "def", name = "防御力", value = 15.6 },         -- 1.2 × 13.0 = 15.6
+        },
+        spiritStat = { stat = "fortune", name = "福缘", value = 9 }, -- floor(10×1.8×0.5) = 9
+    },
+
+    -- #9 藏真玄冠（藏经阁主·温素章，共享1%二选一）：T10 青/灵器 头盔 [套装：护脉遗装]
+    -- 主属性: 6 × 21.0(T10) × 1.8(灵器) × 不适用头盔特殊倍率 → 设计值756
+    -- 副属性: 灵器3条, 中值×1.0
+    cangzhen_helmet_ch5 = {
+        name = "藏真玄冠",
+        slot = "helmet",
+        icon = "icon_cangzhen_helmet_ch5.png",
+        quality = "cyan",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        setId = "humai_yizhuang",
+        mainStat = { maxHp = 756 },
+        subStats = {
+            { stat = "atk", name = "攻击力", value = 19.5 },        -- 1.5 × 13.0 = 19.5
+            { stat = "wisdom", name = "悟性", value = 18 },          -- floor(10 × 1.8) = 18
+            { stat = "killHeal", name = "击杀回血", value = 39 },    -- 3 × 13.0 = 39
+        },
+        spiritStat = { stat = "atk", name = "攻击力", value = 9.75 }, -- 1.5×13.0×0.5 = 9.75
+    },
+
+    -- #10 屠血命绶（裂渊屠血将，共享0.5%二选一）：T10 青/灵器 腰带 [套装：护脉遗装]
+    -- 主属性: 6 × 21.0(T10) × 1.8(灵器) × 2.5(腰带倍率) → 设计值567
+    -- 副属性: 灵器3条, 中值×1.0
+    tuxue_belt_ch5 = {
+        name = "屠血命绶",
+        slot = "belt",
+        icon = "icon_tuxue_belt_ch5.png",
+        quality = "cyan",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        setId = "humai_yizhuang",
+        mainStat = { maxHp = 567 },
+        subStats = {
+            { stat = "def", name = "防御力", value = 15.6 },         -- 1.2 × 13.0 = 15.6
+            { stat = "killHeal", name = "击杀回血", value = 39 },    -- 3 × 13.0 = 39
+            { stat = "constitution", name = "根骨", value = 18 },    -- floor(10 × 1.8) = 18
+        },
+        spiritStat = { stat = "critRate", name = "暴击率", value = 0.0375 }, -- 0.01×7.5×0.5 = 0.0375
+    },
+
+    -- #11 栖剑行靴（别院院主·宁栖梧，共享1%二选一）：T10 青/灵器 鞋子 [套装：镇宗玄卫]
+    -- 主属性: 0.03 × 8.0(T10pct) × 1.8(灵器) = 0.432
+    -- 副属性: 灵器3条, 中值×1.0
+    qijian_boots_ch5 = {
+        name = "栖剑行靴",
+        slot = "boots",
+        icon = "icon_qijian_boots_ch5.png",
+        quality = "cyan",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        setId = "zhenzong_xuanwei",
+        mainStat = { speed = 0.432 },
+        subStats = {
+            { stat = "def", name = "防御力", value = 15.6 },         -- 1.2 × 13.0 = 15.6
+            { stat = "maxHp", name = "生命值", value = 78 },         -- 6 × 13.0 = 78
+            { stat = "fortune", name = "福缘", value = 18 },         -- floor(10 × 1.8) = 18
+        },
+        spiritStat = { stat = "critDmg", name = "暴击伤害", value = 0.1875 }, -- 0.05×7.5×0.5 = 0.1875
+    },
+
+    -- #12 屠血魔肩（裂渊屠血将，共享0.5%二选一）：T10 青/灵器 肩膀 [套装：镇宗玄卫]
+    -- 主属性: 1.2 × 21.0(T10) × 1.8(灵器) × 2.5(肩膀倍率) → 设计值113.4
+    -- 副属性: 灵器3条, 中值×1.0
+    tuxue_shoulder_ch5 = {
+        name = "屠血魔肩",
+        slot = "shoulder",
+        icon = "icon_tuxue_shoulder_ch5.png",
+        quality = "cyan",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        setId = "zhenzong_xuanwei",
+        mainStat = { def = 113.4 },
+        subStats = {
+            { stat = "maxHp", name = "生命值", value = 78 },         -- 6 × 13.0 = 78
+            { stat = "hpRegen", name = "生命回复", value = 6.5 },    -- 0.5 × 13.0 = 6.5
+            { stat = "physique", name = "体魄", value = 18 },        -- floor(10 × 1.8) = 18
+        },
+        spiritStat = { stat = "critRate", name = "暴击率", value = 0.0375 }, -- 0.01×7.5×0.5 = 0.0375
+    },
+
+    -- #帝尊伍戒（噬渊血犼+四仙剑 各0.5%独立掉落）：T10 青/灵器 戒指
+    -- 主属性: 3 × 21.0(T10) × 1.8(灵器) = 113.4
+    -- 副属性: 灵器3条, linearGrowth: floor(10×1.8)=18; 灵性属性: floor(10×1.8×0.5)=9
+    dizun_ring_ch5 = {
+        name = "帝尊伍戒",
+        desc = "帝尊终成大道时所铸之戒，五行归元，万法归宗。",
+        slot = "ring1",
+        icon = "icon_dizun_ring_ch5.png",
+        quality = "cyan",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { atk = 113.4 },
+        subStats = {
+            { stat = "constitution", name = "根骨", value = 18 },    -- floor(10 × 1.8) = 18
+            { stat = "wisdom", name = "悟性", value = 18 },          -- floor(10 × 1.8) = 18
+            { stat = "physique", name = "体魄", value = 18 },        -- floor(10 × 1.8) = 18
+        },
+        spiritStat = { stat = "fortune", name = "福缘", value = 9 }, -- floor(10×1.8×0.5) = 9
+    },
+
+    -- ===================== 第五章·封印古剑（四仙剑各0.5%独立掉落） =====================
+
+    -- 封印古剑·诛仙（诛仙剑Boss掉落）：T10 青/灵器 武器
+    fengyin_zhuxian_ch5 = {
+        name = "封印古剑·诛仙",
+        desc = "诛仙剑灵封印后残余的剑身，虽失锋芒，仍余诛杀之意。",
+        slot = "weapon",
+        icon = "icon_fengyin_zhuxian_ch5.png",
+        quality = "cyan",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { atk = 189 },  -- 5 × 21.0 × 1.8 = 189（weapon BASE=5）
+        subStats = {
+            { stat = "critRate", name = "暴击率", value = 0.075 },   -- 0.01 × 7.5 = 0.075
+            { stat = "critDmg", name = "暴击伤害", value = 0.375 },  -- 0.05 × 7.5 = 0.375
+            { stat = "wisdom", name = "悟性", value = 18 },          -- floor(10 × 1.8) = 18
+        },
+        spiritStat = { stat = "fortune", name = "福缘", value = 9 }, -- floor(10×1.8×0.5) = 9
+    },
+
+    -- 封印古剑·陷仙（陷仙剑Boss掉落）：T10 青/灵器 武器
+    fengyin_xianxian_ch5 = {
+        name = "封印古剑·陷仙",
+        desc = "陷仙剑灵封印后残余的剑身，困敌之力犹存，触之即陷。",
+        slot = "weapon",
+        icon = "icon_fengyin_xianxian_ch5.png",
+        quality = "cyan",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { atk = 189 },  -- 5 × 21.0 × 1.8 = 189（weapon BASE=5）
+        subStats = {
+            { stat = "def", name = "防御力", value = 15.6 },         -- 1.2 × 13.0 = 15.6
+            { stat = "maxHp", name = "生命值", value = 78 },         -- 6 × 13.0 = 78
+            { stat = "constitution", name = "根骨", value = 18 },    -- floor(10 × 1.8) = 18
+        },
+        spiritStat = { stat = "fortune", name = "福缘", value = 9 }, -- floor(10×1.8×0.5) = 9
+    },
+
+    -- 封印古剑·戮仙（戮仙剑Boss掉落）：T10 青/灵器 武器
+    fengyin_luxian_ch5 = {
+        name = "封印古剑·戮仙",
+        desc = "戮仙剑灵封印后残余的剑身，嗜杀本能未泯，血气缠绕。",
+        slot = "weapon",
+        icon = "icon_fengyin_luxian_ch5.png",
+        quality = "cyan",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { atk = 189 },  -- 5 × 21.0 × 1.8 = 189（weapon BASE=5）
+        subStats = {
+            { stat = "atk", name = "攻击力", value = 19.5 },        -- 1.5 × 13.0 = 19.5
+            { stat = "heavyHit", name = "重击伤害", value = 104 },   -- 8 × 13.0 = 104
+            { stat = "physique", name = "体魄", value = 18 },        -- floor(10 × 1.8) = 18
+        },
+        spiritStat = { stat = "fortune", name = "福缘", value = 9 }, -- floor(10×1.8×0.5) = 9
+    },
+
+    -- 封印古剑·绝仙（绝仙剑Boss掉落）：T10 青/灵器 武器
+    fengyin_juexian_ch5 = {
+        name = "封印古剑·绝仙",
+        desc = "绝仙剑灵封印后残余的剑身，绝灭之力沉睡其中，不可轻触。",
+        slot = "weapon",
+        icon = "icon_fengyin_juexian_ch5.png",
+        quality = "cyan",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { atk = 189 },  -- 5 × 21.0 × 1.8 = 189（weapon BASE=5）
+        subStats = {
+            { stat = "killHeal", name = "击杀回血", value = 39 },    -- 3 × 13.0 = 39
+            { stat = "hpRegen", name = "生命回复", value = 6.5 },    -- 0.5 × 13.0 = 6.5
+            { stat = "fortune", name = "福缘", value = 18 },         -- floor(10 × 1.8) = 18
+        },
+        spiritStat = { stat = "fortune", name = "福缘", value = 9 }, -- floor(10×1.8×0.5) = 9
+    },
 }
 
 -- ===================== 神兵图录（独特装备图鉴系统） =====================
@@ -1351,12 +1750,15 @@ EquipmentData.Collection = {
             name = "第一章",
             order = {
                 "jade_gourd",
+                "boar_patrol_helmet",
                 "boar_king_weapon",
                 "boss_cape",
+                "bandit_second_belt",
                 "spider_queen_ring",
                 "tiger_set_weapon",
                 "tiger_set_armor",
                 "tiger_set_necklace",
+                "tiger_set_cape",
                 "dizun_ring_ch1",
             },
         },
@@ -1424,6 +1826,28 @@ EquipmentData.Collection = {
                 "fabao_longjiling_t9",
             },
         },
+        {
+            name = "第五章",
+            order = {
+                "zhenpai_boots_ch5",
+                "wenfeng_necklace_ch5",
+                "hanchi_ring_ch5",
+                "bailian_belt_ch5",
+                "guanlan_necklace_ch5",
+                "suxin_ring_ch5",
+                "cangzhen_armor_ch5",
+                "shiyuan_cape_ch5",
+                "cangzhen_helmet_ch5",
+                "tuxue_belt_ch5",
+                "qijian_boots_ch5",
+                "tuxue_shoulder_ch5",
+                "dizun_ring_ch5",
+                "fengyin_zhuxian_ch5",
+                "fengyin_xianxian_ch5",
+                "fengyin_luxian_ch5",
+                "fengyin_juexian_ch5",
+            },
+        },
     },
     -- 完整顺序（兼容旧接口）
     order = {
@@ -1431,9 +1855,12 @@ EquipmentData.Collection = {
         "boar_king_weapon",
         "boss_cape",
         "spider_queen_ring",
+        "boar_patrol_helmet",
         "tiger_set_weapon",
         "tiger_set_armor",
         "tiger_set_necklace",
+        "tiger_set_cape",
+        "bandit_second_belt",
         "dizun_ring_ch1",
         "gold_helmet_ch2",
         "boar_belt_ch2",
@@ -1484,6 +1911,24 @@ EquipmentData.Collection = {
         "fabao_qingyunta_t9",
         "fabao_fengmopan_t9",
         "fabao_longjiling_t9",
+        -- 第五章·太虚遗藏
+        "zhenpai_boots_ch5",
+        "wenfeng_necklace_ch5",
+        "hanchi_ring_ch5",
+        "bailian_belt_ch5",
+        "guanlan_necklace_ch5",
+        "suxin_ring_ch5",
+        "cangzhen_armor_ch5",
+        "shiyuan_cape_ch5",
+        "cangzhen_helmet_ch5",
+        "tuxue_belt_ch5",
+        "qijian_boots_ch5",
+        "tuxue_shoulder_ch5",
+        "dizun_ring_ch5",
+        "fengyin_zhuxian_ch5",
+        "fengyin_xianxian_ch5",
+        "fengyin_luxian_ch5",
+        "fengyin_juexian_ch5",
     },
 
     -- 每个条目的收录奖励（总计≈T3绿全套的20%）
@@ -1516,9 +1961,21 @@ EquipmentData.Collection = {
             bonus = { atk = 3, def = 2, maxHp = 5 },
             desc = "虎王血珀凝结的项坠，蕴含虎王之力。",
         },
+        tiger_set_cape = {
+            bonus = { atk = 2, def = 2, maxHp = 10 },
+            desc = "虎皮缝制的战袍，披上便有虎威加身。",
+        },
+        boar_patrol_helmet = {
+            bonus = { maxHp = 5 },
+            desc = "猪妖粗制的铁盔，虽然简陋但异常坚固。",
+        },
+        bandit_second_belt = {
+            bonus = { atk = 1, maxHp = 5 },
+            desc = "二大王的腰带，宽如手掌，刀劈不断。",
+        },
         dizun_ring_ch1 = {
-            bonus = { wisdom = 2 },
-            desc = "帝尊初铸之戒，虎啸山林，悟性初开。",
+            bonus = { fortune = 2 },
+            desc = "帝尊初铸之戒，虎啸山林，福缘深厚。",
         },
         -- 第二章（加成合计≈Ch1的2倍：atk+18, def+20, maxHp+79）
         gold_helmet_ch2 = {
@@ -1726,6 +2183,75 @@ EquipmentData.Collection = {
             bonus = { atk = 5, constitution = 5 },
             desc = "四龙之威凝为一令，龙息喷吐，百鬼辟易。",
         },
+        -- 第五章·太虚遗藏（合计：atk=36, def=64, maxHp=170, killHeal=20, hpRegen=8, heavyHit=35, wisdom=6, constitution=6, physique=14）
+        zhenpai_boots_ch5 = {
+            bonus = { def = 8, maxHp = 20 },
+            desc = "太虚剑宫护山石傀遗留的重铸石靴，步如山岳。",
+        },
+        wenfeng_necklace_ch5 = {
+            bonus = { atk = 8, constitution = 6 },
+            desc = "裴千岳问剑之刃化为的雷纹坠，剑意如雷。",
+        },
+        hanchi_ring_ch5 = {
+            bonus = { physique = 8, hpRegen = 1 },
+            desc = "霜鸾寒池凝结的冰华戒指，冰魄入骨。",
+        },
+        bailian_belt_ch5 = {
+            bonus = { maxHp = 30, hpRegen = 2 },
+            desc = "韩百炼地炉淬火的腰绶，百炼不屈。",
+        },
+        guanlan_necklace_ch5 = {
+            bonus = { atk = 8, wisdom = 6 },
+            desc = "石观澜碑林守护的佩饰，碑文如剑。",
+        },
+        suxin_ring_ch5 = {
+            bonus = { atk = 10, heavyHit = 20 },
+            desc = "宁栖梧宿心之怨凝为残戒，杀意难消。",
+        },
+        cangzhen_armor_ch5 = {
+            bonus = { def = 12, maxHp = 30, hpRegen = 3 },
+            desc = "温素章藏经阁护法玄衣，守正辟邪。",
+        },
+        cangzhen_helmet_ch5 = {
+            bonus = { atk = 10, physique = 6, killHeal = 10 },
+            desc = "藏真一脉护脉玄冠，杀伐之中养护经脉。",
+        },
+        tuxue_belt_ch5 = {
+            bonus = { maxHp = 30, def = 10, killHeal = 10 },
+            desc = "屠血将命绶，杀戮淬炼，血脉坚韧。",
+        },
+        qijian_boots_ch5 = {
+            bonus = { def = 12, maxHp = 30 },
+            desc = "栖剑行靴，剑气护步，铁壁无隙。",
+        },
+        tuxue_shoulder_ch5 = {
+            bonus = { def = 12, maxHp = 30, hpRegen = 2 },
+            desc = "屠血魔肩，血战千场，铁肩担道。",
+        },
+        shiyuan_cape_ch5 = {
+            bonus = { heavyHit = 30, def = 10 },
+            desc = "噬渊血犼魔氅，深渊之力镇煞四方。",
+        },
+        dizun_ring_ch5 = {
+            bonus = { fortune = 6 },
+            desc = "帝尊五铸之戒，太虚淬炼，福泽深厚。",
+        },
+        fengyin_zhuxian_ch5 = {
+            bonus = { atk = 5 },
+            desc = "封印之下犹有诛天之意，剑气冲霄。",
+        },
+        fengyin_xianxian_ch5 = {
+            bonus = { atk = 5 },
+            desc = "封印之下犹有陷地之力，万物沉沦。",
+        },
+        fengyin_luxian_ch5 = {
+            bonus = { atk = 5 },
+            desc = "封印之下犹有戮灵之威，杀伐无情。",
+        },
+        fengyin_juexian_ch5 = {
+            bonus = { atk = 5 },
+            desc = "封印之下犹有绝世之锋，一剑断仙。",
+        },
     },
 }
 
@@ -1885,6 +2411,29 @@ EquipmentData.SetBonuses = {
                     duration = 0.5,
                     cooldown = 10.0,
                 },
+            },
+        },
+    },
+
+    -- ===================== 第五章·太虚遗藏 2件套 =====================
+
+    humai_yizhuang = {
+        name = "护脉遗装",
+        pieces = {
+            [2] = {
+                name = "护脉遗泽",
+                description = "最大生命 +1200",
+                bonuses = { maxHp = 1200 },
+            },
+        },
+    },
+    zhenzong_xuanwei = {
+        name = "镇宗玄卫",
+        pieces = {
+            [2] = {
+                name = "镇宗之御",
+                description = "防御 +10%",
+                bonuses = { defPercent = 0.10 },
             },
         },
     },

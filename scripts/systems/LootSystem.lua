@@ -739,8 +739,8 @@ function LootSystem.GetSlotIcon(slot, tier)
         return GOURD_QUALITY_ICONS[quality] or GOURD_QUALITY_ICONS.green
     end
     local baseSlot = slot == "ring1" and "ring" or (slot == "ring2" and "ring" or slot)
-    -- 图标素材仅有 T1-T9，T10+ 回退到 T9 图标
-    local iconTier = math.min(tier, 9)
+    -- 图标素材 T1-T10，T11+ 回退到 T10 图标
+    local iconTier = math.min(tier, 10)
     if iconTier >= 2 then
         return "icon_t" .. iconTier .. "_" .. baseSlot .. ".png"
     end

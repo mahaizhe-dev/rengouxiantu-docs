@@ -73,6 +73,40 @@ TileTypes.TILE = {
     YAOCHI_CLIFF     = 49,   -- 瑶池崖壁（高崖瀑布水源，不可通行）
     HERB_FIELD       = 50,   -- 药田（灵药种植区，可通行）
     MARKET_STREET    = 51,   -- 商业街（青云城主街，可通行）
+
+    -- ch5 新增瓦片（太虚之殇）
+    CH5_CAMP_DIRT         = 52,   -- 前营土地（可通行）
+    CH5_CAMP_FLAGSTONE    = 53,   -- 前营修补石板（可通行）
+    CH5_RUIN_BLUESTONE    = 54,   -- 废墟青石（可通行）
+    CH5_RUIN_CRACKED      = 55,   -- 废墟裂石（可通行）
+    CH5_FORGE_BLACKSTONE  = 56,   -- 铸剑焦黑石（可通行）
+    CH5_FORGE_MOLTEN      = 57,   -- 熔裂纹地面（可通行）
+    CH5_COURTYARD_MOSS    = 58,   -- 苔藓院石（可通行）
+    CH5_COLD_JADE         = 59,   -- 寒池玉石地（可通行）
+    CH5_COLD_ICE_EDGE     = 60,   -- 寒池冰边（不可通行）
+    CH5_STELE_PALE        = 61,   -- 碑林苍白石（可通行）
+    CH5_LIBRARY_BURNT     = 62,   -- 藏经焚毁地面（可通行）
+    CH5_PALACE_WHITE      = 63,   -- 剑宫白石（可通行）
+    CH5_PALACE_CORRUPTED  = 64,   -- 剑宫侵蚀脉络（可通行）
+    CH5_BLOOD_RITUAL      = 65,   -- 血祭石（可通行）
+    CH5_ABYSS_CHARRED     = 66,   -- 深渊焦岩（可通行）
+    CH5_ABYSS_FLESH       = 67,   -- 深渊血肉岩（不可通行）
+    CH5_CORRIDOR_DARK     = 68,   -- 回廊暗石（可通行）
+    CH5_CORRIDOR_SWORD    = 69,   -- 回廊剑金属（不可通行）
+    CH5_VOID              = 70,   -- 虚空/深渊（不可通行，地图底色）
+    CH5_WALL              = 71,   -- 废墟墙体（不可通行）
+    CH5_CLIFF             = 72,   -- 断崖边缘（不可通行）
+    CH5_SEALED_GATE       = 73,   -- 封印门（不可通行）
+    CH5_BRIDGE            = 74,   -- 桥面（可通行）
+    CH5_CITY_WALL         = 75,   -- 剑气城墙（不可通行）
+    CH5_WALL_BATTLEMENT   = 76,   -- 城垛（不可通行）
+    CH5_WALL_COLLAPSED    = 77,   -- 坍塌城墙（可通行，废墟碎石）
+    CH5_BLOOD_RIVER       = 78,   -- 血河（不可通行）
+    CH5_STELE_INTACT      = 79,   -- 完整石碑（不可通行，碑林装饰）
+    CH5_STELE_BROKEN      = 80,   -- 断壁残碑（可通行，碑林装饰）
+    CH5_LAVA_WALL         = 81,   -- 岩浆墙（不可通行，深渊围墙）
+    CH5_BLOOD_POOL        = 82,   -- 祀剑池（不可通行，可交互 3×2 PNG）
+    CH5_FURNACE           = 83,   -- 铸剑地炉（不可通行，可交互 3×3 PNG）
 }
 
 -- ============================================================================
@@ -132,6 +166,39 @@ TileTypes.WALKABLE = {
     [49] = false,  -- YAOCHI_CLIFF
     [50] = true,   -- HERB_FIELD
     [51] = true,   -- MARKET_STREET
+    -- ch5 太虚之殇
+    [52] = true,   -- CH5_CAMP_DIRT
+    [53] = true,   -- CH5_CAMP_FLAGSTONE
+    [54] = true,   -- CH5_RUIN_BLUESTONE
+    [55] = true,   -- CH5_RUIN_CRACKED
+    [56] = true,   -- CH5_FORGE_BLACKSTONE
+    [57] = true,   -- CH5_FORGE_MOLTEN
+    [58] = true,   -- CH5_COURTYARD_MOSS
+    [59] = true,   -- CH5_COLD_JADE
+    [60] = false,  -- CH5_COLD_ICE_EDGE
+    [61] = true,   -- CH5_STELE_PALE
+    [62] = true,   -- CH5_LIBRARY_BURNT
+    [63] = true,   -- CH5_PALACE_WHITE
+    [64] = true,   -- CH5_PALACE_CORRUPTED
+    [65] = true,   -- CH5_BLOOD_RITUAL
+    [66] = true,   -- CH5_ABYSS_CHARRED
+    [67] = false,  -- CH5_ABYSS_FLESH
+    [68] = true,   -- CH5_CORRIDOR_DARK
+    [69] = false,  -- CH5_CORRIDOR_SWORD
+    [70] = false,  -- CH5_VOID
+    [71] = false,  -- CH5_WALL
+    [72] = false,  -- CH5_CLIFF
+    [73] = false,  -- CH5_SEALED_GATE
+    [74] = true,   -- CH5_BRIDGE
+    [75] = true,   -- CH5_CITY_WALL（可行走城墙面）
+    [76] = false,  -- CH5_WALL_BATTLEMENT（城垛，不可通行，隔断）
+    [77] = true,   -- CH5_WALL_COLLAPSED
+    [78] = false,  -- CH5_BLOOD_RIVER
+    [79] = false,  -- CH5_STELE_INTACT（完整石碑，不可通行）
+    [80] = true,   -- CH5_STELE_BROKEN（断壁残碑，可通行）
+    [81] = false,  -- CH5_LAVA_WALL（岩浆墙，不可通行）
+    [82] = false,  -- CH5_BLOOD_POOL（祀剑池，不可通行，可交互）
+    [83] = false,  -- CH5_FURNACE（铸剑地炉，不可通行，可交互）
 }
 
 return TileTypes

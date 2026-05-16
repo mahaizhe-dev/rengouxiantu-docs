@@ -720,6 +720,7 @@ M.Types.dragon_ice = {
         { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
+        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
     },
 }
 
@@ -761,6 +762,7 @@ M.Types.dragon_abyss = {
         { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
+        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
     },
 }
 
@@ -802,6 +804,7 @@ M.Types.dragon_fire = {
         { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
+        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
     },
 }
 
@@ -843,6 +846,7 @@ M.Types.dragon_sand = {
         { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
+        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
     },
 }
 

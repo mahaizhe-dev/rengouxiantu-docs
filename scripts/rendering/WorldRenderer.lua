@@ -146,12 +146,15 @@ function WorldRenderer:RenderTiles(nvg, l)
             local sx, sy = RenderUtils.WorldToLocal(x - 0.5, y - 0.5, camera, l)
 
             -- 使用 TileRenderer 程序化绘制每种瓦片
-            TileRenderer.RenderTile(nvg, sx, sy, tileSize, tileType, x, y)
+            TileRenderer.RenderTile(nvg, sx, sy, tileSize, tileType, x, y, gameMap)
         end
     end
 
-    -- 区域边缘过渡效果（半透明渐变遮罩）
-    self:RenderZoneTransitions(nvg, l, startX, startY, endX, endY)
+    -- 边缘过渡渲染（ch1~4 旧版区域过渡渐变）
+    local zd = ActiveZoneData.Get()
+    if not zd.EDGE_TYPES then
+        self:RenderZoneTransitions(nvg, l, startX, startY, endX, endY)
+    end
 end
 
 -- ============================================================================
@@ -429,6 +432,87 @@ function WorldRenderer:RenderSealBarriers(nvg, l)
                     nvgStrokeColor(nvg, nvgRGBA(60, 180, 255, math.floor(160 * pulse)))
                     nvgStrokeWidth(nvg, 2)
                     nvgStroke(nvg)
+                end
+            end
+        elseif chapter == 5 then
+            -- ═══ 第五章·双色封印光效（逐瓦片渲染） ═══
+            -- sealColor="white" 白色剑气封印（城墙入口）
+            -- sealColor="red"   红色血色封印（剑宫入口）
+            local isRed = (sealData.sealColor == "red")
+            local pulse = isRed
+                and (0.6 + 0.25 * math.sin(t * 2.5))
+                or  (0.55 + 0.3 * math.sin(t * 2.0))
+
+            for ti, tile in ipairs(tiles) do
+                local tx, ty = RenderUtils.WorldToLocal(tile.x - 0.5, tile.y - 0.5, camera, l)
+
+                if tx + tileSize >= l.x and tx <= l.x + l.w and
+                   ty + tileSize >= l.y and ty <= l.y + l.h then
+
+                    local baseAlpha = math.floor(200 * pulse)
+
+                    if isRed then
+                        -- 红色血色封印
+                        nvgBeginPath(nvg)
+                        nvgRect(nvg, tx, ty, tileSize, tileSize)
+                        nvgFillColor(nvg, nvgRGBA(180, 30, 20, baseAlpha))
+                        nvgFill(nvg)
+
+                        -- 血纹横带
+                        local bandOffset = math.sin(t * 1.8 + ti * 1.3) * tileSize * 0.12
+                        local bandY = ty + tileSize * 0.5 + bandOffset
+                        local bandH = tileSize * 0.18
+                        local bandAlpha = math.floor(130 * pulse * (0.5 + 0.5 * math.sin(t * 3.0 + ti * 0.9)))
+                        nvgBeginPath(nvg)
+                        nvgRect(nvg, tx, bandY - bandH * 0.5, tileSize, bandH)
+                        nvgFillColor(nvg, nvgRGBA(255, 50, 30, bandAlpha))
+                        nvgFill(nvg)
+
+                        -- 边框
+                        nvgBeginPath(nvg)
+                        nvgRect(nvg, tx, ty, tileSize, tileSize)
+                        nvgStrokeColor(nvg, nvgRGBA(255, 60, 40, math.floor(160 * pulse)))
+                        nvgStrokeWidth(nvg, 2)
+                        nvgStroke(nvg)
+                    else
+                        -- 白色剑气封印
+                        nvgBeginPath(nvg)
+                        nvgRect(nvg, tx, ty, tileSize, tileSize)
+                        nvgFillColor(nvg, nvgRGBA(220, 230, 255, baseAlpha))
+                        nvgFill(nvg)
+
+                        -- 剑气横带（冰蓝闪烁）
+                        local bandOffset = math.sin(t * 1.6 + ti * 1.1) * tileSize * 0.1
+                        local bandY = ty + tileSize * 0.5 + bandOffset
+                        local bandH = tileSize * 0.12
+                        local bandAlpha = math.floor(140 * pulse * (0.5 + 0.5 * math.sin(t * 2.8 + ti * 0.7)))
+                        nvgBeginPath(nvg)
+                        nvgRect(nvg, tx, bandY - bandH * 0.5, tileSize, bandH)
+                        nvgFillColor(nvg, nvgRGBA(180, 220, 255, bandAlpha))
+                        nvgFill(nvg)
+
+                        -- 剑气星点
+                        local phase = t * 2.0 + ti * 2.37
+                        local sparkAlpha = math.floor(210 * (0.3 + 0.7 * math.abs(math.sin(phase))))
+                        local sparkX = tx + tileSize * (0.3 + 0.4 * ((math.sin(phase * 0.6) + 1) * 0.5))
+                        local sparkY = ty + tileSize * (0.3 + 0.4 * ((math.cos(phase * 0.5) + 1) * 0.5))
+                        local sparkR = tileSize * (0.04 + 0.02 * math.sin(phase * 1.8))
+                        nvgBeginPath(nvg)
+                        nvgCircle(nvg, sparkX, sparkY, sparkR)
+                        nvgFillColor(nvg, nvgRGBA(240, 245, 255, sparkAlpha))
+                        nvgFill(nvg)
+                        nvgBeginPath(nvg)
+                        nvgCircle(nvg, sparkX, sparkY, sparkR * 3)
+                        nvgFillColor(nvg, nvgRGBA(180, 210, 255, math.floor(sparkAlpha * 0.2)))
+                        nvgFill(nvg)
+
+                        -- 边框
+                        nvgBeginPath(nvg)
+                        nvgRect(nvg, tx, ty, tileSize, tileSize)
+                        nvgStrokeColor(nvg, nvgRGBA(200, 220, 255, math.floor(150 * pulse)))
+                        nvgStrokeWidth(nvg, 2)
+                        nvgStroke(nvg)
+                    end
                 end
             end
         else
