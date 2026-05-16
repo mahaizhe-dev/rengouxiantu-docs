@@ -2536,46 +2536,54 @@ function TileRenderer.RenderCh5Void(nvg, sx, sy, ts, x, y)
 end
 
 -- ============================================================================
--- CH5 废墟墙体 (CH5_WALL) - 深灰砖墙 + 裂纹 + 苔藓
+-- CH5 废墟墙体 (CH5_WALL) - 破败青石墙 PNG 纹理
 -- ============================================================================
+local ch5WallImage = 0
+local ch5WallImageLoaded = false
+
+local function EnsureCh5WallImage(nvg)
+    if ch5WallImageLoaded then return end
+    ch5WallImageLoaded = true
+    ch5WallImage = nvgCreateImage(nvg, "Textures/tile_wall_bluestone.png", 0)
+    if ch5WallImage <= 0 then
+        print("[TileRenderer] WARNING: Failed to load ch5 wall bluestone image, fallback to flat color")
+    else
+        print("[TileRenderer] Ch5 wall bluestone image loaded: " .. ch5WallImage)
+    end
+end
+
 function TileRenderer.RenderCh5Wall(nvg, sx, sy, ts, x, y)
-    -- ① 底色：深灰
-    nvgBeginPath(nvg)
-    nvgRect(nvg, sx, sy, ts, ts)
-    local sv = tileRandInt(x, y, 1880, -5, 5)
-    nvgFillColor(nvg, nvgRGBA(55 + sv, 52 + sv, 50 + sv, 255))
-    nvgFill(nvg)
+    EnsureCh5WallImage(nvg)
 
-    -- ② 砖缝（横 2 + 竖 1 错缝）
-    local hLine1 = sy + ts * 0.33
-    local hLine2 = sy + ts * 0.66
-    nvgBeginPath(nvg)
-    nvgMoveTo(nvg, sx, hLine1)
-    nvgLineTo(nvg, sx + ts, hLine1)
-    nvgMoveTo(nvg, sx, hLine2)
-    nvgLineTo(nvg, sx + ts, hLine2)
-    local vOff = tileRand(x, y, 1881) * ts * 0.3 + ts * 0.3
-    nvgMoveTo(nvg, sx + vOff, sy)
-    nvgLineTo(nvg, sx + vOff, hLine1)
-    local vOff2 = tileRand(x, y, 1882) * ts * 0.3 + ts * 0.35
-    nvgMoveTo(nvg, sx + vOff2, hLine1)
-    nvgLineTo(nvg, sx + vOff2, hLine2)
-    nvgStrokeColor(nvg, nvgRGBA(35, 32, 30, 90))
-    nvgStrokeWidth(nvg, 0.6)
-    nvgStroke(nvg)
-
-    -- ③ 裂纹（~15%）
-    if tileRand(x, y, 1883) < 0.15 then
-        local cx1 = sx + tileRand(x, y, 1884) * ts * 0.5 + ts * 0.1
-        local cy1 = sy + tileRand(x, y, 1885) * ts * 0.3
-        local cx2 = cx1 + tileRand(x, y, 1886) * ts * 0.3
-        local cy2 = cy1 + ts * 0.4
+    if ch5WallImage > 0 then
+        -- 底色兜底
         nvgBeginPath(nvg)
-        nvgMoveTo(nvg, cx1, cy1)
-        nvgLineTo(nvg, cx2, cy2)
-        nvgStrokeColor(nvg, nvgRGBA(25, 22, 20, 80))
-        nvgStrokeWidth(nvg, 0.7)
-        nvgStroke(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillColor(nvg, nvgRGBA(55, 52, 50, 255))
+        nvgFill(nvg)
+
+        -- 纹理平铺，hash 偏移避免重复感（与 FortressWall 同模式）
+        local hash = tileHash(x, y, 1880) % 4
+        local offsetX = ((hash % 2) == 0) and 0 or (ts * 0.12)
+        local offsetY = (hash >= 2) and 0 or (ts * 0.12)
+        local scale = ts / (256 - offsetX * 2)
+        local imgSize = 256 * scale
+
+        local paint = nvgImagePattern(nvg,
+            sx - offsetX * scale, sy - offsetY * scale,
+            imgSize, imgSize,
+            0, ch5WallImage, 1.0)
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillPaint(nvg, paint)
+        nvgFill(nvg)
+    else
+        -- 无图片时用纯色
+        local sv = tileRandInt(x, y, 1880, -5, 5)
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillColor(nvg, nvgRGBA(55 + sv, 52 + sv, 50 + sv, 255))
+        nvgFill(nvg)
     end
 end
 

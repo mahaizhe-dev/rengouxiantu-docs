@@ -108,6 +108,18 @@ fortress_e.spawns = {
     { type = "wu_blood_puppet", x = 60, y = 16 },
     -- 乌地北 BOSS（BOSS房内）
     { type = "wu_dibei",        x = 58, y = 7 },
+    -- 乌大傻 巡逻BOSS（北堡·BOSS房南侧水平长矩形）
+    { type = "wu_dasha",        x = 56, y = 18,
+      patrolPreset = "fortress_loop",
+      patrol = {
+          nodes = {
+              { x = 38, y = 15 },
+              { x = 74, y = 15 },
+              { x = 74, y = 21 },
+              { x = 38, y = 21 },
+          },
+      },
+    },
 
     -- === E2 南堡：乌家家仆×10 + 血傀×3 + 乌天南(BOSS) ===
     { type = "wu_servant",      x = 40, y = 74 },
@@ -125,6 +137,18 @@ fortress_e.spawns = {
     { type = "wu_blood_puppet", x = 60, y = 66 },
     -- 乌天南 BOSS（BOSS房内）
     { type = "wu_tiannan",      x = 58, y = 75 },
+    -- 乌二傻 巡逻BOSS（南堡·BOSS房北侧水平长矩形）
+    { type = "wu_ersha",        x = 56, y = 64,
+      patrolPreset = "fortress_loop",
+      patrol = {
+          nodes = {
+              { x = 38, y = 61 },
+              { x = 74, y = 61 },
+              { x = 74, y = 67 },
+              { x = 38, y = 67 },
+          },
+      },
+    },
 
     -- === E4 主堡：血傀×6 + 乌万仇(BOSS) ===
     { type = "wu_blood_puppet", x = 64, y = 32 },

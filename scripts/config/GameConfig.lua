@@ -5,7 +5,7 @@
 local GameConfig = {}
 
 -- GM 调试开关（发布正式版前改为 false）
-GameConfig.GM_ENABLED = false
+GameConfig.GM_ENABLED = true
 GameConfig.GM_SHOW_COORDS = false  -- GM：鼠标悬停显示瓦片坐标
 
 -- 多人副本功能总开关（Kill Switch）
