@@ -914,6 +914,70 @@ MonsterData.Skills = {
         warningColor = {200, 160, 40, 120},     -- 沙金
     },
 
+    -- ===================== 流沙之子/流沙之母 专属技能 =====================
+    -- 钻地突袭：沙虫钻入地底，从玩家脚下破土而出
+    liusha_burrow = {
+        id = "liusha_burrow",
+        name = "钻地突袭",
+        cooldown = 6,
+        damageMult = 2.2,
+        effect = nil,
+        castTime = 0.8,
+        warningShape = "circle",
+        warningRange = 1.5,
+        warningColor = {200, 170, 80, 120},     -- 沙土黄
+    },
+    -- 流沙波涛：扇形沙浪，击退玩家（P2 addSkill）
+    liusha_sand_wave = {
+        id = "liusha_sand_wave",
+        name = "流沙波涛",
+        cooldown = 8,
+        damageMult = 1.8,
+        effect = "knockback",
+        effectDuration = 0.5,
+        effectValue = 2.0,              -- 击退距离
+        castTime = 1.0,
+        warningShape = "fan",
+        warningRange = 3.0,
+        warningFanAngle = 90,
+        warningColor = {210, 180, 60, 130},     -- 流沙金
+    },
+    -- 流沙陷阱：在玩家脚下生成流沙漩涡，持续减速+伤害（流沙之母专属）
+    liusha_quicksand = {
+        id = "liusha_quicksand",
+        name = "流沙陷阱",
+        cooldown = 10,
+        damageMult = 0.5,
+        effect = "slow",
+        effectDuration = 4.0,
+        effectValue = 0.50,             -- 降低50%移速
+        isFieldSkill = true,
+        fieldDuration = 5.0,
+        fieldRadius = 1.8,
+        castTime = 1.2,
+        warningShape = "circle",
+        warningRange = 1.8,
+        warningColor = {180, 140, 50, 140},     -- 深沙色
+    },
+    -- 沙暴领域：全屏沙暴，大幅降低视野+持续伤害（流沙之母P3终极技）
+    liusha_sandstorm = {
+        id = "liusha_sandstorm",
+        name = "沙暴领域",
+        cooldown = 999,                 -- 由阶段转换触发
+        damageMult = 0,
+        damagePercent = 0.4,            -- 40%最大血量
+        effect = "blind",
+        effectDuration = 5.0,
+        effectValue = 0.60,             -- 降低60%视野范围
+        isFieldSkill = true,
+        safeZoneCount = 2,
+        safeZoneRadius = 0.5,
+        castTime = 2.0,
+        warningShape = "circle",
+        warningRange = 7.0,
+        warningColor = {200, 160, 30, 160},     -- 沙暴黄金
+    },
+
     -- ===================== 第四章·封霜应龙 专属技能 =====================
     frost_breath = {
         id = "frost_breath",
@@ -2561,9 +2625,34 @@ MonsterData.WORLD_DROP_POOLS = {
         items = {
             { type = "equipment", equipId = "huangsha_duanliu" },   -- 黄沙·断流
             { type = "equipment", equipId = "huangsha_fentian" },   -- 黄沙·焚天
-            { type = "equipment", equipId = "huangsha_shihun" },    -- 黄沙·噬魂
             { type = "equipment", equipId = "huangsha_liedi" },     -- 黄沙·裂地
             { type = "equipment", equipId = "huangsha_mieying" },   -- 黄沙·灭影
+        },
+    },
+
+    -- 流沙之子（外域）：第七寨+第八寨神器碎片共享0.1%，随机掉1个
+    rake_fragment_ch3_78 = {
+        bossLabel = "0.1%",
+        items = {
+            { type = "consumable", consumableId = "rake_fragment_1" },  -- 第八寨·神器碎片·1
+            { type = "consumable", consumableId = "rake_fragment_2" },  -- 第七寨·神器碎片·2
+        },
+    },
+    rake_fragment_ch3_456 = {
+        bossLabel = "0.1%",
+        items = {
+            { type = "consumable", consumableId = "rake_fragment_4" },  -- 第四寨·赤甲妖王
+            { type = "consumable", consumableId = "rake_fragment_5" },  -- 第五寨·蛇骨妖王
+            { type = "consumable", consumableId = "rake_fragment_6" },  -- 第三寨·烈焰狮王
+        },
+    },
+
+    -- 流沙之母：第二寨+第三寨神器碎片共享0.1%，随机掉1个
+    rake_fragment_ch3_23 = {
+        bossLabel = "0.1%",
+        items = {
+            { type = "consumable", consumableId = "rake_fragment_7" },  -- 第二寨·蜃妖王
+            { type = "consumable", consumableId = "rake_fragment_6" },  -- 第三寨·烈焰狮王
         },
     },
 

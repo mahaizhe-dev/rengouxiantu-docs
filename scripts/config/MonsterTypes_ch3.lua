@@ -233,7 +233,7 @@ M.Types.sand_scorpion_8 = {
     realm = "zhuji_2",  -- 筑基中期
     bodyColor = {180, 150, 80, 255},
     dropTable = {
-        { chance = 0.12, type = "equipment", minQuality = "white", maxQuality = "purple" },
+        { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.05, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.05, type = "consumable", consumableId = "sha_hai_ling" },
     },
@@ -296,7 +296,7 @@ M.Types.sand_wolf_7 = {
     realm = "zhuji_3",  -- 筑基后期
     bodyColor = {160, 140, 90, 255},
     dropTable = {
-        { chance = 0.12, type = "equipment", minQuality = "white", maxQuality = "purple" },
+        { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.08, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.05, type = "consumable", consumableId = "sha_hai_ling" },
     },
@@ -362,6 +362,153 @@ M.Types.sand_elite_outer = {
     },
 }
 
+-- ===================== 流沙之母(游荡王级BOSS) Lv.45(金丹中) 外围沙漠边缘巡逻 =====================
+-- ===================== 流沙之子·外域 Lv.45(金丹中) 王级BOSS =====================
+-- 掉落套用苍狼妖王，移除神器碎片、专属装备
+M.Types.liusha_son_outer = {
+    name = "流沙之子",
+    icon = "🐛",
+    portrait = "Textures/monster_liusha_mother.png",
+    zone = "ch3_wild_outer",
+    category = "king_boss",
+    race = "sand_demon",
+    level = 45,
+    realm = "jindan_2",  -- 金丹中期
+    bodyColor = {200, 170, 80, 255},
+    clawColor = {180, 140, 50},
+    skillTextColor = {220, 190, 80, 255},
+    warningColorOverride = {200, 170, 80, 120},
+    phases = 2,
+    skills = { "liusha_burrow" },
+    phaseConfig = {
+        { threshold = 0.5, atkMult = 1.4, speedMult = 1.2,
+          announce = "流沙之子钻入地底，大地震颤！",
+          addSkill = "liusha_sand_wave" },
+    },
+    dropTable = {
+        -- ①灵韵
+        { chance = 1.0, type = "lingYun", amount = {3, 5} },
+        -- ②专属材料
+        { chance = 0.01, type = "consumable", consumableId = "jindan_sand", amount = {1, 1} },
+        -- ③装备掉落
+        { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
+        -- ④食物（100%必掉仙骨）
+        { chance = 1.0, type = "consumable", consumableId = "immortal_bone" },
+        -- ⑤突破材料
+        { chance = 0.02, type = "consumable", consumableId = "spirit_pill_3" },
+        -- ⑥T6橙色披风
+        { chance = 0.05, type = "equipment", equipId = "liusha_cape_ch3" },
+        -- ⑦神器碎片（第七寨+第八寨共享0.1%）
+        { chance = 0.001, type = "world_drop", pool = "rake_fragment_ch3_78" },
+        -- ⑧世界掉落
+        { chance = 0.03, type = "world_drop", pool = "ch3" },
+        -- ⑨沙海令
+        { chance = 1.0, type = "consumable", consumableId = "sha_hai_ling" },
+    },
+}
+
+-- ===================== 流沙之子·中域 Lv.55(元婴初) 王级BOSS =====================
+-- 掉落套用烈焰狮王，移除神器碎片、专属装备
+M.Types.liusha_son_mid = {
+    name = "流沙之子",
+    icon = "🐛",
+    portrait = "Textures/monster_liusha_mother.png",
+    zone = "ch3_wild_mid",
+    category = "king_boss",
+    race = "sand_demon",
+    level = 55,
+    realm = "yuanying_1",  -- 元婴初期
+    bodyColor = {210, 180, 90, 255},
+    clawColor = {190, 150, 60},
+    skillTextColor = {220, 190, 80, 255},
+    warningColorOverride = {200, 170, 80, 120},
+    phases = 2,
+    skills = { "liusha_burrow" },
+    phaseConfig = {
+        { threshold = 0.5, atkMult = 1.4, speedMult = 1.2,
+          announce = "流沙之子钻入地底，大地震颤！",
+          addSkill = "liusha_sand_wave" },
+    },
+    dropTable = {
+        -- ①灵韵
+        { chance = 1.0, type = "lingYun", amount = {4, 6} },
+        -- ②装备掉落
+        { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
+        -- ③元婴果
+        { chance = 0.01, type = "consumable", consumableId = "yuanying_fruit" },
+        -- ④食物（100%必掉仙骨）
+        { chance = 1.0, type = "consumable", consumableId = "immortal_bone" },
+        -- ⑤突破材料
+        { chance = 0.03, type = "consumable", consumableId = "spirit_pill_3" },
+        -- ⑥T6橙色披风（与45级相同）
+        { chance = 0.08, type = "equipment", equipId = "liusha_cape_ch3" },
+        -- ⑦神器碎片（第四五六寨共享0.1%）
+        { chance = 0.001, type = "world_drop", pool = "rake_fragment_ch3_456" },
+        -- ⑧帝尊叁戒（0.5%独立掉落）
+        { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch3" },
+        -- ⑨沙海令盒（0.1%独立掉落）
+        { chance = 0.005, type = "consumable", consumableId = "sha_hai_ling_box" },
+        -- ⑩世界掉落
+        { chance = 0.03, type = "world_drop", pool = "ch3" },
+        -- ⑪沙海令
+        { chance = 1.0, type = "consumable", consumableId = "sha_hai_ling" },
+        -- 沙煞酒由 WineData 控制（3%）
+    },
+}
+
+-- ===================== 流沙之母·内域 Lv.65(元婴后) 皇级BOSS =====================
+-- 掉落套用沙万里，移除神器碎片、专属装备；增加 liusha_quicksand 技能
+M.Types.liusha_mother = {
+    name = "流沙之母",
+    icon = "👑",
+    portrait = "Textures/monster_liusha_mother_emperor.png",
+    zone = "ch3_wild_inner",
+    category = "emperor_boss",
+    race = "sand_demon",
+    level = 65,
+    realm = "yuanying_3",  -- 元婴后期
+    bodyColor = {180, 140, 50, 255},
+    clawColor = {160, 120, 30},
+    skillTextColor = {255, 215, 0, 255},
+    warningColorOverride = {200, 170, 80, 120},
+    phases = 3,
+    skills = { "liusha_burrow", "liusha_quicksand" },
+    phaseConfig = {
+        { threshold = 0.7, atkMult = 1.3, speedMult = 1.2,
+          announce = "流沙之母释放滔天妖压！",
+          addSkill = "liusha_sand_wave",
+          triggerSkill = "liusha_quicksand" },
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.6, intervalMult = 0.4,
+          announce = "渺小的人类，也敢挑衅流沙之主！",
+          triggerSkill = "liusha_sandstorm" },
+    },
+    dropTable = {
+        -- ①常规掉落
+        { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
+        { chance = 1.0, type = "lingYun", amount = {5, 8} },
+        { chance = 0.03, type = "consumable", consumableId = "yuanying_fruit" },
+        -- ④食物（100%必掉仙骨）
+        { chance = 1.0, type = "consumable", consumableId = "immortal_bone" },
+        -- ⑤突破材料
+        { chance = 0.05, type = "consumable", consumableId = "spirit_pill_3" },
+        -- ⑥灵器武器·噬魂（0.25%独立掉落）
+        { chance = 0.0025, type = "equipment", equipId = "huangsha_shihun" },
+        -- ⑦专属腰带·流沙绶带（3%独立掉落）
+        { chance = 0.03, type = "equipment", equipId = "liusha_belt_ch3" },
+        -- ⑧帝尊叁戒（1%独立掉落）
+        { chance = 0.01, type = "equipment", equipId = "dizun_ring_ch3" },
+        -- ⑨沙海令盒（0.5%独立掉落）
+        { chance = 0.005, type = "consumable", consumableId = "sha_hai_ling_box" },
+        -- ⑩神器碎片（第二三寨共享0.1%）
+        { chance = 0.001, type = "world_drop", pool = "rake_fragment_ch3_23" },
+        -- ⑪世界掉落
+        { chance = 0.03, type = "world_drop", pool = "ch3" },
+        -- ⑫沙海令
+        { chance = 1.0, type = "consumable", consumableId = "sha_hai_ling" },
+        -- 沙煞酒由 WineData 控制（5%）
+    },
+}
+
 -- ===================== 苍狼寨(第六寨) 小怪Lv.41~43(金丹初) + 妖王44(金丹初) =====================
 M.Types.sand_demon_6 = {
     name = "苍狼",
@@ -374,7 +521,7 @@ M.Types.sand_demon_6 = {
     realm = "jindan_1",  -- 金丹初期
     bodyColor = {170, 140, 60, 255},
     dropTable = {
-        { chance = 0.12, type = "equipment", minQuality = "white", maxQuality = "purple" },
+        { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.08, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.05, type = "consumable", consumableId = "sha_hai_ling" },
     },
@@ -435,7 +582,7 @@ M.Types.sand_scorpion_5 = {
     realm = "jindan_1",  -- 金丹初期
     bodyColor = {200, 100, 50, 255},
     dropTable = {
-        { chance = 0.12, type = "equipment", minQuality = "white", maxQuality = "purple" },
+        { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.08, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.05, type = "consumable", consumableId = "sha_hai_ling" },
     },
@@ -496,7 +643,7 @@ M.Types.sand_wolf_4 = {
     realm = "jindan_2",  -- 金丹中期
     bodyColor = {130, 120, 100, 255},
     dropTable = {
-        { chance = 0.12, type = "equipment", minQuality = "white", maxQuality = "purple" },
+        { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.05, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.02, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.05, type = "consumable", consumableId = "sha_hai_ling" },
@@ -580,7 +727,7 @@ M.Types.sand_demon_3 = {
     realm = "jindan_3",  -- 金丹后期
     bodyColor = {140, 100, 40, 255},
     dropTable = {
-        { chance = 0.12, type = "equipment", minQuality = "white", maxQuality = "purple" },
+        { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.06, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.03, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.05, type = "consumable", consumableId = "sha_hai_ling" },
@@ -624,7 +771,7 @@ M.Types.yao_king_3 = {
         -- ⑧.5 帝尊叁戒（0.5%独立掉落）
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch3" },
         -- ⑧.6 沙海令盒（0.1%独立掉落）
-        { chance = 0.001, type = "consumable", consumableId = "sha_hai_ling_box" },
+        { chance = 0.005, type = "consumable", consumableId = "sha_hai_ling_box" },
         -- ⑨世界掉落
         { chance = 0.03, type = "world_drop", pool = "ch3" },  -- 3%
         -- ⑩沙海令
@@ -646,7 +793,7 @@ M.Types.sand_demon_2 = {
     realm = "yuanying_1",  -- 元婴初期
     bodyColor = {160, 110, 30, 255},
     dropTable = {
-        { chance = 0.12, type = "equipment", minQuality = "white", maxQuality = "purple" },
+        { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.05, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.03, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.05, type = "consumable", consumableId = "sha_hai_ling" },
@@ -690,7 +837,7 @@ M.Types.yao_king_2 = {
         -- ⑧.5 帝尊叁戒（0.5%独立掉落）
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch3" },
         -- ⑧.6 沙海令盒（0.1%独立掉落）
-        { chance = 0.001, type = "consumable", consumableId = "sha_hai_ling_box" },
+        { chance = 0.005, type = "consumable", consumableId = "sha_hai_ling_box" },
         -- ⑨世界掉落
         { chance = 0.03, type = "world_drop", pool = "ch3" },  -- 3%
         -- ⑩沙海令
@@ -786,7 +933,7 @@ M.Types.yao_king_1 = {
     tierOnly = 7,
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
-        { chance = 1.0, type = "lingYun", amount = {5, 8} },
+        { chance = 1.0, type = "lingYun", amount = {5, 10} },
         { chance = 0.03, type = "consumable", consumableId = "yuanying_fruit" },
         -- 宠物食物
         { chance = 0.05, type = "consumable", consumableId = "immortal_bone" },
@@ -798,10 +945,10 @@ M.Types.yao_king_1 = {
         { chance = 0.05, type = "world_drop", pool = "shawanli_owner_books" },
         -- ⑨灵器武器（1%命中，从5把中随机1把，互斥）
         { chance = 0.01, type = "world_drop", pool = "huangsha_weapons" },
-        -- ⑨.5 帝尊叁戒（0.5%独立掉落）
-        { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch3" },
-        -- ⑨.6 沙海令盒（0.1%独立掉落）
-        { chance = 0.001, type = "consumable", consumableId = "sha_hai_ling_box" },
+        -- ⑨.5 帝尊叁戒（1%独立掉落）
+        { chance = 0.01, type = "equipment", equipId = "dizun_ring_ch3" },
+        -- ⑨.6 沙海令盒（0.5%独立掉落）
+        { chance = 0.005, type = "consumable", consumableId = "sha_hai_ling_box" },
         -- ⑩世界掉落
         { chance = 0.03, type = "world_drop", pool = "ch3" },  -- 3%
         -- ⑪沙海令

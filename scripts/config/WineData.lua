@@ -101,7 +101,7 @@ WineData.WINES = {
         wine_id = "sha_sha",
         name = "沙煞酒",
         chapter = 3,
-        flavor_text = "沙暴之中有妖帅炼煞为酒，此酒入腹，刀枪难侵。",
+        flavor_text = "流沙深处有古虫炼煞为酒，此酒入腹，刀枪难侵。",
         effect = {
             category = "on_drink",
             type = "cc_immune",
@@ -109,11 +109,14 @@ WineData.WINES = {
         },
         obtain = {
             source_type = "kill",
-            source_id = "sand_elite_inner",
-            drop_rate = 0.005,
+            sources = {
+                { source_id = "liusha_son_outer", drop_rate = 0.02 },   -- 45级外域 2%
+                { source_id = "liusha_son_mid",   drop_rate = 0.03 },   -- 55级中域 3%
+                { source_id = "liusha_mother",     drop_rate = 0.05 },   -- 65级内域 5%
+            },
         },
-        obtain_hint = "掉落：沙暴妖帅",
-        lady_dialogue = "妖帅百年修为凝成此酒。饮后身若沙影，百般控制皆不能近身。",
+        obtain_hint = "掉落：流沙之子/流沙之母",
+        lady_dialogue = "沙虫百年修为凝成此酒。饮后身若沙影，百般控制皆不能近身。",
         vfx_color = "dark_gold",
         brief = "饮用时免疫击晕和击退",
     },
@@ -230,12 +233,23 @@ for _, wine in ipairs(WineData.WINES) do
 end
 
 --- 按掉落来源 source_id 查找关联美酒列表
+--- 支持单来源(obtain.source_id)和多来源(obtain.sources)两种格式
 ---@param sourceId string 怪物 typeId 或 商人 ID
 ---@return WineDefinition[]
 function WineData.GetWinesBySource(sourceId)
     local result = {}
     for _, wine in ipairs(WineData.WINES) do
-        if wine.obtain.source_id == sourceId then
+        local obtain = wine.obtain
+        if obtain.sources then
+            -- 多来源格式：匹配任一 source_id
+            for _, src in ipairs(obtain.sources) do
+                if src.source_id == sourceId then
+                    result[#result + 1] = wine
+                    break
+                end
+            end
+        elseif obtain.source_id == sourceId then
+            -- 单来源格式（向后兼容）
             result[#result + 1] = wine
         end
     end

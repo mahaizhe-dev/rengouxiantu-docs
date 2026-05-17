@@ -9,20 +9,36 @@ local wild_mid = {}
 
 wild_mid.npcs = {}
 
--- 沙暴妖将：散布在中域边缘开阔沙漠，远离隔断带(y=50~53)和城墙
+-- 沙暴妖将：散布在中域走廊，⑦南侧→⑤西侧→④北侧，均匀分布
 wild_mid.spawns = {
-    -- ⑦ 南侧西边缘 (y=48~49 开阔沙漠)
-    { type = "sand_elite_mid", x = 3,  y = 48 },
-    -- ⑦ 南侧走廊入口
-    { type = "sand_elite_mid", x = 16, y = 48 },
-    -- ⑦ 东南角外侧
-    { type = "sand_elite_mid", x = 22, y = 49 },
-    -- ⑦↔⑤ 走廊间北段 (x=24~29)
+    -- ⑦ 南侧走廊 (y=48~49, x=8~24)
+    { type = "sand_elite_mid", x = 10, y = 48 },
+    { type = "sand_elite_mid", x = 18, y = 49 },
+    -- ⑦↔⑤ 走廊间纵向 (x=24~29, y=32~47)
     { type = "sand_elite_mid", x = 26, y = 36 },
-    -- ⑦↔⑤ 走廊间南段
-    { type = "sand_elite_mid", x = 27, y = 45 },
-    -- ④↔② 走廊间（隔断带南侧 y=55+）
+    { type = "sand_elite_mid", x = 27, y = 44 },
+    -- ⑤ 西侧→④ 北侧过渡 (x=24~29, y=50~57)
+    { type = "sand_elite_mid", x = 26, y = 52 },
     { type = "sand_elite_mid", x = 27, y = 57 },
+    -- 流沙之子：③寨右侧地图边缘垂直巡逻（x≈76, y=30→48 南北往返，无道路阻隔）
+    { type = "liusha_son_mid", x = 76, y = 30,
+      patrolPreset = "large_waypoint_loop",
+      patrol = {
+          nodes = {
+              { x = 76, y = 30 },   -- ③寨右侧北端
+              { x = 76, y = 34 },
+              { x = 76, y = 38 },
+              { x = 76, y = 42 },   -- 中段
+              { x = 76, y = 46 },
+              { x = 76, y = 48 },   -- ③寨右侧南端
+              { x = 76, y = 46 },
+              { x = 76, y = 42 },
+              { x = 76, y = 38 },
+              { x = 76, y = 34 },
+              { x = 76, y = 30 },   -- 折返回北端
+          },
+      },
+    },
 }
 
 wild_mid.decorations = {}

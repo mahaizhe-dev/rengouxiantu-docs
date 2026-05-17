@@ -12,17 +12,18 @@ fort_4.regions = {
 fort_4.npcs = {}
 
 -- 蛇骨妖 ×10 (normal Lv49~51) + 蛇骨妖王 ×1 (boss Lv52)
+-- 区域 (6,54)→(25,73)，内部可用约 (8,56)→(23,71)，均匀4行×2~3列
 fort_4.spawns = {
-    { type = "sand_wolf_4", x = 11, y = 58 },
-    { type = "sand_wolf_4", x = 19, y = 58 },
-    { type = "sand_wolf_4", x = 10, y = 61 },
-    { type = "sand_wolf_4", x = 20, y = 61 },
-    { type = "sand_wolf_4", x = 11, y = 64 },
-    { type = "sand_wolf_4", x = 19, y = 64 },
-    { type = "sand_wolf_4", x = 10, y = 67 },
-    { type = "sand_wolf_4", x = 20, y = 67 },
-    { type = "sand_wolf_4", x = 14, y = 59 },
-    { type = "sand_wolf_4", x = 17, y = 69 },
+    { type = "sand_wolf_4", x = 10, y = 57 },
+    { type = "sand_wolf_4", x = 15, y = 57 },
+    { type = "sand_wolf_4", x = 22, y = 57 },
+    { type = "sand_wolf_4", x = 9,  y = 62 },
+    { type = "sand_wolf_4", x = 22, y = 62 },
+    { type = "sand_wolf_4", x = 9,  y = 66 },
+    { type = "sand_wolf_4", x = 22, y = 66 },
+    { type = "sand_wolf_4", x = 10, y = 70 },
+    { type = "sand_wolf_4", x = 15, y = 70 },
+    { type = "sand_wolf_4", x = 22, y = 70 },
     { type = "yao_king_4",  x = 15, y = 63 },
 }
 

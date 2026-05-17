@@ -12,17 +12,18 @@ fort_3.regions = {
 fort_3.npcs = {}
 
 -- 赤焰妖 ×10 (normal Lv53~55) + 烈焰狮王 ×1 (king_boss Lv56)
+-- 区域 (54,30)→(73,49)，内部可用约 (56,32)→(71,47)，均匀4行×2~3列
 fort_3.spawns = {
-    { type = "sand_demon_3", x = 59, y = 35 },
-    { type = "sand_demon_3", x = 67, y = 35 },
-    { type = "sand_demon_3", x = 58, y = 38 },
-    { type = "sand_demon_3", x = 68, y = 38 },
-    { type = "sand_demon_3", x = 59, y = 41 },
-    { type = "sand_demon_3", x = 67, y = 41 },
-    { type = "sand_demon_3", x = 58, y = 44 },
-    { type = "sand_demon_3", x = 68, y = 44 },
-    { type = "sand_demon_3", x = 62, y = 37 },
-    { type = "sand_demon_3", x = 64, y = 43 },
+    { type = "sand_demon_3", x = 57, y = 33 },
+    { type = "sand_demon_3", x = 63, y = 33 },
+    { type = "sand_demon_3", x = 70, y = 33 },
+    { type = "sand_demon_3", x = 56, y = 38 },
+    { type = "sand_demon_3", x = 70, y = 38 },
+    { type = "sand_demon_3", x = 56, y = 43 },
+    { type = "sand_demon_3", x = 70, y = 43 },
+    { type = "sand_demon_3", x = 57, y = 47 },
+    { type = "sand_demon_3", x = 63, y = 47 },
+    { type = "sand_demon_3", x = 70, y = 47 },
     { type = "yao_king_3",   x = 63, y = 40 },
 }
 

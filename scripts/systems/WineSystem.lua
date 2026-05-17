@@ -334,8 +334,17 @@ function WineSystem.CheckMonsterDrop(monsterId)
             goto continue
         end
 
-        -- 概率判定
-        if math.random() < wineDef.obtain.drop_rate then
+        -- 概率判定（支持多来源独立概率）
+        local dropRate = wineDef.obtain.drop_rate  -- 单来源默认
+        if wineDef.obtain.sources then
+            for _, src in ipairs(wineDef.obtain.sources) do
+                if src.source_id == monsterId then
+                    dropRate = src.drop_rate
+                    break
+                end
+            end
+        end
+        if dropRate and math.random() < dropRate then
             WineSystem.ObtainWine(wineDef.wine_id)
         end
 

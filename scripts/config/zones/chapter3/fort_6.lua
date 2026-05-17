@@ -11,17 +11,17 @@ fort_6.regions = {
 
 fort_6.npcs = {}
 
--- 苍狼 ×8 (normal Lv41~43) + 苍狼妖王 ×1 (boss Lv44)
+-- 苍狼 ×7 (normal Lv41~43) + 苍狼妖王 ×1 (boss Lv44)
+-- 区域 (56,8)→(71,23)，内部可用约 (58,10)→(69,21)，均匀3行×2~3列
 fort_6.spawns = {
-    { type = "sand_demon_6", x = 61, y = 12 },
-    { type = "sand_demon_6", x = 66, y = 12 },
-    { type = "sand_demon_6", x = 60, y = 15 },
-    { type = "sand_demon_6", x = 65, y = 15 },
-    { type = "sand_demon_6", x = 61, y = 18 },
-    { type = "sand_demon_6", x = 66, y = 18 },
-    { type = "sand_demon_6", x = 60, y = 20 },
-    { type = "sand_demon_6", x = 67, y = 20 },
-    { type = "yao_king_6",   x = 63, y = 16 },
+    { type = "sand_demon_6", x = 59, y = 11 },
+    { type = "sand_demon_6", x = 64, y = 11 },
+    { type = "sand_demon_6", x = 69, y = 12 },
+    { type = "sand_demon_6", x = 58, y = 16 },
+    { type = "sand_demon_6", x = 69, y = 16 },
+    { type = "sand_demon_6", x = 59, y = 20 },
+    { type = "sand_demon_6", x = 69, y = 20 },
+    { type = "yao_king_6",   x = 64, y = 16 },
 }
 
 fort_6.decorations = {

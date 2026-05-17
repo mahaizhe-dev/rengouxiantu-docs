@@ -265,8 +265,8 @@ return function(M)
             { chance = 0.02, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木2%
             { chance = 0.10, type = "consumable", consumableId = "spirit_pill_2" },  -- 灵兽丹·贰10%
             -- ③专属装备
-            { chance = 0.05, type = "special_equip", equipId = "wu_armor_ch2" },  -- 乌煞重铠5%
-            { chance = 0.03, type = "special_equip", equipId = "wu_hammer_ch2" },  -- 傻大锤3%
+            { chance = 0.05, type = "equipment", equipId = "wu_armor_ch2" },  -- 乌煞重铠5%
+            { chance = 0.03, type = "equipment", equipId = "wu_hammer_ch2" },  -- 傻大锤3%
             -- ④装备掉落
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
             -- ⑤世界掉落
@@ -302,8 +302,8 @@ return function(M)
             { chance = 0.02, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木2%
             { chance = 0.10, type = "consumable", consumableId = "spirit_pill_2" },  -- 灵兽丹·贰10%
             -- ③专属装备
-            { chance = 0.05, type = "special_equip", equipId = "wu_necklace_ch2" },  -- 乌骨牙链5%
-            { chance = 0.03, type = "special_equip", equipId = "wu_hammer_ch2" },  -- 傻大锤3%
+            { chance = 0.05, type = "equipment", equipId = "wu_necklace_ch2" },  -- 乌骨牙链5%
+            { chance = 0.03, type = "equipment", equipId = "wu_hammer_ch2" },  -- 傻大锤3%
             -- ④装备掉落
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
             -- ⑤世界掉落

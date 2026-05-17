@@ -50,6 +50,10 @@ sword_court.generation = {
 
         openSides = { "top", "right", "bottom" },  -- 上通铸剑地炉，右通剑宫，底通回廊
     },
+    -- 生成后强制清除指定格为区域地面（移除多余墙壁）
+    clearTiles = {
+        { x = 12, y = 39 },
+    },
 }
 
 return sword_court

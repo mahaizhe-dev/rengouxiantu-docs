@@ -12,17 +12,18 @@ fort_5.regions = {
 fort_5.npcs = {}
 
 -- 赤甲蝎 ×10 (normal Lv45~47) + 赤甲妖王 ×1 (boss Lv48)
+-- 区域 (30,30)→(49,49)，内部可用约 (32,32)→(47,47)，均匀4行×2~3列
 fort_5.spawns = {
-    { type = "sand_scorpion_5", x = 35, y = 35 },
-    { type = "sand_scorpion_5", x = 43, y = 35 },
-    { type = "sand_scorpion_5", x = 36, y = 38 },
-    { type = "sand_scorpion_5", x = 43, y = 38 },
-    { type = "sand_scorpion_5", x = 35, y = 42 },
-    { type = "sand_scorpion_5", x = 43, y = 42 },
-    { type = "sand_scorpion_5", x = 37, y = 45 },
-    { type = "sand_scorpion_5", x = 41, y = 45 },
-    { type = "sand_scorpion_5", x = 45, y = 36 },
-    { type = "sand_scorpion_5", x = 34, y = 44 },
+    { type = "sand_scorpion_5", x = 33, y = 33 },
+    { type = "sand_scorpion_5", x = 39, y = 33 },
+    { type = "sand_scorpion_5", x = 46, y = 33 },
+    { type = "sand_scorpion_5", x = 33, y = 38 },
+    { type = "sand_scorpion_5", x = 46, y = 38 },
+    { type = "sand_scorpion_5", x = 33, y = 42 },
+    { type = "sand_scorpion_5", x = 46, y = 42 },
+    { type = "sand_scorpion_5", x = 33, y = 46 },
+    { type = "sand_scorpion_5", x = 39, y = 46 },
+    { type = "sand_scorpion_5", x = 46, y = 46 },
     { type = "yao_king_5",      x = 39, y = 40 },
 }
 

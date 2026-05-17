@@ -17,20 +17,38 @@ wild_outer.npcs = {
     },
 }
 
--- 沙暴妖尉：覆盖北侧横向走廊 + 纵向走廊，边缘巡逻
+-- 沙暴妖尉：覆盖北侧横向走廊 + 纵向走廊，均匀分布
 wild_outer.spawns = {
-    -- 北侧边缘：⑨→⑧ 横向走廊 (y≈14~18, x=24~31)
-    { type = "sand_elite_outer", x = 27, y = 14 },
-    -- 北侧边缘：⑧→⑥ 横向走廊 (y≈14~18, x=48~55)
+    -- ⑨→⑧ 横向走廊 (y≈14~18, x=24~55)
+    { type = "sand_elite_outer", x = 27, y = 15 },
+    { type = "sand_elite_outer", x = 38, y = 14 },
     { type = "sand_elite_outer", x = 50, y = 16 },
-    -- ⑨→⑦ 纵向走廊西侧 (x≈10~20, y=24~31)
-    { type = "sand_elite_outer", x = 11, y = 27 },
-    { type = "sand_elite_outer", x = 20, y = 26 },
+    -- ⑨→⑦ 纵向走廊 (x≈10~20, y=24~31)
+    { type = "sand_elite_outer", x = 14, y = 26 },
     -- 走廊交叉口 (x=24~31, y=24~31)
     { type = "sand_elite_outer", x = 28, y = 28 },
     -- ⑧→⑤ 纵向走廊 (x≈35~45, y=24~31)
-    { type = "sand_elite_outer", x = 39, y = 27 },
-    { type = "sand_elite_outer", x = 44, y = 26 },
+    { type = "sand_elite_outer", x = 39, y = 26 },
+    { type = "sand_elite_outer", x = 44, y = 27 },
+    -- 流沙之子：⑧寨上方边缘水平巡逻（入口路x=14~16以东，不阻隔入口）
+    { type = "liusha_son_outer", x = 24, y = 4,
+      patrolPreset = "large_waypoint_loop",
+      patrol = {
+          nodes = {
+              { x = 24, y = 4 },    -- 入口路以东起点
+              { x = 30, y = 4 },
+              { x = 36, y = 4 },
+              { x = 42, y = 4 },    -- ⑧上方中段
+              { x = 48, y = 4 },
+              { x = 54, y = 4 },    -- ⑧⑥间隙上方
+              { x = 48, y = 4 },
+              { x = 42, y = 4 },
+              { x = 36, y = 4 },
+              { x = 30, y = 4 },
+              { x = 24, y = 4 },    -- 折返回起点
+          },
+      },
+    },
 }
 
 wild_outer.decorations = {

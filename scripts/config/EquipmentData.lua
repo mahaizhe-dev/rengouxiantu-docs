@@ -677,6 +677,49 @@ EquipmentData.SpecialEquipment = {
         },
     },
 
+    -- 流沙之母掉落：T6橙色披风（王级BOSS游荡）
+    -- 主属性: 0.02 × 4.0(PCT_T6) × 1.5(橙) = 0.12
+    -- 副属性: 橙色3条, 中值×1.1
+    liusha_cape_ch3 = {
+        name = "流沙蛛甲披",
+        slot = "cape",
+        icon = "icon_t6_cape.png",
+        quality = "orange",
+        tier = 6,
+        sellPrice = 600,
+        mainStat = { dmgReduce = 0.12 },
+        subStats = {
+            { stat = "def", name = "防御力", value = 7.26 },         -- 1.2 × 5.5(SUB_T6) × 1.1(橙) = 7.26
+            { stat = "maxHp", name = "生命值", value = 36.3 },      -- 6 × 5.5(SUB_T6) × 1.1(橙) = 36.3
+            { stat = "constitution", name = "根骨", value = 7 },    -- linearGrowth: floor(6 × 1.3) = 7
+        },
+    },
+
+    -- 流沙之母掉落：T7灵器腰带（帝级BOSS专属，含特效）
+    -- 主属性: 15 × 10.5(T7) × 1.8(灵器) = 283.5
+    -- 副属性: 灵器3条, 中值×1.0; SUB_T7=7.0, PCT_SUB_T7=3.8
+    liusha_belt_ch3 = {
+        name = "流沙绶带",
+        slot = "belt",
+        icon = "icon_t7_belt.png",
+        quality = "cyan",
+        tier = 7,
+        sellPrice = 3,
+        sellCurrency = "lingYun",
+        mainStat = { maxHp = 283.5 },
+        subStats = {
+            { stat = "constitution", name = "根骨", value = 12 },   -- linearGrowth: floor(7 × 1.8) = 12
+            { stat = "def", name = "防御力", value = 8.4 },         -- 1.2 × 7.0 = 8.4
+            { stat = "hpRegen", name = "生命回复", value = 3.5 },   -- 0.5 × 7.0 = 3.5
+        },
+        specialEffect = {
+            type = "sand_shield",
+            name = "流沙缠护",
+            triggerChance = 0.15,    -- 15%概率受击时触发
+            damageReduction = 0.25,  -- 减少25%本次伤害
+        },
+    },
+
     -- 烈焰狮王掉落：T7橙色披风（王级BOSS，含特效）
     -- 主属性: 0.02 × 5.0(PCT_T7) × 1.5(橙) = 0.15
     -- 副属性: 橙色3条, 中值×1.1
@@ -1845,6 +1888,8 @@ EquipmentData.Collection = {
                 "canglang_necklace_ch3",
                 "chijia_ring_ch3",
                 "shegu_belt_ch3",
+                "liusha_cape_ch3",
+                "liusha_belt_ch3",
                 "lieyan_cape_ch3",
                 "shen_shoulder_ch3",
                 "huangsha_duanliu",
@@ -1940,6 +1985,8 @@ EquipmentData.Collection = {
         "canglang_necklace_ch3",
         "chijia_ring_ch3",
         "shegu_belt_ch3",
+        "liusha_cape_ch3",
+        "liusha_belt_ch3",
         "lieyan_cape_ch3",
         "shen_shoulder_ch3",
         "huangsha_duanliu",
@@ -2124,6 +2171,14 @@ EquipmentData.Collection = {
         shegu_belt_ch3 = {
             bonus = { def = 6, maxHp = 20, killHeal = 5 },
             desc = "蛇骨妖王脊椎编织的腰环，韧性惊人。",
+        },
+        liusha_cape_ch3 = {
+            bonus = { def = 5, maxHp = 25, dmgReduce = 0.02 },
+            desc = "流沙之母蜕壳织就的蛛甲披，沙粒流转间可化解刀剑。",
+        },
+        liusha_belt_ch3 = {
+            bonus = { constitution = 8, maxHp = 30, hpRegen = 1 },
+            desc = "流沙之母腹中灵砂编织的绶带，系于腰间，砂粒入体化为灵根。",
         },
         lieyan_cape_ch3 = {
             bonus = { atk = 5, def = 6, hpRegen = 1 },

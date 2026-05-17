@@ -11,16 +11,16 @@ fort_8.regions = {
 
 fort_8.npcs = {}
 
--- 枯木精 ×8 (normal Lv33~35) + 枯木妖王 ×1 (boss Lv36)
+-- 枯木精 ×7 (normal Lv33~35) + 枯木妖王 ×1 (boss Lv36)
+-- 区域 (32,8)→(47,23)，内部可用约 (34,10)→(45,21)，均匀3行×2~3列
 fort_8.spawns = {
-    { type = "sand_scorpion_8", x = 36, y = 13 },
-    { type = "sand_scorpion_8", x = 42, y = 13 },
-    { type = "sand_scorpion_8", x = 44, y = 15 },
-    { type = "sand_scorpion_8", x = 36, y = 16 },
-    { type = "sand_scorpion_8", x = 43, y = 18 },
-    { type = "sand_scorpion_8", x = 35, y = 19 },
-    { type = "sand_scorpion_8", x = 41, y = 19 },
-    { type = "sand_scorpion_8", x = 38, y = 21 },
+    { type = "sand_scorpion_8", x = 35, y = 12 },
+    { type = "sand_scorpion_8", x = 40, y = 11 },
+    { type = "sand_scorpion_8", x = 45, y = 12 },
+    { type = "sand_scorpion_8", x = 34, y = 16 },
+    { type = "sand_scorpion_8", x = 44, y = 16 },
+    { type = "sand_scorpion_8", x = 35, y = 20 },
+    { type = "sand_scorpion_8", x = 44, y = 20 },
     { type = "yao_king_8",      x = 40, y = 16 },
 }
 

@@ -11,16 +11,16 @@ fort_7.regions = {
 
 fort_7.npcs = {}
 
--- 岩蟾 ×8 (normal Lv37~39) + 岩蟾妖王 ×1 (boss Lv40)
+-- 岩蟾 ×7 (normal Lv37~39) + 岩蟾妖王 ×1 (boss Lv40)
+-- 区域 (8,32)→(23,47)，内部可用约 (10,34)→(21,45)，均匀3行×2~3列
 fort_7.spawns = {
-    { type = "sand_wolf_7", x = 13, y = 36 },
-    { type = "sand_wolf_7", x = 19, y = 35 },
-    { type = "sand_wolf_7", x = 12, y = 39 },
-    { type = "sand_wolf_7", x = 18, y = 39 },
-    { type = "sand_wolf_7", x = 13, y = 42 },
-    { type = "sand_wolf_7", x = 19, y = 42 },
-    { type = "sand_wolf_7", x = 16, y = 37 },
-    { type = "sand_wolf_7", x = 16, y = 44 },
+    { type = "sand_wolf_7", x = 11, y = 35 },
+    { type = "sand_wolf_7", x = 16, y = 34 },
+    { type = "sand_wolf_7", x = 21, y = 35 },
+    { type = "sand_wolf_7", x = 10, y = 40 },
+    { type = "sand_wolf_7", x = 21, y = 40 },
+    { type = "sand_wolf_7", x = 11, y = 44 },
+    { type = "sand_wolf_7", x = 21, y = 44 },
     { type = "yao_king_7",  x = 16, y = 40 },
 }
 
