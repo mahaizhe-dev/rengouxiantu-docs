@@ -110,9 +110,9 @@ WineData.WINES = {
         obtain = {
             source_type = "kill",
             sources = {
-                { source_id = "liusha_son_outer", drop_rate = 0.02 },   -- 45级外域 2%
-                { source_id = "liusha_son_mid",   drop_rate = 0.03 },   -- 55级中域 3%
-                { source_id = "liusha_mother",     drop_rate = 0.05 },   -- 65级内域 5%
+                { source_id = "liusha_son_outer", drop_rate = 0.03 },   -- 45级外域 3%
+                { source_id = "liusha_son_mid",   drop_rate = 0.05 },   -- 55级中域 5%
+                { source_id = "liusha_mother",     drop_rate = 0.10 },   -- 65级内域 10%
             },
         },
         obtain_hint = "掉落：流沙之子/流沙之母",

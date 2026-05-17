@@ -691,7 +691,25 @@ EquipmentData.SpecialEquipment = {
         subStats = {
             { stat = "def", name = "防御力", value = 7.26 },         -- 1.2 × 5.5(SUB_T6) × 1.1(橙) = 7.26
             { stat = "maxHp", name = "生命值", value = 36.3 },      -- 6 × 5.5(SUB_T6) × 1.1(橙) = 36.3
-            { stat = "constitution", name = "根骨", value = 7 },    -- linearGrowth: floor(6 × 1.3) = 7
+            { stat = "constitution", name = "根骨", value = 9 },    -- linearGrowth: floor(6 × 1.5) = 9
+        },
+    },
+
+    -- 55级流沙之子掉落：T7紫色头盔
+    -- 主属性: 20 × 10.5(T7) × 1.3(紫) = 273
+    -- 副属性: 紫色3条, 中值×1.0; SUB_T7=7.0
+    liusha_helmet_ch3 = {
+        name = "沙蚀额冠",
+        slot = "helmet",
+        icon = "icon_t7_helmet.png",
+        quality = "purple",
+        tier = 7,
+        sellPrice = 700,
+        mainStat = { maxHp = 273 },
+        subStats = {
+            { stat = "wisdom", name = "悟性", value = 9 },          -- linearGrowth: floor(7 × 1.3) = 9
+            { stat = "def", name = "防御力", value = 8.4 },          -- 1.2 × 7.0 = 8.4
+            { stat = "maxHp", name = "生命值", value = 42.0 },       -- 6 × 7.0 = 42.0
         },
     },
 
@@ -708,10 +726,11 @@ EquipmentData.SpecialEquipment = {
         sellCurrency = "lingYun",
         mainStat = { maxHp = 283.5 },
         subStats = {
-            { stat = "constitution", name = "根骨", value = 12 },   -- linearGrowth: floor(7 × 1.8) = 12
+            { stat = "physique", name = "体魄", value = 12 },       -- linearGrowth: floor(7 × 1.8) = 12
             { stat = "def", name = "防御力", value = 8.4 },         -- 1.2 × 7.0 = 8.4
             { stat = "hpRegen", name = "生命回复", value = 3.5 },   -- 0.5 × 7.0 = 3.5
         },
+        spiritStat = { stat = "critRate", name = "暴击率", value = 0.019 }, -- 0.01 × 3.8(PCT_SUB_T7) × 0.5 = 0.019
         specialEffect = {
             type = "sand_shield",
             name = "流沙缠护",
@@ -1889,6 +1908,7 @@ EquipmentData.Collection = {
                 "chijia_ring_ch3",
                 "shegu_belt_ch3",
                 "liusha_cape_ch3",
+                "liusha_helmet_ch3",
                 "liusha_belt_ch3",
                 "lieyan_cape_ch3",
                 "shen_shoulder_ch3",
@@ -1986,6 +2006,7 @@ EquipmentData.Collection = {
         "chijia_ring_ch3",
         "shegu_belt_ch3",
         "liusha_cape_ch3",
+        "liusha_helmet_ch3",
         "liusha_belt_ch3",
         "lieyan_cape_ch3",
         "shen_shoulder_ch3",
@@ -2153,7 +2174,7 @@ EquipmentData.Collection = {
         -- 第三章（×2.0目标：atk≈50, def≈54, maxHp≈212, killHeal≈16 + hpRegen/heavyHit新增）
         -- 实际合计：atk=50, def=54, maxHp=210, killHeal=16, hpRegen=6, heavyHit=15
         kumu_helmet_ch3 = {
-            bonus = { maxHp = 25, def = 5, hpRegen = 1 },
+            bonus = { maxHp = 25, def = 5 },
             desc = "枯木妖王灵脉凝成的冠冕，残存一丝生机。",
         },
         yanchan_armor_ch3 = {
@@ -2165,19 +2186,23 @@ EquipmentData.Collection = {
             desc = "苍狼妖王獠牙磨制的项坠，嗜血凶戾。",
         },
         chijia_ring_ch3 = {
-            bonus = { atk = 5, maxHp = 15 },
+            bonus = { atk = 5, maxHp = 25 },
             desc = "赤甲妖王毒尾凝结的指环，剧毒锋锐。",
         },
         shegu_belt_ch3 = {
-            bonus = { def = 6, maxHp = 20, killHeal = 5 },
+            bonus = { def = 6, maxHp = 20, killHeal = 6 },
             desc = "蛇骨妖王脊椎编织的腰环，韧性惊人。",
         },
         liusha_cape_ch3 = {
-            bonus = { def = 5, maxHp = 25, dmgReduce = 0.02 },
+            bonus = { killHeal = 10, maxHp = 25 },
             desc = "流沙之母蜕壳织就的蛛甲披，沙粒流转间可化解刀剑。",
         },
+        liusha_helmet_ch3 = {
+            bonus = { maxHp = 25, hpRegen = 1 },
+            desc = "流沙之子头壳磨成的额冠，砂粒渗入识海，悟性渐开。",
+        },
         liusha_belt_ch3 = {
-            bonus = { constitution = 8, maxHp = 30, hpRegen = 1 },
+            bonus = { atk = 4, maxHp = 25, hpRegen = 2 },
             desc = "流沙之母腹中灵砂编织的绶带，系于腰间，砂粒入体化为灵根。",
         },
         lieyan_cape_ch3 = {
@@ -2185,7 +2210,7 @@ EquipmentData.Collection = {
             desc = "烈焰狮王鬃毛织就的战披，触之灼热，余焰不灭。",
         },
         shen_shoulder_ch3 = {
-            bonus = { def = 8, maxHp = 20, hpRegen = 1 },
+            bonus = { def = 8, maxHp = 25 },
             desc = "蜃妖王幻影凝聚的肩甲，虚实莫辨，死中求活。",
         },
         -- 黄天大圣灵器武器（5把共享掉落）
@@ -2202,15 +2227,15 @@ EquipmentData.Collection = {
             desc = "噬魂夺魄，杀敌续命，越战越强。",
         },
         huangsha_liedi = {
-            bonus = { atk = 7, heavyHit = 15 },
+            bonus = { atk = 6, def = 6 },
             desc = "裂地之力，每一击都震碎大地。",
         },
         huangsha_mieying = {
-            bonus = { atk = 7, maxHp = 15 },
+            bonus = { atk = 7, maxHp = 25 },
             desc = "灭影无形，暴击之下，万劫不复。",
         },
         dizun_ring_ch3 = {
-            bonus = { physique = 4 },
+            bonus = { fortune = 4 },
             desc = "帝尊三铸之戒，万里黄沙淬体，筋骨如铁。",
         },
         -- 法宝图鉴（第三章·T7）

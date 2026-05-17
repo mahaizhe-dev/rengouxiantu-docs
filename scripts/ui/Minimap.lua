@@ -399,25 +399,15 @@ function MinimapWidget:Render(nvg)
                 local my = l.y + m.y * scaleY
                 local cat = m.category or "normal"
                 if cat == "emperor_boss" then
-                    -- 皇级BOSS：金色大菱形 + 外圈光晕
-                    local ds = 4.5
+                    -- 皇级BOSS：金色菱形 + 光晕 + 描边（与王级同尺寸）
+                    local ds = 3.5
                     -- 脉冲光晕
                     local pulse = 0.6 + 0.4 * math.sin(time.elapsedTime * 3.0)
                     nvgBeginPath(nvg)
-                    nvgCircle(nvg, mx, my, ds + 3)
-                    nvgFillColor(nvg, nvgRGBA(255, 200, 0, math.floor(40 * pulse)))
+                    nvgCircle(nvg, mx, my, ds + 2.5)
+                    nvgFillColor(nvg, nvgRGBA(255, 200, 0, math.floor(35 * pulse)))
                     nvgFill(nvg)
-                    -- 外框菱形
-                    nvgBeginPath(nvg)
-                    nvgMoveTo(nvg, mx, my - ds - 1)
-                    nvgLineTo(nvg, mx + ds + 1, my)
-                    nvgLineTo(nvg, mx, my + ds + 1)
-                    nvgLineTo(nvg, mx - ds - 1, my)
-                    nvgClosePath(nvg)
-                    nvgStrokeColor(nvg, nvgRGBA(255, 215, 0, 200))
-                    nvgStrokeWidth(nvg, 1.5)
-                    nvgStroke(nvg)
-                    -- 内填充菱形
+                    -- 描边菱形
                     nvgBeginPath(nvg)
                     nvgMoveTo(nvg, mx, my - ds)
                     nvgLineTo(nvg, mx + ds, my)
@@ -426,6 +416,9 @@ function MinimapWidget:Render(nvg)
                     nvgClosePath(nvg)
                     nvgFillColor(nvg, nvgRGBA(255, 215, 0, 255))
                     nvgFill(nvg)
+                    nvgStrokeColor(nvg, nvgRGBA(255, 215, 0, 200))
+                    nvgStrokeWidth(nvg, 1.0)
+                    nvgStroke(nvg)
                 elseif cat == "king_boss" then
                     -- 王级BOSS：大橙色菱形
                     local ds = 3.5
@@ -659,25 +652,15 @@ function FullMapWidget:Render(nvg)
                 local my = oy + m.y * scaleY
                 local cat = m.category or "normal"
                 if cat == "emperor_boss" then
-                    -- 皇级BOSS：金色大菱形 + 光晕 + 描边
-                    local ds = 6.5
-                    local pulse = 0.6 + 0.4 * math.sin(time.elapsedTime * 3.0)
+                    -- 皇级BOSS：金色菱形 + 光晕 + 描边（与王级同尺寸）
+                    local ds = 5.0
                     -- 脉冲光晕
+                    local pulse = 0.6 + 0.4 * math.sin(time.elapsedTime * 3.0)
                     nvgBeginPath(nvg)
-                    nvgCircle(nvg, mx, my, ds + 4)
+                    nvgCircle(nvg, mx, my, ds + 3)
                     nvgFillColor(nvg, nvgRGBA(255, 200, 0, math.floor(35 * pulse)))
                     nvgFill(nvg)
-                    -- 外框菱形
-                    nvgBeginPath(nvg)
-                    nvgMoveTo(nvg, mx, my - ds - 1.5)
-                    nvgLineTo(nvg, mx + ds + 1.5, my)
-                    nvgLineTo(nvg, mx, my + ds + 1.5)
-                    nvgLineTo(nvg, mx - ds - 1.5, my)
-                    nvgClosePath(nvg)
-                    nvgStrokeColor(nvg, nvgRGBA(255, 215, 0, 200))
-                    nvgStrokeWidth(nvg, 1.5)
-                    nvgStroke(nvg)
-                    -- 内填充菱形
+                    -- 描边菱形
                     nvgBeginPath(nvg)
                     nvgMoveTo(nvg, mx, my - ds)
                     nvgLineTo(nvg, mx + ds, my)
@@ -686,13 +669,9 @@ function FullMapWidget:Render(nvg)
                     nvgClosePath(nvg)
                     nvgFillColor(nvg, nvgRGBA(255, 215, 0, 255))
                     nvgFill(nvg)
-                    -- 名字标签
-                    nvgFontSize(nvg, 11)
-                    nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_TOP)
-                    nvgFillColor(nvg, nvgRGBA(0, 0, 0, 180))
-                    nvgText(nvg, mx + 1, my + ds + 3, m.name or "皇级")
-                    nvgFillColor(nvg, nvgRGBA(255, 215, 0, 255))
-                    nvgText(nvg, mx, my + ds + 2, m.name or "皇级")
+                    nvgStrokeColor(nvg, nvgRGBA(255, 215, 0, 200))
+                    nvgStrokeWidth(nvg, 1.0)
+                    nvgStroke(nvg)
                 elseif cat == "king_boss" then
                     -- 王级BOSS：大橙色菱形
                     local ds = 5.0

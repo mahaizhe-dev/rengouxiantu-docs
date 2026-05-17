@@ -440,8 +440,8 @@ M.Types.liusha_son_mid = {
         { chance = 1.0, type = "consumable", consumableId = "immortal_bone" },
         -- ⑤突破材料
         { chance = 0.03, type = "consumable", consumableId = "spirit_pill_3" },
-        -- ⑥T6橙色披风（与45级相同）
-        { chance = 0.08, type = "equipment", equipId = "liusha_cape_ch3" },
+        -- ⑥T7紫色头盔（沙蚀额冠）
+        { chance = 0.05, type = "equipment", equipId = "liusha_helmet_ch3" },
         -- ⑦神器碎片（第四五六寨共享0.1%）
         { chance = 0.001, type = "world_drop", pool = "rake_fragment_ch3_456" },
         -- ⑧帝尊叁戒（0.5%独立掉落）
@@ -491,8 +491,8 @@ M.Types.liusha_mother = {
         { chance = 1.0, type = "consumable", consumableId = "immortal_bone" },
         -- ⑤突破材料
         { chance = 0.05, type = "consumable", consumableId = "spirit_pill_3" },
-        -- ⑥灵器武器·噬魂（0.25%独立掉落）
-        { chance = 0.0025, type = "equipment", equipId = "huangsha_shihun" },
+        -- ⑥灵器武器·噬魂（0.5%独立掉落）
+        { chance = 0.005, type = "equipment", equipId = "huangsha_shihun" },
         -- ⑦专属腰带·流沙绶带（3%独立掉落）
         { chance = 0.03, type = "equipment", equipId = "liusha_belt_ch3" },
         -- ⑧帝尊叁戒（1%独立掉落）
@@ -943,8 +943,8 @@ M.Types.yao_king_1 = {
 
         -- ⑧灵兽赐主T2技能书（5%共享池，随机1本）
         { chance = 0.05, type = "world_drop", pool = "shawanli_owner_books" },
-        -- ⑨灵器武器（1%命中，从5把中随机1把，互斥）
-        { chance = 0.01, type = "world_drop", pool = "huangsha_weapons" },
+        -- ⑨灵器武器（2%命中，从4把中随机1把，互斥）
+        { chance = 0.02, type = "world_drop", pool = "huangsha_weapons" },
         -- ⑨.5 帝尊叁戒（1%独立掉落）
         { chance = 0.01, type = "equipment", equipId = "dizun_ring_ch3" },
         -- ⑨.6 沙海令盒（0.5%独立掉落）

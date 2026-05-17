@@ -46,8 +46,11 @@ QuestData_ch3.ZONE_QUESTS = {
                     },
                 },
                 reward = {
-                    type = "consumable_pick",
-                    items = { "book_atk_2", "book_hp_2", "book_def_2" },
+                    type = "material_bundle",
+                    items = {
+                        { itemId = "jindan_sand", count = 1 },
+                        { itemId = "exp_pill",    count = 1 },
+                    },
                 },
             },
             -- 主线3：攻破第五寨、第四寨 → 奖励：随机T6紫装3选1
@@ -79,8 +82,11 @@ QuestData_ch3.ZONE_QUESTS = {
                     },
                 },
                 reward = {
-                    type = "consumable_pick",
-                    items = { "book_regen_2", "book_evade_2", "book_crit_2" },
+                    type = "material_bundle",
+                    items = {
+                        { itemId = "yuanying_fruit", count = 1 },
+                        { itemId = "exp_pill",       count = 3 },
+                    },
                 },
             },
             -- 主线5：攻破第二寨 + 100个3章精英 → 随机T7紫装3选1
