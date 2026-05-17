@@ -150,18 +150,13 @@ function MobileControls._onNPCInteract()
                 local px = math.floor(GameState.player.x + 0.5)
                 local py = math.floor(GameState.player.y + 0.5)
                 local T = TileTypes.TILE
-                -- 检查玩家脚下及四周共5格
-                local checkOffsets = { {0,0}, {1,0}, {-1,0}, {0,1}, {0,-1} }
+                -- 检查玩家脚下及周围共9格（3×3范围）
+                local checkOffsets = { {0,0}, {1,0}, {-1,0}, {0,1}, {0,-1}, {1,1}, {1,-1}, {-1,1}, {-1,-1} }
                 for _, off in ipairs(checkOffsets) do
                     local tile = gameMapRef_:GetTile(px + off[1], py + off[2])
                     if tile == T.CH5_BLOOD_POOL then
-                        NPCDialog.Show({
-                            name = "祀剑池",
-                            subtitle = "太虚剑宫",
-                            dialog = "池中血水翻涌，隐隐有剑气冲霄。传闻上古剑修以精血祭剑，方能铸出通灵神兵。\n\n祀剑池。敬请期待。",
-                            buttons = {},
-                            interactType = "coming_soon",
-                        })
+                        local SwordPoolUI = require("ui.SwordPoolUI")
+                        SwordPoolUI.Show()
                         return
                     elseif tile == T.CH5_FURNACE then
                         NPCDialog.Show({

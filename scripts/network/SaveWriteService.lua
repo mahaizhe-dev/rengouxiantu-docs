@@ -508,8 +508,8 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
         end
 
         local pillMaxHp = 150 + 270 + 300
-        local pillAtk = 50 + 72 + 30
-        local pillDef = 40 + 20
+        local pillAtk = 50 + 72 + 30 + 100  -- +100: 太虚剑丹(10×10)
+        local pillDef = 40 + 20 + 80        -- +80: 狱甲丹(8×10)
 
         local expectedMaxHp = 100 + 15 * lv + realmMaxHp + pillMaxHp
         local expectedAtk = 15 + 3 * lv + realmAtk + pillAtk

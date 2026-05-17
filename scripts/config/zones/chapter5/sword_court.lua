@@ -13,20 +13,20 @@ sword_court.regions = {
 
 sword_court.npcs = {}
 sword_court.spawns = {
-    -- 普通怪：别院怨魂 ×6（回廊散布，区域较大）
-    { type = "ch5_court_wraith", x = 8.5,  y = 42.5 },
+    -- 普通怪：别院怨魂 ×6（均匀散布）
+    { type = "ch5_court_wraith", x = 7.5,  y = 42.5 },
     { type = "ch5_court_wraith", x = 17.5, y = 43.5 },
     { type = "ch5_court_wraith", x = 9.5,  y = 48.5 },
-    { type = "ch5_court_wraith", x = 16.5, y = 50.5 },
-    { type = "ch5_court_wraith", x = 12.5, y = 54.5 },
-    { type = "ch5_court_wraith", x = 6.5,  y = 46.5 },
-    -- 精英怪：夜巡剑侍 ×4（院中后部）
-    { type = "ch5_night_guard",  x = 14.5, y = 47.5 },
-    { type = "ch5_night_guard",  x = 10.5, y = 55.5 },
-    { type = "ch5_night_guard",  x = 15.5, y = 57.5 },
-    { type = "ch5_night_guard",  x = 18.5, y = 52.5 },
-    -- BOSS：宁栖梧 ×1（最深处）
-    { type = "ch5_ning_qiwu",    x = 12.5, y = 61.5 },
+    { type = "ch5_court_wraith", x = 18.5, y = 50.5 },
+    { type = "ch5_court_wraith", x = 6.5,  y = 55.5 },
+    { type = "ch5_court_wraith", x = 15.5, y = 58.5 },
+    -- 精英怪：夜巡剑侍 ×4（均匀散布）
+    { type = "ch5_night_guard",  x = 13.5, y = 44.5 },
+    { type = "ch5_night_guard",  x = 8.5,  y = 52.5 },
+    { type = "ch5_night_guard",  x = 17.5, y = 53.5 },
+    { type = "ch5_night_guard",  x = 11.5, y = 60.5 },
+    -- BOSS：宁栖梧 ×1（略微上移）
+    { type = "ch5_ning_qiwu",    x = 12.5, y = 56.5 },
 }
 sword_court.decorations = {
     -- 栖剑别院：回廊残柱与苔痕剑迹

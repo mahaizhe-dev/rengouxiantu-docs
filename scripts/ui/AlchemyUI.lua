@@ -4,7 +4,7 @@
 -- Ch2: 筑基丹 + 灵蛇丹 + 金刚丹 + 乌堡令盒
 -- Ch3: 金丹沙 + 元婴果 + 千锤百炼丹 + 沙海令盒
 -- Ch4: 九转金丹（500灵韵/颗） + 太虚令盒
--- Ch5: 渡劫丹（1000灵韵/颗）
+-- Ch5: 渡劫丹（1000灵韵/颗） + 太虚剑丹（+10攻击） + 狱甲丹（+8防御） + 太虚剑令盒
 -- 中洲(101): 阵营丹药（凝力丹/凝甲丹/凝元丹/凝魂丹/凝息丹）
 -- ============================================================================
 
@@ -143,6 +143,28 @@ local dragonBloodPillCount_ = 0
 -- 渡劫丹配置
 local DUJIE_DAN_COST = 1000  -- 灵韵/颗
 
+-- 太虚剑丹（攻击丹）配置
+local SWORD_INTENT_PILL = {
+    cost = 1000,          -- 灵韵消耗
+    atkBonus = 10,        -- 每颗永久增加的攻击力
+    maxBuy = 10,          -- 限购数量
+    material = "sword_intent_crystal",  -- 所需材料（剑星草）
+}
+
+-- 太虚剑丹已炼制次数（运行时状态，由存档恢复）
+local swordIntentPillCount_ = 0
+
+-- 狱甲丹（防御丹）配置
+local ABYSS_SEAL_PILL = {
+    cost = 1000,          -- 灵韵消耗
+    defBonus = 8,         -- 每颗永久增加的防御力
+    maxBuy = 10,          -- 限购数量
+    material = "abyss_seal_shard",  -- 所需材料（地狱灵芝）
+}
+
+-- 狱甲丹已炼制次数（运行时状态，由存档恢复）
+local abyssSealPillCount_ = 0
+
 -- ===== 令牌盒配方（通用） =====
 local TOKEN_BOX_LINGYUN_COST = 100   -- 灵韵消耗
 local TOKEN_BOX_TOKEN_COST   = 100   -- 令牌消耗
@@ -150,6 +172,7 @@ local TOKEN_BOX_RECIPES = {
     { tokenId = "wubao_token",   boxId = "wubao_token_box",   chapter = 2 },
     { tokenId = "sha_hai_ling",  boxId = "sha_hai_ling_box",  chapter = 3 },
     { tokenId = "taixu_token",   boxId = "taixu_token_box",   chapter = 4 },
+    { tokenId = "taixu_jianling",  boxId = "taixu_jianling_box",  chapter = 5 },
 }
 
 --- 获取当前练气丹数量
@@ -680,6 +703,127 @@ local function BuildCh5Content()
             fontSize = T.fontSize.sm,
             backgroundColor = canCraft and {120, 80, 200, 220} or {80, 80, 90, 200},
             onClick = function() AlchemyUI.DoCraftDujieDan() end,
+        },
+        -- 分隔线
+        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
+        -- 太虚剑丹（攻击丹）区
+        UI.Label {
+            text = "⚔️ 炼制太虚剑丹",
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {255, 160, 80, 240},
+        },
+        UI.Label {
+            text = "以太虚宗遗址凝结的上古剑意结晶炼制，服用后永久强化攻击力。",
+            fontSize = T.fontSize.xs,
+            fontColor = {200, 180, 150, 200},
+        },
+        UI.Label {
+            text = "永久增加攻击力 +" .. SWORD_INTENT_PILL.atkBonus .. "（限炼" .. SWORD_INTENT_PILL.maxBuy .. "颗）",
+            fontSize = T.fontSize.xs,
+            fontColor = {255, 200, 150, 200},
+        },
+        UI.Label {
+            text = (swordIntentPillCount_ < SWORD_INTENT_PILL.maxBuy)
+                and ("已炼制 " .. swordIntentPillCount_ .. "/" .. SWORD_INTENT_PILL.maxBuy .. " 颗")
+                or ("已售罄（限炼 " .. SWORD_INTENT_PILL.maxBuy .. " 颗）"),
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {255, 180, 100, 255}, textAlign = "center",
+        },
+        UI.Label {
+            text = (swordIntentPillCount_ < SWORD_INTENT_PILL.maxBuy)
+                and ("灵韵: " .. player.lingYun .. " (需要 " .. SWORD_INTENT_PILL.cost .. ")  "
+                    .. GetMaterialName(SWORD_INTENT_PILL.material) .. ": " .. InventorySystem.CountConsumable(SWORD_INTENT_PILL.material) .. " (需要 1)")
+                or "",
+            fontSize = T.fontSize.xs, textAlign = "center",
+            fontColor = (player.lingYun >= SWORD_INTENT_PILL.cost and InventorySystem.CountConsumable(SWORD_INTENT_PILL.material) >= 1)
+                and {130, 230, 130, 255} or {255, 130, 100, 255},
+        },
+        UI.Button {
+            text = (swordIntentPillCount_ < SWORD_INTENT_PILL.maxBuy)
+                and ("炼制太虚剑丹 (" .. SWORD_INTENT_PILL.cost .. "灵韵+" .. GetMaterialName(SWORD_INTENT_PILL.material) .. " → +" .. SWORD_INTENT_PILL.atkBonus .. "攻击)")
+                or "已售罄",
+            width = "100%", height = T.size.dialogBtnH,
+            fontSize = T.fontSize.sm,
+            backgroundColor = (swordIntentPillCount_ < SWORD_INTENT_PILL.maxBuy and player.lingYun >= SWORD_INTENT_PILL.cost and InventorySystem.CountConsumable(SWORD_INTENT_PILL.material) >= 1)
+                and {200, 120, 40, 220} or {80, 80, 90, 200},
+            onClick = function() AlchemyUI.DoCraftSwordIntent() end,
+        },
+        -- 分隔线
+        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
+        -- 狱甲丹（防御丹）区
+        UI.Label {
+            text = "🛡️ 炼制狱甲丹",
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {100, 180, 255, 240},
+        },
+        UI.Label {
+            text = "以深渊封印碎裂后散落的符文骨片炼制，服用后永久强化防御力。",
+            fontSize = T.fontSize.xs,
+            fontColor = {200, 180, 150, 200},
+        },
+        UI.Label {
+            text = "永久增加防御力 +" .. ABYSS_SEAL_PILL.defBonus .. "（限炼" .. ABYSS_SEAL_PILL.maxBuy .. "颗）",
+            fontSize = T.fontSize.xs,
+            fontColor = {150, 200, 255, 200},
+        },
+        UI.Label {
+            text = (abyssSealPillCount_ < ABYSS_SEAL_PILL.maxBuy)
+                and ("已炼制 " .. abyssSealPillCount_ .. "/" .. ABYSS_SEAL_PILL.maxBuy .. " 颗")
+                or ("已售罄（限炼 " .. ABYSS_SEAL_PILL.maxBuy .. " 颗）"),
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {100, 180, 255, 255}, textAlign = "center",
+        },
+        UI.Label {
+            text = (abyssSealPillCount_ < ABYSS_SEAL_PILL.maxBuy)
+                and ("灵韵: " .. player.lingYun .. " (需要 " .. ABYSS_SEAL_PILL.cost .. ")  "
+                    .. GetMaterialName(ABYSS_SEAL_PILL.material) .. ": " .. InventorySystem.CountConsumable(ABYSS_SEAL_PILL.material) .. " (需要 1)")
+                or "",
+            fontSize = T.fontSize.xs, textAlign = "center",
+            fontColor = (player.lingYun >= ABYSS_SEAL_PILL.cost and InventorySystem.CountConsumable(ABYSS_SEAL_PILL.material) >= 1)
+                and {130, 230, 130, 255} or {255, 130, 100, 255},
+        },
+        UI.Button {
+            text = (abyssSealPillCount_ < ABYSS_SEAL_PILL.maxBuy)
+                and ("炼制狱甲丹 (" .. ABYSS_SEAL_PILL.cost .. "灵韵+" .. GetMaterialName(ABYSS_SEAL_PILL.material) .. " → +" .. ABYSS_SEAL_PILL.defBonus .. "防御)")
+                or "已售罄",
+            width = "100%", height = T.size.dialogBtnH,
+            fontSize = T.fontSize.sm,
+            backgroundColor = (abyssSealPillCount_ < ABYSS_SEAL_PILL.maxBuy and player.lingYun >= ABYSS_SEAL_PILL.cost and InventorySystem.CountConsumable(ABYSS_SEAL_PILL.material) >= 1)
+                and {40, 100, 180, 220} or {80, 80, 90, 200},
+            onClick = function() AlchemyUI.DoCraftAbyssSeal() end,
+        },
+        -- 分隔线
+        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
+        -- 太虚剑令盒区
+        UI.Label {
+            text = "📦 炼制太虚剑令盒",
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {120, 200, 255, 240},
+        },
+        UI.Label {
+            text = "将100枚太虚剑令封装为令牌盒，便于黑市交易",
+            fontSize = T.fontSize.xs,
+            fontColor = {200, 180, 150, 200},
+        },
+        UI.Label {
+            text = "当前太虚剑令盒: " .. InventorySystem.CountConsumable("taixu_jianling_box") .. " 个",
+            fontSize = T.fontSize.sm, fontWeight = "bold",
+            fontColor = {120, 200, 255, 255}, textAlign = "center",
+        },
+        UI.Label {
+            text = "灵韵: " .. player.lingYun .. " (需要 " .. TOKEN_BOX_LINGYUN_COST .. ")  "
+                .. "太虚剑令: " .. InventorySystem.CountConsumable("taixu_jianling") .. " (需要 " .. TOKEN_BOX_TOKEN_COST .. ")",
+            fontSize = T.fontSize.xs, textAlign = "center",
+            fontColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("taixu_jianling") >= TOKEN_BOX_TOKEN_COST)
+                and {130, 230, 130, 255} or {255, 130, 100, 255},
+        },
+        UI.Button {
+            text = "炼制太虚剑令盒 (" .. TOKEN_BOX_LINGYUN_COST .. "灵韵+" .. TOKEN_BOX_TOKEN_COST .. "太虚剑令 → 1盒)",
+            width = "100%", height = T.size.dialogBtnH,
+            fontSize = T.fontSize.sm,
+            backgroundColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("taixu_jianling") >= TOKEN_BOX_TOKEN_COST)
+                and {60, 120, 180, 220} or {80, 80, 90, 200},
+            onClick = function() AlchemyUI.DoCraftTokenBox("taixu_jianling", "taixu_jianling_box") end,
         },
     }
 end
@@ -1443,6 +1587,100 @@ function AlchemyUI.DoCraftDragonBlood()
     end)
 end
 
+--- 炼制太虚剑丹（+攻击力）
+function AlchemyUI.DoCraftSwordIntent()
+    local player = GameState.player
+    if not player then return end
+
+    -- 前置校验（客户端）
+    if swordIntentPillCount_ >= SWORD_INTENT_PILL.maxBuy then
+        resultLabel_:SetText("太虚剑丹已炼制完毕！限炼" .. SWORD_INTENT_PILL.maxBuy .. "颗")
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+    if player.lingYun < SWORD_INTENT_PILL.cost then
+        resultLabel_:SetText("灵韵不足！炼制需要 " .. SWORD_INTENT_PILL.cost .. " 灵韵")
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+    local matName = GetMaterialName(SWORD_INTENT_PILL.material)
+    if InventorySystem.CountConsumable(SWORD_INTENT_PILL.material) < 1 then
+        resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+
+    -- 发送 C2S 授权请求
+    SendBuyPill("sword_intent", function()
+        -- 二次校验（防止授权期间状态变化）
+        if swordIntentPillCount_ >= SWORD_INTENT_PILL.maxBuy then return end
+        if player.lingYun < SWORD_INTENT_PILL.cost then return end
+        if InventorySystem.CountConsumable(SWORD_INTENT_PILL.material) < 1 then return end
+
+        player.lingYun = player.lingYun - SWORD_INTENT_PILL.cost
+        InventorySystem.ConsumeConsumable(SWORD_INTENT_PILL.material, 1)
+        swordIntentPillCount_ = swordIntentPillCount_ + 1
+        if player.pillCounts then player.pillCounts.sword_intent = swordIntentPillCount_ end
+        player.atk = player.atk + SWORD_INTENT_PILL.atkBonus
+
+        resultLabel_:SetText("炼制成功！攻击力永久 +" .. SWORD_INTENT_PILL.atkBonus .. " (已炼" .. swordIntentPillCount_ .. "/" .. SWORD_INTENT_PILL.maxBuy .. ")")
+        resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
+        EventBus.Emit("alchemy_success")
+        EventBus.Emit("save_request")
+        RefreshUI()
+    end)
+end
+
+--- 炼制狱甲丹（+防御力）
+function AlchemyUI.DoCraftAbyssSeal()
+    local player = GameState.player
+    if not player then return end
+
+    -- 前置校验（客户端）
+    if abyssSealPillCount_ >= ABYSS_SEAL_PILL.maxBuy then
+        resultLabel_:SetText("狱甲丹已炼制完毕！限炼" .. ABYSS_SEAL_PILL.maxBuy .. "颗")
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+    if player.lingYun < ABYSS_SEAL_PILL.cost then
+        resultLabel_:SetText("灵韵不足！炼制需要 " .. ABYSS_SEAL_PILL.cost .. " 灵韵")
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+    local matName = GetMaterialName(ABYSS_SEAL_PILL.material)
+    if InventorySystem.CountConsumable(ABYSS_SEAL_PILL.material) < 1 then
+        resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        RefreshUI()
+        return
+    end
+
+    -- 发送 C2S 授权请求
+    SendBuyPill("abyss_seal", function()
+        -- 二次校验（防止授权期间状态变化）
+        if abyssSealPillCount_ >= ABYSS_SEAL_PILL.maxBuy then return end
+        if player.lingYun < ABYSS_SEAL_PILL.cost then return end
+        if InventorySystem.CountConsumable(ABYSS_SEAL_PILL.material) < 1 then return end
+
+        player.lingYun = player.lingYun - ABYSS_SEAL_PILL.cost
+        InventorySystem.ConsumeConsumable(ABYSS_SEAL_PILL.material, 1)
+        abyssSealPillCount_ = abyssSealPillCount_ + 1
+        if player.pillCounts then player.pillCounts.abyss_seal = abyssSealPillCount_ end
+        player.def = player.def + ABYSS_SEAL_PILL.defBonus
+
+        resultLabel_:SetText("炼制成功！防御力永久 +" .. ABYSS_SEAL_PILL.defBonus .. " (已炼" .. abyssSealPillCount_ .. "/" .. ABYSS_SEAL_PILL.maxBuy .. ")")
+        resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
+        EventBus.Emit("alchemy_success")
+        EventBus.Emit("save_request")
+        RefreshUI()
+    end)
+end
+
 --- 获取虎骨丹已炼制次数（供存档系统使用）
 function AlchemyUI.GetTigerPillCount()
     return tigerPillCount_
@@ -1493,6 +1731,26 @@ function AlchemyUI.SetDragonBloodPillCount(count)
     dragonBloodPillCount_ = count or 0
 end
 
+--- 获取太虚剑丹已炼制次数（供存档系统使用）
+function AlchemyUI.GetSwordIntentPillCount()
+    return swordIntentPillCount_
+end
+
+--- 设置太虚剑丹已炼制次数（供存档系统加载使用）
+function AlchemyUI.SetSwordIntentPillCount(count)
+    swordIntentPillCount_ = count or 0
+end
+
+--- 获取狱甲丹已炼制次数（供存档系统使用）
+function AlchemyUI.GetAbyssSealPillCount()
+    return abyssSealPillCount_
+end
+
+--- 设置狱甲丹已炼制次数（供存档系统加载使用）
+function AlchemyUI.SetAbyssSealPillCount(count)
+    abyssSealPillCount_ = count or 0
+end
+
 function AlchemyUI.Show(npc)
     if panel_ and not visible_ then
         visible_ = true
@@ -1539,6 +1797,8 @@ function AlchemyUI.Destroy()
     diamondPillCount_ = 0
     temperingPillEaten_ = 0
     dragonBloodPillCount_ = 0
+    swordIntentPillCount_ = 0
+    abyssSealPillCount_ = 0
     pendingPillBuys_ = {}
 end
 
@@ -1565,6 +1825,8 @@ function AlchemyUI.GetShopPillConfigs()
         snake = SNAKE_PILL,
         diamond = DIAMOND_PILL,
         dragon_blood = DRAGON_BLOOD_PILL,
+        sword_intent = SWORD_INTENT_PILL,
+        abyss_seal = ABYSS_SEAL_PILL,
     }
 end
 

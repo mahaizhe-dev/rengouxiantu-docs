@@ -118,8 +118,8 @@ local function CreateChapterCard(chapterId)
             paddingTop = 2,
         })
     end
-    -- 条件列表
-    if #reqChildren > 0 then
+    -- 条件列表（仅未解锁时展示详细要求）
+    if not canGo and not isCurrent and #reqChildren > 0 then
         table.insert(cardChildren, UI.Panel {
             gap = 3,
             paddingTop = 4,
@@ -172,7 +172,7 @@ function TeleportUI.Create(parentOverlay)
         children = {
             UI.Panel {
                 width = 300,
-                maxHeight = "80%",
+                height = "80%",
                 backgroundColor = {25, 28, 40, 245},
                 borderRadius = 12,
                 borderWidth = 1,
@@ -204,11 +204,15 @@ function TeleportUI.Create(parentOverlay)
                         width = "100%", height = 1,
                         backgroundColor = {80, 100, 140, 100},
                     },
-                    -- 章节列表容器（由 Refresh 动态填充）
-                    UI.Panel {
+                    -- 章节列表（可滚动）
+                    UI.ScrollView {
                         id = "teleportChapterList",
                         width = "100%",
-                        gap = 8,
+                        flexGrow = 1,
+                        flexBasis = 0,
+                        scrollY = true,
+                        showScrollbar = true,
+                        bounces = true,
                     },
                     -- 关闭按钮
                     UI.Button {
@@ -233,24 +237,26 @@ end
 --- 按分组显示：剧情章节 + 特殊章节（支持非连续 ID）
 function TeleportUI.Refresh()
     if not panel_ then return end
-    local list = panel_:FindById("teleportChapterList")
-    if not list then return end
+    local scrollView = panel_:FindById("teleportChapterList")
+    if not scrollView then return end
 
     -- 清空旧内容
-    list:ClearChildren()
+    scrollView:ClearChildren()
+
+    -- 用一个带 gap 的 Panel 包裹所有卡片
+    local listChildren = {}
 
     -- 剧情章节
     local storyIds = ChapterConfig.GetStoryChapterIds()
     for _, chapterId in ipairs(storyIds) do
-        local card = CreateChapterCard(chapterId)
-        list:AddChild(card)
+        table.insert(listChildren, CreateChapterCard(chapterId))
     end
 
     -- 特殊章节（如有）
     local specialIds = ChapterConfig.GetSpecialChapterIds()
     if #specialIds > 0 then
         -- 分组标题
-        list:AddChild(UI.Panel {
+        table.insert(listChildren, UI.Panel {
             width = "100%",
             paddingTop = 4, paddingBottom = 2,
             alignItems = "center",
@@ -263,10 +269,15 @@ function TeleportUI.Refresh()
             },
         })
         for _, chapterId in ipairs(specialIds) do
-            local card = CreateChapterCard(chapterId)
-            list:AddChild(card)
+            table.insert(listChildren, CreateChapterCard(chapterId))
         end
     end
+
+    scrollView:AddChild(UI.Panel {
+        width = "100%",
+        gap = 8,
+        children = listChildren,
+    })
 end
 
 --- 显示传送面板

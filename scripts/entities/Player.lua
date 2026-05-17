@@ -248,11 +248,19 @@ function Player:_RecalcStatsCache()
     local skinBonuses = PetAppearanceConfig.GetAllPremiumBonuses(skinAc)
 
     -- GetTotalAtk
-    local base = self.atk + self.equipAtk + (self.collectionAtk or 0) + (self.titleAtk or 0) + (self.seaPillarAtk or 0) + (self.medalAtkFlat or 0) + (self.artifactTiandiAtk or 0) + (self.daoAtk or 0) + (self.prisonTowerAtk or 0)
+    local base = self.atk + self.equipAtk + (self.collectionAtk or 0) + (self.titleAtk or 0) + (self.seaPillarAtk or 0) + (self.swordPoolAtk or 0) + (self.medalAtkFlat or 0) + (self.artifactTiandiAtk or 0) + (self.daoAtk or 0) + (self.prisonTowerAtk or 0)
     local atkBonus = (self.titleAtkBonus or 0) + (skinBonuses.atkPct or 0)
     local cs = GetCombatSystem()
     if cs and cs.GetBuffAtkPercent then
         atkBonus = atkBonus + cs.GetBuffAtkPercent()
+    end
+    -- 绝仙·绝命叠层攻击加成
+    if self.equipSpecialEffects then
+        for _, eff in ipairs(self.equipSpecialEffects) do
+            if eff.type == "juexian" and (eff._atkBonus or 0) > 0 then
+                atkBonus = atkBonus + eff._atkBonus
+            end
+        end
     end
     if atkBonus > 0 then
         base = math.floor(base * (1 + atkBonus))
@@ -270,7 +278,7 @@ function Player:_RecalcStatsCache()
     self._cachedTotalConstitution = (self.equipConstitution or 0) + (self.pillConstitution or 0) + (self.artifactConstitution or 0) + classConst + petBonusConst + (self.wineConstitution or 0) + (self.medalGengu or 0) + (self.collectionConstitution or 0) + buffConst + (self.daoConstitution or 0) + (skinBonuses.constitution or 0)
 
     -- GetTotalDef（依赖根骨）
-    local defBase = self.def + self.equipDef + (self.collectionDef or 0) + (self.seaPillarDef or 0) + (self.artifactCh4Defense or 0) + (self.medalDefFlat or 0) + (self.prisonTowerDef or 0)
+    local defBase = self.def + self.equipDef + (self.collectionDef or 0) + (self.seaPillarDef or 0) + (self.swordPoolDef or 0) + (self.artifactCh4Defense or 0) + (self.medalDefFlat or 0) + (self.prisonTowerDef or 0)
     local defBonus = math.floor(self._cachedTotalConstitution / 5) * 0.01 + (skinBonuses.defPct or 0)  -- GetConstitutionDefBonus 内联 + 皮肤
     if cs and cs.GetBuffDefPercent then
         defBonus = defBonus + cs.GetBuffDefPercent()
@@ -292,7 +300,7 @@ function Player:_RecalcStatsCache()
     self._cachedTotalPhysique = (self.equipPhysique or 0) + (self.artifactPhysique or 0) + petBonusPhys + pillPhysique + (self.winePhysique or 0) + (self.medalTipo or 0) + (self.collectionPhysique or 0) + buffPhys + classPhys + (self.daoPhysique or 0) + (skinBonuses.physique or 0)
 
     -- GetTotalMaxHp（依赖体魄）
-    local hpBase = self.maxHp + self.equipHp + (self.collectionHp or 0) + (self.seaPillarMaxHp or 0) + (self.medalHpFlat or 0) + (self.daoMaxHp or 0) + (self.prisonTowerMaxHp or 0)
+    local hpBase = self.maxHp + self.equipHp + (self.collectionHp or 0) + (self.seaPillarMaxHp or 0) + (self.swordPoolMaxHp or 0) + (self.medalHpFlat or 0) + (self.daoMaxHp or 0) + (self.prisonTowerMaxHp or 0)
     local hpBonus = math.floor(self._cachedTotalPhysique / 5) * 0.01 + (skinBonuses.hpPct or 0)  -- GetPhysiqueHpBonus 内联 + 皮肤
     if hpBonus > 0 then
         hpBase = math.floor(hpBase * (1 + hpBonus))
@@ -348,7 +356,16 @@ end
 --- 获取总暴击伤害倍率（基础1.5 + 装备加成）
 ---@return number
 function Player:GetTotalCritDmg()
-    return 1.5 + (self.equipCritDmg or 0)
+    local base = 1.5 + (self.equipCritDmg or 0)
+    -- 陷仙·高血量暴伤加成
+    if self.equipSpecialEffects then
+        for _, eff in ipairs(self.equipSpecialEffects) do
+            if eff.type == "xianxian" and (eff._critDmgBuff or 0) > 0 then
+                base = base + eff._critDmgBuff
+            end
+        end
+    end
+    return base
 end
 
 --- 获取总重击值
@@ -578,7 +595,7 @@ function Player:Update(dt, gameMap)
     -- HP 自然回复（含体魄回血效率加成）
     local totalMaxHp = self:GetTotalMaxHp()
     if self.hp < totalMaxHp then
-        local totalRegen = self.hpRegen + self.equipHpRegen + (self.skillBonusHpRegen or 0) + (self.collectionHpRegen or 0) + (self.seaPillarHpRegen or 0) + (self.medalHpRegen or 0) + (self.artifactTiandiHpRegen or 0) + (self.prisonTowerHpRegen or 0)
+        local totalRegen = self.hpRegen + self.equipHpRegen + (self.skillBonusHpRegen or 0) + (self.collectionHpRegen or 0) + (self.seaPillarHpRegen or 0) + (self.swordPoolHpRegen or 0) + (self.medalHpRegen or 0) + (self.artifactTiandiHpRegen or 0) + (self.prisonTowerHpRegen or 0)
         local physiqueRegen = self:GetPhysiqueHealEfficiency()
         totalRegen = totalRegen + physiqueRegen
         self.hp = math.min(totalMaxHp, self.hp + totalRegen * dt)

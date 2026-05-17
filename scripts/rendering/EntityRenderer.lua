@@ -25,7 +25,7 @@ local MONSTER_RADIUS_SCALE = {
     boss         = 1.0,   -- 2格直径
     king_boss    = 1.25,  -- 2.5格直径
     emperor_boss = 1.25,  -- 2.5格直径（与王级一致）
-    saint_boss   = 1.5,   -- 3格直径（圣级最大）
+    saint_boss   = 1.25,  -- 2.5格直径（与皇级一致）
 }
 
 -- 模块级常量：宠物阶级贴图映射

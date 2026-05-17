@@ -196,6 +196,9 @@ function Monster.New(data, spawnX, spawnY)
     self.castTimer = 0
     self.castingSkill = nil
 
+    -- 多段技能连击状态（burst）
+    self.burstState = nil  -- { skill, remaining, interval, timer }
+
     -- 卡住检测
     self.stuckTimer = 0
     self.stuckCheckTimer = 0
@@ -387,6 +390,7 @@ function Monster:Update(dt, player, pet, gameMap)
             self.target = nil
             self.casting = false
             self.castingSkill = nil
+            self.burstState = nil
             return
         end
 
@@ -396,6 +400,7 @@ function Monster:Update(dt, player, pet, gameMap)
             self.target = nil
             self.casting = false
             self.castingSkill = nil
+            self.burstState = nil
             return
         end
 
@@ -405,6 +410,7 @@ function Monster:Update(dt, player, pet, gameMap)
             self.target = nil
             self.casting = false
             self.castingSkill = nil
+            self.burstState = nil
             return
         end
 
@@ -414,6 +420,7 @@ function Monster:Update(dt, player, pet, gameMap)
             self.state = "return"
             self.casting = false
             self.castingSkill = nil
+            self.burstState = nil
             return
         end
 
@@ -425,10 +432,11 @@ function Monster:Update(dt, player, pet, gameMap)
         local isFieldCasting = self.casting and self.castingSkill and self.castingSkill.isFieldSkill
         local myAtkRange15 = (self.data.attackRange or GameConfig.ATTACK_RANGE) * 1.5
         local myAtkRange15Sq = myAtkRange15 * myAtkRange15
-        if distToTargetSq > myAtkRange15Sq and not isFieldCasting then
+        if distToTargetSq > myAtkRange15Sq and not isFieldCasting and not self.data.stationary then
             self.state = "chase"
             self.casting = false
             self.castingSkill = nil
+            self.burstState = nil
             self.stuckTimer = 0
             self.stuckCheckTimer = 0
             self.stuckLastX = self.x
@@ -440,16 +448,67 @@ function Monster:Update(dt, player, pet, gameMap)
         if targetX > self.x then self.facingRight = true
         elseif targetX < self.x then self.facingRight = false end
 
+        -- ═══ 多段连击（burst）状态处理 ═══
+        if self.burstState then
+            local bs = self.burstState
+            bs.timer = bs.timer + dt
+            if bs.timer >= bs.interval then
+                bs.timer = bs.timer - bs.interval
+                -- 追踪型：每段重新瞄准玩家
+                if bs.skill.burstTrack and self.target then
+                    self.castTargetX = self.target.x
+                    self.castTargetY = self.target.y
+                end
+                -- 旋转型：每段旋转角度（十字太阳斩等）
+                if bs.skill.burstRotation then
+                    local cx, cy = self.castTargetX - self.x, self.castTargetY - self.y
+                    local angle = math.atan(cy, cx) + math.rad(bs.skill.burstRotation)
+                    local dist = math_max(0.1, math.sqrt(cx*cx + cy*cy))
+                    self.castTargetX = self.x + math_cos(angle) * dist
+                    self.castTargetY = self.y + math_sin(angle) * dist
+                end
+                -- 添加短预警闪烁（0.15s）
+                CombatSystem.AddMonsterWarning(self, {
+                    id = bs.skill.id, name = bs.skill.name,
+                    warningShape = bs.skill.warningShape,
+                    warningRange = bs.skill.warningRange,
+                    warningColor = bs.skill.warningColor,
+                    warningCrossWidth = bs.skill.warningCrossWidth,
+                    warningLineWidth = bs.skill.warningLineWidth,
+                    warningRectLength = bs.skill.warningRectLength,
+                    warningRectWidth = bs.skill.warningRectWidth,
+                    warningConeAngle = bs.skill.warningConeAngle,
+                    castTime = 0.15,
+                })
+                EventBus.Emit("monster_skill", self, bs.skill)
+                bs.remaining = bs.remaining - 1
+                if bs.remaining <= 0 then
+                    self.burstState = nil
+                end
+            end
+            return  -- burst 期间不做其他动作
+        end
+
         -- 蓄力中：停止移动，倒计时结束后释放技能
         if self.casting and self.castingSkill then
             self.castTimer = self.castTimer + dt
             if self.castTimer >= self.castingSkill.castTime then
+                local skill = self.castingSkill
                 -- 蓄力完毕，释放伤害
-                EventBus.Emit("monster_skill", self, self.castingSkill)
+                EventBus.Emit("monster_skill", self, skill)
                 self.casting = false
                 self.castingSkill = nil
                 self.castTimer = 0
                 self.attackTimer = 0
+                -- 多段技能：进入 burst 状态
+                if skill.burstCount and skill.burstCount > 1 then
+                    self.burstState = {
+                        skill = skill,
+                        remaining = skill.burstCount - 1,
+                        interval = skill.burstInterval or 0.4,
+                        timer = 0,
+                    }
+                end
             end
             return  -- 蓄力期间不做其他动作
         end
@@ -1149,6 +1208,7 @@ function Monster:Respawn()
     self.casting = false
     self.castTimer = 0
     self.castingSkill = nil
+    self.burstState = nil
     self.healAccum = 0
     self.stuckTimer = 0
     self.stuckCheckTimer = 0

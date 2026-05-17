@@ -37,6 +37,7 @@ local YaochiWashUI_ = nil
 local EventExchangeUI_ = nil
 local XianshiRankUI_ = nil
 local SkinShopUI_ = nil
+local SwordPoolUI_ = nil
 local PrisonTowerUI_ = nil
 
 -- 通用对话面板（用于 villager 等无专属面板的 NPC）
@@ -167,6 +168,11 @@ end
 local function GetSkinShopUI()
     if not SkinShopUI_ then SkinShopUI_ = require("ui.SkinShopUI") end
     return SkinShopUI_
+end
+
+local function GetSwordPoolUI()
+    if not SwordPoolUI_ then SwordPoolUI_ = require("ui.SwordPoolUI") end
+    return SwordPoolUI_
 end
 
 --- 显示通用对话面板
@@ -307,6 +313,7 @@ function NPCDialog.Create(parentOverlay)
     GetEventExchangeUI().Create(parentOverlay)
     GetXianshiRankUI().Create(parentOverlay)
     GetSkinShopUI().Create(parentOverlay)
+    GetSwordPoolUI().Create(parentOverlay)
 end
 
 -- E-2: NPC 交互路由表（新增类型只需加一行）

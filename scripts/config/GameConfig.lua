@@ -15,7 +15,7 @@ GameConfig.DUNGEON_ENABLED = false
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
 GameConfig.CODE_VERSION = 4
-GameConfig.DISPLAY_VERSION = "v1.10.4"
+GameConfig.DISPLAY_VERSION = "v1.10.6"
 
 -- 地图设置
 GameConfig.TILE_SIZE = 128         -- 每个瓦片的逻辑像素大小（基准值，不要直接用于渲染）
@@ -221,6 +221,9 @@ GameConfig.PET_MATERIALS = {
     bagua_fragment_qian = { name = "卦象碎片·乾", icon = "icon_bagua_qian.png", sellPrice = 75000, quality = "red", desc = "文王八卦盘「乾卦」碎片，天道至刚之象。\n用途：集齐八片可重铸八卦盘。\n获取：司空正阳掉落（0.1%）" },
     -- 龙血草（四龙共享掉落，炼制龙血丹材料）
     dragon_blood_herb = { name = "龙血草", icon = "icon_dragon_blood_herb.png", sellPrice = 5000, quality = "orange", desc = "四龙体内孕育的灵草，通体殷红如血，散发淡淡龙威。\n用途：炼制龙血丹的必需材料。\n获取：四龙共享掉落（2%）" },
+    -- 第五章炼丹材料
+    sword_intent_crystal = { name = "剑星草", icon = "image/sword_intent_crystal_20260517094014.png", sellPrice = 3000, quality = "red", desc = "生长于太虚宗剑阵残迹中的灵草，叶脉似剑痕、根系含星光。\n用途：炼制太虚剑丹的必需材料。\n获取：太虚宗皇级BOSS掉落（1%）" },
+    abyss_seal_shard = { name = "地狱灵芝", icon = "image/abyss_seal_shard_20260517093954.png", sellPrice = 3000, quality = "red", desc = "深渊裂隙边缘滋生的暗红灵芝，汲取镇狱封印之力而生。\n用途：炼制狱甲丹的必需材料。\n获取：剑宫四仙剑/深渊BOSS掉落（1%）" },
     -- 龙神打造材料（四龙神各掉落一种，与龙血草共享2%掉率）
     dragon_scale_ice = { name = "封霜龙鳞", icon = "🧊", sellPrice = 10000, quality = "red", desc = "封霜应龙脱落的寒鳞，触之彻骨生寒，内蕴远古龙威。\n用途：圣器打造材料。\n获取：封霜应龙掉落（2%共享）" },
     dragon_scale_abyss = { name = "渊蛟龙骨", icon = "🦴", sellPrice = 10000, quality = "red", desc = "堕渊蛟龙的脊骨碎片，散发幽紫光芒，蕴含深渊之力。\n用途：圣器打造材料。\n获取：堕渊蛟龙掉落（1%）" },

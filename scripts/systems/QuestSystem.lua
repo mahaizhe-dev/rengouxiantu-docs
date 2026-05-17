@@ -428,8 +428,15 @@ function QuestSystem.GenerateQuestEquipment(tier, quality, excludeSlots)
     local mainValue, mainStatType = EquipmentUtils.CalcSlotMainStat(slot, tier, qualityConfig.multiplier)
     if not mainValue then return nil end
 
-    -- 生成副属性
-    local subStats = LootSystem.GenerateSubStats(qualityConfig.subStatCount, tier, mainStatType)
+    -- 生成副属性（传入品质，橙色以上副属性波动上移）
+    local subStats = LootSystem.GenerateSubStats(qualityConfig.subStatCount, tier, mainStatType, quality)
+
+    -- 灵性属性（青·灵器及以上品质，额外1条半值副属性）
+    local spiritStat = nil
+    local qualityOrder = GameConfig.QUALITY_ORDER[quality] or 1
+    if qualityOrder >= 6 then  -- cyan=6
+        spiritStat = LootSystem.GenerateSpiritStat(tier, mainStatType, quality)
+    end
 
     -- 装备名称
     local tierNames = EquipmentData.TIER_SLOT_NAMES[tier]
@@ -444,8 +451,15 @@ function QuestSystem.GenerateQuestEquipment(tier, quality, excludeSlots)
         tier = tier,
         mainStat = { [mainStatType] = mainValue },
         subStats = subStats,
+        spiritStat = spiritStat,
         sellPrice = math.floor(10 * tier * qualityConfig.multiplier),
     }
+
+    -- 青色（灵器）及以上品质：出售货币改为灵韵
+    if qualityOrder >= 6 then
+        item.sellCurrency = "lingYun"
+        item.sellPrice = math.max(1, tier - 4)
+    end
 
     return item
 end
@@ -730,7 +744,7 @@ function QuestSystem.ApplySeals(gameMap)
         -- 保底：关联任务链已完成时，强制同步封印状态为已解封
         -- 防止存档故障/恢复导致封印状态与任务完成状态不同步
         -- 🔴 排除 realmDriven 封印：这类封印由玩家手动交互解封，不随任务链完成自动解封
-        if not sealStates_[zoneId] and not sealData.realmDriven then
+        if not sealStates_[zoneId] and not sealData.realmDriven and not sealData.manualOnly then
             local chainState = questStates_[sealData.questChain]
             if chainState and chainState.completed then
                 sealStates_[zoneId] = true
@@ -770,6 +784,28 @@ function QuestSystem.ApplySeals(gameMap)
     end
 end
 
+--- 强制解封（供 SwordPoolSystem 等外部系统调用，无视任务/境界条件）
+--- 同时更新 sealStates_ 并移除地图瓦片
+---@param gameMap table|nil 传 nil 时仅更新状态不改瓦片
+---@param zoneId string
+function QuestSystem.ForceUnseal(gameMap, zoneId)
+    local sealData = QuestData.SEALS[zoneId]
+    if not sealData then return end
+
+    sealStates_[zoneId] = true
+
+    -- 只在封印所属章节修改瓦片，防止跨章节写入产生白色瓦片
+    local sealChapter = tonumber(zoneId:match("_ch(%d+)_")) or 5
+    if gameMap and GameState.currentChapter == sealChapter then
+        for _, tile in ipairs(sealData.sealTiles) do
+            gameMap:SetTile(tile.x, tile.y, sealData.originalTile or ActiveZoneData.Get().TILE.GRASS)
+        end
+    end
+
+    EventBus.Emit("seal_removed", zoneId)
+    print("[QuestSystem] ForceUnseal: " .. zoneId .. (GameState.currentChapter ~= sealChapter and " (state only, ch" .. GameState.currentChapter .. ")" or ""))
+end
+
 --- 移除封印瓦片（恢复可通行）
 ---@param gameMap table
 ---@param zoneId string
@@ -778,6 +814,13 @@ function QuestSystem.RemoveSealTiles(gameMap, zoneId)
 
     local sealData = QuestData.SEALS[zoneId]
     if not sealData then return end
+
+    -- 只在封印所属章节修改瓦片，防止跨章节写入产生白色瓦片
+    local sealChapter = tonumber(zoneId:match("_ch(%d+)_")) or 5
+    if GameState.currentChapter ~= sealChapter then
+        print("[QuestSystem] Seal tiles skip (ch" .. GameState.currentChapter .. "≠ch" .. sealChapter .. "): " .. zoneId)
+        return
+    end
 
     for _, tile in ipairs(sealData.sealTiles) do
         gameMap:SetTile(tile.x, tile.y, sealData.originalTile or ActiveZoneData.Get().TILE.GRASS)
@@ -811,10 +854,21 @@ function QuestSystem.Deserialize(data)
         end
     end
 
+    -- 🔴 修复：manualOnly 封印不信任存档状态，强制重置为 false
+    -- 这些封印由专用系统（如 SwordPoolSystem）管理，只有对应系统调用 RemoveSealTiles 才能解封
+    -- 防止旧存档中已错误标记为 true 的 manualOnly 封印继续生效
+    for zoneId, sealData in pairs(QuestData.SEALS) do
+        if sealData.manualOnly and sealStates_[zoneId] then
+            print("[QuestSystem] manualOnly seal reset from save: " .. zoneId)
+            sealStates_[zoneId] = false
+        end
+    end
+
     -- 一致性修复：任务已完成但封印未解除时，强制同步
     -- 🔴 排除 realmDriven 封印：这类封印由玩家手动交互解封，不随任务链完成自动解封
+    -- 🔴 排除 manualOnly 封印：这类封印由专用系统（如 SwordPoolSystem）管理，不随任务链完成自动解封
     for zoneId, sealData in pairs(QuestData.SEALS) do
-        if not sealStates_[zoneId] and not sealData.realmDriven then
+        if not sealStates_[zoneId] and not sealData.realmDriven and not sealData.manualOnly then
             local chainState = questStates_[sealData.questChain]
             if chainState and chainState.completed then
                 sealStates_[zoneId] = true
@@ -845,8 +899,9 @@ function QuestSystem.ForceCompleteChain(chainId)
     state.completed = true
 
     -- 解除该任务链关联的所有封印
+    -- 🔴 排除 manualOnly 封印：这类封印由专用系统管理（如四剑封印由 SwordPoolSystem 控制）
     for zoneId, sealData in pairs(QuestData.SEALS) do
-        if sealData.questChain == chainId and not sealStates_[zoneId] then
+        if sealData.questChain == chainId and not sealStates_[zoneId] and not sealData.manualOnly then
             sealStates_[zoneId] = true
             EventBus.Emit("seal_removed", zoneId)
             print("[QuestSystem] Seal force-removed: " .. zoneId)

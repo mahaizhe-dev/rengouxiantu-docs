@@ -175,8 +175,21 @@ local function GetSpecialEffectDesc(eff)
     elseif eff.type == "death_immunity" then
         return string.format("受致命伤害%.0f%%概率免死，保留1点生命并无敌%.1f秒",
             (eff.immuneChance or 0) * 100, eff.immuneDuration or 1.0)
+    elseif eff.type == "zhuxian" then
+        return string.format("暴击时，追加一次%.0f%%攻击力的额外伤害",
+            (eff.damagePercent or 0.30) * 100)
+    elseif eff.type == "xianxian" then
+        return string.format("生命>%.0f%%时暴击伤害+%.0f%%；生命≤%.0f%%时每秒恢复%.0f%%最大生命",
+            (eff.highHpThreshold or 0.50) * 100, (eff.critDmgBonus or 0.50) * 100,
+            (eff.highHpThreshold or 0.50) * 100, (eff.lowHpRegenPercent or 0.02) * 100)
+    elseif eff.type == "luxian" then
+        return string.format("重击时，额外追加一次%.0f%%攻击力的伤害",
+            (eff.damagePercent or 1.00) * 100)
+    elseif eff.type == "juexian" then
+        return string.format("每次攻击获得1层绝命，每层攻击力+%.0f%%，最多%d层，持续%.0f秒",
+            (eff.stackPercent or 0.03) * 100, eff.maxStacks or 5, eff.duration or 4.0)
     else
-        return eff.description or (eff.name or "特殊效果")
+        return eff.description or eff.desc or (eff.name or "特殊效果")
     end
 end
 

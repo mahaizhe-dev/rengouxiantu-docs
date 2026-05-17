@@ -13,18 +13,18 @@ sword_plaza.regions = {
 
 sword_plaza.npcs = {}
 sword_plaza.spawns = {
-    -- 普通怪：同门残魂 ×5（散布试剑场）
-    { type = "ch5_sword_ghost",   x = 8.5,  y = 6.5  },
-    { type = "ch5_sword_ghost",   x = 15.5, y = 7.5  },
-    { type = "ch5_sword_ghost",   x = 9.5,  y = 11.5 },
-    { type = "ch5_sword_ghost",   x = 17.5, y = 10.5 },
-    { type = "ch5_sword_ghost",   x = 6.5,  y = 9.5  },
-    -- 精英怪：论剑残影 ×3（场地中部）
-    { type = "ch5_sword_shadow",  x = 13.5, y = 9.5  },
-    { type = "ch5_sword_shadow",  x = 11.5, y = 12.5 },
-    { type = "ch5_sword_shadow",  x = 18.5, y = 13.5 },
-    -- BOSS：裴千岳 ×1（深处）
-    { type = "ch5_pei_qianyue",   x = 12.5, y = 14.5 },
+    -- 普通怪：同门残魂 ×5（均匀散布）
+    { type = "ch5_sword_ghost",   x = 16.5, y = 6.5  },
+    { type = "ch5_sword_ghost",   x = 7.5,  y = 11.5 },
+    { type = "ch5_sword_ghost",   x = 18.5, y = 11.5 },
+    { type = "ch5_sword_ghost",   x = 13.5, y = 13.5 },
+    { type = "ch5_sword_ghost",   x = 10.5, y = 8.5  },
+    -- 精英怪：论剑残影 ×3（均匀散布）
+    { type = "ch5_sword_shadow",  x = 15.5, y = 9.5  },
+    { type = "ch5_sword_shadow",  x = 8.5,  y = 14.5 },
+    { type = "ch5_sword_shadow",  x = 18.5, y = 14.5 },
+    -- BOSS：裴千岳 ×1（左上半区）
+    { type = "ch5_pei_qianyue",   x = 7.5,  y = 6.5  },
 }
 sword_plaza.decorations = {
     -- 问剑坪：断裂石柱与碑残

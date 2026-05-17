@@ -421,11 +421,11 @@ function GameMap:BuildCh5Terrain()
     local palCx = math.floor((palace.x1 + palace.x2) / 2)
     local palCy = math.floor((palace.y1 + palace.y2) / 2)
 
-    -- 中央血池
+    -- 中央祀剑池底色（红地毯）
     for dy = -1, 1 do
         for dx = -2, 2 do
             if math.abs(dx) + math.abs(dy) <= 3 then
-                safeTile(self, palCx + dx, palCy + dy, T.CH5_BLOOD_RITUAL)
+                safeTile(self, palCx + dx, palCy + dy, T.CH5_SEAL_CARPET)
             end
         end
     end
@@ -655,7 +655,7 @@ function GameMap:BuildCh5Terrain()
     -- 从剑宫四角向外突出到虚空中
     -- ================================================================
     local bossSize = 12
-    local bossWall = 2
+    local bossWall = 1
 
     -- palace = {x1=26, y1=23, x2=54, y2=42}
     -- 上方BOSS房：突出到palace上方的虚空（y1-4到y1+7）
@@ -672,52 +672,66 @@ function GameMap:BuildCh5Terrain()
     }
     for _, room in ipairs(bossRooms) do
         local rx, ry = room.x, room.y
-        -- 12×12：先画墙再画内部
+        -- 12×12 外框不变，墙厚1，内部10×10
         for dy = 0, bossSize - 1 do
             for dx = 0, bossSize - 1 do
                 local isW = (dx < bossWall or dx >= bossSize - bossWall
                           or dy < bossWall or dy >= bossSize - bossWall)
                 if isW then
-                    safeTile(self, rx + dx, ry + dy, T.CH5_WALL)
+                    safeTile(self, rx + dx, ry + dy, T.CH5_SEAL_WALL)
                 else
-                    safeTile(self, rx + dx, ry + dy, T.CH5_BLOOD_RITUAL)
+                    safeTile(self, rx + dx, ry + dy, T.CH5_PALACE_WHITE)
                 end
             end
         end
-        -- 门洞：3格宽
-        local doorCX = rx + math.floor(bossSize / 2)
-        local doorCY = ry + math.floor(bossSize / 2)
+        -- 门洞：仅开墙上2格，不向外延伸
+        local doorCX = rx + math.floor(bossSize / 2) - 1
+        local doorCY = ry + math.floor(bossSize / 2) - 1
         local ds = room.doorSide
-        -- 右墙开门
+        -- 右墙开门 + 门柱
         if ds == "rb" or ds == "rt" then
-            for d = -1, 1 do
-                for w = 0, bossWall - 1 do
-                    safeTile(self, rx + bossSize - 1 - w, doorCY + d, T.CH5_BLOOD_RITUAL)
-                end
+            for d = 0, 1 do
+                safeTile(self, rx + bossSize - 1, doorCY + d, T.CH5_PALACE_WHITE)
             end
+            -- 门洞两侧各1格向内延伸（门柱）
+            safeTile(self, rx + bossSize - 2, doorCY - 1, T.CH5_SEAL_WALL)
+            safeTile(self, rx + bossSize - 2, doorCY + 2, T.CH5_SEAL_WALL)
         end
-        -- 左墙开门
+        -- 左墙开门 + 门柱
         if ds == "lb" or ds == "lt" then
-            for d = -1, 1 do
-                for w = 0, bossWall - 1 do
-                    safeTile(self, rx + w, doorCY + d, T.CH5_BLOOD_RITUAL)
-                end
+            for d = 0, 1 do
+                safeTile(self, rx, doorCY + d, T.CH5_PALACE_WHITE)
             end
+            safeTile(self, rx + 1, doorCY - 1, T.CH5_SEAL_WALL)
+            safeTile(self, rx + 1, doorCY + 2, T.CH5_SEAL_WALL)
         end
-        -- 下墙开门
+        -- 下墙开门 + 门柱
         if ds == "rb" or ds == "lb" then
-            for d = -1, 1 do
-                for w = 0, bossWall - 1 do
-                    safeTile(self, doorCX + d, ry + bossSize - 1 - w, T.CH5_BLOOD_RITUAL)
-                end
+            for d = 0, 1 do
+                safeTile(self, doorCX + d, ry + bossSize - 1, T.CH5_PALACE_WHITE)
+            end
+            safeTile(self, doorCX - 1, ry + bossSize - 2, T.CH5_SEAL_WALL)
+            safeTile(self, doorCX + 2, ry + bossSize - 2, T.CH5_SEAL_WALL)
+        end
+        -- 上墙开门 + 门柱
+        if ds == "rt" or ds == "lt" then
+            for d = 0, 1 do
+                safeTile(self, doorCX + d, ry, T.CH5_PALACE_WHITE)
+            end
+            safeTile(self, doorCX - 1, ry + 1, T.CH5_SEAL_WALL)
+            safeTile(self, doorCX + 2, ry + 1, T.CH5_SEAL_WALL)
+        end
+
+        -- 中央6×6封印地毯
+        for dy = 3, 8 do
+            for dx = 3, 8 do
+                safeTile(self, rx + dx, ry + dy, T.CH5_SEAL_CARPET)
             end
         end
-        -- 上墙开门
-        if ds == "rt" or ds == "lt" then
-            for d = -1, 1 do
-                for w = 0, bossWall - 1 do
-                    safeTile(self, doorCX + d, ry + w, T.CH5_BLOOD_RITUAL)
-                end
+        -- 正中央2×2红地毯
+        for dy = 5, 6 do
+            for dx = 5, 6 do
+                safeTile(self, rx + dx, ry + dy, T.CH5_SEAL_CARPET)
             end
         end
     end
@@ -725,6 +739,9 @@ function GameMap:BuildCh5Terrain()
     -- ================================================================
     -- Step 3.9a: 手工坐标修正（移除指定阻隔 / 虚空 / 替换地板）
     -- ================================================================
+
+    -- Boss房门口封印墙由 QuestSystem.ApplySeals() 统一管理（QuestData_ch5.lua sealTiles）
+    -- 不在此处放置，避免被 ApplySeals 覆盖导致瓦片消失
 
     -- 任务2：移除 (21,34)(22,34) 阻隔，替换为桥面
     safeTile(self, 21, 34, T.CH5_BRIDGE)
@@ -745,6 +762,10 @@ function GameMap:BuildCh5Terrain()
         for dx = -1, 1 do
             safeTile(self, palCx + dx, palCy + dy, T.CH5_BLOOD_POOL)
         end
+    end
+    -- 祀剑池下方一排红地毯 (38~42, 34)
+    for dx = -2, 2 do
+        safeTile(self, palCx + dx, palCy + 2, T.CH5_SEAL_CARPET)
     end
 
     -- 任务6：铸剑地炉 3×3（地炉中央，fgCx=10, fgCy=27）

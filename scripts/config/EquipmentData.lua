@@ -731,12 +731,6 @@ EquipmentData.SpecialEquipment = {
             { stat = "hpRegen", name = "生命回复", value = 3.5 },   -- 0.5 × 7.0 = 3.5
         },
         spiritStat = { stat = "critRate", name = "暴击率", value = 0.019 }, -- 0.01 × 3.8(PCT_SUB_T7) × 0.5 = 0.019
-        specialEffect = {
-            type = "sand_shield",
-            name = "流沙缠护",
-            triggerChance = 0.15,    -- 15%概率受击时触发
-            damageReduction = 0.25,  -- 减少25%本次伤害
-        },
     },
 
     -- 烈焰狮王掉落：T7橙色披风（王级BOSS，含特效）
@@ -1783,18 +1777,23 @@ EquipmentData.SpecialEquipment = {
         name = "封印古剑·诛仙",
         desc = "诛仙剑灵封印后残余的剑身，虽失锋芒，仍余诛杀之意。",
         slot = "weapon",
-        icon = "icon_fengyin_zhuxian_ch5.png",
+        icon = "image/icon_fengyin_zhuxian_ch5_20260517105215.png",
         quality = "cyan",
         tier = 10,
         sellPrice = 5,
         sellCurrency = "lingYun",
-        mainStat = { atk = 189 },  -- 5 × 21.0 × 1.8 = 189（weapon BASE=5）
+        mainStat = { atk = 189 },
         subStats = {
-            { stat = "critRate", name = "暴击率", value = 0.075 },   -- 0.01 × 7.5 = 0.075
-            { stat = "critDmg", name = "暴击伤害", value = 0.375 },  -- 0.05 × 7.5 = 0.375
-            { stat = "wisdom", name = "悟性", value = 18 },          -- floor(10 × 1.8) = 18
+            { stat = "critDmg", name = "暴击伤害", value = 0.375 },
+            { stat = "critDmg", name = "暴击伤害", value = 0.375 },
+            { stat = "atk", name = "攻击力", value = 19.5 },
         },
-        spiritStat = { stat = "fortune", name = "福缘", value = 9 }, -- floor(10×1.8×0.5) = 9
+        specialEffect = {
+            type = "zhuxian",
+            name = "诛仙",
+            desc = "暴击时，追加一次30%攻击力的伤害",
+            damagePercent = 0.30,
+        },
     },
 
     -- 封印古剑·陷仙（陷仙剑Boss掉落）：T10 青/灵器 武器
@@ -1802,18 +1801,25 @@ EquipmentData.SpecialEquipment = {
         name = "封印古剑·陷仙",
         desc = "陷仙剑灵封印后残余的剑身，困敌之力犹存，触之即陷。",
         slot = "weapon",
-        icon = "icon_fengyin_xianxian_ch5.png",
+        icon = "image/icon_fengyin_xianxian_ch5_20260517110530.png",
         quality = "cyan",
         tier = 10,
         sellPrice = 5,
         sellCurrency = "lingYun",
-        mainStat = { atk = 189 },  -- 5 × 21.0 × 1.8 = 189（weapon BASE=5）
+        mainStat = { atk = 189 },
         subStats = {
-            { stat = "def", name = "防御力", value = 15.6 },         -- 1.2 × 13.0 = 15.6
-            { stat = "maxHp", name = "生命值", value = 78 },         -- 6 × 13.0 = 78
-            { stat = "constitution", name = "根骨", value = 18 },    -- floor(10 × 1.8) = 18
+            { stat = "physique", name = "体魄", value = 18 },
+            { stat = "maxHp", name = "生命值", value = 78 },
+            { stat = "critRate", name = "暴击率", value = 0.075 },
         },
-        spiritStat = { stat = "fortune", name = "福缘", value = 9 }, -- floor(10×1.8×0.5) = 9
+        specialEffect = {
+            type = "xianxian",
+            name = "陷仙",
+            desc = "生命>50%时暴击伤害+50%；生命≤50%时每秒恢复2%最大生命",
+            highHpThreshold = 0.50,
+            critDmgBonus = 0.50,
+            lowHpRegenPercent = 0.02,
+        },
     },
 
     -- 封印古剑·戮仙（戮仙剑Boss掉落）：T10 青/灵器 武器
@@ -1821,18 +1827,23 @@ EquipmentData.SpecialEquipment = {
         name = "封印古剑·戮仙",
         desc = "戮仙剑灵封印后残余的剑身，嗜杀本能未泯，血气缠绕。",
         slot = "weapon",
-        icon = "icon_fengyin_luxian_ch5.png",
+        icon = "image/icon_fengyin_luxian_ch5_20260517105218.png",
         quality = "cyan",
         tier = 10,
         sellPrice = 5,
         sellCurrency = "lingYun",
-        mainStat = { atk = 189 },  -- 5 × 21.0 × 1.8 = 189（weapon BASE=5）
+        mainStat = { atk = 189 },
         subStats = {
-            { stat = "atk", name = "攻击力", value = 19.5 },        -- 1.5 × 13.0 = 19.5
-            { stat = "heavyHit", name = "重击伤害", value = 104 },   -- 8 × 13.0 = 104
-            { stat = "physique", name = "体魄", value = 18 },        -- floor(10 × 1.8) = 18
+            { stat = "constitution", name = "根骨", value = 18 },
+            { stat = "heavyHit", name = "重击伤害", value = 104 },
+            { stat = "atk", name = "攻击力", value = 19.5 },
         },
-        spiritStat = { stat = "fortune", name = "福缘", value = 9 }, -- floor(10×1.8×0.5) = 9
+        specialEffect = {
+            type = "luxian",
+            name = "戮仙",
+            desc = "重击时，额外追加一次100%攻击力的伤害",
+            damagePercent = 1.00,
+        },
     },
 
     -- 封印古剑·绝仙（绝仙剑Boss掉落）：T10 青/灵器 武器
@@ -1840,7 +1851,7 @@ EquipmentData.SpecialEquipment = {
         name = "封印古剑·绝仙",
         desc = "绝仙剑灵封印后残余的剑身，绝灭之力沉睡其中，不可轻触。",
         slot = "weapon",
-        icon = "icon_fengyin_juexian_ch5.png",
+        icon = "image/icon_fengyin_juexian_ch5_20260517110452.png",
         quality = "cyan",
         tier = 10,
         sellPrice = 5,
@@ -1848,10 +1859,17 @@ EquipmentData.SpecialEquipment = {
         mainStat = { atk = 189 },  -- 5 × 21.0 × 1.8 = 189（weapon BASE=5）
         subStats = {
             { stat = "killHeal", name = "击杀回血", value = 39 },    -- 3 × 13.0 = 39
-            { stat = "hpRegen", name = "生命回复", value = 6.5 },    -- 0.5 × 13.0 = 6.5
-            { stat = "fortune", name = "福缘", value = 18 },         -- floor(10 × 1.8) = 18
+            { stat = "atk", name = "攻击力", value = 19.5 },         -- 1.5 × 13.0 = 19.5
+            { stat = "atk", name = "攻击力", value = 19.5 },         -- 1.5 × 13.0 = 19.5
         },
-        spiritStat = { stat = "fortune", name = "福缘", value = 9 }, -- floor(10×1.8×0.5) = 9
+        specialEffect = {
+            type = "juexian",
+            name = "绝仙",
+            desc = "每次攻击获得1层绝命，每层攻击+3%，最多5层，持续4秒",
+            stackPercent = 0.03,   -- 每层+3%攻击
+            maxStacks = 5,         -- 最多5层
+            duration = 4.0,        -- 持续4秒，命中刷新
+        },
     },
 }
 

@@ -23,6 +23,9 @@ local VALID_PILL_IDS = {
     ningxi_dan = true,   -- 凝息丹
     -- 第四章丹药
     dragon_blood = true, -- 龙血丹
+    -- 第五章丹药
+    sword_intent = true, -- 太虚剑丹（+攻击）
+    abyss_seal = true,   -- 狱甲丹（+防御）
 }
 
 --- 供基线测试访问

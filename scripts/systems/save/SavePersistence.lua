@@ -192,6 +192,10 @@ function SavePersistence.DoSave(slot, callback, epoch)
             local SeaPillarSystem = require("systems.SeaPillarSystem")
             return SeaPillarSystem.Serialize()
         end)(),
+        swordPool = (function()
+            local SwordPoolSystem = require("systems.SwordPoolSystem")
+            return SwordPoolSystem.Serialize()
+        end)(),
         prisonTower = (function()
             local PrisonTowerSystem = require("systems.PrisonTowerSystem")
             return PrisonTowerSystem.Serialize()

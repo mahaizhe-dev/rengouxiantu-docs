@@ -339,6 +339,95 @@ EFFECT_HANDLERS["hp_regen_percent"] = {
     end,
 }
 
+-- ── 诛仙（暴击追加30%ATK伤害，无CD，附加伤害不二次触发） ──
+local FT_ZHUXIAN = {200, 50, 50, 255}  -- 深红
+EFFECT_HANDLERS["zhuxian"] = {
+    onHit = function(eff, player, monster, isCrit)
+        if not isCrit then return end
+        if not monster.alive then return end
+        local dmg = math_max(1, math_floor(player:GetTotalAtk() * (eff.damagePercent or 0.30)))
+        local actualDmg = HitResolver.NoCrit(player, monster, dmg)
+        CombatSystem.AddFloatingText(
+            monster.x, monster.y - 0.9,
+            "诛仙 " .. actualDmg,
+            FT_ZHUXIAN, 1.3
+        )
+        print("[Combat] 诛仙! " .. actualDmg)
+    end,
+}
+
+-- ── 陷仙（HP>50%暴伤+50%；HP≤50%每秒恢复2%最大生命，互斥） ──
+local FT_XIANXIAN = {100, 180, 255, 255}  -- 冰蓝
+EFFECT_HANDLERS["xianxian"] = {
+    update = function(dt)
+        local player = GameState.player
+        if not player or not player.alive then return end
+        local effects = player.equipSpecialEffects
+        if not effects then return end
+        for _, eff in ipairs(effects) do
+            if eff.type == "xianxian" then
+                local maxHp = player:GetTotalMaxHp()
+                local hpRatio = player.hp / maxHp
+                if hpRatio > (eff.highHpThreshold or 0.50) then
+                    -- 高血量状态：暴伤加成（存入实例字段，由属性系统读取）
+                    eff._active = "high"
+                    eff._critDmgBuff = eff.critDmgBonus or 0.50
+                else
+                    -- 低血量状态：每秒回血
+                    eff._active = "low"
+                    eff._critDmgBuff = 0
+                    local heal = maxHp * (eff.lowHpRegenPercent or 0.02) * dt
+                    player.hp = math_min(maxHp, player.hp + heal)
+                end
+            end
+        end
+    end,
+}
+
+-- ── 戮仙（重击时追加100%ATK伤害，附加伤害不二次触发） ──
+-- 实际触发点在 CombatSystem.Init() 中通过 EventBus "player_heavy_hit" 注册
+local FT_LUXIAN = {255, 120, 40, 255}  -- 橙红
+EFFECT_HANDLERS["luxian"] = {}
+
+-- ── 绝仙（每次攻击+1层绝命，ATK+3%/层，最多5层，4秒持续，命中刷新） ──
+local FT_JUEXIAN = {180, 0, 220, 255}  -- 暗紫
+EFFECT_HANDLERS["juexian"] = {
+    onHit = function(eff, player, _monster, _isCrit)
+        local maxStacks = eff.maxStacks or 5
+        local stacks = eff._stacks or 0
+        stacks = math_min(maxStacks, stacks + 1)
+        eff._stacks = stacks
+        eff._timer = eff.duration or 4.0  -- 命中刷新计时
+        eff._atkBonus = (eff.stackPercent or 0.03) * stacks
+        CombatSystem.AddFloatingText(
+            player.x, player.y - 0.3,
+            "绝命 " .. stacks .. "/" .. maxStacks,
+            FT_JUEXIAN, 0.6
+        )
+    end,
+    update = function(dt)
+        local player = GameState.player
+        if not player or not player.alive then return end
+        local effects = player.equipSpecialEffects
+        if not effects then return end
+        for _, eff in ipairs(effects) do
+            if eff.type == "juexian" and (eff._stacks or 0) > 0 then
+                eff._timer = (eff._timer or 0) - dt
+                if eff._timer <= 0 then
+                    eff._stacks = 0
+                    eff._atkBonus = 0
+                    eff._timer = 0
+                    CombatSystem.AddFloatingText(
+                        player.x, player.y - 0.3,
+                        "绝命消散",
+                        FT_JUEXIAN, 0.8
+                    )
+                end
+            end
+        end
+    end,
+}
+
 -- ── 装备特效分派函数 ──
 
 --- 攻击命中时触发所有装备特效
@@ -443,6 +532,27 @@ function CombatSystem.Init()
         -- 清除死亡怪物的血怒层数
         if monster.id then
             CombatSystem.bloodRageStacks[monster.id] = nil
+        end
+    end)
+
+    -- 戮仙：重击时追加100%ATK伤害（必须在Init中注册，否则会被EventBus.Clear()清除）
+    EventBus.On("player_heavy_hit", function(player, monster)
+        if not player or not player.alive then return end
+        if not monster or not monster.alive then return end
+        local effects = player.equipSpecialEffects
+        if not effects then return end
+        for _, eff in ipairs(effects) do
+            if eff.type == "luxian" then
+                local dmg = math_max(1, math_floor(player:GetTotalAtk() * (eff.damagePercent or 1.00)))
+                local actualDmg = HitResolver.NoCrit(player, monster, dmg)
+                CombatSystem.AddFloatingText(
+                    monster.x, monster.y - 0.9,
+                    "戮仙 " .. actualDmg,
+                    FT_LUXIAN, 1.3
+                )
+                print("[Combat] 戮仙! " .. actualDmg)
+                break
+            end
         end
     end)
 

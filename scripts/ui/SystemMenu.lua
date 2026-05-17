@@ -70,6 +70,7 @@ local CATEGORY_NAMES = {
     boss         = "首领",
     king_boss    = "王者",
     emperor_boss = "皇级",
+    saint_boss   = "圣级",
 }
 
 local CATEGORY_COLORS = {
@@ -78,6 +79,7 @@ local CATEGORY_COLORS = {
     boss         = {255, 165, 0, 255},
     king_boss    = {255, 50, 50, 255},
     emperor_boss = {255, 215, 0, 255},
+    saint_boss   = {180, 230, 255, 255},
 }
 
 --- 获取消耗品显示名称
@@ -181,7 +183,7 @@ local function BuildDropSummary(monster)
         elseif entry.type == "world_drop" and entry.pool then
             local pool = MonsterData.WORLD_DROP_POOLS[entry.pool]
             local cat = monster.category or "normal"
-            local isBoss = (cat == "boss" or cat == "king_boss" or cat == "emperor_boss")
+            local isBoss = (cat == "boss" or cat == "king_boss" or cat == "emperor_boss" or cat == "saint_boss")
             if pool and pool.items then
                 for _, pItem in ipairs(pool.items) do
                     if pItem.bossOnly and not isBoss then
@@ -245,7 +247,7 @@ local function BuildDropSummary(monster)
     if hasRandomEquip then
         local mLevel = monster.level or (monster.levelRange and monster.levelRange[2]) or 1
         local cat = monster.category or "normal"
-        local isEliteOrBoss = (cat == "elite" or cat == "boss" or cat == "king_boss" or cat == "emperor_boss")
+        local isEliteOrBoss = (cat == "elite" or cat == "boss" or cat == "king_boss" or cat == "emperor_boss" or cat == "saint_boss")
         local tiers = GetAvailableTiers(mLevel)
         if monster.tierOnly then
             -- 强制指定Tier（如沙万里仅掉T7）
@@ -355,7 +357,7 @@ local function BuildBestiaryContent(chapterIndex)
             local lb = b.data.level or (b.data.levelRange and b.data.levelRange[1]) or 0
             if la ~= lb then return la < lb end
             -- 同等级按 category 排序
-            local catOrder = { normal = 1, elite = 2, boss = 3, king_boss = 4, emperor_boss = 5 }
+            local catOrder = { normal = 1, elite = 2, boss = 3, king_boss = 4, emperor_boss = 5, saint_boss = 6 }
             return (catOrder[a.data.category] or 0) < (catOrder[b.data.category] or 0)
         end)
     end

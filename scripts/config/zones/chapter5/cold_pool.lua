@@ -13,18 +13,18 @@ cold_pool.regions = {
 
 cold_pool.npcs = {}
 cold_pool.spawns = {
-    -- 普通怪：寒池灵鹤 ×5（池岸散布）
-    { type = "ch5_cold_crane",    x = 63.5, y = 6.5  },
-    { type = "ch5_cold_crane",    x = 71.5, y = 7.5  },
-    { type = "ch5_cold_crane",    x = 64.5, y = 11.5 },
-    { type = "ch5_cold_crane",    x = 72.5, y = 10.5 },
-    { type = "ch5_cold_crane",    x = 67.5, y = 13.5 },
-    -- 精英怪：裂冰玄鼋 ×3（池心两侧）
-    { type = "ch5_ice_turtle",    x = 65.5, y = 9.5  },
-    { type = "ch5_ice_turtle",    x = 70.5, y = 12.5 },
-    { type = "ch5_ice_turtle",    x = 62.5, y = 7.5  },
-    -- BOSS：洗剑霜鸾 ×1（深处）
-    { type = "ch5_frost_luan",    x = 68.5, y = 14.5 },
+    -- 普通怪：寒池灵鹤 ×5（均匀散布）
+    { type = "ch5_cold_crane",    x = 62.5, y = 7.5  },
+    { type = "ch5_cold_crane",    x = 67.5, y = 11.5 },
+    { type = "ch5_cold_crane",    x = 61.5, y = 13.5 },
+    { type = "ch5_cold_crane",    x = 72.5, y = 12.5 },
+    { type = "ch5_cold_crane",    x = 69.5, y = 8.5  },
+    -- 精英怪：裂冰玄鼋 ×3（均匀散布）
+    { type = "ch5_ice_turtle",    x = 64.5, y = 9.5  },
+    { type = "ch5_ice_turtle",    x = 73.5, y = 14.5 },
+    { type = "ch5_ice_turtle",    x = 66.5, y = 14.5 },
+    -- BOSS：洗剑霜鸾 ×1（右上半区）
+    { type = "ch5_frost_luan",    x = 73.5, y = 6.5  },
 }
 cold_pool.decorations = {
     -- 洗剑寒池：冰棱与寒气

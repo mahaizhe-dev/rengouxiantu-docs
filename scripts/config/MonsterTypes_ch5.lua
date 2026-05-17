@@ -133,6 +133,7 @@ M.Types.ch5_pei_qianyue = {
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },
         { chance = 0.02, type = "equipment", equipId = "wenfeng_necklace_ch5" },  -- 闻风玉坠2%（灵器）
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
+        { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -209,6 +210,7 @@ M.Types.ch5_frost_luan = {
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },
         { chance = 0.02, type = "equipment", equipId = "hanchi_ring_ch5" },  -- 寒池灵戒2%（灵器）
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
+        { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -285,6 +287,7 @@ M.Types.ch5_han_bailian = {
         { chance = 0.01, type = "equipment", equipId = "bailian_belt_ch5" },  -- 百炼熔带1%（橙）
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.01, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹1%（皇级）
+        { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -361,6 +364,7 @@ M.Types.ch5_shi_guanlan = {
         { chance = 0.01, type = "equipment", equipId = "guanlan_necklace_ch5" },  -- 观澜碑坠1%（橙）
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.01, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹1%（皇级）
+        { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -438,6 +442,7 @@ M.Types.ch5_ning_qiwu = {
         { chance = 0.005, type = "equipment", equipId = "suxin_ring_ch5" },  -- 宿心残戒0.5%（橙）共享1%二选一
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.01, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹1%（皇级）
+        { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -498,6 +503,7 @@ M.Types.ch5_wen_suzhang = {
         { chance = 0.005, type = "equipment", equipId = "cangzhen_helmet_ch5" },  -- 藏真玄冠0.5%（灵器）共享1%二选一
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.01, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹1%（皇级）
+        { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -575,6 +581,7 @@ M.Types.ch5_abyss_marshal = {
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },  -- 帝尊伍戒0.5%
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.02, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹2%（血犼）
+        { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -587,7 +594,7 @@ M.Types.ch5_abyss_marshal = {
 M.Types.ch5_sword_zhu = {
     name = "诛仙剑",
     icon = "⚔️",
-    portrait = "Textures/monster_sword_zhu.png",
+    portrait = "image/monster_sword_zhu_20260517104708.png",
     zone = "ch5_sword_palace",
     category = "saint_boss",
     race = "immortal_sword",
@@ -598,11 +605,20 @@ M.Types.ch5_sword_zhu = {
     skillTextColor = {255, 100, 80, 255},
     warningColorOverride = {220, 60, 40, 120},
     phases = 3,
-    skills = {},
+    stationary = true,
+    attackRange = 6.0,
+    groundSpike = {
+        warningTime = 0.3,
+        warningRange = 0.8,
+        warningColor = {200, 60, 40, 150},
+    },
+    skills = { "ch5_zhu_line", "ch5_zhu_cross_slash", "ch5_zhu_cross", "ch5_zhu_tracking" },
     phaseConfig = {
         { threshold = 0.7, atkMult = 1.3, speedMult = 1.2,
+          triggerSkill = "ch5_zhu_transition", addSkill = "ch5_zhu_core",
           announce = "诛仙剑嗡鸣震天，杀意弥漫！" },
         { threshold = 0.3, atkMult = 2.0, speedMult = 1.6, intervalMult = 0.4,
+          triggerSkill = "ch5_zhu_field",
           announce = "诛仙剑意——万物皆可诛！" },
     },
     tierOnly = 10,
@@ -616,6 +632,7 @@ M.Types.ch5_sword_zhu = {
         { chance = 0.005, type = "equipment", equipId = "fengyin_zhuxian_ch5" },   -- 封印·诛仙0.5%
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.03, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹3%（四剑）
+        { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -623,7 +640,7 @@ M.Types.ch5_sword_zhu = {
 M.Types.ch5_sword_xian = {
     name = "陷仙剑",
     icon = "⚔️",
-    portrait = "Textures/monster_sword_xian.png",
+    portrait = "image/monster_sword_xian_20260517104710.png",
     zone = "ch5_sword_palace",
     category = "saint_boss",
     race = "immortal_sword",
@@ -634,11 +651,20 @@ M.Types.ch5_sword_xian = {
     skillTextColor = {80, 100, 255, 255},
     warningColorOverride = {40, 60, 220, 120},
     phases = 3,
-    skills = {},
+    stationary = true,
+    attackRange = 6.0,
+    groundSpike = {
+        warningTime = 0.3,
+        warningRange = 0.8,
+        warningColor = {40, 80, 200, 150},
+    },
+    skills = { "ch5_xian_frost_ring", "ch5_xian_mirror_slash", "ch5_xian_ice_prison", "ch5_xian_mirror_barrage" },
     phaseConfig = {
         { threshold = 0.7, atkMult = 1.3, speedMult = 1.2,
+          triggerSkill = "ch5_xian_transition", addSkill = "ch5_xian_core",
           announce = "陷仙剑布下陷阱，天罗地网！" },
         { threshold = 0.3, atkMult = 2.0, speedMult = 1.6, intervalMult = 0.4,
+          triggerSkill = "ch5_xian_field",
           announce = "陷仙剑意——陷天陷地陷众生！" },
     },
     tierOnly = 10,
@@ -652,6 +678,7 @@ M.Types.ch5_sword_xian = {
         { chance = 0.005, type = "equipment", equipId = "fengyin_xianxian_ch5" }, -- 封印·陷仙0.5%
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.03, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹3%（四剑）
+        { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -659,7 +686,7 @@ M.Types.ch5_sword_xian = {
 M.Types.ch5_sword_lu = {
     name = "戮仙剑",
     icon = "⚔️",
-    portrait = "Textures/monster_sword_lu.png",
+    portrait = "image/edited_monster_sword_lu_20260517105112.png",
     zone = "ch5_sword_palace",
     category = "saint_boss",
     race = "immortal_sword",
@@ -670,11 +697,20 @@ M.Types.ch5_sword_lu = {
     skillTextColor = {80, 220, 80, 255},
     warningColorOverride = {40, 180, 40, 120},
     phases = 3,
-    skills = {},
+    stationary = true,
+    attackRange = 6.0,
+    groundSpike = {
+        warningTime = 0.3,
+        warningRange = 0.8,
+        warningColor = {60, 180, 60, 150},
+    },
+    skills = { "ch5_lu_fire_vent", "ch5_lu_fire_ring", "ch5_lu_sword_rain", "ch5_lu_melt_line" },
     phaseConfig = {
         { threshold = 0.7, atkMult = 1.3, speedMult = 1.2,
+          triggerSkill = "ch5_lu_transition", addSkill = "ch5_lu_core",
           announce = "戮仙剑杀气冲天，血雾弥漫！" },
         { threshold = 0.3, atkMult = 2.0, speedMult = 1.6, intervalMult = 0.4,
+          triggerSkill = "ch5_lu_field",
           announce = "戮仙剑意——戮尽仙魔不留痕！" },
     },
     tierOnly = 10,
@@ -688,6 +724,7 @@ M.Types.ch5_sword_lu = {
         { chance = 0.005, type = "equipment", equipId = "fengyin_luxian_ch5" },   -- 封印·戮仙0.5%
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.03, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹3%（四剑）
+        { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -695,7 +732,7 @@ M.Types.ch5_sword_lu = {
 M.Types.ch5_sword_jue = {
     name = "绝仙剑",
     icon = "⚔️",
-    portrait = "Textures/monster_sword_jue.png",
+    portrait = "image/monster_sword_jue_20260517104750.png",
     zone = "ch5_sword_palace",
     category = "saint_boss",
     race = "immortal_sword",
@@ -706,11 +743,20 @@ M.Types.ch5_sword_jue = {
     skillTextColor = {220, 80, 220, 255},
     warningColorOverride = {180, 40, 180, 120},
     phases = 3,
-    skills = {},
+    stationary = true,
+    attackRange = 6.0,
+    groundSpike = {
+        warningTime = 0.3,
+        warningRange = 0.8,
+        warningColor = {180, 60, 180, 150},
+    },
+    skills = { "ch5_jue_blood_chain", "ch5_jue_blood_mark", "ch5_jue_blood_mist", "ch5_jue_blood_slash" },
     phaseConfig = {
         { threshold = 0.7, atkMult = 1.3, speedMult = 1.2,
+          triggerSkill = "ch5_jue_transition", addSkill = "ch5_jue_core",
           announce = "绝仙剑逆天而起，断绝生机！" },
         { threshold = 0.3, atkMult = 2.0, speedMult = 1.6, intervalMult = 0.4,
+          triggerSkill = "ch5_jue_field",
           announce = "绝仙剑意——绝情绝义绝天道！" },
     },
     tierOnly = 10,
@@ -724,6 +770,7 @@ M.Types.ch5_sword_jue = {
         { chance = 0.005, type = "equipment", equipId = "fengyin_juexian_ch5" },  -- 封印·绝仙0.5%
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.03, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹3%（四剑）
+        { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }

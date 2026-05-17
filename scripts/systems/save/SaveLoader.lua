@@ -255,6 +255,9 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
                         ningyuan  = ChallengeSystem.ningyuanDanCount or 0,
                         ninghun   = ChallengeSystem.ninghunDanCount or 0,
                         ningxi    = ChallengeSystem.ningxiDanCount or 0,
+                        -- 第五章丹药
+                        sword_intent = AlchemyUI.GetSwordIntentPillCount(),
+                        abyss_seal   = AlchemyUI.GetAbyssSealPillCount(),
                     }
 
                     if not p.pillCounts then
@@ -320,6 +323,11 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
         if saveData.seaPillar then
             local SeaPillarSystem = require("systems.SeaPillarSystem")
             SeaPillarSystem.Deserialize(saveData.seaPillar)
+        end
+
+        if saveData.swordPool then
+            local SwordPoolSystem = require("systems.SwordPoolSystem")
+            SwordPoolSystem.Deserialize(saveData.swordPool)
         end
 
         if saveData.yaochi_wash then

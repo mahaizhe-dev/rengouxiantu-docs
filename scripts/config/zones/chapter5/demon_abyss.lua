@@ -13,13 +13,14 @@ demon_abyss.regions = {
 
 demon_abyss.npcs = {}
 demon_abyss.spawns = {
-    -- 镇魔深渊：纯BOSS区（无普通怪/精英怪）
-    -- 裂渊屠血将 ×5（深渊五方）
-    { type = "ch5_blood_general", x = 33.5, y = 54.5 },
-    { type = "ch5_blood_general", x = 46.5, y = 55.5 },
-    { type = "ch5_blood_general", x = 34.5, y = 61.5 },
-    { type = "ch5_blood_general", x = 47.5, y = 60.5 },
-    { type = "ch5_blood_general", x = 40.5, y = 58.5 },
+    -- 镇魔深渊：双BOSS结构（无普通怪/精英怪）
+    -- 裂渊屠血将 ×4（王级BOSS，深渊四方）
+    { type = "ch5_blood_general", x = 34, y = 54 },   -- 左上
+    { type = "ch5_blood_general", x = 47, y = 54 },   -- 右上
+    { type = "ch5_blood_general", x = 34, y = 62 },   -- 左下
+    { type = "ch5_blood_general", x = 47, y = 62 },   -- 右下
+    -- 镇渊魔帅·噬渊血犼 ×1（皇级BOSS，深渊中央）
+    { type = "ch5_abyss_marshal", x = 40.5, y = 58 },
 }
 demon_abyss.decorations = {
     -- 镇魔深渊：地裂与骨堆

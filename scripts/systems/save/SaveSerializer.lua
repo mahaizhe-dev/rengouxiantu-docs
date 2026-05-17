@@ -49,6 +49,10 @@ function SaveSerializer.SerializePlayer()
         seaPillarAtk = player.seaPillarAtk or 0,
         seaPillarMaxHp = player.seaPillarMaxHp or 0,
         seaPillarHpRegen = player.seaPillarHpRegen or 0,
+        swordPoolAtk = player.swordPoolAtk or 0,
+        swordPoolDef = player.swordPoolDef or 0,
+        swordPoolMaxHp = player.swordPoolMaxHp or 0,
+        swordPoolHpRegen = player.swordPoolHpRegen or 0,
         prisonTowerAtk = player.prisonTowerAtk or 0,
         prisonTowerDef = player.prisonTowerDef or 0,
         prisonTowerMaxHp = player.prisonTowerMaxHp or 0,
@@ -135,6 +139,10 @@ function SaveSerializer.DeserializePlayer(data)
     player.seaPillarAtk = data.seaPillarAtk or 0
     player.seaPillarMaxHp = data.seaPillarMaxHp or 0
     player.seaPillarHpRegen = data.seaPillarHpRegen or 0
+    player.swordPoolAtk = data.swordPoolAtk or 0
+    player.swordPoolDef = data.swordPoolDef or 0
+    player.swordPoolMaxHp = data.swordPoolMaxHp or 0
+    player.swordPoolHpRegen = data.swordPoolHpRegen or 0
     player.prisonTowerAtk = data.prisonTowerAtk or 0
     player.prisonTowerDef = data.prisonTowerDef or 0
     player.prisonTowerMaxHp = data.prisonTowerMaxHp or 0

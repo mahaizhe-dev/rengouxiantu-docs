@@ -400,8 +400,21 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
         elseif eff.type == "hp_regen_percent" then
             descText = string.format("每秒恢复%.0f%%最大生命值%s",
                 (eff.regenPercent or 0) * 100, eff.stopWhenFull and "（血满停止）" or "")
+        elseif eff.type == "zhuxian" then
+            descText = string.format("暴击时，追加一次%.0f%%攻击力的额外伤害",
+                (eff.damagePercent or 0.30) * 100)
+        elseif eff.type == "xianxian" then
+            descText = string.format("生命>%.0f%%时暴击伤害+%.0f%%；生命≤%.0f%%时每秒恢复%.0f%%最大生命",
+                (eff.highHpThreshold or 0.50) * 100, (eff.critDmgBonus or 0.50) * 100,
+                (eff.highHpThreshold or 0.50) * 100, (eff.lowHpRegenPercent or 0.02) * 100)
+        elseif eff.type == "luxian" then
+            descText = string.format("重击时，额外追加一次%.0f%%攻击力的伤害",
+                (eff.damagePercent or 1.00) * 100)
+        elseif eff.type == "juexian" then
+            descText = string.format("每次攻击获得1层绝命，每层攻击力+%.0f%%，最多%d层，持续%.0f秒",
+                (eff.stackPercent or 0.03) * 100, eff.maxStacks or 5, eff.duration or 4.0)
         else
-            descText = eff.description or (eff.name or "特殊效果")
+            descText = eff.description or eff.desc or (eff.name or "特殊效果")
         end
         table.insert(rows, UI.Panel {
             backgroundColor = {55, 25, 25, 200}, borderRadius = T.radius.sm,

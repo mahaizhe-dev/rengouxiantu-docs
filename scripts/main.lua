@@ -457,7 +457,12 @@ function StartGame(isNewGame, slot, charName, classId)
 
                 -- 🔴 补丁校验：存档章节可能不再满足当前版本的解锁条件，强制回退 ch1
                 if restoredChapter ~= 1 then
-                    local canGo = ChapterConfig.CheckRequirements(restoredChapter)
+                    local canGo, reason = ChapterConfig.CheckRequirements(restoredChapter)
+                    local p = GameState.player
+                    print("[Main] Chapter check: ch=" .. restoredChapter
+                        .. " realm=" .. (p and p.realm or "nil")
+                        .. " canGo=" .. tostring(canGo)
+                        .. " reason=" .. tostring(reason))
                     if not canGo then
                         print("[Main] Save chapter " .. restoredChapter .. " no longer meets requirements, forcing ch1")
                         restoredChapter = 1
@@ -488,6 +493,9 @@ function StartGame(isNewGame, slot, charName, classId)
                     end
                     -- 重新应用封印状态
                     QuestSystem.ApplySeals(gameMap_)
+                    -- manualOnly 封印由专用系统控制，需要在 ApplySeals 后恢复
+                    local SwordPoolSystem = require("systems.SwordPoolSystem")
+                    SwordPoolSystem.RestoreSeals()
                     -- 🔴 Bug fix: InitGame 创建 Spawner 时 bossKillTimes 为空（存档尚未加载），
                     -- 导致应处于冷却中的BOSS被创建为活着的，退出重进即可重复击杀
                     if spawner_ then
@@ -747,6 +755,9 @@ function RebuildWorld(chapterId, spawnOverride)
     spawner_:Init(gameMap_)
     -- 10. 封印 & 区域
     QuestSystem.ApplySeals(gameMap_)
+    -- manualOnly 封印由专用系统控制，需要在 ApplySeals 后恢复
+    local SwordPoolSystem = require("systems.SwordPoolSystem")
+    SwordPoolSystem.RestoreSeals()
     ZoneManager.Reset()
     -- 11. 更新渲染器引用
     if worldWidget_ then
@@ -885,6 +896,7 @@ function InitGame(classId)
     ChallengeUI.SetGameMap(gameMap_, camera_)
     TrialTowerUI.SetGameMap(gameMap_, camera_)
     PrisonTowerUI.SetGameMap(gameMap_, camera_)
+    MobileControls.SetGameMap(gameMap_)
 
     -- 创建玩家
     local spawn = currentZoneData.SPAWN_POINT or { x = 40.5, y = 40.5 }
@@ -951,6 +963,9 @@ function InitGame(classId)
     -- 监听封印重置事件（GM 重置主线时触发）
     EventBus.On("seal_reset", function(zoneId)
         QuestSystem.ApplySeals(gameMap_)
+        -- manualOnly 封印由专用系统控制，需要在 ApplySeals 后恢复
+        local SwordPoolSystem = require("systems.SwordPoolSystem")
+        SwordPoolSystem.RestoreSeals()
     end)
 
     -- 监听传送法阵请求

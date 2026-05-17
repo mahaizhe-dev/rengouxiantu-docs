@@ -107,6 +107,12 @@ TileTypes.TILE = {
     CH5_LAVA_WALL         = 81,   -- 岩浆墙（不可通行，深渊围墙）
     CH5_BLOOD_POOL        = 82,   -- 祀剑池（不可通行，可交互 3×2 PNG）
     CH5_FURNACE           = 83,   -- 铸剑地炉（不可通行，可交互 3×3 PNG）
+    CH5_SEAL_WALL         = 84,   -- 封印墙·红（不可通行，诛仙剑台）
+    CH5_SEAL_FLOOR        = 85,   -- 封印祭台（可通行，剑台Boss房地面）
+    CH5_SEAL_CARPET       = 86,   -- 封印地毯（可通行，剑台Boss房中央）
+    CH5_SEAL_WALL_BLUE    = 87,   -- 封印墙·蓝（不可通行，陷仙剑台）
+    CH5_SEAL_WALL_GREEN   = 88,   -- 封印墙·绿（不可通行，戮仙剑台）
+    CH5_SEAL_WALL_PURPLE  = 89,   -- 封印墙·紫（不可通行，绝仙剑台）
 }
 
 -- ============================================================================
@@ -199,6 +205,12 @@ TileTypes.WALKABLE = {
     [81] = false,  -- CH5_LAVA_WALL（岩浆墙，不可通行）
     [82] = false,  -- CH5_BLOOD_POOL（祀剑池，不可通行，可交互）
     [83] = false,  -- CH5_FURNACE（铸剑地炉，不可通行，可交互）
+    [84] = false,  -- CH5_SEAL_WALL（封印墙·红，不可通行）
+    [85] = true,   -- CH5_SEAL_FLOOR（封印祭台，可通行）
+    [86] = true,   -- CH5_SEAL_CARPET（封印地毯，可通行）
+    [87] = false,  -- CH5_SEAL_WALL_BLUE（封印墙·蓝，不可通行）
+    [88] = false,  -- CH5_SEAL_WALL_GREEN（封印墙·绿，不可通行）
+    [89] = false,  -- CH5_SEAL_WALL_PURPLE（封印墙·紫，不可通行）
 }
 
 return TileTypes

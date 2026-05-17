@@ -197,6 +197,12 @@ ZoneData_ch5.TILE_COLORS = {
     [T.CH5_LAVA_WALL]        = {180, 60, 15, 255},     -- 岩浆墙（橙红熔岩）
     [T.CH5_BLOOD_POOL]       = {100, 25, 25, 255},     -- 祀剑池（暗红血池）
     [T.CH5_FURNACE]          = {60, 45, 30, 255},      -- 铸剑地炉（焦铜色）
+    [T.CH5_SEAL_WALL]        = {50, 30, 28, 255},      -- 封印墙·红（暗红玄铁）
+    [T.CH5_SEAL_WALL_BLUE]   = {28, 35, 55, 255},      -- 封印墙·蓝（深蓝玄铁）
+    [T.CH5_SEAL_WALL_GREEN]  = {28, 50, 35, 255},      -- 封印墙·绿（深绿玄铁）
+    [T.CH5_SEAL_WALL_PURPLE] = {45, 28, 55, 255},      -- 封印墙·紫（暗紫玄铁）
+    [T.CH5_SEAL_FLOOR]       = {55, 55, 58, 255},      -- 封印祭台（深灰玄石）
+    [T.CH5_SEAL_CARPET]      = {180, 40, 40, 255},     -- 封印地毯（红地毯）
 }
 
 -- 可通行瓦片集合（区域过渡渐变用）
@@ -221,6 +227,8 @@ ZoneData_ch5.WALKABLE_TILES = {
     [T.CH5_WALL_COLLAPSED]   = true,
     [T.CH5_CITY_WALL]        = true,
     [T.CH5_STELE_BROKEN]     = true,
+    [T.CH5_SEAL_FLOOR]       = true,
+    [T.CH5_SEAL_CARPET]      = true,
 }
 
 -- ============================================================================
@@ -234,6 +242,10 @@ ZoneData_ch5.EDGE_TYPES = {
         [T.WALL]                = true,
         [T.CH5_WALL_BATTLEMENT] = true,
         [T.CH5_CITY_WALL]       = true,
+        [T.CH5_SEAL_WALL]       = true,
+        [T.CH5_SEAL_WALL_BLUE]  = true,
+        [T.CH5_SEAL_WALL_GREEN] = true,
+        [T.CH5_SEAL_WALL_PURPLE]= true,
     },
     -- 断崖集合（地表对断崖 → 锐利暗边）
     cliff = {
@@ -287,8 +299,8 @@ ZoneData_ch5.BESTIARY_ZONES = {
         "ch5_broken_gate",
         "ch5_sword_plaza", "ch5_forge", "ch5_sword_court",
         "ch5_cold_pool", "ch5_stele_forest", "ch5_library",
-        "ch5_sword_palace",
         "ch5_demon_abyss",
+        "ch5_sword_palace",
         "ch5_sword_corridor",
     },
     names = {

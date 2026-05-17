@@ -13,22 +13,22 @@ stele_forest.regions = {
 
 stele_forest.npcs = {}
 stele_forest.spawns = {
-    -- 普通怪：剑痕石俑 ×8（碑林散布，区域较大）
-    { type = "ch5_stele_golem",   x = 63.5, y = 24.5 },
-    { type = "ch5_stele_golem",   x = 72.5, y = 25.5 },
-    { type = "ch5_stele_golem",   x = 64.5, y = 30.5 },
-    { type = "ch5_stele_golem",   x = 71.5, y = 32.5 },
-    { type = "ch5_stele_golem",   x = 67.5, y = 36.5 },
-    { type = "ch5_stele_golem",   x = 62.5, y = 28.5 },
-    { type = "ch5_stele_golem",   x = 73.5, y = 35.5 },
-    { type = "ch5_stele_golem",   x = 69.5, y = 27.5 },
-    -- 精英怪：守碑幻影 ×4（碑林中后部）
-    { type = "ch5_stele_phantom", x = 66.5, y = 33.5 },
-    { type = "ch5_stele_phantom", x = 70.5, y = 38.5 },
-    { type = "ch5_stele_phantom", x = 64.5, y = 39.5 },
-    { type = "ch5_stele_phantom", x = 74.5, y = 41.5 },
-    -- BOSS：石观澜 ×1（最深处）
-    { type = "ch5_shi_guanlan",   x = 67.5, y = 42.5 },
+    -- 普通怪：剑痕石俑 ×8（左侧及中部散布，为右侧BOSS留出空间）
+    { type = "ch5_stele_golem",   x = 62.5, y = 23.5 },
+    { type = "ch5_stele_golem",   x = 67.5, y = 24.5 },
+    { type = "ch5_stele_golem",   x = 61.5, y = 28.5 },
+    { type = "ch5_stele_golem",   x = 66.5, y = 30.5 },
+    { type = "ch5_stele_golem",   x = 63.5, y = 34.5 },
+    { type = "ch5_stele_golem",   x = 68.5, y = 37.5 },
+    { type = "ch5_stele_golem",   x = 62.5, y = 41.5 },
+    { type = "ch5_stele_golem",   x = 67.5, y = 42.5 },
+    -- 精英怪：守碑幻影 ×4（中部过渡带，通往BOSS的路径上）
+    { type = "ch5_stele_phantom", x = 70.5, y = 26.5 },
+    { type = "ch5_stele_phantom", x = 71.5, y = 33.5 },
+    { type = "ch5_stele_phantom", x = 69.5, y = 38.5 },
+    { type = "ch5_stele_phantom", x = 72.5, y = 42.5 },
+    -- BOSS：石观澜 ×1（右侧中部）
+    { type = "ch5_shi_guanlan",   x = 74.5, y = 33.5 },
 }
 stele_forest.decorations = {
     -- 悟剑碑林：倒碑散落与卷轴残页

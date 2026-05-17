@@ -109,16 +109,22 @@ local function CmdResetZoneQuest()
     local zone = GameState.currentZone or "town"
     local chainId = QuestSystem.GetChainForZone(zone)
 
-    -- 当前区域无直接关联的主线时，按章节查找
+    -- 当前区域无直接关联的主线时，按章节查找（跳过 steps 为空的链，优先未完成的链）
     if not chainId then
         local QuestData = require("config.QuestData")
         local chapter = GameState.currentChapter or 1
+        local fallbackId = nil
         for cId, chain in pairs(QuestData.ZONE_QUESTS) do
-            if chain.chapter == chapter then
-                chainId = cId
-                break
+            if chain.chapter == chapter and chain.steps and #chain.steps > 0 then
+                local st = QuestSystem.GetChainState(cId)
+                if not st or not st.completed then
+                    chainId = cId
+                    break
+                end
+                if not fallbackId then fallbackId = cId end
             end
         end
+        chainId = chainId or fallbackId
     end
 
     if not chainId then
@@ -138,16 +144,23 @@ local function CmdCompleteZoneQuest()
     local zone = GameState.currentZone or "town"
     local chainId = QuestSystem.GetChainForZone(zone)
 
-    -- 当前区域无直接关联的主线时，按章节查找
+    -- 当前区域无直接关联的主线时，按章节查找（跳过 steps 为空的链，优先未完成的链）
     if not chainId then
         local QuestData = require("config.QuestData")
         local chapter = GameState.currentChapter or 1
+        local fallbackId = nil
         for cId, chain in pairs(QuestData.ZONE_QUESTS) do
-            if chain.chapter == chapter then
-                chainId = cId
-                break
+            if chain.chapter == chapter and chain.steps and #chain.steps > 0 then
+                local st = QuestSystem.GetChainState(cId)
+                if not st or not st.completed then
+                    chainId = cId
+                    break
+                end
+                -- 记录已完成的链作为兜底
+                if not fallbackId then fallbackId = cId end
             end
         end
+        chainId = chainId or fallbackId
     end
 
     if not chainId then
@@ -342,6 +355,11 @@ local GM_CATEGORIES = {
                 InventorySystem.AddConsumable("taixu_token", 3000)
                 ShowLog("发放 3000 太虚令", {0, 180, 255, 255})
             end },
+            { label = "太虚剑令 +3000", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                InventorySystem.AddConsumable("taixu_jianling", 3000)
+                ShowLog("发放 3000 太虚剑令", {120, 200, 255, 255})
+            end },
             { label = "修炼果 +100", action = function()
                 local InventorySystem = require("systems.InventorySystem")
                 InventorySystem.AddConsumable("exp_pill", 100)
@@ -437,6 +455,28 @@ local GM_CATEGORIES = {
                 end
                 if added == 4 then
                     ShowLog("帝尊戒指×4 已放入背包", {0, 220, 255, 255})
+                else
+                    ShowLog("放入 " .. added .. "/4（背包空间不足）", {255, 120, 100, 255})
+                end
+            end },
+            { label = "封印仙剑×4", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                local LootSystem = require("systems.LootSystem")
+                local ids = {
+                    "fengyin_zhuxian_ch5",
+                    "fengyin_xianxian_ch5",
+                    "fengyin_luxian_ch5",
+                    "fengyin_juexian_ch5",
+                }
+                local added = 0
+                for _, eqId in ipairs(ids) do
+                    local item = LootSystem.CreateSpecialEquipment(eqId)
+                    if item and InventorySystem.AddItem(item) then
+                        added = added + 1
+                    end
+                end
+                if added == 4 then
+                    ShowLog("诛仙·陷仙·戮仙·绝仙 已放入背包", {180, 100, 255, 255})
                 else
                     ShowLog("放入 " .. added .. "/4（背包空间不足）", {255, 120, 100, 255})
                 end
@@ -856,6 +896,16 @@ local GM_CATEGORIES = {
                     ShowLog("连击调度器: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
                 else
                     ShowLog("连击调度器: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
+                end
+            end },
+            { label = "祀剑池自测", action = function()
+                package.loaded["tests.test_sword_pool"] = nil
+                local TestSP = require("tests.test_sword_pool")
+                local passed, failed = TestSP.RunAll()
+                if failed == 0 then
+                    ShowLog("祀剑池: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
+                else
+                    ShowLog("祀剑池: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
                 end
             end },
         },

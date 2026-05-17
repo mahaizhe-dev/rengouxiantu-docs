@@ -358,10 +358,83 @@ local function BuildCh4Items()
     end
 end
 
+--- 构建 Ch5 商品（仅宠物书，汇总1-4章所有技能书）
+local function BuildCh5Items()
+    -- Ch1 技能书（初级攻防血 ×3，各 1000G）
+    local CH1_BOOKS = { "book_atk_1", "book_hp_1", "book_def_1" }
+    for _, bookId in ipairs(CH1_BOOKS) do
+        local bookData = PetSkillData.SKILL_BOOKS[bookId]
+        if bookData then
+            table.insert(SHOP_ITEMS, {
+                slot = nil, name = bookData.name, icon = bookData.icon,
+                mainStatType = nil, mainValue = 0, statName = "",
+                price = 1000, quality = bookData.quality or "white",
+                isSpecial = false, isSkillBook = true,
+                consumableId = bookId, bookData = bookData,
+            })
+        end
+    end
+
+    -- Ch2 技能书（闪避/恢复/暴击 ×3，各 1000G）
+    local CH2_BOOKS = { "book_evade_1", "book_regen_1", "book_crit_1" }
+    for _, bookId in ipairs(CH2_BOOKS) do
+        local bookData = PetSkillData.SKILL_BOOKS[bookId]
+        if bookData then
+            table.insert(SHOP_ITEMS, {
+                slot = nil, name = bookData.name, icon = bookData.icon,
+                mainStatType = nil, mainValue = 0, statName = "",
+                price = 1000, quality = bookData.quality or "white",
+                isSpecial = false, isSkillBook = true,
+                consumableId = bookId, bookData = bookData,
+            })
+        end
+    end
+
+    -- Ch3 技能书（灵兽赐主 ×4，各 1000G）
+    local CH3_BOOKS = {
+        "book_wisdom_owner_1", "book_constitution_owner_1",
+        "book_physique_owner_1", "book_fortune_owner_1",
+    }
+    for _, bookId in ipairs(CH3_BOOKS) do
+        local bookData = PetSkillData.SKILL_BOOKS[bookId]
+        if bookData then
+            table.insert(SHOP_ITEMS, {
+                slot = nil, name = bookData.name, icon = bookData.icon,
+                mainStatType = nil, mainValue = 0, statName = "",
+                price = 1000, quality = bookData.quality or "white",
+                isSpecial = false, isSkillBook = true,
+                consumableId = bookId, bookData = bookData,
+            })
+        end
+    end
+
+    -- Ch4 技能书（中级 ×7，各 50 灵韵）
+    local CH4_BOOKS = {
+        "book_atkSpd_1", "book_hpPerLv_1", "book_critDmg_1",
+        "book_dmgReduce_1", "book_defPerLv_1", "book_doubleHit_1",
+        "book_lifeSteal_1",
+    }
+    for _, bookId in ipairs(CH4_BOOKS) do
+        local bookData = PetSkillData.SKILL_BOOKS[bookId]
+        if bookData then
+            table.insert(SHOP_ITEMS, {
+                slot = nil, name = bookData.name, icon = bookData.icon,
+                mainStatType = nil, mainValue = 0, statName = "",
+                price = 0, priceLingYun = 50,
+                quality = bookData.quality or "purple",
+                isSpecial = false, isSkillBook = true,
+                consumableId = bookId, bookData = bookData,
+            })
+        end
+    end
+end
+
 local function BuildShopItems()
     SHOP_ITEMS = {}
     local chapter = GameState.currentChapter or 1
-    if chapter >= 4 then
+    if chapter >= 5 then
+        BuildCh5Items()
+    elseif chapter >= 4 then
         BuildCh4Items()
     elseif chapter >= 3 then
         BuildCh3Items()

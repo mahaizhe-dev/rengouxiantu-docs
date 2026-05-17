@@ -192,19 +192,6 @@ function GameMap:Generate()
     -- 放置装饰物（标记占用格为不可通行）
     self:PlaceDecorations()
 
-    -- clearTiles: 各 zone 配置中指定的强制清除格（移除多余墙壁）
-    for _, zoneModule in ipairs(activeZoneData.ALL_ZONES) do
-        local gen = zoneModule.generation
-        if gen and gen.clearTiles and gen.fill then
-            local fillTile = T[gen.fill.tile]
-            if fillTile then
-                for _, ct in ipairs(gen.clearTiles) do
-                    self:SetTile(ct.x, ct.y, fillTile)
-                end
-            end
-        end
-    end
-
     -- ================================================================
     -- 堡垒轮廓（第二章）
     -- ================================================================
@@ -231,6 +218,20 @@ function GameMap:Generate()
     -- 第五章太虚之殇地形（废墟 + 双路分流 + 剑宫 + 深渊 + 回廊）
     -- ================================================================
     self:BuildCh5Terrain()
+
+    -- clearTiles: 各 zone 配置中指定的强制清除格（移除多余墙壁）
+    -- 必须在所有章节地形生成之后执行，否则会被覆盖
+    for _, zoneModule in ipairs(activeZoneData.ALL_ZONES) do
+        local gen = zoneModule.generation
+        if gen and gen.clearTiles and gen.fill then
+            local fillTile = T[gen.fill.tile]
+            if fillTile then
+                for _, ct in ipairs(gen.clearTiles) do
+                    self:SetTile(ct.x, ct.y, fillTile)
+                end
+            end
+        end
+    end
 
     -- ================================================================
     -- 区域间岩块分隔

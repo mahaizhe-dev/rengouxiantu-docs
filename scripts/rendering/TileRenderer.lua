@@ -2588,6 +2588,180 @@ function TileRenderer.RenderCh5Wall(nvg, sx, sy, ts, x, y)
 end
 
 -- ============================================================================
+-- CH5 封印墙 (CH5_SEAL_WALL) - 剑台Boss房墙体（PNG纹理）
+-- ============================================================================
+local sealWallImage = 0
+local sealWallImageLoaded = false
+
+local function EnsureSealWallImage(nvg)
+    if sealWallImageLoaded then return end
+    sealWallImageLoaded = true
+    sealWallImage = nvgCreateImage(nvg, "Textures/tile_seal_wall.png", 0)
+    if sealWallImage <= 0 then
+        print("[TileRenderer] WARNING: Failed to load seal wall image")
+    end
+end
+
+function TileRenderer.RenderCh5SealWall(nvg, sx, sy, ts, x, y)
+    EnsureSealWallImage(nvg)
+    if sealWallImage > 0 then
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillColor(nvg, nvgRGBA(50, 30, 28, 255))
+        nvgFill(nvg)
+        local hash = tileHash(x, y, 2100) % 4
+        local offsetX = ((hash % 2) == 0) and 0 or (ts * 0.12)
+        local offsetY = (hash >= 2) and 0 or (ts * 0.12)
+        local scale = ts / (256 - offsetX * 2)
+        local imgSize = 256 * scale
+        local paint = nvgImagePattern(nvg,
+            sx - offsetX * scale, sy - offsetY * scale,
+            imgSize, imgSize, 0, sealWallImage, 1.0)
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillPaint(nvg, paint)
+        nvgFill(nvg)
+    else
+        local sv = tileRandInt(x, y, 2100, -5, 5)
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillColor(nvg, nvgRGBA(50 + sv, 30 + sv, 28 + sv, 255))
+        nvgFill(nvg)
+    end
+end
+
+-- ============================================================================
+-- CH5 封印墙·颜色变体 — 复用同一张 PNG 纹理，底色不同
+-- ============================================================================
+
+-- 通用带色封印墙渲染（baseR/G/B 控制底色）
+local function RenderCh5SealWallTinted(nvg, sx, sy, ts, x, y, baseR, baseG, baseB)
+    EnsureSealWallImage(nvg)
+    if sealWallImage > 0 then
+        -- 底色
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillColor(nvg, nvgRGBA(baseR, baseG, baseB, 255))
+        nvgFill(nvg)
+        -- PNG 纹理叠加（与红色版逻辑一致）
+        local hash = tileHash(x, y, 2100) % 4
+        local offsetX = ((hash % 2) == 0) and 0 or (ts * 0.12)
+        local offsetY = (hash >= 2) and 0 or (ts * 0.12)
+        local scale = ts / (256 - offsetX * 2)
+        local imgSize = 256 * scale
+        local paint = nvgImagePattern(nvg,
+            sx - offsetX * scale, sy - offsetY * scale,
+            imgSize, imgSize, 0, sealWallImage, 1.0)
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillPaint(nvg, paint)
+        nvgFill(nvg)
+    else
+        local sv = tileRandInt(x, y, 2100, -5, 5)
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillColor(nvg, nvgRGBA(baseR + sv, baseG + sv, baseB + sv, 255))
+        nvgFill(nvg)
+    end
+end
+
+function TileRenderer.RenderCh5SealWallBlue(nvg, sx, sy, ts, x, y)
+    RenderCh5SealWallTinted(nvg, sx, sy, ts, x, y, 28, 35, 55)
+end
+
+function TileRenderer.RenderCh5SealWallGreen(nvg, sx, sy, ts, x, y)
+    RenderCh5SealWallTinted(nvg, sx, sy, ts, x, y, 28, 50, 35)
+end
+
+function TileRenderer.RenderCh5SealWallPurple(nvg, sx, sy, ts, x, y)
+    RenderCh5SealWallTinted(nvg, sx, sy, ts, x, y, 45, 28, 55)
+end
+
+-- ============================================================================
+-- CH5 封印祭台 (CH5_SEAL_FLOOR) - 剑台Boss房地面（PNG纹理）
+-- ============================================================================
+local sealFloorImage = 0
+local sealFloorImageLoaded = false
+
+local function EnsureSealFloorImage(nvg)
+    if sealFloorImageLoaded then return end
+    sealFloorImageLoaded = true
+    sealFloorImage = nvgCreateImage(nvg, "Textures/tile_seal_floor.png", 0)
+    if sealFloorImage <= 0 then
+        print("[TileRenderer] WARNING: Failed to load seal floor image")
+    end
+end
+
+function TileRenderer.RenderCh5SealFloor(nvg, sx, sy, ts, x, y)
+    EnsureSealFloorImage(nvg)
+    if sealFloorImage > 0 then
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillColor(nvg, nvgRGBA(55, 55, 58, 255))
+        nvgFill(nvg)
+        local hash = tileHash(x, y, 2110) % 4
+        local offsetX = ((hash % 2) == 0) and 0 or (ts * 0.12)
+        local offsetY = (hash >= 2) and 0 or (ts * 0.12)
+        local scale = ts / (256 - offsetX * 2)
+        local imgSize = 256 * scale
+        local paint = nvgImagePattern(nvg,
+            sx - offsetX * scale, sy - offsetY * scale,
+            imgSize, imgSize, 0, sealFloorImage, 1.0)
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillPaint(nvg, paint)
+        nvgFill(nvg)
+    else
+        local sv = tileRandInt(x, y, 2110, -5, 5)
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillColor(nvg, nvgRGBA(55 + sv, 55 + sv, 58 + sv, 255))
+        nvgFill(nvg)
+    end
+end
+
+-- CH5 封印地毯 (CH5_SEAL_CARPET)
+local sealCarpetImage = 0
+local sealCarpetImageLoaded = false
+
+local function EnsureSealCarpetImage(nvg)
+    if sealCarpetImageLoaded then return end
+    sealCarpetImageLoaded = true
+    sealCarpetImage = nvgCreateImage(nvg, "Textures/tile_seal_carpet.png", 0)
+    if sealCarpetImage <= 0 then
+        print("[TileRenderer] WARNING: Failed to load seal carpet image")
+    end
+end
+
+function TileRenderer.RenderCh5SealCarpet(nvg, sx, sy, ts, x, y)
+    EnsureSealCarpetImage(nvg)
+    if sealCarpetImage > 0 then
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillColor(nvg, nvgRGBA(180, 40, 40, 255))
+        nvgFill(nvg)
+        local hash = tileHash(x, y, 2120) % 4
+        local offsetX = ((hash % 2) == 0) and 0 or (ts * 0.12)
+        local offsetY = (hash >= 2) and 0 or (ts * 0.12)
+        local scale = ts / (256 - offsetX * 2)
+        local imgSize = 256 * scale
+        local paint = nvgImagePattern(nvg,
+            sx - offsetX * scale, sy - offsetY * scale,
+            imgSize, imgSize, 0, sealCarpetImage, 1.0)
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillPaint(nvg, paint)
+        nvgFill(nvg)
+    else
+        local sv = tileRandInt(x, y, 2120, -5, 5)
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx, sy, ts, ts)
+        nvgFillColor(nvg, nvgRGBA(180 + sv, 40 + sv, 40 + sv, 255))
+        nvgFill(nvg)
+    end
+end
+
+-- ============================================================================
 -- CH5 断崖边缘 (CH5_CLIFF) - 岩石质感 + 裂边 + 阴影渐变
 -- ============================================================================
 function TileRenderer.RenderCh5Cliff(nvg, sx, sy, ts, x, y)
@@ -3031,6 +3205,24 @@ local function GetTileRenderFns()
     end
     if T.CH5_BLOOD_RIVER then
         cachedTileRenderFns[T.CH5_BLOOD_RIVER] = TileRenderer.RenderCh5BloodRiver
+    end
+    if T.CH5_SEAL_WALL then
+        cachedTileRenderFns[T.CH5_SEAL_WALL] = TileRenderer.RenderCh5SealWall
+    end
+    if T.CH5_SEAL_WALL_BLUE then
+        cachedTileRenderFns[T.CH5_SEAL_WALL_BLUE] = TileRenderer.RenderCh5SealWallBlue
+    end
+    if T.CH5_SEAL_WALL_GREEN then
+        cachedTileRenderFns[T.CH5_SEAL_WALL_GREEN] = TileRenderer.RenderCh5SealWallGreen
+    end
+    if T.CH5_SEAL_WALL_PURPLE then
+        cachedTileRenderFns[T.CH5_SEAL_WALL_PURPLE] = TileRenderer.RenderCh5SealWallPurple
+    end
+    if T.CH5_SEAL_FLOOR then
+        cachedTileRenderFns[T.CH5_SEAL_FLOOR] = TileRenderer.RenderCh5SealFloor
+    end
+    if T.CH5_SEAL_CARPET then
+        cachedTileRenderFns[T.CH5_SEAL_CARPET] = TileRenderer.RenderCh5SealCarpet
     end
     return cachedTileRenderFns
 end
