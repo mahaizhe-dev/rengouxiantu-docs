@@ -3109,7 +3109,7 @@ MonsterData.WORLD_DROP_POOLS = {
         items = {
             { type = "consumable", consumableId = "rake_fragment_4" },  -- 第四寨·赤甲妖王
             { type = "consumable", consumableId = "rake_fragment_5" },  -- 第五寨·蛇骨妖王
-            { type = "consumable", consumableId = "rake_fragment_6" },  -- 第三寨·烈焰狮王
+            { type = "consumable", consumableId = "rake_fragment_3" },  -- 第六寨·苍狼妖王
         },
     },
 
@@ -3178,13 +3178,14 @@ MonsterData.WORLD_DROP_POOLS = {
             { type = "consumable", consumableId = "gold_bar" },          -- 金条
         },
     },
-    -- 5% 掉落池：九转金丹/修炼果/灵韵果 三选一
+    -- 4% 掉落池：九转金丹/修炼果/灵韵果/金砖 四选一
     xianjie_rare = {
-        bossLabel = "5%",
+        bossLabel = "4%",
         items = {
             { type = "consumable", consumableId = "jiuzhuan_jindan" },   -- 九转金丹
             { type = "consumable", consumableId = "exp_pill" },          -- 修炼果
             { type = "consumable", consumableId = "lingyun_fruit" },     -- 灵韵果
+            { type = "consumable", consumableId = "gold_brick" },        -- 金砖
         },
     },
     -- 0.1% 掉落池：天帝剑痕碎片(1/2/3) 三选一

@@ -82,6 +82,30 @@ for _, zoneModule in ipairs(ALL_ZONES) do
     end
 end
 
+-- 阴阳阵灵：随机选择一个阵刷新（每次加载地图时随机）
+do
+    math.randomseed(os.time())
+    -- 极阴阵灵 → 四阴阵（坎/艮/震/巽）入口端角落（远离入口且远离BOSS）
+    local yinSpawns = {
+        { x = 43.5, y = 9.5  },  -- 坎阵 入口对角（入口35.5→对面43.5）
+        { x = 61.5, y = 16.5 },  -- 艮阵 入口对角（入口53.5→对面61.5）
+        { x = 68.5, y = 34.5 },  -- 震阵 入口对角（入口60.5→对面68.5）
+        { x = 61.5, y = 52.5 },  -- 巽阵 入口对角（入口53.5→对面61.5）
+    }
+    local yinPick = yinSpawns[math.random(1, #yinSpawns)]
+    table.insert(ZoneData_ch4.SpawnPoints, { type = "yin_spirit", x = yinPick.x, y = yinPick.y })
+
+    -- 极阳阵灵 → 四阳阵（离/坤/兑/乾）入口端角落（远离入口且远离BOSS）
+    local yangSpawns = {
+        { x = 43.5, y = 59.5 },  -- 离阵 入口对角（入口35.5→对面43.5）
+        { x = 25.5, y = 52.5 },  -- 坤阵 入口对角（入口17.5→对面25.5）
+        { x = 18.5, y = 34.5 },  -- 兑阵 入口对角（入口10.5→对面18.5）
+        { x = 24.5, y = 16.5 },  -- 乾阵 入口对角（入口18.5→对面24.5）
+    }
+    local yangPick = yangSpawns[math.random(1, #yangSpawns)]
+    table.insert(ZoneData_ch4.SpawnPoints, { type = "yang_spirit", x = yangPick.x, y = yangPick.y })
+end
+
 -- 装饰物
 ZoneData_ch4.TownDecorations = {}
 for _, zoneModule in ipairs(ALL_ZONES) do
@@ -222,18 +246,21 @@ ZoneData_ch4.BESTIARY_ZONES = {
     order = {
         "ch4_kan", "ch4_gen", "ch4_zhen", "ch4_xun",
         "ch4_li", "ch4_kun", "ch4_dui", "ch4_qian",
+        "ch4_yin_roaming", "ch4_yang_roaming",
         "ch4_beast_north", "ch4_beast_east", "ch4_beast_west", "ch4_beast_south",
     },
     names = {
-        ch4_kan         = "坎·沉渊阵",
-        ch4_gen         = "艮·止岩阵",
-        ch4_zhen        = "震·惊雷阵",
-        ch4_xun         = "巽·风旋阵",
-        ch4_li          = "离·烈焰阵",
-        ch4_kun         = "坤·厚土阵",
-        ch4_dui         = "兑·泽沼阵",
-        ch4_qian        = "乾·天罡阵",
-        ch4_beast_north = "玄冰岛",
+        ch4_kan           = "坎·沉渊阵",
+        ch4_gen           = "艮·止岩阵",
+        ch4_zhen          = "震·惊雷阵",
+        ch4_xun           = "巽·风旋阵",
+        ch4_li            = "离·烈焰阵",
+        ch4_kun           = "坤·厚土阵",
+        ch4_dui           = "兑·泽沼阵",
+        ch4_qian          = "乾·天罡阵",
+        ch4_yin_roaming   = "阴阵（游荡）",
+        ch4_yang_roaming  = "阳阵（游荡）",
+        ch4_beast_north   = "玄冰岛",
         ch4_beast_east  = "幽渊岛",
         ch4_beast_west  = "流沙岛",
         ch4_beast_south = "烈焰岛",

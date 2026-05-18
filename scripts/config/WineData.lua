@@ -156,7 +156,7 @@ WineData.WINES = {
         obtain = {
             source_type = "kill",
             source_id = "dragon_ice",
-            drop_rate = 0.005,
+            drop_rate = 0.01,
         },
         obtain_hint = "掉落：封霜应龙",
         lady_dialogue = "封霜应龙之涎，淬炼筋骨。藏入葫芦，根骨愈坚。",
@@ -176,7 +176,7 @@ WineData.WINES = {
         obtain = {
             source_type = "kill",
             source_id = "dragon_abyss",
-            drop_rate = 0.005,
+            drop_rate = 0.01,
         },
         obtain_hint = "掉落：堕渊蛟龙",
         lady_dialogue = "堕渊蛟龙之涎，开悟心智。藏入葫芦，悟性自增。",
@@ -196,7 +196,7 @@ WineData.WINES = {
         obtain = {
             source_type = "kill",
             source_id = "dragon_fire",
-            drop_rate = 0.005,
+            drop_rate = 0.01,
         },
         obtain_hint = "掉落：焚天蜃龙",
         lady_dialogue = "焚天蜃龙之涎，淬炼体魄。藏入葫芦，身强体壮。",
@@ -216,7 +216,7 @@ WineData.WINES = {
         obtain = {
             source_type = "kill",
             source_id = "dragon_sand",
-            drop_rate = 0.005,
+            drop_rate = 0.01,
         },
         obtain_hint = "掉落：蚀骨螭龙",
         lady_dialogue = "蚀骨螭龙之涎，积福聚运。藏入葫芦，福缘深厚。",

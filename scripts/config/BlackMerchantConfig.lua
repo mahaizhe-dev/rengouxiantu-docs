@@ -191,11 +191,11 @@ BMConfig.ITEMS = {
     dragon_blood_herb  = ItemFromGame("dragon_blood_herb",  { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 10 }),
 
     -- === 消耗品（龙神材料、金砖、令牌盒） ===
-    dragon_scale_ice   = ItemFromGame("dragon_scale_ice",   { buy_price = 15, sell_price = 30, category = "consumable_mat", max_stock = 5, sort_order = 1 }),
-    dragon_scale_abyss = ItemFromGame("dragon_scale_abyss", { buy_price = 15, sell_price = 30, category = "consumable_mat", max_stock = 5, sort_order = 2 }),
-    dragon_scale_fire  = ItemFromGame("dragon_scale_fire",  { buy_price = 15, sell_price = 30, category = "consumable_mat", max_stock = 5, sort_order = 3 }),
-    dragon_scale_sand  = ItemFromGame("dragon_scale_sand",  { buy_price = 15, sell_price = 30, category = "consumable_mat", max_stock = 5, sort_order = 4 }),
-    gold_brick         = ItemFromGame("gold_brick",         { buy_price = 2,  sell_price = 5,  category = "consumable_mat", max_stock = 10, sort_order = 5 }),
+    dragon_scale_ice   = ItemFromGame("dragon_scale_ice",   { buy_price = 20, sell_price = 10, category = "consumable_mat", max_stock = 5, sort_order = 1 }),
+    dragon_scale_abyss = ItemFromGame("dragon_scale_abyss", { buy_price = 20, sell_price = 10, category = "consumable_mat", max_stock = 5, sort_order = 2 }),
+    dragon_scale_fire  = ItemFromGame("dragon_scale_fire",  { buy_price = 20, sell_price = 10, category = "consumable_mat", max_stock = 5, sort_order = 3 }),
+    dragon_scale_sand  = ItemFromGame("dragon_scale_sand",  { buy_price = 20, sell_price = 10, category = "consumable_mat", max_stock = 5, sort_order = 4 }),
+    gold_brick         = ItemFromGame("gold_brick",         { buy_price = 2,  sell_price = 1,  category = "consumable_mat", max_stock = 10, sort_order = 5 }),
 
     -- === 令牌盒（100令牌+100灵韵炼制，买2卖4仙石，限购10） ===
     wubao_token_box    = ItemFromGame("wubao_token_box",    { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 6 }),

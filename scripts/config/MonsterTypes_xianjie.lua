@@ -52,12 +52,10 @@ M.Types.outer_demon_boss = {
         { chance = 1.0, type = "lingYun", amount = { 12, 18 } },
         -- 100% 掉落池：龙髓/妖兽精华/金条 三选一
         { chance = 1.0, type = "world_drop", pool = "xianjie_material" },
-        -- 5% 掉落池：九转金丹/修炼果/灵韵果 三选一
-        { chance = 0.05, type = "world_drop", pool = "xianjie_rare" },
+        -- 4% 掉落池：九转金丹/修炼果/灵韵果/金砖 四选一
+        { chance = 0.04, type = "world_drop", pool = "xianjie_rare" },
         -- 0.1% 掉落池：天帝剑痕碎片 三选一
         { chance = 0.001, type = "world_drop", pool = "xianjie_fragments" },
-        -- 金砖0.25%
-        { chance = 0.0025, type = "consumable", consumableId = "gold_brick" },
     },
 }
 

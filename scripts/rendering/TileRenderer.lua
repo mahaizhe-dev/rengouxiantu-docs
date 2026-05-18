@@ -7,6 +7,7 @@
 local ActiveZoneData = require("config.ActiveZoneData")
 local GameConfig = require("config.GameConfig")
 local GameState = require("core.GameState")
+local UITheme = require("config.UITheme")
 
 local TileRenderer = {}
 
@@ -1577,24 +1578,49 @@ function TileRenderer.RenderBloodPool(nvg, sx, sy, ts, x, y, gameMap)
 
             nvgRestore(nvg)
 
-            -- ── 标题："祀剑池" ──
-            local titleFontSize = ts * 0.45
+            -- ── 名牌："祀剑池"（标题+副标题，与通用NPC一致） ──
             local titleText = "祀剑池"
-            nvgFontFace(nvg, "sans")
-            nvgFontSize(nvg, titleFontSize)
-            nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_BOTTOM)
+            local subText   = "四仙剑共鸣"
+            local nameFontSize = UITheme.worldFont.name
+            local subFontSize  = UITheme.worldFont.subtitle
             local titleX = sx + bigW * 0.5
-            local titleY = sy - ts * 0.1
-            -- 暗底
-            local tw = nvgTextBounds(nvg, 0, 0, titleText, nil)
-            local padH, padV = 6, 3
+            local padH, padV = 8, 4
+
+            nvgFontFace(nvg, "sans")
+
+            -- 测量文字宽度
+            nvgFontSize(nvg, nameFontSize)
+            local nameTextW = nvgTextBounds(nvg, 0, 0, titleText, nil)
+            nvgFontSize(nvg, subFontSize)
+            local subTextW = nvgTextBounds(nvg, 0, 0, subText, nil)
+
+            -- 背景板尺寸
+            local contentW = math.max(nameTextW, subTextW)
+            local bgW = contentW + padH * 2
+            local nameLineH = nameFontSize + padV
+            local subLineH  = subFontSize + padV
+            local bgH = nameLineH + subLineH + padV * 2
+            local bgTopY = sy - ts * 0.1 - bgH
+
+            -- 暗底背景板
             nvgBeginPath(nvg)
-            nvgRoundedRect(nvg, titleX - tw/2 - padH, titleY - titleFontSize - padV, tw + padH*2, titleFontSize + padV*2, 4)
+            nvgRoundedRect(nvg, titleX - bgW / 2, bgTopY, bgW, bgH, 5)
             nvgFillColor(nvg, nvgRGBA(0, 0, 0, 150))
             nvgFill(nvg)
-            -- 文字（血红色）
-            nvgFillColor(nvg, nvgRGBA(220, 80, 80, 255))
-            nvgText(nvg, titleX, titleY, titleText, nil)
+
+            -- 标题（金色，与通用NPC一致）
+            local nameCenterY = bgTopY + padV + nameLineH / 2
+            nvgFontSize(nvg, nameFontSize)
+            nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+            nvgFillColor(nvg, nvgRGBA(255, 215, 0, 255))
+            nvgText(nvg, titleX, nameCenterY, titleText, nil)
+
+            -- 副标题（淡灰色，与通用NPC一致）
+            local subCenterY = nameCenterY + nameLineH / 2 + subLineH / 2
+            nvgFontSize(nvg, subFontSize)
+            nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+            nvgFillColor(nvg, nvgRGBA(200, 200, 180, 200))
+            nvgText(nvg, titleX, subCenterY, subText, nil)
         end
         -- 非左上角格：不画，让大图透出
     else
@@ -1650,24 +1676,49 @@ function TileRenderer.RenderFurnace(nvg, sx, sy, ts, x, y, gameMap)
             nvgFillPaint(nvg, paint)
             nvgFill(nvg)
 
-            -- ── 标题："铸剑地炉" ──
-            local titleFontSize = ts * 0.45
+            -- ── 名牌："铸剑地炉"（标题+副标题，与通用NPC一致） ──
             local titleText = "铸剑地炉"
-            nvgFontFace(nvg, "sans")
-            nvgFontSize(nvg, titleFontSize)
-            nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_BOTTOM)
+            local subText   = "太虚锻造坊"
+            local nameFontSize = UITheme.worldFont.name
+            local subFontSize  = UITheme.worldFont.subtitle
             local titleX = sx + bigSize * 0.5
-            local titleY = sy - ts * 0.1
-            -- 暗底
-            local tw = nvgTextBounds(nvg, 0, 0, titleText, nil)
-            local padH, padV = 6, 3
+            local padH, padV = 8, 4
+
+            nvgFontFace(nvg, "sans")
+
+            -- 测量文字宽度
+            nvgFontSize(nvg, nameFontSize)
+            local nameTextW = nvgTextBounds(nvg, 0, 0, titleText, nil)
+            nvgFontSize(nvg, subFontSize)
+            local subTextW = nvgTextBounds(nvg, 0, 0, subText, nil)
+
+            -- 背景板尺寸
+            local contentW = math.max(nameTextW, subTextW)
+            local bgW = contentW + padH * 2
+            local nameLineH = nameFontSize + padV
+            local subLineH  = subFontSize + padV
+            local bgH = nameLineH + subLineH + padV * 2
+            local bgTopY = sy - ts * 0.1 - bgH
+
+            -- 暗底背景板
             nvgBeginPath(nvg)
-            nvgRoundedRect(nvg, titleX - tw/2 - padH, titleY - titleFontSize - padV, tw + padH*2, titleFontSize + padV*2, 4)
+            nvgRoundedRect(nvg, titleX - bgW / 2, bgTopY, bgW, bgH, 5)
             nvgFillColor(nvg, nvgRGBA(0, 0, 0, 150))
             nvgFill(nvg)
-            -- 文字（橙金色）
-            nvgFillColor(nvg, nvgRGBA(255, 180, 60, 255))
-            nvgText(nvg, titleX, titleY, titleText, nil)
+
+            -- 标题（金色，与通用NPC一致）
+            local nameCenterY = bgTopY + padV + nameLineH / 2
+            nvgFontSize(nvg, nameFontSize)
+            nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+            nvgFillColor(nvg, nvgRGBA(255, 215, 0, 255))
+            nvgText(nvg, titleX, nameCenterY, titleText, nil)
+
+            -- 副标题（淡灰色，与通用NPC一致）
+            local subCenterY = nameCenterY + nameLineH / 2 + subLineH / 2
+            nvgFontSize(nvg, subFontSize)
+            nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+            nvgFillColor(nvg, nvgRGBA(200, 200, 180, 200))
+            nvgText(nvg, titleX, subCenterY, subText, nil)
         end
         -- 非左上角格：不画，让大图透出
     else

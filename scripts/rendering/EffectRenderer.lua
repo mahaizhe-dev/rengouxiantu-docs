@@ -3050,13 +3050,17 @@ function EffectRenderer.RenderBaguaAura(nvg, l, camera)
     local sy = (boss.y - camera.y) * tileSize + l.h / 2 + l.y
     local radius = cfg.radius * tileSize
 
-    -- 从 dualState 配置读取当前状态颜色（数据驱动，不硬编码）
+    -- 颜色优先级：dualState.auraColor > baguaAura.auraColor > bodyColor > 默认金色
     local r, g, b = 180, 160, 80  -- 默认金色
     if boss.dualState and boss.dualState.states and stateKey then
         local stateInfo = boss.dualState.states[stateKey]
         if stateInfo and stateInfo.auraColor then
             r, g, b = stateInfo.auraColor[1], stateInfo.auraColor[2], stateInfo.auraColor[3]
         end
+    elseif cfg.auraColor then
+        r, g, b = cfg.auraColor[1], cfg.auraColor[2], cfg.auraColor[3]
+    elseif boss.bodyColor then
+        r, g, b = boss.bodyColor[1], boss.bodyColor[2], boss.bodyColor[3]
     end
 
     -- 时间动画（每帧递增，用 os.clock 近似）
@@ -3162,7 +3166,7 @@ function EffectRenderer.RenderBaguaAura(nvg, l, camera)
     nvgFontSize(nvg, 10)
     nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_BOTTOM)
     nvgFillColor(nvg, nvgRGBA(r, g, b, math.floor(200 * pulse)))
-    local label = "八卦"
+    local label = boss.name or "八卦"
     if boss.dualState and boss.dualState.states and stateKey then
         local stateInfo = boss.dualState.states[stateKey]
         if stateInfo then label = stateInfo.name or label end

@@ -11,13 +11,13 @@ fort_1.regions = {
 
 fort_1.npcs = {}
 
--- 黄天大圣·沙万里 ×1 (emperor_boss Lv65) — 帝级BOSS独占大殿
+-- 黄天大圣·沙万里 ×1 (emperor_boss Lv65) + 枯木守卫 ×3
+-- 区域 (54,54)→(76,76)，内部可用约 (56,56)→(74,74)，均匀散布
 fort_1.spawns = {
     { type = "yao_king_1", x = 65, y = 65 },
-    -- 枯木守卫 ×3（站桩型BOSS，守卫大殿入口）
-    { type = "kumu_guard", x = 58, y = 60 },
-    { type = "kumu_guard", x = 72, y = 60 },
-    { type = "kumu_guard", x = 65, y = 73 },
+    { type = "kumu_guard", x = 60, y = 60 },
+    { type = "kumu_guard", x = 70, y = 62 },
+    { type = "kumu_guard", x = 63, y = 70 },
 }
 
 fort_1.decorations = {

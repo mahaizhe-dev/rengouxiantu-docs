@@ -118,6 +118,7 @@ function Monster.New(data, spawnX, spawnY)
     -- BOSS 阶段
     self.phases = data.phases or 1
     self.currentPhase = 1
+    self.phaseState = nil  -- "berserk" / "demonize" 等，由 phaseConfig.state 驱动
     self.phaseConfig = data.phaseConfig or {}
 
     -- 被动怪（不主动攻击，被打才还手）
@@ -1004,6 +1005,11 @@ function Monster:CheckPhaseTransition()
         if hpPercent <= phase.threshold and self.currentPhase < targetPhase then
             self.currentPhase = targetPhase
 
+            -- 设置阶段视觉状态（狂暴/魔化等，渲染器读取）
+            if phase.state then
+                self.phaseState = phase.state
+            end
+
             -- 应用阶段属性倍率
             if phase.atkMult then
                 self.atk = math_floor(self.baseAtk * phase.atkMult)
@@ -1193,6 +1199,7 @@ function Monster:Respawn()
     self.target = nil
     self.attackTimer = 0
     self.currentPhase = 1
+    self.phaseState = nil
     self.patrolTarget = nil
     self.patrolWaitTimer = 0
     -- 路点巡逻状态重置

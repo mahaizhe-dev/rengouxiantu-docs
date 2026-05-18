@@ -1777,7 +1777,7 @@ EquipmentData.SpecialEquipment = {
         name = "封印古剑·诛仙",
         desc = "诛仙剑灵封印后残余的剑身，虽失锋芒，仍余诛杀之意。",
         slot = "weapon",
-        icon = "image/icon_fengyin_zhuxian_ch5_20260517105215.png",
+        icon = "image/icon_fengyin_zhuxian_ch5_20260518083648.png",
         quality = "cyan",
         tier = 10,
         sellPrice = 5,
@@ -1801,7 +1801,7 @@ EquipmentData.SpecialEquipment = {
         name = "封印古剑·陷仙",
         desc = "陷仙剑灵封印后残余的剑身，困敌之力犹存，触之即陷。",
         slot = "weapon",
-        icon = "image/icon_fengyin_xianxian_ch5_20260517110530.png",
+        icon = "image/icon_fengyin_xianxian_ch5_20260518085543.png",
         quality = "cyan",
         tier = 10,
         sellPrice = 5,
@@ -1827,7 +1827,7 @@ EquipmentData.SpecialEquipment = {
         name = "封印古剑·戮仙",
         desc = "戮仙剑灵封印后残余的剑身，嗜杀本能未泯，血气缠绕。",
         slot = "weapon",
-        icon = "image/icon_fengyin_luxian_ch5_20260517105218.png",
+        icon = "image/icon_fengyin_luxian_ch5_20260518083709.png",
         quality = "cyan",
         tier = 10,
         sellPrice = 5,
@@ -1851,7 +1851,7 @@ EquipmentData.SpecialEquipment = {
         name = "封印古剑·绝仙",
         desc = "绝仙剑灵封印后残余的剑身，绝灭之力沉睡其中，不可轻触。",
         slot = "weapon",
-        icon = "image/icon_fengyin_juexian_ch5_20260517110452.png",
+        icon = "image/icon_fengyin_juexian_ch5_20260518083649.png",
         quality = "cyan",
         tier = 10,
         sellPrice = 5,
@@ -1870,6 +1870,96 @@ EquipmentData.SpecialEquipment = {
             maxStacks = 5,         -- 最多5层
             duration = 4.0,        -- 持续4秒，命中刷新
         },
+    },
+
+    -- #9 玄枢灵披（极阴阵灵掉落）：T8 青/灵器 披风
+    -- 主属性: 0.02 × 6.0(PCT_T8) × 1.8(灵器) = 0.216
+    -- 副属性: 灵器3条, 中值×1.0
+    -- 灵性属性: 福缘+7（floor(8×1.8×0.5)=7）
+    xuanshu_cape_ch4 = {
+        name = "玄枢灵披",
+        slot = "cape",
+        icon = "icon_xuanshu_cape_ch4.png",
+        quality = "cyan",
+        tier = 8,
+        sellPrice = 3,
+        sellCurrency = "lingYun",
+        mainStat = { dmgReduce = 0.216 },
+        subStats = {
+            { stat = "def", name = "防御力", value = 10.8 },       -- 1.2 × 9.0(SUB_T8) = 10.8
+            { stat = "maxHp", name = "生命值", value = 54.0 },    -- 6 × 9.0(SUB_T8) = 54.0
+            { stat = "hpRegen", name = "生命恢复", value = 4.5 }, -- 0.5 × 9.0(SUB_T8) = 4.5
+        },
+        spiritStat = { stat = "fortune", name = "福缘", value = 7 }, -- floor(8×1.8×0.5) = 7
+    },
+
+    -- #10 阴阳履（极阴/极阳阵灵掉落）：T8 青/灵器 鞋子
+    -- 主属性: 0.03 × 6.0(PCT_T8) × 1.8(灵器) = 0.324
+    -- 副属性: 灵器3条, 中值×1.0
+    -- 特效: 与踏云靴一致（闪避10%伤害）
+    yinyang_boots_ch4 = {
+        name = "阴阳履",
+        slot = "boots",
+        icon = "icon_yinyang_boots_ch4.png",
+        quality = "cyan",
+        tier = 8,
+        sellPrice = 3,
+        sellCurrency = "lingYun",
+        mainStat = { speed = 0.324 },
+        subStats = {
+            { stat = "atk", name = "攻击力", value = 13.5 },       -- 1.5 × 9.0(SUB_T8) = 13.5
+            { stat = "critRate", name = "暴击率", value = 0.048 }, -- 0.01 × 4.8(PCT_SUB_T8) = 0.048
+            { stat = "maxHp", name = "生命值", value = 54.0 },    -- 6 × 9.0(SUB_T8) = 54.0
+        },
+        specialEffect = {
+            type = "evade_damage",
+            name = "阴阳步",
+            evadeChance = 0.10,  -- 10%概率完全闪避伤害
+        },
+    },
+
+    -- #11 彩虹棒（极阳阵灵掉落）：T9 青/灵器 武器
+    -- 主属性: 5 × 17.0(T9) × 1.8(灵器) = 153.0
+    -- 副属性: 灵器3条, 中值×1.0; SUB_T9=11.0
+    -- 灵性属性: 福缘+8（floor(9×1.8×0.5)=8）
+    tiantianquan_weapon_ch4 = {
+        name = "甜甜圈",
+        slot = "weapon",
+        icon = "icon_tiantianquan_weapon_ch4.png",
+        quality = "cyan",
+        tier = 9,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { atk = 153.0 },
+        subStats = {
+            { stat = "killHeal", name = "击杀回血", value = 33 },    -- 3 × 11.0(SUB_T9) = 33
+            { stat = "hpRegen", name = "生命回复", value = 5.5 },   -- 0.5 × 11.0(SUB_T9) = 5.5
+            { stat = "fortune", name = "福缘", value = 16 },        -- linearGrowth: floor(9 × 1.8) = 16
+        },
+        spiritStat = { stat = "fortune", name = "福缘", value = 8 }, -- floor(9×1.8×0.5) = 8
+        desc = "色彩斑斓的棒棒糖造型武器，不知道是哪位仙人用来哄徒弟的。甜得齁嗓子，打得够疼。",
+    },
+
+    -- #极龙盔（四龙BOSS 1%共享掉落）：T9 青/灵器 头盔
+    -- 主属性: 20(头盔maxHp基数) × 17.0(T9) × 1.8(灵器) = 612.0
+    -- 副属性: 灵器3条, 中值×1.0
+    -- 灵性属性: critDmg = 0.05 × 6.0(PCT_SUB_T9) × 0.5 = 0.15
+    jilong_helmet_ch4 = {
+        name = "极龙盔",
+        slot = "helmet",
+        icon = "icon_jilong_helmet_ch4.png",
+        quality = "cyan",
+        tier = 9,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { maxHp = 612.0 },
+        subStats = {
+            { stat = "atk", name = "攻击力", value = 16.5 },          -- 1.5 × 11.0(SUB_T9) = 16.5
+            { stat = "critRate", name = "暴击率", value = 0.06 },     -- 0.01 × 6.0(PCT_SUB_T9) = 0.06
+            { stat = "def", name = "防御力", value = 13.2 },          -- 1.2 × 11.0(SUB_T9) = 13.2
+        },
+        spiritStat = { stat = "critDmg", name = "暴击伤害", value = 0.15 }, -- 0.05 × 6.0(PCT_SUB_T9) × 0.5 = 0.15
+        desc = "四方龙神之力凝聚而成的战盔，龙威加身，百邪不侵。",
     },
 }
 

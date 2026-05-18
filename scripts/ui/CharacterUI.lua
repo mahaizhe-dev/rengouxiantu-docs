@@ -169,6 +169,25 @@ local PILL_CONFIG = {
         bonusColor = {200, 50, 50, 255},
         getCount = function() return AlchemyUI.GetDragonBloodPillCount() end,
     },
+    -- ── 第五章丹药 ──
+    {
+        name = "太虚剑丹",
+        icon = "⚔️",
+        maxBuy = 10,
+        bonusLabel = "攻击力",
+        bonusPerPill = 10,
+        bonusColor = {255, 160, 80, 255},
+        getCount = function() return AlchemyUI.GetSwordIntentPillCount() end,
+    },
+    {
+        name = "狱甲丹",
+        icon = "🛡️",
+        maxBuy = 10,
+        bonusLabel = "防御力",
+        bonusPerPill = 8,
+        bonusColor = {100, 180, 255, 255},
+        getCount = function() return AlchemyUI.GetAbyssSealPillCount() end,
+    },
 }
 
 local TAB_ACTIVE_BG = {70, 80, 120, 255}
@@ -1214,7 +1233,7 @@ local function BuildTab3Content()
         end
     end
 
-    -- 海神柱加成
+    -- 海神柱加成（第四章）
     local SeaPillarConfig = require("config.SeaPillarConfig")
     local SeaPillarSystem = require("systems.SeaPillarSystem")
     for _, pid in ipairs(SeaPillarConfig.PILLAR_ORDER) do
@@ -1264,6 +1283,72 @@ local function BuildTab3Content()
                             text = statusText,
                             fontSize = T.fontSize.sm,
                             fontColor = repaired
+                                and {180, 220, 255, 255}
+                                or {120, 120, 120, 180},
+                        },
+                        UI.Label {
+                            text = hasBonus and (cfg.bonusLabel .. "+" .. totalBonus) or "-",
+                            fontSize = T.fontSize.xs,
+                            fontColor = hasBonus
+                                and { cfg.color[1], cfg.color[2], cfg.color[3], 255 }
+                                or {120, 120, 120, 160},
+                        },
+                    },
+                },
+            },
+        })
+    end
+
+    -- 剑封印加成（第五章）
+    local SwordPoolConfig = require("config.SwordPoolConfig")
+    local SwordPoolSystem = require("systems.SwordPoolSystem")
+    for _, sid in ipairs(SwordPoolConfig.SWORD_ORDER) do
+        local cfg = SwordPoolConfig.SWORDS[sid]
+        local state = SwordPoolSystem.GetSwordState(sid)
+        local level = state and state.level or 0
+        local unlocked = state and state.unlocked or false
+        local totalBonus = level * cfg.bonusPerLevel
+        local hasBonus = totalBonus > 0
+
+        local statusText
+        if not unlocked then
+            statusText = "未解封"
+        elseif level == 0 then
+            statusText = "Lv.0"
+        else
+            statusText = "Lv." .. level
+        end
+
+        table.insert(children, UI.Panel {
+            flexDirection = "row",
+            alignItems = "center",
+            justifyContent = "space-between",
+            paddingLeft = T.spacing.sm,
+            paddingRight = T.spacing.sm,
+            height = 28,
+            children = {
+                UI.Panel {
+                    flexDirection = "row",
+                    alignItems = "center",
+                    gap = 4,
+                    children = {
+                        UI.Label { text = cfg.icon, fontSize = T.fontSize.sm + 2 },
+                        UI.Label {
+                            text = cfg.name,
+                            fontSize = T.fontSize.sm,
+                            fontColor = {220, 210, 190, 255},
+                        },
+                    },
+                },
+                UI.Panel {
+                    flexDirection = "row",
+                    alignItems = "center",
+                    gap = 8,
+                    children = {
+                        UI.Label {
+                            text = statusText,
+                            fontSize = T.fontSize.sm,
+                            fontColor = unlocked
                                 and {180, 220, 255, 255}
                                 or {120, 120, 120, 180},
                         },

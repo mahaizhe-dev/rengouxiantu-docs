@@ -1159,6 +1159,63 @@ function M.RenderMonster(nvg, l, camera, m)
         end
     end
 
+    -- BOSS 阶段视觉状态（phaseState: berserk/demonize）
+    if m.phaseState == "berserk" then
+        -- 狂暴：红橙脉冲光环 + 旋转火粒子
+        local bPulse = math.sin(time * 4.0) * 0.3 + 0.7
+        -- 外层红色径向渐变
+        local outerR = radius + 8 + math.sin(time * 3.0) * 2
+        local outerGlow = nvgRadialGradient(nvg, cx, cy,
+            radius * 0.5, outerR,
+            nvgRGBA(255, 60, 30, math.floor(50 * bPulse)),
+            nvgRGBA(255, 60, 30, 0))
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, cx, cy, outerR)
+        nvgFillPaint(nvg, outerGlow)
+        nvgFill(nvg)
+        -- 红色描边光环
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, cx, cy, radius + 4)
+        nvgStrokeColor(nvg, nvgRGBA(255, 80, 50, math.floor(120 * bPulse)))
+        nvgStrokeWidth(nvg, 2)
+        nvgStroke(nvg)
+        -- 旋转火粒子（4个）
+        for i = 0, 3 do
+            local angle = time * 3.0 + i * (math.pi / 2)
+            local pr = radius + 6
+            local px = cx + math.cos(angle) * pr
+            local py = cy + math.sin(angle) * pr
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, px, py, 2.5)
+            nvgFillColor(nvg, nvgRGBA(255, 120, 50, math.floor(200 * bPulse)))
+            nvgFill(nvg)
+        end
+    elseif m.phaseState == "demonize" then
+        -- 魔化：暗紫脉冲光环 + 旋转魔气粒子（复用封魔风格）
+        local dPulse = math.sin(time * 3.0) * 0.3 + 0.7
+        -- 外层暗紫大光环
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, cx, cy, radius + 12)
+        nvgFillColor(nvg, nvgRGBA(120, 20, 80, math.floor(80 * dPulse)))
+        nvgFill(nvg)
+        -- 内层暗红光环
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, cx, cy, radius + 7)
+        nvgFillColor(nvg, nvgRGBA(200, 30, 30, math.floor(100 * dPulse)))
+        nvgFill(nvg)
+        -- 旋转魔气粒子（6个）
+        for i = 0, 5 do
+            local angle = time * 2.0 + i * (math.pi / 3)
+            local pr = radius + 10
+            local px = cx + math.cos(angle) * pr
+            local py = cy + math.sin(angle) * pr
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, px, py, 3.5)
+            nvgFillColor(nvg, nvgRGBA(255, 60, 60, math.floor(220 * dPulse)))
+            nvgFill(nvg)
+        end
+    end
+
     -- 2) 绘制圆形头像（用图片纹理+圆形路径裁剪）
     local imgHandle = RenderUtils.GetCachedImage(nvg, m.portrait)
     if imgHandle then
@@ -1186,6 +1243,25 @@ function M.RenderMonster(nvg, l, camera, m)
             nvgCircle(nvg, cx, cy, radius - 1)
             nvgFillColor(nvg, nvgRGBA(120, 10, 40, dAlpha))
             nvgFill(nvg)
+        end
+
+        -- BOSS 阶段叠色
+        if not flash then
+            if m.phaseState == "berserk" then
+                -- 狂暴：红橙叠色
+                local bAlpha = math.floor(50 + 25 * math.sin(time * 3.0))
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, cx, cy, radius - 1)
+                nvgFillColor(nvg, nvgRGBA(200, 50, 20, bAlpha))
+                nvgFill(nvg)
+            elseif m.phaseState == "demonize" then
+                -- 魔化：暗紫红叠色
+                local dAlpha2 = math.floor(70 + 30 * math.sin(time * 2.5))
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, cx, cy, radius - 1)
+                nvgFillColor(nvg, nvgRGBA(120, 10, 40, dAlpha2))
+                nvgFill(nvg)
+            end
         end
     else
         -- 无头像时的回退：纯色圆形 + emoji

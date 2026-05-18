@@ -40,7 +40,7 @@ M.Types.kan_disciple = {
     realm = "yuanying_3",  -- 元婴后期
     bodyColor = {60, 120, 180, 255},
     dropTable = {
-        { chance = 0.12, type = "equipment", minQuality = "white", maxQuality = "purple" },
+        { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.05, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.10, type = "consumable", consumableId = "taixu_token" },
     },
@@ -96,7 +96,7 @@ M.Types.gen_disciple = {
     realm = "huashen_1",  -- 化神初期
     bodyColor = {140, 120, 80, 255},
     dropTable = {
-        { chance = 0.12, type = "equipment", minQuality = "white", maxQuality = "purple" },
+        { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.06, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.10, type = "consumable", consumableId = "taixu_token" },
     },
@@ -172,7 +172,7 @@ M.Types.zhen_disciple = {
     realm = "huashen_2",  -- 化神中期
     bodyColor = {180, 180, 40, 255},
     dropTable = {
-        { chance = 0.12, type = "equipment", minQuality = "white", maxQuality = "purple" },
+        { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.07, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.10, type = "consumable", consumableId = "taixu_token" },
     },
@@ -226,7 +226,7 @@ M.Types.xun_disciple = {
     realm = "huashen_3",  -- 化神后期
     bodyColor = {160, 200, 180, 255},
     dropTable = {
-        { chance = 0.12, type = "equipment", minQuality = "white", maxQuality = "purple" },
+        { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.10, type = "consumable", consumableId = "taixu_token" },
     },
@@ -301,7 +301,7 @@ M.Types.li_disciple = {
     realm = "heti_1",  -- 合体初期
     bodyColor = {220, 100, 30, 255},
     dropTable = {
-        { chance = 0.12, type = "equipment", minQuality = "white", maxQuality = "purple" },
+        { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.09, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.10, type = "consumable", consumableId = "taixu_token" },
     },
@@ -357,7 +357,7 @@ M.Types.kun_disciple = {
     realm = "heti_2",  -- 合体中期
     bodyColor = {130, 100, 50, 255},
     dropTable = {
-        { chance = 0.12, type = "equipment", minQuality = "white", maxQuality = "purple" },
+        { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.10, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.10, type = "consumable", consumableId = "taixu_token" },
     },
@@ -433,7 +433,7 @@ M.Types.dui_disciple = {
     realm = "heti_2",  -- 合体中期
     bodyColor = {80, 140, 60, 255},
     dropTable = {
-        { chance = 0.12, type = "equipment", minQuality = "white", maxQuality = "purple" },
+        { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.10, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.10, type = "consumable", consumableId = "taixu_token" },
     },
@@ -489,6 +489,7 @@ M.Types.dui_boss = {
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
         { chance = 0.01, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹1%（合体期王者BOSS）
+        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },  -- 太虚令盒0.5%
         { chance = 0.001, type = "consumable", consumableId = "bagua_fragment_dui" },  -- 神器碎片·兑 0.1%
     },
 }
@@ -670,10 +671,123 @@ M.Types.qian_boss = {
         { chance = 0.03, type = "world_drop", pool = "sikong_books" },  -- 高级蕴灵书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
-        -- 太虚令盒（0.1%独立掉落）
-        { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
+        -- 太虚令盒（0.5%独立掉落）
+        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },
         { chance = 0.02, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹2%（司空正阳）
         { chance = 0.001, type = "consumable", consumableId = "bagua_fragment_qian" },  -- 神器碎片·乾 0.1%
+        { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
+    },
+}
+
+-- =====================================================================
+-- 阴阳阵灵（皇级游荡BOSS）— 随机刷新在四阴阵/四阳阵
+-- =====================================================================
+
+-- 极阴阵灵：随机刷新在坎/艮/震/巽四阴阵之一
+M.Types.yin_spirit = {
+    name = "极阴阵灵",
+    icon = "🌑",
+    portrait = "Textures/monster_yin_spirit.png",
+    zone = "ch4_yin_roaming",  -- 特殊标记：随机阴阵
+    category = "emperor_boss",
+    race = "array_spirit",
+    level = 85,
+    realm = "heti_1",  -- 合体初期
+    bodyColor = {80, 60, 160, 255},
+    clawColor = {120, 90, 200},
+    skillTextColor = {140, 110, 220, 255},
+    warningColorOverride = {100, 80, 180, 120},
+    phases = 3,
+    -- 复用文王阴仪态技能（坤地缚 + 坎水寒）
+    skills = { "wenwang_kun_bind", "wenwang_kan_frost" },
+    phaseConfig = {
+        -- 60% → 狂暴：阴阳逆转AOE + 攻速提升
+        { threshold = 0.6, atkMult = 1.3, speedMult = 1.3,
+          state = "berserk",
+          announce = "极阴阵灵暴怒狂化，阴气如潮！",
+          triggerSkill = "wenwang_yinyang_reversal" },
+        -- 30% → 魔化：阴阳逆转AOE + 大幅强化（覆盖狂暴）
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.6, intervalMult = 0.5,
+          state = "demonize",
+          announce = "极阴阵灵魔化！阴极之力吞噬一切！",
+          triggerSkill = "wenwang_yinyang_reversal" },
+    },
+    -- 永驻阵法领域（阴阵光环）
+    baguaAura = {
+        enabled = true,
+        radius = 4.0,               -- 领域半径（略小于文王）
+        damagePercent = 0.015,       -- 每秒1.5%最大HP灼烧（弱于文王的2%）
+        tickInterval = 1.0,
+    },
+    tierOnly = 8,
+    dropTable = {
+        { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
+        { chance = 1.0, type = "lingYun", amount = {8, 14} },
+        { chance = 0.15, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
+        { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
+        { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
+        { chance = 0.01, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹1%（皇级BOSS）
+        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },  -- 太虚令盒0.5%
+        { chance = 0.02, type = "equipment", equipId = "xuanshu_cape_ch4" },  -- 玄枢灵披2%
+        { chance = 0.01, type = "equipment", equipId = "yinyang_boots_ch4" },  -- 阴阳履1%
+        { chance = 0.001, type = "consumable", consumablePool = {  -- 四阴阵神器碎片随机1个 0.1%
+            "bagua_fragment_kan", "bagua_fragment_gen", "bagua_fragment_zhen", "bagua_fragment_xun",
+        } },
+    },
+}
+
+-- 极阳阵灵：随机刷新在离/坤/兑/乾四阳阵之一
+M.Types.yang_spirit = {
+    name = "极阳阵灵",
+    icon = "🌕",
+    portrait = "Textures/monster_yang_spirit.png",
+    zone = "ch4_yang_roaming",  -- 特殊标记：随机阳阵
+    category = "emperor_boss",
+    race = "array_spirit",
+    level = 99,
+    realm = "heti_3",  -- 合体后期
+    bodyColor = {220, 180, 60, 255},
+    clawColor = {255, 220, 80},
+    skillTextColor = {255, 240, 100, 255},
+    warningColorOverride = {240, 210, 80, 120},
+    phases = 3,
+    -- 复用文王阳仪态技能（乾天裂 + 离火焚）
+    skills = { "wenwang_qian_split", "wenwang_li_blaze" },
+    phaseConfig = {
+        -- 60% → 狂暴：阴阳逆转AOE + 攻速提升
+        { threshold = 0.6, atkMult = 1.3, speedMult = 1.3,
+          state = "berserk",
+          announce = "极阳阵灵暴怒狂化，金光万丈！",
+          triggerSkill = "wenwang_yinyang_reversal" },
+        -- 30% → 魔化：阴阳逆转AOE + 大幅强化（覆盖狂暴）
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.6, intervalMult = 0.5,
+          state = "demonize",
+          announce = "极阳阵灵魔化！阳极生变，乾坤逆转！",
+          triggerSkill = "wenwang_yinyang_reversal" },
+    },
+    -- 永驻阵法领域（阳阵光环）
+    baguaAura = {
+        enabled = true,
+        radius = 5.0,               -- 领域半径（与文王相同）
+        damagePercent = 0.02,        -- 每秒2%最大HP灼烧（与文王相同）
+        tickInterval = 1.0,
+    },
+    tierOnly = 9,
+    dropTable = {
+        { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
+        { chance = 1.0, type = "lingYun", amount = {12, 18} },
+        { chance = 0.50, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
+        { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
+        { chance = 0.01, type = "equipment", equipId = "yinyang_boots_ch4" },  -- 阴阳履1%
+        { chance = 0.01, type = "equipment", equipId = "tiantianquan_weapon_ch4" },  -- 甜甜圈1%
+        { chance = 0.001, type = "consumable", consumablePool = {  -- 四阳阵神器碎片随机1个 0.1%
+            "bagua_fragment_li", "bagua_fragment_kun", "bagua_fragment_dui", "bagua_fragment_qian",
+        } },
+        { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
+        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },  -- 太虚令盒0.5%
+        { chance = 0.02, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹2%（皇级BOSS）
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
     },
 }
@@ -714,12 +828,15 @@ M.Types.dragon_ice = {
         { chance = 0.03, type = "world_drop", pool = "dragon_ice_books" },  -- 高级技能书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
-        { chance = 0.02, type = "consumable", consumablePool = {"dragon_scale_ice", "dragon_blood_herb"} },  -- 2%共享（封霜龙鳞/龙血草）
-        { chance = 0.0025, type = "equipment", equipId = "silong_ring_ch4" },  -- 帝尊肆戒0.25%
-        -- 太虚令盒（0.1%独立掉落）
-        { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
+        { chance = 0.04, type = "consumable", consumableId = "dragon_scale_ice" },  -- 封霜龙鳞4%
+        { chance = 0.02, type = "consumable", consumablePool = {"dragon_blood_herb", "gold_brick"} },  -- 2%共享（龙血草/金砖）
+        { chance = 0.01, type = "equipment_pool", pool = {  -- 1%共享池（极龙盔/帝尊肆戒 二选一）
+            { equipId = "jilong_helmet_ch4" },
+            { equipId = "silong_ring_ch4" },
+        }},
+        -- 太虚令盒（0.5%独立掉落）
+        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
-        { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
     },
 }
@@ -756,12 +873,15 @@ M.Types.dragon_abyss = {
         { chance = 0.03, type = "world_drop", pool = "dragon_abyss_books" },  -- 高级技能书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
-        { chance = 0.02, type = "consumable", consumablePool = {"dragon_scale_abyss", "dragon_blood_herb"} },  -- 2%共享（渊蛟龙骨/龙血草）
-        { chance = 0.0025, type = "equipment", equipId = "silong_ring_ch4" },  -- 帝尊肆戒0.25%
-        -- 太虚令盒（0.1%独立掉落）
-        { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
+        { chance = 0.04, type = "consumable", consumableId = "dragon_scale_abyss" },  -- 渊蛟龙骨4%
+        { chance = 0.02, type = "consumable", consumablePool = {"dragon_blood_herb", "gold_brick"} },  -- 2%共享（龙血草/金砖）
+        { chance = 0.01, type = "equipment_pool", pool = {  -- 1%共享池（极龙盔/帝尊肆戒 二选一）
+            { equipId = "jilong_helmet_ch4" },
+            { equipId = "silong_ring_ch4" },
+        }},
+        -- 太虚令盒（0.5%独立掉落）
+        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
-        { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
     },
 }
@@ -798,12 +918,15 @@ M.Types.dragon_fire = {
         { chance = 0.03, type = "world_drop", pool = "dragon_fire_books" },  -- 高级技能书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
-        { chance = 0.02, type = "consumable", consumablePool = {"dragon_scale_fire", "dragon_blood_herb"} },  -- 2%共享（焚天龙焰/龙血草）
-        { chance = 0.0025, type = "equipment", equipId = "silong_ring_ch4" },  -- 帝尊肆戒0.25%
-        -- 太虚令盒（0.1%独立掉落）
-        { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
+        { chance = 0.04, type = "consumable", consumableId = "dragon_scale_fire" },  -- 焚天龙焰4%
+        { chance = 0.02, type = "consumable", consumablePool = {"dragon_blood_herb", "gold_brick"} },  -- 2%共享（龙血草/金砖）
+        { chance = 0.01, type = "equipment_pool", pool = {  -- 1%共享池（极龙盔/帝尊肆戒 二选一）
+            { equipId = "jilong_helmet_ch4" },
+            { equipId = "silong_ring_ch4" },
+        }},
+        -- 太虚令盒（0.5%独立掉落）
+        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
-        { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
     },
 }
@@ -840,12 +963,15 @@ M.Types.dragon_sand = {
         { chance = 0.03, type = "world_drop", pool = "dragon_sand_books" },  -- 高级技能书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
-        { chance = 0.02, type = "consumable", consumablePool = {"dragon_scale_sand", "dragon_blood_herb"} },  -- 2%共享（蚀骨龙牙/龙血草）
-        { chance = 0.0025, type = "equipment", equipId = "silong_ring_ch4" },  -- 帝尊肆戒0.25%
-        -- 太虚令盒（0.1%独立掉落）
-        { chance = 0.001, type = "consumable", consumableId = "taixu_token_box" },
+        { chance = 0.04, type = "consumable", consumableId = "dragon_scale_sand" },  -- 蚀骨龙牙4%
+        { chance = 0.02, type = "consumable", consumablePool = {"dragon_blood_herb", "gold_brick"} },  -- 2%共享（龙血草/金砖）
+        { chance = 0.01, type = "equipment_pool", pool = {  -- 1%共享池（极龙盔/帝尊肆戒 二选一）
+            { equipId = "jilong_helmet_ch4" },
+            { equipId = "silong_ring_ch4" },
+        }},
+        -- 太虚令盒（0.5%独立掉落）
+        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
-        { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
     },
 }

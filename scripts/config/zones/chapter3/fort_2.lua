@@ -12,18 +12,18 @@ fort_2.regions = {
 fort_2.npcs = {}
 
 -- 蜃妖 ×10 (normal Lv57~59) + 蜃妖王 ×1 (king_boss Lv60)
--- 区域 (30,54)→(49,73)，内部可用约 (32,56)→(47,71)，均匀4行×2~3列
+-- 区域 (30,54)→(49,73)，内部可用约 (32,56)→(47,71)，均匀散布
 fort_2.spawns = {
-    { type = "sand_demon_2", x = 33, y = 57 },
-    { type = "sand_demon_2", x = 39, y = 57 },
-    { type = "sand_demon_2", x = 46, y = 57 },
-    { type = "sand_demon_2", x = 33, y = 62 },
-    { type = "sand_demon_2", x = 46, y = 62 },
-    { type = "sand_demon_2", x = 33, y = 66 },
+    { type = "sand_demon_2", x = 34, y = 58 },
+    { type = "sand_demon_2", x = 41, y = 57 },
+    { type = "sand_demon_2", x = 45, y = 60 },
+    { type = "sand_demon_2", x = 36, y = 62 },
+    { type = "sand_demon_2", x = 43, y = 63 },
+    { type = "sand_demon_2", x = 34, y = 65 },
+    { type = "sand_demon_2", x = 40, y = 67 },
     { type = "sand_demon_2", x = 46, y = 66 },
-    { type = "sand_demon_2", x = 33, y = 70 },
-    { type = "sand_demon_2", x = 39, y = 70 },
-    { type = "sand_demon_2", x = 46, y = 70 },
+    { type = "sand_demon_2", x = 35, y = 70 },
+    { type = "sand_demon_2", x = 43, y = 69 },
     { type = "yao_king_2",   x = 39, y = 64 },
 }
 
