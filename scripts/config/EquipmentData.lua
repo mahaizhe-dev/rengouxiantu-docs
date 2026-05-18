@@ -1923,7 +1923,7 @@ EquipmentData.SpecialEquipment = {
     -- 副属性: 灵器3条, 中值×1.0; SUB_T9=11.0
     -- 灵性属性: 福缘+8（floor(9×1.8×0.5)=8）
     tiantianquan_weapon_ch4 = {
-        name = "甜甜圈",
+        name = "彩虹棒",
         slot = "weapon",
         icon = "icon_tiantianquan_weapon_ch4.png",
         quality = "cyan",
@@ -2049,6 +2049,10 @@ EquipmentData.Collection = {
                 "shengqi_liedi",
                 "shengqi_mieying",
                 "silong_ring_ch4",
+                "xuanshu_cape_ch4",
+                "yinyang_boots_ch4",
+                "tiantianquan_weapon_ch4",
+                "jilong_helmet_ch4",
                 "fabao_xuehaitu_t9",
                 "fabao_haoqiyin_t9",
                 "fabao_qingyunta_t9",
@@ -2142,6 +2146,10 @@ EquipmentData.Collection = {
         "shengqi_liedi",
         "shengqi_mieying",
         "silong_ring_ch4",
+        "xuanshu_cape_ch4",
+        "yinyang_boots_ch4",
+        "tiantianquan_weapon_ch4",
+        "jilong_helmet_ch4",
         "fabao_xuehaitu_t9",
         "fabao_haoqiyin_t9",
         "fabao_qingyunta_t9",
@@ -2363,25 +2371,25 @@ EquipmentData.Collection = {
             bonus = { maxHp = 20, hpRegen = 1 },
             desc = "封魔殿封印法盘，魔气深封，气血充盈。",
         },
-        -- 第四章·龙神圣器（合计：atk=34, def=9, maxHp=112, killHeal=11, hpRegen=2）
+        -- 第四章·龙神圣器（合计：atk=34, def=21, maxHp=150, killHeal=20, hpRegen=2）
         shengqi_duanliu = {
-            bonus = { atk = 7, def = 3, maxHp = 22 },
+            bonus = { atk = 7, def = 7, maxHp = 30 },
             desc = "龙极断流，风卷残云，一刀斩断万古长河。",
         },
         shengqi_fentian = {
-            bonus = { atk = 6, maxHp = 25, hpRegen = 2 },
+            bonus = { atk = 6, maxHp = 30, hpRegen = 2 },
             desc = "龙极焚天，焚尽苍穹，浴火之中生生不息。",
         },
         shengqi_shihun = {
-            bonus = { atk = 7, maxHp = 20, killHeal = 5 },
+            bonus = { atk = 7, maxHp = 30, killHeal = 10 },
             desc = "龙极噬魂，杀伐果断，每一击都在吞噬生机。",
         },
         shengqi_liedi = {
-            bonus = { atk = 7, def = 6, maxHp = 20 },
+            bonus = { atk = 7, def = 7, maxHp = 30 },
             desc = "龙极裂地，力贯千钧，大地为之龟裂。",
         },
         shengqi_mieying = {
-            bonus = { atk = 7, maxHp = 25, killHeal = 6 },
+            bonus = { atk = 7, maxHp = 30, killHeal = 10 },
             desc = "龙极灭影，暗影之中，必杀一击，万劫不复。",
         },
         -- 第四章·帝尊肆戒（福缘+5）
@@ -2389,29 +2397,29 @@ EquipmentData.Collection = {
             bonus = { fortune = 5 },
             desc = "帝尊终铸之戒，四龙精魄凝聚，福缘天成，气运亨通。",
         },
-        -- 第四章·八卦海（合计：atk=26, def=56, maxHp=140, killHeal=8, hpRegen=5, heavyHit=35）
+        -- 第四章·八卦海（合计：atk=22, def=49, maxHp=150, killHeal=8, hpRegen=5）
         chengyuan_helmet_ch4 = {
             bonus = { maxHp = 30, def = 6, hpRegen = 1 },
             desc = "沈渊衣以深渊之水淬炼的冥冠，戴上后仿若沉入万丈深渊。",
         },
         zhiyan_boots_ch4 = {
-            bonus = { def = 8, maxHp = 25 },
+            bonus = { def = 6, maxHp = 30 },
             desc = "岩不动脚下亘古不移的磐石锻造，落地便如山岳扎根。",
         },
         leiming_necklace_ch4 = {
-            bonus = { atk = 8, heavyHit = 15 },
+            bonus = { atk = 6, maxHp = 15 },
             desc = "雷惊蛰心中凝结的雷珠磨制，电弧缠绕，触之酥麻。",
         },
         fenghen_ring_ch4 = {
-            bonus = { atk = 8, heavyHit = 20 },
+            bonus = { atk = 6, maxHp = 15 },
             desc = "风无痕万年逃亡中唯一不曾遗落之物，轻若无物，锋如断魂。",
         },
         yanxin_belt_ch4 = {
-            bonus = { def = 8, maxHp = 30, killHeal = 8 },
+            bonus = { def = 5, maxHp = 30, killHeal = 8 },
             desc = "炎若晦丹炉余焰凝成的腰环，温热不散，杀敌续命。",
         },
         houtu_shoulder_ch4 = {
-            bonus = { def = 10, maxHp = 25, hpRegen = 2 },
+            bonus = { def = 10, maxHp = 30, hpRegen = 2 },
             desc = "厚德生以厚土封印阵力时剥落的肩甲，生生不息。",
         },
         zeyuan_armor_ch4 = {
@@ -2421,6 +2429,23 @@ EquipmentData.Collection = {
         tiangang_cape_ch4 = {
             bonus = { atk = 10, def = 12 },
             desc = "司空正阳以天罡正气织就的圣披，浩然之气，百邪不侵。",
+        },
+        -- 第四章·新增装备（合计：atk=16, def=7, maxHp=30, killHeal=8, hpRegen=5）
+        xuanshu_cape_ch4 = {
+            bonus = { atk = 5, def = 3, hpRegen = 2 },
+            desc = "以玄枢星力织就的灵披，斗转星移间攻守兼备。",
+        },
+        yinyang_boots_ch4 = {
+            bonus = { atk = 4, killHeal = 8, hpRegen = 1 },
+            desc = "阴阳二气淬炼的战靴，踏破生死之界，杀敌回血。",
+        },
+        tiantianquan_weapon_ch4 = {
+            bonus = { atk = 4, maxHp = 15, hpRegen = 2 },
+            desc = "彩虹灵力凝聚而成的仙棒，七彩流光，生机勃勃。",
+        },
+        jilong_helmet_ch4 = {
+            bonus = { atk = 3, def = 4, maxHp = 15 },
+            desc = "四方龙神之力凝聚的战盔，龙威加身，坚不可摧。",
         },
         -- 法宝图鉴（第四章·T9）
         fabao_xuehaitu_t9 = {

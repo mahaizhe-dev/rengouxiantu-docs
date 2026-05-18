@@ -781,7 +781,7 @@ M.Types.yang_spirit = {
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 0.01, type = "equipment", equipId = "yinyang_boots_ch4" },  -- 阴阳履1%
-        { chance = 0.01, type = "equipment", equipId = "tiantianquan_weapon_ch4" },  -- 甜甜圈1%
+        { chance = 0.01, type = "equipment", equipId = "tiantianquan_weapon_ch4" },  -- 彩虹棒1%
         { chance = 0.001, type = "consumable", consumablePool = {  -- 四阳阵神器碎片随机1个 0.1%
             "bagua_fragment_li", "bagua_fragment_kun", "bagua_fragment_dui", "bagua_fragment_qian",
         } },
