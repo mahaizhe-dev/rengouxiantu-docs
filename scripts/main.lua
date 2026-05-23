@@ -78,6 +78,8 @@ local XianyuanChestSystem = require("systems.XianyuanChestSystem")
 local XianyuanChestUI = require("ui.XianyuanChestUI")
 local WineSystem = require("systems.WineSystem")
 local BlackMerchantEntry = require("ui.BlackMerchantEntry")
+local TownReturnEntry = require("ui.TownReturnEntry")
+local TownReturnSystem = require("systems.TownReturnSystem")
 local DPSTracker = require("ui.DPSTracker")
 local PerfMonitor = require("systems.PerfMonitor")
 local _dcOk, DungeonClient = pcall(require, "network.DungeonClient")
@@ -1280,6 +1282,9 @@ function CreateUI()
     -- 创建黑商入口图标（挂载到小地图容器下方，须在 Minimap.Create 之后）
     BlackMerchantEntry.Create(overlay)
 
+    -- 创建快捷回城入口按钮（挂载到小地图容器下方）
+    TownReturnEntry.Create(overlay)
+
     -- 创建系统菜单
     SystemMenu.Create(overlay, {
         onSaveAndExit = function()
@@ -1447,6 +1452,10 @@ function HandleUpdate(eventType, eventData)
 
     -- 福源果弹窗计时
     FortuneFruitSystem.Update(dt)
+
+    -- 快捷回城读条 + 按钮状态
+    TownReturnSystem.Update(dt)
+    TownReturnEntry.Update(dt)
 
     -- 仙缘宝箱读条 + UI 计时
     XianyuanChestSystem.Update(dt)

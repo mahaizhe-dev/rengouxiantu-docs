@@ -1303,12 +1303,14 @@ function PetPanel.CreateSkillGridCell(slotIndex, skill)
         [1] = {100, 100, 130, 120},
         [2] = {100, 200, 100, 180},
         [3] = {255, 180, 60, 200},
+        [4] = {255, 50, 50, 200},
     }
-    local tierLabels = { [1] = "初", [2] = "中", [3] = "高" }
+    local tierLabels = { [1] = "初", [2] = "中", [3] = "高", [4] = "特" }
     local tierLabelColors = {
         [1] = {200, 200, 200, 200},
         [2] = {100, 255, 100, 255},
         [3] = {255, 200, 80, 255},
+        [4] = {255, 80, 80, 255},
     }
     local tierLabel = tierLabels[skill.tier] or "初"
     local tierLabelColor = tierLabelColors[skill.tier] or tierLabelColors[1]
@@ -1584,7 +1586,12 @@ function PetPanel.ShowSkillActionPopup(slotIndex, skill)
                     UI.Label {
                         text = displayName,
                         fontSize = T.fontSize.md, fontWeight = "bold",
-                        fontColor = skill.tier == 2 and {100, 200, 100, 255} or {200, 200, 200, 255},
+                        fontColor = ({
+                            [1] = {200, 200, 200, 255},
+                            [2] = {100, 200, 100, 255},
+                            [3] = {255, 200, 80, 255},
+                            [4] = {255, 80, 80, 255},
+                        })[skill.tier] or {200, 200, 200, 255},
                     },
                     UI.Label {
                         text = ownerPrefix .. statName .. " +" .. valueFmt,

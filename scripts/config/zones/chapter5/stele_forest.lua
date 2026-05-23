@@ -29,6 +29,18 @@ stele_forest.spawns = {
     { type = "ch5_stele_phantom", x = 72.5, y = 42.5 },
     -- BOSS：石观澜 ×1（右侧中部）
     { type = "ch5_shi_guanlan",   x = 74.5, y = 33.5 },
+    -- 巡逻魔帅·裂魂 ×1（皇级 Lv.120 极谪仙境，碑林外围四角巡逻）
+    { type = "ch5_marshal_liesoul", x = 60, y = 22,
+      patrolPreset = "large_waypoint_loop",
+      patrol = {
+          nodes = {
+              { x = 60, y = 22 },
+              { x = 60, y = 43 },
+              { x = 75, y = 43 },
+              { x = 75, y = 22 },
+          },
+      },
+    },
 }
 stele_forest.decorations = {
     -- 悟剑碑林：倒碑散落与卷轴残页

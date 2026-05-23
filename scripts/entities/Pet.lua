@@ -147,8 +147,9 @@ function Pet:GetSkillBonuses()
         evadeChance = 0, hpRegenPct = 0, critRate = 0,
         atkSpeedPct = 0, critDmgPct = 0, doubleHitPct = 0,
         lifeStealPct = 0, dmgReducePct = 0,
+        ignoreDefPct = 0, bonusDmgPct = 0,
     }
-    local perLvBonuses = { maxHp = 0, def = 0 }
+    local perLvBonuses = { maxHp = 0, def = 0, atk = 0 }
     local ownerFlat = {}  -- targetOwner + flat 类型加成（给主人的固定值）
     local seenIds = {}  -- BUG#3700 fix: 防御性去重，防止重复技能叠加加成
     for i = 1, self:GetSkillSlotCount() do
@@ -197,7 +198,7 @@ function Pet:RecalcStats()
 
     -- 百分比加成 + 蕴灵每级固定加成
     self.maxHp = math.floor(rawMaxHp * (1 + skillPct.maxHp / 100) + perLv.maxHp * self.level)
-    local baseAtk = math.floor(rawAtk * (1 + skillPct.atk / 100))
+    local baseAtk = math.floor(rawAtk * (1 + skillPct.atk / 100) + perLv.atk * self.level)
     self.def   = math.floor(rawDef   * (1 + skillPct.def   / 100) + perLv.def * self.level)
 
     -- 高级皮肤加成已迁移至角色（Player._RecalcStatsCache）
@@ -214,6 +215,10 @@ function Pet:RecalcStats()
     self.doubleHitPct = skillPct.doubleHitPct  -- 连击概率(%)
     self.lifeStealPct = skillPct.lifeStealPct  -- 吸血比例(%)
     self.dmgReducePct = skillPct.dmgReducePct  -- 减伤比例(%)
+
+    -- Ch5 属性
+    self.ignoreDefPct = skillPct.ignoreDefPct  -- 忽视防御触发率(%)
+    self.bonusDmgPct  = skillPct.bonusDmgPct   -- 伤害加成(%)
 
     -- 同步主人加成（灵兽赐主技能：固定值直接加给主人仙缘属性）
     if self.owner then
@@ -255,6 +260,7 @@ function Pet:GetStatBreakdown()
             growth  = math.floor(growth.atk * lvGrowth),
             sync    = math.floor(playerAtk * syncRate),
             skillPct = skillPct.atk,
+            perLv   = math.floor(perLv.atk * self.level),
             total   = self.atk,
         },
         def = {
@@ -696,9 +702,63 @@ function Pet:GetActiveSkillData()
     local td = skill.tiers[self.tier]
     if not td then
         -- 超出定义范围时取最高阶
-        td = skill.tiers[3]
+        local maxTier = 0
+        for k in pairs(skill.tiers) do if k > maxTier then maxTier = k end end
+        td = skill.tiers[maxTier]
     end
     return td
+end
+
+-- ============================================================================
+-- 统一伤害结算
+-- ============================================================================
+
+--- 统一宠物伤害结算（普攻/连击/灵噬共用）
+--- @param atkValue number  攻击力（普攻=self.atk, 灵噬=self.atk*倍率）
+--- @param target table     目标怪物
+--- @param source string    伤害来源标记 "normal"|"double"|"spirit_bite"
+--- @return table { damage=number, isCrit=boolean, isIgnoreDef=boolean }
+function Pet:CalcPetDamage(atkValue, target, source)
+    local targetDef = target.def or 0
+
+    -- 1) 忽视防御判定：独立概率，触发时 def 按 0 计算
+    local isIgnoreDef = false
+    if self.ignoreDefPct and self.ignoreDefPct > 0 then
+        if math.random(100) <= self.ignoreDefPct then
+            isIgnoreDef = true
+            targetDef = 0
+        end
+    end
+
+    -- 2) 基础伤害
+    local damage = GameConfig.CalcDamage(atkValue, targetDef)
+
+    -- 3) 暴击判定（暴伤 = 1.5 + critDmgPct/100）
+    local isCrit = false
+    if self.critRate > 0 and math.random(100) <= self.critRate then
+        isCrit = true
+        local critMult = 1.5 + (self.critDmgPct or 0) / 100
+        damage = math.floor(damage * critMult)
+    end
+
+    -- 4) 加伤乘区（最终伤害 × (1 + bonusDmgPct/100)）
+    if self.bonusDmgPct and self.bonusDmgPct > 0 then
+        damage = math.floor(damage * (1 + self.bonusDmgPct / 100))
+    end
+
+    -- 5) 造成伤害
+    damage = math.max(1, damage)
+    target:TakeDamage(damage, self)
+
+    -- 6) 吸血回复
+    if self.lifeStealPct and self.lifeStealPct > 0 and self.alive then
+        local heal = math.floor(damage * self.lifeStealPct / 100)
+        if heal > 0 then
+            self.hp = math.min(self.hp + heal, self.maxHp)
+        end
+    end
+
+    return { damage = damage, isCrit = isCrit, isIgnoreDef = isIgnoreDef }
 end
 
 --- 释放灵噬
@@ -709,19 +769,9 @@ function Pet:CastSpiritBite()
     local td = self:GetActiveSkillData()
     if not td then return end
 
-    -- 计算伤害
+    -- 统一伤害结算
     local rawAtk = math.floor(self.atk * td.dmgMult)
-    local damage = GameConfig.CalcDamage(rawAtk, self.target.def)
-
-    -- 暴击判定
-    local isCrit = false
-    if self.critRate > 0 and math.random(100) <= self.critRate then
-        isCrit = true
-        damage = math.floor(damage * 1.5)
-    end
-
-    -- 造成伤害
-    self.target:TakeDamage(damage, self)
+    local result = self:CalcPetDamage(rawAtk, self.target, "spirit_bite")
 
     -- 施加易伤 debuff
     if self.target.ApplyDebuff then
@@ -735,25 +785,24 @@ function Pet:CastSpiritBite()
     self.skillCooldown = skill.cd
 
     -- 触发事件（用于特效和浮动文字）
-    EventBus.Emit("pet_skill_attack", self, self.target, damage, isCrit, skill)
-
-    print("[Pet] 灵噬! " .. damage .. (isCrit and " (CRIT)" or "") .. " + 易伤8% 4s")
+    EventBus.Emit("pet_skill_attack", self, self.target, result.damage, result.isCrit, skill)
 end
 
---- 执行攻击
+--- 执行攻击（含连击追加）
 function Pet:DoAttack()
     if not self.target or not self.target.alive then return end
-    local damage = GameConfig.CalcDamage(self.atk, self.target.def)
 
-    -- 暴击判定
-    local isCrit = false
-    if self.critRate > 0 and math.random(100) <= self.critRate then
-        isCrit = true
-        damage = math.floor(damage * 1.5)
+    -- 普攻结算
+    local result = self:CalcPetDamage(self.atk, self.target, "normal")
+    EventBus.Emit("pet_attack", self, self.target, result.damage, result.isCrit, false, result.isIgnoreDef)
+
+    -- 连击追加判定
+    if self.doubleHitPct and self.doubleHitPct > 0 and self.target and self.target.alive then
+        if math.random(100) <= self.doubleHitPct then
+            local result2 = self:CalcPetDamage(self.atk, self.target, "double")
+            EventBus.Emit("pet_attack", self, self.target, result2.damage, result2.isCrit, true, result2.isIgnoreDef) -- 第5=isDoubleHit 第6=isIgnoreDef
+        end
     end
-
-    self.target:TakeDamage(damage, self)
-    EventBus.Emit("pet_attack", self, self.target, damage, isCrit)
 end
 
 --- 受伤

@@ -2406,6 +2406,14 @@ MonsterData.Skills = {
     -- ===================== 噬渊血犼（emperor_boss · 镇魔深渊）· 4技能 =====================
 
     --- 深渊噬咬（cone，前方大角度撕咬 + burn）
+    -- =====================================================================
+    -- 第五章 · 镇渊魔帅 技能
+    -- 噬渊血犼（emperor_boss） / 蚀骨（emperor_boss） / 裂魂（emperor_boss）
+    -- 共享：ch5_abyss_roar / ch5_abyss_prison / ch5_abyss_annihilation
+    -- 差异：1技能各不同；P3各增加一个顺时针十字斩
+    -- =====================================================================
+
+    --- 噬渊血犼·1技能：深渊噬咬（宽扇形120° + 燃烧）
     ch5_abyss_devour = {
         id = "ch5_abyss_devour",
         name = "深渊噬咬",
@@ -2416,12 +2424,44 @@ MonsterData.Skills = {
         effectValue = 0.5,
         castTime = 0.7,
         warningShape = "cone",
-        warningRange = 3.0,
-        warningConeAngle = 90,
+        warningRange = 4.0,
+        warningConeAngle = 120,
         warningColor = {160, 20, 60, 120},      -- 深渊红
     },
 
-    --- 血犼震吼（circle，中范围AOE + knockback）
+    --- 蚀骨·1技能：腐骨穿刺（直线穿刺 + 减速）
+    ch5_shugu_pierce = {
+        id = "ch5_shugu_pierce",
+        name = "腐骨穿刺",
+        cooldown = 5,
+        damageMult = 3.0,
+        effect = "slow",
+        effectDuration = 3.0,
+        effectValue = 0.5,                      -- 移速降低50%
+        castTime = 0.6,
+        warningShape = "line",
+        warningRange = 5.0,
+        warningLineWidth = 0.8,
+        warningColor = {100, 20, 140, 130},     -- 蚀骨紫
+    },
+
+    --- 裂魂·1技能：裂魂弧斩（宽矩形×2段，第二段旋转45°）
+    ch5_liesoul_arc = {
+        id = "ch5_liesoul_arc",
+        name = "裂魂弧斩",
+        cooldown = 5,
+        damageMult = 2.8,
+        castTime = 0.8,
+        burstCount = 2,
+        burstInterval = 0.45,
+        burstRotation = 45,
+        warningShape = "rect",
+        warningRectLength = 5.0,
+        warningRectWidth = 2.5,
+        warningColor = {60, 60, 180, 130},      -- 裂魂蓝
+    },
+
+    --- 共享：血犼震吼（全场圆形AOE + 击退，范围5格）
     ch5_abyss_roar = {
         id = "ch5_abyss_roar",
         name = "血犼震吼",
@@ -2431,7 +2471,7 @@ MonsterData.Skills = {
         effectValue = 2.0,
         castTime = 0.8,
         warningShape = "circle",
-        warningRange = 3.0,
+        warningRange = 5.0,
         warningColor = {180, 30, 40, 120},      -- 血犼红
     },
 
@@ -2468,6 +2508,54 @@ MonsterData.Skills = {
         warningShape = "circle",
         warningRange = 8.0,
         warningColor = {120, 10, 30, 160},      -- 终焉暗红
+    },
+
+    --- P3追加：噬渊血犼·渊狱十字斩（十字形×3段顺时针旋转，每段30°）
+    ch5_abyss_cross_slash = {
+        id = "ch5_abyss_cross_slash",
+        name = "渊狱十字斩",
+        cooldown = 15,
+        damageMult = 3.5,
+        castTime = 1.0,
+        burstCount = 3,
+        burstInterval = 0.5,
+        burstRotation = 30,                     -- 每段顺时针30°，三段共90°
+        warningShape = "cross",
+        warningRange = 5.0,
+        warningCrossWidth = 1.0,
+        warningColor = {160, 20, 60, 150},      -- 深渊红
+    },
+
+    --- P3追加：蚀骨·腐蚀十字斩（十字形×3段顺时针旋转，每段30°）
+    ch5_shugu_cross_slash = {
+        id = "ch5_shugu_cross_slash",
+        name = "腐蚀十字斩",
+        cooldown = 15,
+        damageMult = 3.5,
+        castTime = 1.0,
+        burstCount = 3,
+        burstInterval = 0.5,
+        burstRotation = 30,                     -- 每段顺时针30°，三段共90°
+        warningShape = "cross",
+        warningRange = 5.0,
+        warningCrossWidth = 1.0,
+        warningColor = {100, 20, 140, 150},     -- 蚀骨紫
+    },
+
+    --- P3追加：裂魂·裂魂十字斩（十字形×3段顺时针旋转，每段30°）
+    ch5_liesoul_cross_slash = {
+        id = "ch5_liesoul_cross_slash",
+        name = "裂魂十字斩",
+        cooldown = 15,
+        damageMult = 3.5,
+        castTime = 1.0,
+        burstCount = 3,
+        burstInterval = 0.5,
+        burstRotation = 30,                     -- 每段顺时针30°，三段共90°
+        warningShape = "cross",
+        warningRange = 5.0,
+        warningCrossWidth = 1.0,
+        warningColor = {60, 60, 180, 150},      -- 裂魂蓝
     },
 
     -- =====================================================================
@@ -3195,6 +3283,100 @@ MonsterData.WORLD_DROP_POOLS = {
             { type = "consumable", consumableId = "tiandi_fragment_1" }, -- 天帝剑痕碎片·壹
             { type = "consumable", consumableId = "tiandi_fragment_2" }, -- 天帝剑痕碎片·贰
             { type = "consumable", consumableId = "tiandi_fragment_3" }, -- 天帝剑痕碎片·叁
+        },
+    },
+
+    -- ===================== 宠物技能书掉落池 =====================
+
+    -- 司空正阳专属：新3系列高级书共享3%，随机掉1本
+    sikong_new_books = {
+        bossLabel = "3%",
+        items = {
+            { type = "consumable", consumableId = "book_ignoreDef_3" },  -- 高级忽视防御书
+            { type = "consumable", consumableId = "book_bonusDmg_3" },   -- 高级加伤书
+        },
+    },
+
+    -- 极阴/极阳阵灵：蕴灵三书高级共享3%，随机掉1本
+    yinyang_yunling_books = {
+        bossLabel = "3%",
+        items = {
+            { type = "consumable", consumableId = "book_hpPerLv_3" },   -- 高级蕴灵·生命书
+            { type = "consumable", consumableId = "book_defPerLv_3" },  -- 高级蕴灵·防御书
+            { type = "consumable", consumableId = "book_atkPerLv_3" },  -- 高级蕴灵·攻击书
+        },
+    },
+
+    -- 温素章专属：蕴灵三书特级共享1.5%（每本0.5%），随机掉1本
+    wen_yunling_books = {
+        bossLabel = "1.5%",
+        items = {
+            { type = "consumable", consumableId = "book_hpPerLv_4" },   -- 特级蕴灵·生命书
+            { type = "consumable", consumableId = "book_defPerLv_4" },  -- 特级蕴灵·防御书
+            { type = "consumable", consumableId = "book_atkPerLv_4" },  -- 特级蕴灵·攻击书
+        },
+    },
+
+    -- 噬渊血犼专属：减伤+加伤特级共享1%（每本0.5%），随机掉1本
+    abyss_marshal_books = {
+        bossLabel = "1%",
+        items = {
+            { type = "consumable", consumableId = "book_dmgReduce_4" },  -- 特级减伤书
+            { type = "consumable", consumableId = "book_bonusDmg_4" },   -- 特级加伤书
+        },
+    },
+
+    -- 镇渊魔帅·蚀骨专属：暴击+暴伤特级共享1%（每本0.5%），随机掉1本
+    shugu_books = {
+        bossLabel = "1%",
+        items = {
+            { type = "consumable", consumableId = "book_crit_4" },     -- 特级暴击书
+            { type = "consumable", consumableId = "book_critDmg_4" },  -- 特级暴伤书
+        },
+    },
+
+    -- 镇渊魔帅·裂魂专属：闪避+恢复特级共享1%（每本0.5%），随机掉1本
+    liesoul_books = {
+        bossLabel = "1%",
+        items = {
+            { type = "consumable", consumableId = "book_evade_4" },   -- 特级闪避书
+            { type = "consumable", consumableId = "book_regen_4" },   -- 特级恢复书
+        },
+    },
+
+    -- 诛仙剑专属：通慧+忽视特级共享1%（每本0.5%），随机掉1本
+    sword_zhu_books = {
+        bossLabel = "1%",
+        items = {
+            { type = "consumable", consumableId = "book_wisdom_owner_4" },  -- 灵兽通慧书·肆
+            { type = "consumable", consumableId = "book_ignoreDef_4" },     -- 特级忽视防御书
+        },
+    },
+
+    -- 陷仙剑专属：铸骨+连击特级共享1%（每本0.5%），随机掉1本
+    sword_xian_books = {
+        bossLabel = "1%",
+        items = {
+            { type = "consumable", consumableId = "book_constitution_owner_4" },  -- 灵兽铸骨书·肆
+            { type = "consumable", consumableId = "book_doubleHit_4" },           -- 特级连击书
+        },
+    },
+
+    -- 戮仙剑专属：淬体+攻速特级共享1%（每本0.5%），随机掉1本
+    sword_lu_books = {
+        bossLabel = "1%",
+        items = {
+            { type = "consumable", consumableId = "book_physique_owner_4" },  -- 灵兽淬体书·肆
+            { type = "consumable", consumableId = "book_atkSpd_4" },          -- 特级攻速书
+        },
+    },
+
+    -- 绝仙剑专属：赐福+吸血特级共享1%（每本0.5%），随机掉1本
+    sword_jue_books = {
+        bossLabel = "1%",
+        items = {
+            { type = "consumable", consumableId = "book_fortune_owner_4" },  -- 灵兽赐福书·肆
+            { type = "consumable", consumableId = "book_lifeSteal_4" },      -- 特级吸血书
         },
     },
 }

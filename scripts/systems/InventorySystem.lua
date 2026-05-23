@@ -8,6 +8,7 @@ local EquipmentData = require("config.EquipmentData")
 local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
 local TradeLock = require("systems.BlackMarketTradeLock")
+local SortUtil = require("systems.InventorySortUtil")
 
 local InventorySystem = {}
 
@@ -175,8 +176,14 @@ function InventorySystem.SellByQuality(qualitySetOrMax)
 end
 
 --- 整理背包：装备按品质降序→阶降序排前，消耗品平铺排后，空格沉底
+--- 使用 InventorySortUtil 共享排序逻辑（与仓库整理共用）
 function InventorySystem.SortBackpack()
     if not manager_ then return end
+    if SortUtil._sorting then
+        print("[InventorySystem] SortBackpack: 排序进行中，忽略重复调用")
+        return
+    end
+    SortUtil._sorting = true
 
     -- 收集所有背包物品
     local items = {}
@@ -187,109 +194,24 @@ function InventorySystem.SortBackpack()
         end
     end
 
-    -- 合并同类消耗品堆叠（受 MAX_STACK_COUNT 限制）
-    -- BM-S4A: 锁定堆叠与未锁定堆叠不合并，不同批次锁定堆叠也不合并
-    local MAX_STACK = GameConfig.MAX_STACK_COUNT
-    local mergeGroups = {}  -- mergeKey → { item1, item2, ... } 合并后的堆叠列表
-    local result = {}       -- 最终物品列表
-
-    --- 生成合并分组键：consumableId + 锁状态 + 批次
-    local function getMergeKey(item)
-        local cId = item.consumableId
-        if TradeLock.IsLocked(item) then
-            local batch = item.bmLockBatchId or "_nobatch_"
-            return cId .. "|locked|" .. batch
-        else
-            return cId .. "|unlocked"
-        end
+    -- 使用共享工具排序（合并 + 排序 + 守恒校验）
+    local sorted, ok, msg = SortUtil.SortItems(items)
+    if not ok then
+        print("[InventorySystem] SortBackpack 中止: " .. (msg or "unknown"))
+        SortUtil._sorting = false
+        return
     end
-
-    for _, item in ipairs(items) do
-        if item.category == "consumable" and item.consumableId then
-            local key = getMergeKey(item)
-            if not mergeGroups[key] then
-                mergeGroups[key] = {}
-            end
-            -- 尝试塞入已有的未满堆叠
-            local placed = false
-            for _, stack in ipairs(mergeGroups[key]) do
-                if stack.count < MAX_STACK then
-                    local space = MAX_STACK - stack.count
-                    local move = math.min(item.count or 1, space)
-                    stack.count = stack.count + move
-                    local leftover = (item.count or 1) - move
-                    if leftover > 0 then
-                        item.count = leftover
-                        -- 继续下一个堆叠
-                    else
-                        placed = true
-                        break
-                    end
-                end
-            end
-            if not placed then
-                -- 剩余数量作为新堆叠
-                local remaining = item.count or 1
-                while remaining > 0 do
-                    local stackAmt = math.min(remaining, MAX_STACK)
-                    local newItem = item
-                    if remaining ~= (item.count or 1) or stackAmt ~= remaining then
-                        -- 需要拆分，创建新的 item table
-                        newItem = {}
-                        for k, v in pairs(item) do newItem[k] = v end
-                        newItem.id = require("core.Utils").NextId()
-                    end
-                    newItem.count = stackAmt
-                    table.insert(mergeGroups[key], newItem)
-                    remaining = remaining - stackAmt
-                end
-            end
-        else
-            result[#result + 1] = item
-        end
-    end
-    -- 将合并后的消耗品堆叠加入结果
-    for _, stacks in pairs(mergeGroups) do
-        for _, stack in ipairs(stacks) do
-            result[#result + 1] = stack
-        end
-    end
-    items = result
-
-    -- 排序：装备在前(品质降序→阶降序)，消耗品在后(按 consumableId 升序)
-    table.sort(items, function(a, b)
-        local aIsEquip = (a.category ~= "consumable") and 1 or 0
-        local bIsEquip = (b.category ~= "consumable") and 1 or 0
-        -- 装备 > 消耗品
-        if aIsEquip ~= bIsEquip then return aIsEquip > bIsEquip end
-        if aIsEquip == 1 then
-            -- 都是装备：品质降序
-            local aQ = GameConfig.QUALITY_ORDER[a.quality] or 0
-            local bQ = GameConfig.QUALITY_ORDER[b.quality] or 0
-            if aQ ~= bQ then return aQ > bQ end
-            -- 品质相同：阶降序
-            local aT = a.tier or 0
-            local bT = b.tier or 0
-            if aT ~= bT then return aT > bT end
-            -- 阶相同：按槽位名排序（稳定）
-            return (a.slot or "") < (b.slot or "")
-        else
-            -- 都是消耗品：按 consumableId 排序
-            local aId = a.consumableId or ""
-            local bId = b.consumableId or ""
-            return tostring(aId) < tostring(bId)
-        end
-    end)
 
     -- 清空全部格子，按排序结果重新放入
     for i = 1, GameConfig.BACKPACK_SIZE do
         manager_:SetInventoryItem(i, nil)
     end
-    for i, item in ipairs(items) do
+    for i, item in ipairs(sorted) do
         manager_:SetInventoryItem(i, item)
     end
 
-    print("[InventorySystem] Backpack sorted: " .. #items .. " items")
+    SortUtil._sorting = false
+    print("[InventorySystem] Backpack sorted: " .. #sorted .. " items")
 end
 
 --- 重新计算装备加成并应用到玩家

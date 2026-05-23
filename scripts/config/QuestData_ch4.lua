@@ -122,7 +122,7 @@ QuestData_ch4.ZONE_QUESTS = {
                     items = { "book_atk_3", "book_def_3", "book_hp_3" },
                 },
             },
-            -- 主线8：乾·天罡阵 → 击杀司空正阳10次 → 高级蕴灵技能2选1
+            -- 主线8：乾·天罡阵 → 击杀司空正阳10次 → 高级蕴灵技能3选1
             {
                 id = "kill_qian_boss",
                 name = "破乾阵",
@@ -131,7 +131,7 @@ QuestData_ch4.ZONE_QUESTS = {
                 targetCount = 10,
                 reward = {
                     type = "consumable_pick",
-                    items = { "book_hpPerLv_3", "book_defPerLv_3" },
+                    items = { "book_hpPerLv_3", "book_defPerLv_3", "book_atkPerLv_3" },
                 },
             },
         },

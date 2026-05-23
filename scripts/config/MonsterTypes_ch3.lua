@@ -404,6 +404,8 @@ M.Types.liusha_son_outer = {
         { chance = 0.03, type = "world_drop", pool = "ch3" },
         -- ⑨沙海令
         { chance = 1.0, type = "consumable", consumableId = "sha_hai_ling" },
+        -- ⑩宠物书：蕴灵·攻击书（初级/中级随机）3%
+        { chance = 0.03, type = "consumable", consumablePool = { "book_atkPerLv_1", "book_atkPerLv_2" } },
     },
 }
 
@@ -452,6 +454,8 @@ M.Types.liusha_son_mid = {
         { chance = 0.03, type = "world_drop", pool = "ch3" },
         -- ⑪沙海令
         { chance = 1.0, type = "consumable", consumableId = "sha_hai_ling" },
+        -- ⑫宠物书：加伤书（初级/中级随机）3%
+        { chance = 0.03, type = "consumable", consumablePool = { "book_bonusDmg_1", "book_bonusDmg_2" } },
         -- 沙煞酒由 WineData 控制（3%）
     },
 }
@@ -505,6 +509,8 @@ M.Types.liusha_mother = {
         { chance = 0.03, type = "world_drop", pool = "ch3" },
         -- ⑫沙海令
         { chance = 1.0, type = "consumable", consumableId = "sha_hai_ling" },
+        -- ⑬宠物书：忽视防御书（初级/中级随机）3%
+        { chance = 0.03, type = "consumable", consumablePool = { "book_ignoreDef_1", "book_ignoreDef_2" } },
         -- 沙煞酒由 WineData 控制（5%）
     },
 }

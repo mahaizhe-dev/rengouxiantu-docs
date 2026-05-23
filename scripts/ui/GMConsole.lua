@@ -375,6 +375,15 @@ local GM_CATEGORIES = {
                 InventorySystem.AddConsumable("gold_brick", 10)
                 ShowLog("发放 10 金砖", {255, 215, 0, 255})
             end },
+            { label = "司空蕴灵书×3", action = function()
+                SendGMCommand("give_sikong_books", function()
+                    local InventorySystem = require("systems.InventorySystem")
+                    InventorySystem.AddConsumable("book_hpPerLv_3", 1)
+                    InventorySystem.AddConsumable("book_defPerLv_3", 1)
+                    InventorySystem.AddConsumable("book_atkPerLv_3", 1)
+                    ShowLog("高级蕴灵·生命/防御/攻击书 各×1", {255, 180, 60, 255})
+                end)
+            end },
         },
     },
     {
@@ -505,6 +514,30 @@ local GM_CATEGORIES = {
                     end
                 end
                 ShowLog("发放 " .. count .. " 本中级技能书", {200, 150, 255, 255})
+            end },
+            { label = "全部高级技能书", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                local PetSkillData = require("config.PetSkillData")
+                local count = 0
+                for bookId, book in pairs(PetSkillData.SKILL_BOOKS) do
+                    if book.tier == 3 then
+                        InventorySystem.AddConsumable(bookId, 1)
+                        count = count + 1
+                    end
+                end
+                ShowLog("发放 " .. count .. " 本高级技能书", {255, 180, 60, 255})
+            end },
+            { label = "全部特级技能书", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                local PetSkillData = require("config.PetSkillData")
+                local count = 0
+                for bookId, book in pairs(PetSkillData.SKILL_BOOKS) do
+                    if book.tier == 4 then
+                        InventorySystem.AddConsumable(bookId, 1)
+                        count = count + 1
+                    end
+                end
+                ShowLog("发放 " .. count .. " 本特级技能书", {255, 50, 50, 255})
             end },
             { label = "随机T9套装×3", action = function()
                 local InventorySystem = require("systems.InventorySystem")
@@ -906,6 +939,26 @@ local GM_CATEGORIES = {
                     ShowLog("祀剑池: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
                 else
                     ShowLog("祀剑池: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
+                end
+            end },
+            { label = "仓库整理自测", action = function()
+                package.loaded["tests.test_warehouse_sort"] = nil
+                local TestWS = require("tests.test_warehouse_sort")
+                local passed, failed = TestWS.RunAll()
+                if failed == 0 then
+                    ShowLog("仓库整理: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
+                else
+                    ShowLog("仓库整理: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
+                end
+            end },
+            { label = "快捷回城自测", action = function()
+                package.loaded["tests.test_town_return_system"] = nil
+                local TestTR = require("tests.test_town_return_system")
+                local passed, failed = TestTR.RunAll()
+                if failed == 0 then
+                    ShowLog("快捷回城: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
+                else
+                    ShowLog("快捷回城: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
                 end
             end },
         },

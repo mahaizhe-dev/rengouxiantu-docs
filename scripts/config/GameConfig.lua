@@ -14,8 +14,8 @@ GameConfig.DUNGEON_ENABLED = false
 
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
-GameConfig.CODE_VERSION = 4
-GameConfig.DISPLAY_VERSION = "v1.10.6"
+GameConfig.CODE_VERSION = 5
+GameConfig.DISPLAY_VERSION = "v1.11.0"
 
 -- 地图设置
 GameConfig.TILE_SIZE = 128         -- 每个瓦片的逻辑像素大小（基准值，不要直接用于渲染）
@@ -70,13 +70,13 @@ GameConfig.PET_REVIVE_TIME = 30        -- 宠物死亡后复活时间（秒）
 -- 宠物阶级配置
 GameConfig.PET_TIERS = {
     [0] = { name = "幼犬", icon = "🐕", maxLevel = 20, syncRate = 0.20 },
-    [1] = { name = "凶犬", icon = "🐕", maxLevel = 40, syncRate = 0.30 },
-    [2] = { name = "斗犬", icon = "🐺", maxLevel = 60, syncRate = 0.40 },
+    [1] = { name = "凶犬", icon = "🐕", maxLevel = 40, syncRate = 0.35 },
+    [2] = { name = "斗犬", icon = "🐺", maxLevel = 60, syncRate = 0.50 },
     [3] = { name = "灵犬", icon = "🦁", maxLevel = 80, syncRate = 0.50 },
     [4] = { name = "灵兽", icon = "🐲", maxLevel = 100, syncRate = 0.60 },
-    [5] = { name = "圣犬", icon = "🐲", maxLevel = 120, syncRate = 0.68 },
-    [6] = { name = "圣兽", icon = "🐲", maxLevel = 140, syncRate = 0.75 },
-    [7] = { name = "天犬", icon = "🐲", maxLevel = 160, syncRate = 0.80 },
+    [5] = { name = "圣犬", icon = "🐲", maxLevel = 120, syncRate = 0.70 },
+    [6] = { name = "圣兽", icon = "🐲", maxLevel = 140, syncRate = 0.80 },
+    [7] = { name = "天犬", icon = "🐲", maxLevel = 160, syncRate = 1.00 },
 }
 
 -- 宠物突破消耗（灵韵 + 对应阶级灵兽丹）
@@ -222,13 +222,15 @@ GameConfig.PET_MATERIALS = {
     -- 龙血草（四龙共享掉落，炼制龙血丹材料）
     dragon_blood_herb = { name = "龙血草", icon = "icon_dragon_blood_herb.png", sellPrice = 5000, quality = "orange", desc = "四龙体内孕育的灵草，通体殷红如血，散发淡淡龙威。\n用途：炼制龙血丹的必需材料。\n获取：四龙共享掉落（2%）" },
     -- 第五章炼丹材料
-    sword_intent_crystal = { name = "剑星草", icon = "image/sword_intent_crystal_20260517094014.png", sellPrice = 3000, quality = "red", desc = "生长于太虚宗剑阵残迹中的灵草，叶脉似剑痕、根系含星光。\n用途：炼制太虚剑丹的必需材料。\n获取：太虚宗皇级BOSS掉落（1%）" },
-    abyss_seal_shard = { name = "地狱灵芝", icon = "image/abyss_seal_shard_20260517093954.png", sellPrice = 3000, quality = "red", desc = "深渊裂隙边缘滋生的暗红灵芝，汲取镇狱封印之力而生。\n用途：炼制狱甲丹的必需材料。\n获取：剑宫四仙剑/深渊BOSS掉落（1%）" },
+    sword_intent_crystal = { name = "剑星草", icon = "image/sword_intent_crystal_20260523050512.png", sellPrice = 3000, quality = "red", desc = "生长于太虚宗剑阵残迹中的灵草，叶脉似剑痕、根系含星光。\n用途：炼制太虚剑丹的必需材料。\n获取：太虚宗皇级BOSS掉落（1%）" },
+    abyss_seal_shard = { name = "地狱灵芝", icon = "image/abyss_seal_shard_20260523050511.png", sellPrice = 3000, quality = "red", desc = "深渊裂隙边缘滋生的暗红灵芝，汲取镇狱封印之力而生。\n用途：炼制狱甲丹的必需材料。\n获取：剑宫四仙剑/深渊BOSS掉落（1%）" },
     -- 龙神打造材料（四龙神各掉落一种，与龙血草共享2%掉率）
     dragon_scale_ice = { name = "封霜龙鳞", icon = "🧊", sellPrice = 10000, quality = "red", desc = "封霜应龙脱落的寒鳞，触之彻骨生寒，内蕴远古龙威。\n用途：圣器打造材料。\n获取：封霜应龙掉落（2%共享）" },
     dragon_scale_abyss = { name = "渊蛟龙骨", icon = "🦴", sellPrice = 10000, quality = "red", desc = "堕渊蛟龙的脊骨碎片，散发幽紫光芒，蕴含深渊之力。\n用途：圣器打造材料。\n获取：堕渊蛟龙掉落（1%）" },
     dragon_scale_fire = { name = "焚天龙焰", icon = "🔥", sellPrice = 10000, quality = "red", desc = "焚天蜃龙的凝固龙焰，灼热异常，永不熄灭。\n用途：圣器打造材料。\n获取：焚天蜃龙掉落（1%）" },
     dragon_scale_sand = { name = "蚀骨龙牙", icon = "🦷", sellPrice = 10000, quality = "red", desc = "蚀骨螭龙的獠牙碎片，坚逾金刚，可侵蚀万物。\n用途：圣器打造材料。\n获取：蚀骨螭龙掉落（1%）" },
+    -- 仙人精血（噬渊血犼+四仙剑掉落，圣器打造材料）
+    immortal_essence_blood = { name = "仙人精血", icon = "🩸", sellPrice = 10000, quality = "red", desc = "洒落的仙人之血，浸透断壁残兵，千年不枯。谪仙之上，无一不是从尸山血海中走出来的。\n用途：圣器打造材料。\n获取：裂渊屠血将（0.2%）/ 噬渊血犼（1%）/ 四仙剑（3%）" },
     -- 天帝剑痕碎片（仙劫战场·域外邪魔掉落，9片合成天帝剑痕）
     tiandi_fragment_1 = { name = "天帝剑痕碎片·壹", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "远古天帝斩落域外邪魔时遗留的剑痕残片，剑意犹存，隐约可闻天雷余响。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },
     tiandi_fragment_2 = { name = "天帝剑痕碎片·贰", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "据传天帝以此一剑斩断天外入侵通道，立下中洲万世屏障。碎片表面仍残留斩裂虚空的痕迹。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },

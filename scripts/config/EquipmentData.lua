@@ -1662,7 +1662,41 @@ EquipmentData.SpecialEquipment = {
             { stat = "critRate", name = "暴击率", value = 0.075 },   -- 0.01 × 7.5 = 0.075
             { stat = "def", name = "防御力", value = 15.6 },         -- 1.2 × 13.0 = 15.6
         },
-        spiritStat = { stat = "fortune", name = "福缘", value = 9 }, -- floor(10×1.8×0.5) = 9
+        specialEffect = {
+            type = "yuanjia",
+            name = "渊甲护身",
+            desc = "受到伤害后，若当前生命低于50%，获得12%减伤，持续4秒（冷却8秒）",
+            dmgReduce = 0.12,
+            duration = 4.0,
+            cooldown = 8.0,
+        },
+    },
+
+    -- 天渊灵披（镇渊魔帅·蚀骨，掉落1%）：T10 青/灵器 披风
+    -- 主属性: 0.02 × 8.0(T10pct) × 1.8(灵器) = 0.288
+    -- 副属性: 灵器3条，hpRegen/critDmg/maxHp；无灵性属性
+    lingqi_cape_ch5 = {
+        name = "天渊灵披",
+        slot = "cape",
+        icon = "icon_shiyuan_cape_ch5.png",
+        quality = "cyan",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { dmgReduce = 0.288 },
+        subStats = {
+            { stat = "hpRegen", name = "生命回复", value = 6.5 },    -- 0.5 × 13.0 = 6.5
+            { stat = "critDmg", name = "暴击伤害", value = 0.375 },  -- 0.05 × 7.5 = 0.375
+            { stat = "maxHp",   name = "生命值",   value = 78 },     -- 6 × 13.0 = 78
+        },
+        specialEffect = {
+            type = "yuanjia",
+            name = "渊甲护身",
+            desc = "受到伤害后，若当前生命低于50%，获得12%减伤，持续4秒（冷却8秒）",
+            dmgReduce = 0.12,
+            duration = 4.0,
+            cooldown = 8.0,
+        },
     },
 
     -- #9 藏真玄冠（藏经阁主·温素章，共享1%二选一）：T10 青/灵器 头盔 [套装：护脉遗装]
@@ -1768,6 +1802,31 @@ EquipmentData.SpecialEquipment = {
             { stat = "physique", name = "体魄", value = 18 },        -- floor(10 × 1.8) = 18
         },
         spiritStat = { stat = "fortune", name = "福缘", value = 9 }, -- floor(10×1.8×0.5) = 9
+    },
+
+    -- 均灵环：T10 青/灵器 戒指
+    -- 主属性: 3 × 21.0(T10) × 1.8(灵器) = 113.4
+    -- 副属性: 灵器3条，def/maxHp/hpRegen；无灵性属性
+    lingqi_ring_ch5 = {
+        name = "均灵环",
+        slot = "ring2",
+        icon = "icon_dizun_ring_ch5.png",
+        quality = "cyan",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { atk = 113.4 },
+        subStats = {
+            { stat = "def",     name = "防御力",   value = 15.6 }, -- 1.2 × 13.0 = 15.6
+            { stat = "maxHp",   name = "生命值",   value = 78 },   -- 6 × 13.0 = 78
+            { stat = "hpRegen", name = "生命回复", value = 6.5 },  -- 0.5 × 13.0 = 6.5
+        },
+        specialEffect = {
+            type = "xianyuan_lowest_boost",
+            name = "仙缘均衡",
+            desc = "当前总值最低的仙缘属性额外获得100点加成",
+            bonus = 100,
+        },
     },
 
     -- ===================== 第五章·封印古剑（四仙剑各0.5%独立掉落） =====================
@@ -1918,12 +1977,12 @@ EquipmentData.SpecialEquipment = {
         },
     },
 
-    -- #11 彩虹棒（极阳阵灵掉落）：T9 青/灵器 武器
+    -- #11 彩虹锤（极阳阵灵掉落）：T9 青/灵器 武器
     -- 主属性: 5 × 17.0(T9) × 1.8(灵器) = 153.0
     -- 副属性: 灵器3条, 中值×1.0; SUB_T9=11.0
     -- 灵性属性: 福缘+8（floor(9×1.8×0.5)=8）
     tiantianquan_weapon_ch4 = {
-        name = "彩虹棒",
+        name = "彩虹锤",
         slot = "weapon",
         icon = "icon_tiantianquan_weapon_ch4.png",
         quality = "cyan",
@@ -2272,19 +2331,19 @@ EquipmentData.Collection = {
         },
         -- 法宝图鉴（第二章·T5）
         fabao_xuehaitu_t5 = {
-            bonus = { atk = 3, killHeal = 3 },
+            bonus = { atk = 3, killHeal = 6 },
             desc = "血煞盟秘传图卷，杀意初凝，血海翻涌。",
         },
         fabao_haoqiyin_t5 = {
-            bonus = { killHeal = 3, hpRegen = 0.5 },
+            bonus = { killHeal = 6, hpRegen = 2 },
             desc = "浩气宗正法印记，正气护体，生生不息。",
         },
         fabao_qingyunta_t5 = {
-            bonus = { heavyHit = 8, def = 3 },
+            bonus = { heavyHit = 10, def = 3 },
             desc = "青云门镇山宝塔，初显威能，碎石裂金。",
         },
         fabao_fengmopan_t5 = {
-            bonus = { maxHp = 10, hpRegen = 0.5 },
+            bonus = { maxHp = 10, hpRegen = 1 },
             desc = "封魔殿封印法盘，魔气初封，血脉坚韧。",
         },
         -- 第三章（×2.0目标：atk≈50, def≈54, maxHp≈212, killHeal≈16 + hpRegen/heavyHit新增）
@@ -2356,19 +2415,19 @@ EquipmentData.Collection = {
         },
         -- 法宝图鉴（第三章·T7）
         fabao_xuehaitu_t7 = {
-            bonus = { atk = 5, killHeal = 5 },
+            bonus = { atk = 6, killHeal = 12 },
             desc = "血煞盟秘传图卷，杀意凝形，血海浩荡无涯。",
         },
         fabao_haoqiyin_t7 = {
-            bonus = { killHeal = 5, hpRegen = 1 },
+            bonus = { killHeal = 12, hpRegen = 4 },
             desc = "浩气宗正法印记，正气如渊，伤损自复。",
         },
         fabao_qingyunta_t7 = {
-            bonus = { heavyHit = 15, def = 5 },
+            bonus = { heavyHit = 20, def = 6 },
             desc = "青云门镇山宝塔，威震四方，金石俱碎。",
         },
         fabao_fengmopan_t7 = {
-            bonus = { maxHp = 20, hpRegen = 1 },
+            bonus = { maxHp = 20, hpRegen = 2 },
             desc = "封魔殿封印法盘，魔气深封，气血充盈。",
         },
         -- 第四章·龙神圣器（合计：atk=34, def=21, maxHp=150, killHeal=20, hpRegen=2）
@@ -2377,7 +2436,7 @@ EquipmentData.Collection = {
             desc = "龙极断流，风卷残云，一刀斩断万古长河。",
         },
         shengqi_fentian = {
-            bonus = { atk = 6, maxHp = 30, hpRegen = 2 },
+            bonus = { atk = 6, maxHp = 30, hpRegen = 1 },
             desc = "龙极焚天，焚尽苍穹，浴火之中生生不息。",
         },
         shengqi_shihun = {
@@ -2419,7 +2478,7 @@ EquipmentData.Collection = {
             desc = "炎若晦丹炉余焰凝成的腰环，温热不散，杀敌续命。",
         },
         houtu_shoulder_ch4 = {
-            bonus = { def = 10, maxHp = 30, hpRegen = 2 },
+            bonus = { def = 10, maxHp = 30, hpRegen = 1 },
             desc = "厚德生以厚土封印阵力时剥落的肩甲，生生不息。",
         },
         zeyuan_armor_ch4 = {
@@ -2432,40 +2491,40 @@ EquipmentData.Collection = {
         },
         -- 第四章·新增装备（合计：atk=16, def=7, maxHp=30, killHeal=8, hpRegen=5）
         xuanshu_cape_ch4 = {
-            bonus = { atk = 5, def = 3, hpRegen = 2 },
+            bonus = { def = 7, hpRegen = 1 },
             desc = "以玄枢星力织就的灵披，斗转星移间攻守兼备。",
         },
         yinyang_boots_ch4 = {
-            bonus = { atk = 4, killHeal = 8, hpRegen = 1 },
+            bonus = { maxHp = 30, hpRegen = 2 },
             desc = "阴阳二气淬炼的战靴，踏破生死之界，杀敌回血。",
         },
         tiantianquan_weapon_ch4 = {
-            bonus = { atk = 4, maxHp = 15, hpRegen = 2 },
+            bonus = { atk = 8, hpRegen = 1 },
             desc = "彩虹灵力凝聚而成的仙棒，七彩流光，生机勃勃。",
         },
         jilong_helmet_ch4 = {
-            bonus = { atk = 3, def = 4, maxHp = 15 },
+            bonus = { atk = 8, killHeal = 8 },
             desc = "四方龙神之力凝聚的战盔，龙威加身，坚不可摧。",
         },
         -- 法宝图鉴（第四章·T9）
         fabao_xuehaitu_t9 = {
-            bonus = { atk = 7, killHeal = 7 },
+            bonus = { atk = 9, killHeal = 18 },
             desc = "血煞盟秘传图卷，杀意滔天，血海焚天灭地。",
         },
         fabao_haoqiyin_t9 = {
-            bonus = { killHeal = 7, hpRegen = 2 },
+            bonus = { killHeal = 18, hpRegen = 6 },
             desc = "浩气宗正法印记，浩气长存，万物归元。",
         },
         fabao_qingyunta_t9 = {
-            bonus = { heavyHit = 20, def = 7 },
+            bonus = { heavyHit = 30, def = 9 },
             desc = "青云门镇山宝塔，威压万方，天崩地裂。",
         },
         fabao_fengmopan_t9 = {
-            bonus = { maxHp = 30, hpRegen = 2 },
+            bonus = { maxHp = 30, hpRegen = 3 },
             desc = "封魔殿封印法盘，魔气尽封，血脉如岳。",
         },
         fabao_longjiling_t9 = {
-            bonus = { atk = 5, constitution = 5 },
+            bonus = { atk = 5, wisdom = 5 },
             desc = "四龙之威凝为一令，龙息喷吐，百鬼辟易。",
         },
         -- 第五章·太虚遗藏（合计：atk=36, def=64, maxHp=170, killHeal=20, hpRegen=8, heavyHit=35, wisdom=6, constitution=6, physique=14）

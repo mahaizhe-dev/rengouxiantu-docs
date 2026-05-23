@@ -289,6 +289,8 @@ M.Types.ch5_han_bailian = {
         { chance = 0.01, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹1%（皇级）
         { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
+        -- 宠物书：防御书（特级）0.5%
+        { chance = 0.005, type = "consumable", consumableId = "book_def_4" },
     },
 }
 
@@ -366,6 +368,8 @@ M.Types.ch5_shi_guanlan = {
         { chance = 0.01, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹1%（皇级）
         { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
+        -- 宠物书：生命书（特级）0.5%
+        { chance = 0.005, type = "consumable", consumableId = "book_hp_4" },
     },
 }
 
@@ -444,6 +448,8 @@ M.Types.ch5_ning_qiwu = {
         { chance = 0.01, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹1%（皇级）
         { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
+        -- 宠物书：攻击书（特级）0.5%
+        { chance = 0.005, type = "consumable", consumableId = "book_atk_4" },
     },
 }
 
@@ -505,6 +511,8 @@ M.Types.ch5_wen_suzhang = {
         { chance = 0.01, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹1%（皇级）
         { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
+        -- 宠物书：蕴灵三书特级共享1.5%（每本0.5%）
+        { chance = 0.015, type = "world_drop", pool = "wen_yunling_books" },
     },
 }
 
@@ -543,6 +551,7 @@ M.Types.ch5_blood_general = {
         { chance = 0.0025, type = "equipment", equipId = "tuxue_shoulder_ch5" },  -- 屠血魔肩0.25%（灵器）共享0.5%二选一
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.005, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹0.5%（血屠将）
+        { chance = 0.002, type = "consumable", consumableId = "immortal_essence_blood" },  -- 仙人精血0.2%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -574,7 +583,7 @@ M.Types.ch5_abyss_marshal = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {25, 40} },
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = 2 },
+        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = {1, 2} },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
         { chance = 0.005, type = "consumable", consumableId = "gold_brick" },
         { chance = 0.01, type = "equipment", equipId = "shiyuan_cape_ch5" },  -- 噬渊魔氅1%（灵器）
@@ -582,7 +591,10 @@ M.Types.ch5_abyss_marshal = {
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.02, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹2%（血犼）
         { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
+        { chance = 0.01, type = "consumable", consumableId = "immortal_essence_blood" },  -- 仙人精血1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
+        -- 宠物书：减伤+加伤特级共享1%（每本0.5%）
+        { chance = 0.01, type = "world_drop", pool = "abyss_marshal_books" },
     },
 }
 
@@ -633,7 +645,10 @@ M.Types.ch5_sword_zhu = {
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.03, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹3%（四剑）
         { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
+        { chance = 0.03, type = "consumable", consumableId = "immortal_essence_blood" },  -- 仙人精血3%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
+        -- 宠物书：通慧+忽视特级共享1%（每本0.5%）
+        { chance = 0.01, type = "world_drop", pool = "sword_zhu_books" },
     },
 }
 
@@ -679,7 +694,10 @@ M.Types.ch5_sword_xian = {
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.03, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹3%（四剑）
         { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
+        { chance = 0.03, type = "consumable", consumableId = "immortal_essence_blood" },  -- 仙人精血3%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
+        -- 宠物书：铸骨+连击特级共享1%（每本0.5%）
+        { chance = 0.01, type = "world_drop", pool = "sword_xian_books" },
     },
 }
 
@@ -725,7 +743,10 @@ M.Types.ch5_sword_lu = {
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.03, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹3%（四剑）
         { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
+        { chance = 0.03, type = "consumable", consumableId = "immortal_essence_blood" },  -- 仙人精血3%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
+        -- 宠物书：淬体+攻速特级共享1%（每本0.5%）
+        { chance = 0.01, type = "world_drop", pool = "sword_lu_books" },
     },
 }
 
@@ -771,7 +792,100 @@ M.Types.ch5_sword_jue = {
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.03, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹3%（四剑）
         { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
+        { chance = 0.03, type = "consumable", consumableId = "immortal_essence_blood" },  -- 仙人精血3%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
+        -- 宠物书：赐福+吸血特级共享1%（每本0.5%）
+        { chance = 0.01, type = "world_drop", pool = "sword_jue_books" },
+    },
+}
+
+
+-- =====================================================================
+-- ⑨ 巡逻魔帅 — 2× emperor_boss    Lv.120 极谪仙境
+-- 镇渊魔帅·蚀骨（别院外围）/ 镇渊魔帅·裂魂（碑林外围）
+-- 掉落暂复用血犼；后续独立调整
+-- =====================================================================
+M.Types.ch5_marshal_shugu = {
+    name = "镇渊魔帅·蚀骨",
+    icon = "💀",
+    portrait = "Textures/monster_abyss_marshal.png",
+    zone = "ch5_sword_court",
+    category = "emperor_boss",
+    race = "abyss_demon",
+    level = 120,
+    realm = "dujie_1",  -- 谪仙初期
+    bodyColor = {60, 10, 80, 255},
+    clawColor = {140, 30, 180},
+    skillTextColor = {180, 60, 220, 255},
+    warningColorOverride = {100, 20, 140, 120},
+    phases = 2,
+    skills = { "ch5_abyss_devour", "ch5_abyss_roar" },
+    phaseConfig = {
+        { threshold = 0.5, atkMult = 1.6, speedMult = 1.3,
+          announce = "蚀骨魔帅骨裂天地，紫焰腐蚀万物！",
+          addSkill = "ch5_abyss_prison" },
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+          announce = "蚀骨……万物皆腐，归于虚无！",
+          triggerSkill = "ch5_abyss_annihilation" },
+    },
+    tierOnly = 10,
+    dropTable = {
+        { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
+        { chance = 1.0, type = "lingYun", amount = {25, 40} },
+        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = {1, 2} },
+        { chance = 0.03, type = "world_drop", pool = "ch5" },
+        { chance = 0.005, type = "consumable", consumableId = "gold_brick" },
+        { chance = 0.01, type = "equipment", equipId = "lingqi_cape_ch5" },  -- 天渊灵披1%（灵器）
+        { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },
+        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },
+        { chance = 0.02, type = "consumable", consumableId = "dujie_dan" },
+        { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
+        { chance = 0.01, type = "consumable", consumableId = "immortal_essence_blood" },
+        { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
+        -- 宠物书：暴击+暴伤特级共享1%（每本0.5%），随机掉1本
+        { chance = 0.01, type = "world_drop", pool = "shugu_books" },
+    },
+}
+
+M.Types.ch5_marshal_liesoul = {
+    name = "镇渊魔帅·裂魂",
+    icon = "💀",
+    portrait = "Textures/monster_abyss_marshal.png",
+    zone = "ch5_stele_forest",
+    category = "emperor_boss",
+    race = "abyss_demon",
+    level = 120,
+    realm = "dujie_1",  -- 谪仙初期
+    bodyColor = {30, 30, 90, 255},
+    clawColor = {80, 80, 200},
+    skillTextColor = {120, 120, 255, 255},
+    warningColorOverride = {50, 50, 160, 120},
+    phases = 2,
+    skills = { "ch5_abyss_devour", "ch5_abyss_roar" },
+    phaseConfig = {
+        { threshold = 0.5, atkMult = 1.6, speedMult = 1.3,
+          announce = "裂魂魔帅魂裂九霄，阴寒贯穿碑林！",
+          addSkill = "ch5_abyss_prison" },
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+          announce = "裂魂……千碑俱碎，魂魄无归！",
+          triggerSkill = "ch5_abyss_annihilation" },
+    },
+    tierOnly = 10,
+    dropTable = {
+        { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
+        { chance = 1.0, type = "lingYun", amount = {25, 40} },
+        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = {1, 2} },
+        { chance = 0.03, type = "world_drop", pool = "ch5" },
+        { chance = 0.005, type = "consumable", consumableId = "gold_brick" },
+        { chance = 0.01, type = "equipment", equipId = "lingqi_ring_ch5" },  -- 均灵环1%（灵器）
+        { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },
+        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },
+        { chance = 0.02, type = "consumable", consumableId = "dujie_dan" },
+        { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
+        { chance = 0.01, type = "consumable", consumableId = "immortal_essence_blood" },
+        { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
+        -- 宠物书：闪避+恢复特级共享1%（每本0.5%），随机掉1本
+        { chance = 0.01, type = "world_drop", pool = "liesoul_books" },
     },
 }
 

@@ -14,6 +14,10 @@ local EventBus = require("core.EventBus")
 
 local WarehouseUI = {}
 
+-- ── 整理按钮防连点 CD ──
+local SORT_CD = 1.5  -- 秒
+local lastSortTime_ = -999
+
 -- ── 常量 ──
 local SLOT_SIZE = T.size.slotSize
 local SLOT_GAP = T.spacing.xs
@@ -231,14 +235,46 @@ end
 -- 构建完整内容（仅 Show 时 / 解锁行时调用）
 -- ============================================================================
 BuildContent = function()
-    -- 仓库标题
+    -- 仓库标题行（标题 + 整理按钮）
     whTitleLabel_ = UI.Label {
         text = "📦 仓库  0/0",
         fontSize = T.fontSize.md,
         fontWeight = "bold",
         fontColor = T.color.titleText,
+        flexShrink = 1,
     }
-    outerPanel_:AddChild(whTitleLabel_)
+    local sortBtn = UI.Button {
+        text = "整理",
+        width = 56,
+        height = 28,
+        fontSize = T.fontSize.xs,
+        fontWeight = "bold",
+        borderRadius = T.radius.sm,
+        backgroundColor = {60, 130, 90, 230},
+        onClick = function(self)
+            local now = time.elapsedTime
+            if now - lastSortTime_ < SORT_CD then
+                ShowLocalToast("操作太快，请稍后再试")
+                return
+            end
+            local ok, err = WarehouseSystem.SortWarehouse()
+            if ok then
+                ShowLocalToast("仓库已整理")
+                lastSortTime_ = now
+            else
+                ShowLocalToast(err or "整理失败")
+            end
+            UpdateAllSlots()
+        end,
+    }
+    local titleRow = UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        justifyContent = "space-between",
+        alignItems = "center",
+        children = { whTitleLabel_, sortBtn },
+    }
+    outerPanel_:AddChild(titleRow)
 
     -- 仓库网格
     BuildWarehouseGrid()

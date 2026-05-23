@@ -45,6 +45,7 @@ local FT_GREEN           = {100, 255, 150, 255}  -- 宠物攻击
 local FT_PURPLE          = {200, 130, 255, 255}  -- 宠物技能伤害
 local FT_PURPLE_LIGHT    = {180, 120, 255, 255}  -- 宠物技能名/噬魂回血
 local FT_ORANGE_DEBUFF   = {255, 160, 80, 255}   -- 减益提示
+local FT_ORANGE_IGNORE   = {255, 200, 60, 255}   -- 无视防御命中（金黄色）
 local FT_RED             = {255, 80, 80, 255}    -- 玩家受伤
 local FT_GOLD            = {255, 215, 0, 255}    -- 击杀
 
@@ -491,8 +492,14 @@ function CombatSystem.Init()
         CombatSystem.AddSlashEffect(player, monster, atkInterval)
     end)
 
-    EventBus.On("pet_attack", function(pet, monster, damage)
-        CombatSystem.AddFloatingText(monster.x, monster.y, tostring(damage), FT_GREEN)
+    EventBus.On("pet_attack", function(pet, monster, damage, isCrit, isDoubleHit, isIgnoreDef)
+        local dmgText = tostring(damage)
+        if isIgnoreDef then
+            dmgText = "破防 " .. damage  -- 无视防御特殊浮字
+            CombatSystem.AddFloatingText(monster.x, monster.y, dmgText, FT_ORANGE_IGNORE)
+        else
+            CombatSystem.AddFloatingText(monster.x, monster.y, dmgText, FT_GREEN)
+        end
         -- 宠物攻击小刀光
         CombatSystem.AddPetSlashEffect(pet, monster)
     end)

@@ -156,7 +156,7 @@ function M.RenderPlayer(nvg, l, camera)
     local uiTs = GameConfig.TILE_SIZE  -- UI 元素（血条/铭牌）保持固定大小
 
     -- 受伤闪烁
-    local flash = player.hurtFlashTimer > 0 and math.floor(player.hurtFlashTimer * 20) % 2 == 0
+    local flash = (player.hurtFlashTimer or 0) > 0 and math.floor((player.hurtFlashTimer or 0) * 20) % 2 == 0
 
     -- 视觉大小约 1.5 格
     local spriteSize = ts * 1.5
@@ -917,6 +917,105 @@ function M.RenderPlayer(nvg, l, camera)
         nvgStrokeColor(nvg, nvgRGBA(120, 200, 255, 25))
         nvgStrokeWidth(nvg, 1.0)
         nvgStroke(nvg)
+    end
+
+    -- ═══════════════════════════════════════════════════════
+    -- 快捷回城：读条进度条 + 传送光效
+    -- ═══════════════════════════════════════════════════════
+    if not TownReturnSystem_ then
+        TownReturnSystem_ = require("systems.TownReturnSystem")
+    end
+
+    local trProgress = TownReturnSystem_.GetChannelProgress()
+    local trFxTimer  = TownReturnSystem_.GetFxTimer()
+
+    -- 读条进度条（玩家头顶，HP 条上方）
+    if trProgress then
+        local trBarW = uiTs * 0.7
+        local trBarH = 10
+        local trBarX = sx - trBarW / 2
+        local trBarY = imgTopY - trBarH - 24  -- HP 条上方足够空间
+
+        -- 背景
+        nvgBeginPath(nvg)
+        nvgRoundedRect(nvg, trBarX, trBarY, trBarW, trBarH, 4)
+        nvgFillColor(nvg, nvgRGBA(0, 0, 0, 180))
+        nvgFill(nvg)
+
+        -- 进度填充（蓝色渐变）
+        local fillW = (trBarW - 4) * trProgress
+        if fillW > 0 then
+            nvgBeginPath(nvg)
+            nvgRoundedRect(nvg, trBarX + 2, trBarY + 2, fillW, trBarH - 4, 2)
+            local trGrad = nvgLinearGradient(nvg,
+                trBarX + 2, trBarY, trBarX + 2 + fillW, trBarY,
+                nvgRGBA(60, 140, 220, 255),
+                nvgRGBA(100, 200, 255, 255)
+            )
+            nvgFillPaint(nvg, trGrad)
+            nvgFill(nvg)
+        end
+
+        -- 边框
+        nvgBeginPath(nvg)
+        nvgRoundedRect(nvg, trBarX, trBarY, trBarW, trBarH, 4)
+        nvgStrokeColor(nvg, nvgRGBA(80, 180, 230, 180))
+        nvgStrokeWidth(nvg, 1)
+        nvgStroke(nvg)
+
+        -- 百分比文字
+        nvgFontFace(nvg, "sans")
+        nvgFontSize(nvg, 10)
+        nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+        nvgFillColor(nvg, nvgRGBA(255, 255, 255, 230))
+        nvgText(nvg, sx, trBarY + trBarH / 2, math.floor(trProgress * 100) .. "%", nil)
+
+        -- 脚底传送法阵（读条期间显示）
+        local feetY = sy + halfSize  -- 角色精灵脚底
+        local circleR = ts * 0.7
+        local circleAlpha = math.floor(120 + 80 * math.sin(trProgress * math.pi * 4))
+        nvgBeginPath(nvg)
+        nvgEllipse(nvg, sx, feetY, circleR, circleR * 0.4)
+        nvgStrokeColor(nvg, nvgRGBA(60, 160, 255, circleAlpha))
+        nvgStrokeWidth(nvg, 2)
+        nvgStroke(nvg)
+
+        -- 内圈旋转
+        local innerR = circleR * 0.6
+        nvgBeginPath(nvg)
+        nvgEllipse(nvg, sx, feetY, innerR, innerR * 0.4)
+        nvgStrokeColor(nvg, nvgRGBA(100, 200, 255, circleAlpha - 40))
+        nvgStrokeWidth(nvg, 1)
+        nvgStroke(nvg)
+    end
+
+    -- 传送成功光柱（FX 阶段）
+    if trFxTimer and trFxTimer > 0 then
+        local fxDuration = TownReturnSystem_.FX_DURATION
+        local fxProgress = 1 - (trFxTimer / fxDuration)  -- 0→1
+        local fxFeetY = sy + halfSize  -- 角色精灵脚底
+        local pillarH = ts * 3
+        local pillarW = ts * 0.5
+        local pillarAlpha = math.floor(220 * (1 - fxProgress))  -- 渐隐
+
+        -- 光柱主体（从脚底向上延伸）
+        local pillarGrad = nvgLinearGradient(nvg,
+            sx, fxFeetY - pillarH, sx, fxFeetY,
+            nvgRGBA(100, 200, 255, 0),
+            nvgRGBA(60, 160, 255, pillarAlpha)
+        )
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx - pillarW / 2, fxFeetY - pillarH, pillarW, pillarH)
+        nvgFillPaint(nvg, pillarGrad)
+        nvgFill(nvg)
+
+        -- 光柱底部光晕（脚底）
+        local glowR = ts * 0.8 * (1 + fxProgress * 0.5)
+        local glowAlpha = math.floor(150 * (1 - fxProgress))
+        nvgBeginPath(nvg)
+        nvgEllipse(nvg, sx, fxFeetY, glowR, glowR * 0.3)
+        nvgFillColor(nvg, nvgRGBA(100, 200, 255, glowAlpha))
+        nvgFill(nvg)
     end
 
 end
@@ -2518,6 +2617,7 @@ end
 -- ============================================================================
 
 local FortuneFruitSystem_ = nil
+local TownReturnSystem_ = nil
 
 function M.RenderFortuneFruits(nvg, l, camera)
     -- 副本模式下不渲染福源果

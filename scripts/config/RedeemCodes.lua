@@ -162,6 +162,57 @@ RedeemCodes.CODES = {
         targetUID = 230729385,
         note      = "230729385专属：蚀骨龙牙x1+守护者证明x3",
     },
+    -- ====== 剑星草+灵韵 一次性兑换码 x5 ======
+    {
+        code      = "JXC7KM2Q",
+        rewards   = {
+            { type = "lingYun", amount = 1000 },
+            { type = "item", id = "sword_intent_crystal", amount = 1 },
+        },
+        maxUses   = 1,
+        perUser   = 1,
+        note      = "剑星草x1+灵韵1000（1/5）",
+    },
+    {
+        code      = "R4WNTX8E",
+        rewards   = {
+            { type = "lingYun", amount = 1000 },
+            { type = "item", id = "sword_intent_crystal", amount = 1 },
+        },
+        maxUses   = 1,
+        perUser   = 1,
+        note      = "剑星草x1+灵韵1000（2/5）",
+    },
+    {
+        code      = "PH6DZYA3",
+        rewards   = {
+            { type = "lingYun", amount = 1000 },
+            { type = "item", id = "sword_intent_crystal", amount = 1 },
+        },
+        maxUses   = 1,
+        perUser   = 1,
+        note      = "剑星草x1+灵韵1000（3/5）",
+    },
+    {
+        code      = "V9BSGF5L",
+        rewards   = {
+            { type = "lingYun", amount = 1000 },
+            { type = "item", id = "sword_intent_crystal", amount = 1 },
+        },
+        maxUses   = 1,
+        perUser   = 1,
+        note      = "剑星草x1+灵韵1000（4/5）",
+    },
+    {
+        code      = "W2XJCN6H",
+        rewards   = {
+            { type = "lingYun", amount = 1000 },
+            { type = "item", id = "sword_intent_crystal", amount = 1 },
+        },
+        maxUses   = 1,
+        perUser   = 1,
+        note      = "剑星草x1+灵韵1000（5/5）",
+    },
 }
 
 return RedeemCodes

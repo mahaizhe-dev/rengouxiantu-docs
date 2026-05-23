@@ -23,8 +23,8 @@ QuestData_ch3.ZONE_QUESTS = {
                 name = "扫平外围",
                 desc = "攻破第八寨和第七寨，清除外围妖寨的威胁",
                 targets = {
-                    { targetType = "yao_king_8", targetCount = 1, name = "枯木妖王" },
-                    { targetType = "yao_king_7", targetCount = 1, name = "岩蟾妖王" },
+                    { targetType = "yao_king_8", targetCount = 5, name = "枯木妖王" },
+                    { targetType = "yao_king_7", targetCount = 5, name = "岩蟾妖王" },
                 },
                 reward = {
                     type = "equipment_pick",
@@ -39,7 +39,7 @@ QuestData_ch3.ZONE_QUESTS = {
                 name = "深入腹地",
                 desc = "攻破第六寨并消灭100个沙漠精英妖兵",
                 targets = {
-                    { targetType = "yao_king_6", targetCount = 1, name = "苍狼妖王" },
+                    { targetType = "yao_king_6", targetCount = 5, name = "苍狼妖王" },
                     {
                         targetType = "sand_elite_outer", targetCount = 100, name = "沙漠精英",
                         targetAliases = { "sand_elite_mid", "sand_elite_inner" },
@@ -59,8 +59,8 @@ QuestData_ch3.ZONE_QUESTS = {
                 name = "肃清妖患",
                 desc = "攻破第五寨和第四寨，扫清沙漠腹地的妖寨",
                 targets = {
-                    { targetType = "yao_king_5", targetCount = 1, name = "赤甲妖王" },
-                    { targetType = "yao_king_4", targetCount = 1, name = "蛇骨妖王" },
+                    { targetType = "yao_king_5", targetCount = 5, name = "赤甲妖王" },
+                    { targetType = "yao_king_4", targetCount = 5, name = "蛇骨妖王" },
                 },
                 reward = {
                     type = "equipment_pick",
@@ -75,7 +75,7 @@ QuestData_ch3.ZONE_QUESTS = {
                 name = "斩妖除魔",
                 desc = "攻破第三寨并消灭100个沙漠精英妖兵",
                 targets = {
-                    { targetType = "yao_king_3", targetCount = 1, name = "赤焰妖王" },
+                    { targetType = "yao_king_3", targetCount = 5, name = "烈焰狮王" },
                     {
                         targetType = "sand_elite_outer", targetCount = 100, name = "沙漠精英",
                         targetAliases = { "sand_elite_mid", "sand_elite_inner" },
@@ -95,7 +95,7 @@ QuestData_ch3.ZONE_QUESTS = {
                 name = "兵临城下",
                 desc = "攻破第二寨并消灭100个沙漠精英妖兵，直逼黄天寨",
                 targets = {
-                    { targetType = "yao_king_2", targetCount = 1, name = "蜃妖王" },
+                    { targetType = "yao_king_2", targetCount = 5, name = "蜃妖王" },
                     {
                         targetType = "sand_elite_outer", targetCount = 100, name = "沙漠精英",
                         targetAliases = { "sand_elite_mid", "sand_elite_inner" },

@@ -27,6 +27,18 @@ sword_court.spawns = {
     { type = "ch5_night_guard",  x = 11.5, y = 60.5 },
     -- BOSS：宁栖梧 ×1（略微上移）
     { type = "ch5_ning_qiwu",    x = 12.5, y = 56.5 },
+    -- 巡逻魔帅·蚀骨 ×1（皇级 Lv.120 极谪仙境，别院外围四角巡逻）
+    { type = "ch5_marshal_shugu", x = 5, y = 41,
+      patrolPreset = "large_waypoint_loop",
+      patrol = {
+          nodes = {
+              { x = 5,  y = 41 },
+              { x = 5,  y = 62 },
+              { x = 19, y = 62 },
+              { x = 19, y = 41 },
+          },
+      },
+    },
 }
 sword_court.decorations = {
     -- 栖剑别院：回廊残柱与苔痕剑迹

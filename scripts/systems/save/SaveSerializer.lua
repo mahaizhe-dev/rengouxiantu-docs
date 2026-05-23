@@ -80,6 +80,14 @@ function SaveSerializer.SerializePlayer()
             local AlchemyUI = require("ui.AlchemyUI")
             return AlchemyUI.GetDragonBloodPillCount()
         end)(),
+        swordIntentPillCount = (function()
+            local AlchemyUI = require("ui.AlchemyUI")
+            return AlchemyUI.GetSwordIntentPillCount()
+        end)(),
+        abyssSealPillCount = (function()
+            local AlchemyUI = require("ui.AlchemyUI")
+            return AlchemyUI.GetAbyssSealPillCount()
+        end)(),
         xueshaDanCount = (function()
             local ChallengeSystem = require("systems.ChallengeSystem")
             return ChallengeSystem.xueshaDanCount or 0
@@ -255,6 +263,8 @@ function SaveSerializer.DeserializePlayer(data)
         AlchemyUI.SetDiamondPillCount(data.diamondPillCount or 0)
         AlchemyUI.SetTemperingPillEaten(data.temperingPillEaten or 0)
         AlchemyUI.SetDragonBloodPillCount(data.dragonBloodPillCount or 0)
+        AlchemyUI.SetSwordIntentPillCount(data.swordIntentPillCount or 0)
+        AlchemyUI.SetAbyssSealPillCount(data.abyssSealPillCount or 0)
 
         local ChallengeSystem = require("systems.ChallengeSystem")
         ChallengeSystem.xueshaDanCount = data.xueshaDanCount or 0
@@ -265,6 +275,8 @@ function SaveSerializer.DeserializePlayer(data)
             .. " diamond=" .. (data.diamondPillCount or 0)
             .. " tempering=" .. (data.temperingPillEaten or 0)
             .. " dragonBlood=" .. (data.dragonBloodPillCount or 0)
+            .. " swordIntent=" .. (data.swordIntentPillCount or 0)
+            .. " abyssSeal=" .. (data.abyssSealPillCount or 0)
             .. " xuesha=" .. (data.xueshaDanCount or 0)
             .. " haoqi=" .. (data.haoqiDanCount or 0))
     end

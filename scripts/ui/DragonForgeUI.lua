@@ -188,6 +188,13 @@ local function GetSpecialEffectDesc(eff)
     elseif eff.type == "juexian" then
         return string.format("每次攻击获得1层绝命，每层攻击力+%.0f%%，最多%d层，持续%.0f秒",
             (eff.stackPercent or 0.03) * 100, eff.maxStacks or 5, eff.duration or 4.0)
+    elseif eff.type == "def_boost" then
+        return string.format("防御力提高%.0f%%", (eff.defPercent or 0) * 100)
+    elseif eff.type == "xianyuan_lowest_boost" then
+        return string.format("当前总值最低的仙缘属性额外获得%d点加成", eff.bonus or 0)
+    elseif eff.type == "yuanjia" then
+        return string.format("受到伤害后，若当前生命低于50%%，获得%.0f%%减伤，持续%.0f秒（冷却%.0f秒）",
+            (eff.dmgReduce or 0) * 100, eff.duration or 4, eff.cooldown or 8)
     else
         return eff.description or eff.desc or (eff.name or "特殊效果")
     end

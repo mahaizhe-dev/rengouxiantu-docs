@@ -59,10 +59,12 @@ local tabBtnBagua_ = nil
 local tabBtnTiandi_ = nil
 local tabBtnLingyu_ = nil
 local tabBtnSpecialEquip_ = nil
-local tabBtnSkillBook_ = nil
+local tabBtnSkillBookMid_ = nil
+local tabBtnSkillBookHigh_ = nil
+local tabBtnSkillBookSpecial_ = nil
 local tabBtnHistory_ = nil
 
-local activeTab_ = "consumable_mat"   -- "consumable_mat" | "herb" | "rake" | "bagua" | "tiandi" | "lingyu" | "special_equip" | "skill_book" | "history"
+local activeTab_ = "consumable_mat"   -- "consumable_mat" | "herb" | "rake" | "bagua" | "tiandi" | "lingyu" | "special_equip" | "skill_book_mid" | "skill_book_high" | "skill_book_special" | "history"
 
 -- 轮询
 local POLL_INTERVAL = 30.0  -- P0: 降频，减少 SYSTEM_UID 热读压力
@@ -446,7 +448,9 @@ local function SetActiveTab(tab)
     if tabBtnTiandi_ then tabBtnTiandi_:SetStyle({ backgroundColor = (tab == "tiandi") and C.tabActive or C.tabInactive }) end
     if tabBtnLingyu_ then tabBtnLingyu_:SetStyle({ backgroundColor = (tab == "lingyu") and C.tabActive or C.tabInactive }) end
     if tabBtnSpecialEquip_ then tabBtnSpecialEquip_:SetStyle({ backgroundColor = (tab == "special_equip") and C.tabActive or C.tabInactive }) end
-    if tabBtnSkillBook_ then tabBtnSkillBook_:SetStyle({ backgroundColor = (tab == "skill_book") and C.tabActive or C.tabInactive }) end
+    if tabBtnSkillBookMid_ then tabBtnSkillBookMid_:SetStyle({ backgroundColor = (tab == "skill_book_mid") and C.tabActive or C.tabInactive }) end
+    if tabBtnSkillBookHigh_ then tabBtnSkillBookHigh_:SetStyle({ backgroundColor = (tab == "skill_book_high") and C.tabActive or C.tabInactive }) end
+    if tabBtnSkillBookSpecial_ then tabBtnSkillBookSpecial_:SetStyle({ backgroundColor = (tab == "skill_book_special") and C.tabActive or C.tabInactive }) end
     if tabBtnHistory_ then tabBtnHistory_:SetStyle({ backgroundColor = (tab == "history") and C.tabActive or C.tabInactive }) end
 
     -- 切到记录页时请求数据
@@ -833,8 +837,12 @@ function BlackMerchantUI.RefreshContent()
     --     children = BuildShowcase(BMConfig.CATEGORY_EVENT)
     elseif activeTab_ == "special_equip" then
         children = BuildShowcase(BMConfig.CATEGORY_SPECIAL_EQUIP)
-    elseif activeTab_ == "skill_book" then
-        children = BuildShowcase(BMConfig.CATEGORY_SKILL_BOOK)
+    elseif activeTab_ == "skill_book_mid" then
+        children = BuildShowcase(BMConfig.CATEGORY_SKILL_BOOK_MID)
+    elseif activeTab_ == "skill_book_high" then
+        children = BuildShowcase(BMConfig.CATEGORY_SKILL_BOOK_HIGH)
+    elseif activeTab_ == "skill_book_special" then
+        children = BuildShowcase(BMConfig.CATEGORY_SKILL_BOOK_SPECIAL)
     elseif activeTab_ == "history" then
         children = BuildHistoryList()
     end
@@ -1111,13 +1119,29 @@ function BlackMerchantUI.Create(parentOverlay)
         backgroundColor = C.tabInactive,
         onClick = function() SetActiveTab("special_equip") end,
     }
-    tabBtnSkillBook_ = UI.Button {
-        text = BMConfig.CATEGORY_NAMES.skill_book,
+    tabBtnSkillBookMid_ = UI.Button {
+        text = BMConfig.CATEGORY_NAMES.skill_book_mid,
         flexGrow = 1, height = 28,
         fontSize = T.fontSize.xs, fontWeight = "bold",
         borderRadius = T.radius.xs,
         backgroundColor = C.tabInactive,
-        onClick = function() SetActiveTab("skill_book") end,
+        onClick = function() SetActiveTab("skill_book_mid") end,
+    }
+    tabBtnSkillBookHigh_ = UI.Button {
+        text = BMConfig.CATEGORY_NAMES.skill_book_high,
+        flexGrow = 1, height = 28,
+        fontSize = T.fontSize.xs, fontWeight = "bold",
+        borderRadius = T.radius.xs,
+        backgroundColor = C.tabInactive,
+        onClick = function() SetActiveTab("skill_book_high") end,
+    }
+    tabBtnSkillBookSpecial_ = UI.Button {
+        text = BMConfig.CATEGORY_NAMES.skill_book_special,
+        flexGrow = 1, height = 28,
+        fontSize = T.fontSize.xs, fontWeight = "bold",
+        borderRadius = T.radius.xs,
+        backgroundColor = C.tabInactive,
+        onClick = function() SetActiveTab("skill_book_special") end,
     }
     tabBtnHistory_ = UI.Button {
         text = "记录",
@@ -1363,8 +1387,8 @@ function BlackMerchantUI.Create(parentOverlay)
                             },
                             -- 分隔线
                             UI.Panel { width = "100%", height = 1, backgroundColor = C.separator },
-                            -- 标签页栏（双行）
-                            -- 第一行：消耗品 · 草药 · 附灵玉 · 特殊装备 · 技能书 · 记录
+                            -- 标签页栏（三行）
+                            -- 第一行：消耗品 · 草药 · 附灵玉 · 特殊装备 · 记录
                             UI.Panel {
                                 width = "100%", flexDirection = "row",
                                 gap = T.spacing.xs,
@@ -1374,11 +1398,27 @@ function BlackMerchantUI.Create(parentOverlay)
                                     -- tabBtnEvent_,  -- 活动已下架
                                     tabBtnLingyu_,
                                     tabBtnSpecialEquip_,
-                                    tabBtnSkillBook_,
                                     tabBtnHistory_,
                                 },
                             },
-                            -- 第二行：神器碎片
+                            -- 第二行：技能书（中级 · 高级 · 特级）
+                            UI.Panel {
+                                width = "100%", flexDirection = "row",
+                                gap = T.spacing.xs,
+                                children = {
+                                    UI.Label {
+                                        text = "书",
+                                        fontSize = 10,
+                                        fontColor = C.textMuted,
+                                        width = 18, textAlign = "center",
+                                        alignSelf = "center",
+                                    },
+                                    tabBtnSkillBookMid_,
+                                    tabBtnSkillBookHigh_,
+                                    tabBtnSkillBookSpecial_,
+                                },
+                            },
+                            -- 第三行：神器碎片
                             UI.Panel {
                                 width = "100%", flexDirection = "row",
                                 gap = T.spacing.xs,
@@ -1437,7 +1477,9 @@ function BlackMerchantUI.Show()
     if tabBtnTiandi_ then tabBtnTiandi_:SetStyle({ backgroundColor = C.tabInactive }) end
     if tabBtnLingyu_ then tabBtnLingyu_:SetStyle({ backgroundColor = C.tabInactive }) end
     if tabBtnSpecialEquip_ then tabBtnSpecialEquip_:SetStyle({ backgroundColor = C.tabInactive }) end
-    if tabBtnSkillBook_ then tabBtnSkillBook_:SetStyle({ backgroundColor = C.tabInactive }) end
+    if tabBtnSkillBookMid_ then tabBtnSkillBookMid_:SetStyle({ backgroundColor = C.tabInactive }) end
+    if tabBtnSkillBookHigh_ then tabBtnSkillBookHigh_:SetStyle({ backgroundColor = C.tabInactive }) end
+    if tabBtnSkillBookSpecial_ then tabBtnSkillBookSpecial_:SetStyle({ backgroundColor = C.tabInactive }) end
     if tabBtnHistory_ then tabBtnHistory_:SetStyle({ backgroundColor = C.tabInactive }) end
 
     panel_:SetVisible(true)

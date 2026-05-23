@@ -83,6 +83,13 @@ qingyun.npcs = {
         challengeFaction = "qingyun",
         dialog = "青云之道，在于根骨坚韧、心境澄明。来，让我看看你的修行成果。",
     },
+    -- 仓库宝箱 — 洗练师下方2格，与炼丹炉对称
+    {
+        id = "mz_warehouse_chest", name = "百宝箱", subtitle = "存取物品",
+        x = 43, y = 67, icon = "📦", image = "image/warehouse_chest_20260331104459.png", imageScale = 1.0,
+        interactType = "warehouse", zone = "mz_qingyun", isObject = true,
+        dialog = "需要存放什么物品吗？打开仓库即可安全保管。",
+    },
 }
 
 -- 传送阵特效 + 商业街装饰

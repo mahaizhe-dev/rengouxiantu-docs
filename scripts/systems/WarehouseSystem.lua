@@ -9,6 +9,8 @@ local GameConfig = require("config.GameConfig")
 local EventBus = require("core.EventBus")
 
 local BlackMarketSyncState = require("systems.BlackMarketSyncState")
+local TradeLock = require("systems.BlackMarketTradeLock")
+local SortUtil = require("systems.InventorySortUtil")
 
 local WarehouseSystem = {}
 
@@ -91,6 +93,10 @@ function WarehouseSystem.StoreItem(bagSlot)
     local item = mgr:GetInventoryItem(bagSlot)
     if not item then return false, "该格子没有物品" end
 
+    -- TradeLock 校验：交易保护期内物品不可存入仓库
+    local blocked, reason = TradeLock.IsOperationBlocked(item)
+    if blocked then return false, reason or TradeLock.LOCK_MESSAGE end
+
     -- 找第一个空的已解锁仓库格子
     local maxSlot = WarehouseSystem.GetUnlockedSlots()
     local targetSlot = nil
@@ -129,6 +135,10 @@ function WarehouseSystem.StoreItemToSlot(bagSlot, whSlot)
     local item = mgr:GetInventoryItem(bagSlot)
     if not item then return false, "该格子没有物品" end
 
+    -- TradeLock 校验
+    local blocked, reason = TradeLock.IsOperationBlocked(item)
+    if blocked then return false, reason or TradeLock.LOCK_MESSAGE end
+
     if whSlot < 1 or whSlot > WarehouseSystem.GetUnlockedSlots() then
         return false, "目标格子未解锁"
     end
@@ -156,6 +166,10 @@ function WarehouseSystem.RetrieveItem(whSlot)
     WarehouseSystem.Init()
     local item = GameState.warehouse.items[whSlot]
     if not item then return false, "该格子没有物品" end
+
+    -- TradeLock 校验
+    local blocked, reason = TradeLock.IsOperationBlocked(item)
+    if blocked then return false, reason or TradeLock.LOCK_MESSAGE end
 
     local InventorySystem = require("systems.InventorySystem")
     local mgr = InventorySystem.GetManager()
@@ -238,6 +252,68 @@ end
 ---@param open boolean
 function WarehouseSystem.SetOpen(open)
     GameState._warehouseOpen = open
+end
+
+--- 仓库整理：合并同类消耗品 + 按品质排序 + 空格沉底
+--- §3.3: 使用 InventorySortUtil 共享排序逻辑
+---@return boolean success
+---@return string|nil errMsg
+function WarehouseSystem.SortWarehouse()
+    WarehouseSystem.Init()
+    if SortUtil._sorting then
+        print("[Warehouse] SortWarehouse: 排序进行中，忽略重复调用")
+        return false, "排序进行中"
+    end
+    SortUtil._sorting = true
+
+    local wh = GameState.warehouse
+    local maxSlot = WarehouseSystem.GetUnlockedSlots()
+
+    -- 收集所有仓库物品
+    local items = {}
+    for i = 1, maxSlot do
+        local item = wh.items[i]
+        if item then
+            items[#items + 1] = item
+        end
+    end
+
+    if #items == 0 then
+        SortUtil._sorting = false
+        print("[Warehouse] SortWarehouse: 仓库为空，无需整理")
+        return true, nil
+    end
+
+    -- 使用共享工具排序（合并 + 排序 + 守恒校验）
+    local sorted, ok, msg = SortUtil.SortItems(items)
+    if not ok then
+        print("[Warehouse] SortWarehouse 中止: " .. (msg or "unknown"))
+        SortUtil._sorting = false
+        return false, msg
+    end
+
+    -- 检查排序后物品数不超过已解锁格子数
+    if #sorted > maxSlot then
+        print("[Warehouse] SortWarehouse 中止: 排序后物品数(" .. #sorted .. ")超过已解锁格子数(" .. maxSlot .. ")")
+        SortUtil._sorting = false
+        return false, "物品数超过仓库容量"
+    end
+
+    -- 清空全部已解锁格子，按排序结果重新放入
+    for i = 1, maxSlot do
+        wh.items[i] = nil
+    end
+    for i, item in ipairs(sorted) do
+        wh.items[i] = item
+    end
+
+    SortUtil._sorting = false
+    WarehouseSystem._dirty = true
+    BlackMarketSyncState.MarkWarehouseOp("sort")
+    EventBus.Emit("warehouse_changed")
+    EventBus.Emit("save_request")
+    print("[Warehouse] Warehouse sorted: " .. #sorted .. " items")
+    return true, nil
 end
 
 --- 格式化金币显示

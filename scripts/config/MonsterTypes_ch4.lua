@@ -668,7 +668,7 @@ M.Types.qian_boss = {
         { chance = 1.0, type = "lingYun", amount = {12, 18} },
         { chance = 0.50, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
-        { chance = 0.03, type = "world_drop", pool = "sikong_books" },  -- 高级蕴灵书（共享3%，随机掉1本）
+        { chance = 0.03, type = "world_drop", pool = "sikong_new_books" },  -- 高级忽视+加伤书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
         -- 太虚令盒（0.5%独立掉落）
@@ -725,6 +725,7 @@ M.Types.yin_spirit = {
         { chance = 1.0, type = "lingYun", amount = {8, 14} },
         { chance = 0.15, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
+        { chance = 0.03, type = "world_drop", pool = "yinyang_yunling_books" },  -- 蕴灵三书高级（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
         { chance = 0.01, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹1%（皇级BOSS）
@@ -779,9 +780,10 @@ M.Types.yang_spirit = {
         { chance = 1.0, type = "lingYun", amount = {12, 18} },
         { chance = 0.50, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
+        { chance = 0.03, type = "world_drop", pool = "yinyang_yunling_books" },  -- 蕴灵三书高级（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 0.01, type = "equipment", equipId = "yinyang_boots_ch4" },  -- 阴阳履1%
-        { chance = 0.01, type = "equipment", equipId = "tiantianquan_weapon_ch4" },  -- 彩虹棒1%
+        { chance = 0.01, type = "equipment", equipId = "tiantianquan_weapon_ch4" },  -- 彩虹锤1%
         { chance = 0.001, type = "consumable", consumablePool = {  -- 四阳阵神器碎片随机1个 0.1%
             "bagua_fragment_li", "bagua_fragment_kun", "bagua_fragment_dui", "bagua_fragment_qian",
         } },

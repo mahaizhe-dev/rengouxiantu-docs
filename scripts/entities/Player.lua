@@ -64,6 +64,11 @@ function Player.New(x, y, opts)
     self.attackTimer = 0        -- 攻击冷却计时
     self.invincibleTimer = 0    -- 无敌时间
 
+    -- 渊甲护身 buff 状态（低血触发 12% 减伤，持续 4s，冷却 8s）
+    self._yuanjiaActive   = false
+    self._yuanjiaDuration = 0
+    self._yuanjiaCooldown = 0
+
     -- 装备加成（由 InventorySystem 计算后设置）
     self.equipAtk = 0
     self.equipDef = 0
@@ -284,6 +289,12 @@ function Player:_RecalcStatsCache()
         defBonus = defBonus + cs.GetBuffDefPercent()
     end
     defBonus = defBonus + (self.equipDefPercent or 0)  -- 套装百分比防御加成
+    -- def_boost 特效：永久防御百分比加成
+    for _, eff in ipairs(self.equipSpecialEffects or {}) do
+        if eff.type == "def_boost" then
+            defBonus = defBonus + (eff.defPercent or 0)
+        end
+    end
     if defBonus > 0 then
         defBase = math.floor(defBase * (1 + defBonus))
     end
@@ -321,6 +332,29 @@ function Player:_RecalcStatsCache()
     local daoTreeWisdom = self.daoTreeWisdom or 0
     local buffWis = (cs and cs.GetBuffWisdomFlat) and cs.GetBuffWisdomFlat() or 0
     self._cachedTotalWisdom = (self.equipWisdom or 0) + (self.artifactCh4Wisdom or 0) + petBonusWis + daoTreeWisdom + (self.wineWisdom or 0) + (self.medalWuxing or 0) + classWisdom + (self.collectionWisdom or 0) + buffWis + (self.daoWisdom or 0) + (skinBonuses.wisdom or 0)
+
+    -- xianyuan_lowest_boost 特效：最低仙缘属性+bonus
+    for _, eff in ipairs(self.equipSpecialEffects or {}) do
+        if eff.type == "xianyuan_lowest_boost" then
+            local bonus = eff.bonus or 0
+            if bonus > 0 then
+                local c = self._cachedTotalConstitution
+                local p = self._cachedTotalPhysique
+                local f = self._cachedTotalFortune
+                local w = self._cachedTotalWisdom
+                local minVal = math.min(c, p, f, w)
+                if c == minVal then
+                    self._cachedTotalConstitution = c + bonus
+                elseif p == minVal then
+                    self._cachedTotalPhysique = p + bonus
+                elseif f == minVal then
+                    self._cachedTotalFortune = f + bonus
+                else
+                    self._cachedTotalWisdom = w + bonus
+                end
+            end
+        end
+    end
 
     -- 高级皮肤移速加成（缓存供外部读取）
     self._skinMoveSpeedPct = skinBonuses.moveSpeedPct or 0
@@ -606,6 +640,19 @@ function Player:Update(dt, gameMap)
         self.invincibleTimer = self.invincibleTimer - dt
     end
 
+    -- 渊甲护身 buff 计时
+    if self._yuanjiaActive then
+        self._yuanjiaDuration = self._yuanjiaDuration - dt
+        if self._yuanjiaDuration <= 0 then
+            self._yuanjiaActive = false
+            self._yuanjiaDuration = 0
+        end
+    end
+    if self._yuanjiaCooldown > 0 then
+        self._yuanjiaCooldown = self._yuanjiaCooldown - dt
+        if self._yuanjiaCooldown < 0 then self._yuanjiaCooldown = 0 end
+    end
+
     -- 受伤闪烁
     if self.hurtFlashTimer > 0 then
         self.hurtFlashTimer = self.hurtFlashTimer - dt
@@ -870,6 +917,15 @@ function Player:TakeDamage(damage, source)
 
     -- 减伤计算（dmgReduce 为小数比例，如 0.05 = 5%，上限 75%）
     local dmgReduce = self.equipDmgReduce or 0
+    -- 渊甲护身 激活时叠加额外减伤
+    if self._yuanjiaActive and self.equipSpecialEffects then
+        for _, eff in ipairs(self.equipSpecialEffects) do
+            if eff.type == "yuanjia" then
+                dmgReduce = dmgReduce + (eff.dmgReduce or 0)
+                break
+            end
+        end
+    end
     if dmgReduce > 0 then
         local reduction = math.min(dmgReduce, 0.75)
         damage = math.max(1, math.floor(damage * (1 - reduction)))
@@ -926,6 +982,23 @@ function Player:TakeDamage(damage, source)
 
     self.hp = math.max(0, self.hp - damage)
     self.hurtFlashTimer = 0.2
+
+    -- 渊甲护身 触发检查（hp 扣减后）
+    if self.equipSpecialEffects and self._yuanjiaCooldown <= 0 then
+        local totalMaxHp = self:GetTotalMaxHp()
+        if self.hp > 0 and (self.hp / totalMaxHp) < 0.5 then
+            for _, eff in ipairs(self.equipSpecialEffects) do
+                if eff.type == "yuanjia" then
+                    self._yuanjiaActive   = true
+                    self._yuanjiaDuration = eff.duration or 4.0
+                    self._yuanjiaCooldown = eff.cooldown or 8.0
+                    local CombatSystem = require("systems.CombatSystem")
+                    CombatSystem.AddFloatingText(self.x, self.y - 0.5, "渊甲护身", {180, 220, 255, 255}, 1.5)
+                    break
+                end
+            end
+        end
+    end
 
     EventBus.Emit("player_hurt", damage, source)
 
