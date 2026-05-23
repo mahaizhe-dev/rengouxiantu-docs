@@ -143,20 +143,20 @@ TestRegistry.tests = {
         id            = "bm_warehouse_consistency_01a",
         group         = "system",
         path          = "scripts/tests/test_black_merchant_warehouse_consistency.lua",
-        mode          = "run_file",
-        enabled       = true,
-        gate          = "blocking",
-        skip_reason   = nil,
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "lupa_only: 使用 InventorySystem.SetManager() 注入 mock，在真实引擎中会替换玩家背包并触发自动存档，只能在离线 lupa 环境运行",
     },
 
     {
         id            = "bm_s2_unified_sync_gate",
         group         = "system",
         path          = "scripts/tests/test_bm_s2_unified_sync_gate.lua",
-        mode          = "run_file",
-        enabled       = true,
-        gate          = "blocking",
-        skip_reason   = nil,
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "lupa_only: 使用 InventorySystem.SetManager() 注入 mock，在真实引擎中会替换玩家背包并触发自动存档，只能在离线 lupa 环境运行",
     },
 
     {
@@ -337,6 +337,48 @@ TestRegistry.tests = {
         enabled       = true,
         gate          = "blocking",
         skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
+    -- C5: 解封仙剑配置正确性（圣性/灵性互斥、标签、fromBag）
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "jiefeng_sword_config",
+        group         = "config",
+        path          = "scripts/tests/test_jiefeng_sword_config.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
+    -- 解封古剑打造流水线集成测试（属性/背包/存档/消耗/道具扣除）
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "jiefeng_forge_pipeline",
+        group         = "system",
+        path          = "scripts/tests/test_jiefeng_forge_pipeline.lua",
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "lupa_only: 使用 InventorySystem.SetManager() 注入 mock，在真实引擎中会替换玩家背包并触发自动存档，只能在离线 lupa 环境运行",
+    },
+
+    ---------------------------------------------------------------------------
+    -- 铸剑地炉综合集成测试（圣器/龙魂令/原地变换/实时检测/装备扣除/数据完整性）
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "sword_forge_comprehensive",
+        group         = "system",
+        path          = "scripts/tests/test_sword_forge_comprehensive.lua",
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "lupa_only: 使用 InventorySystem.SetManager() 注入 mock，在真实引擎中会替换玩家背包并触发自动存档，只能在离线 lupa 环境运行",
     },
 
     ---------------------------------------------------------------------------

@@ -340,14 +340,19 @@ EFFECT_HANDLERS["hp_regen_percent"] = {
     end,
 }
 
--- ── 诛仙（暴击追加30%ATK伤害，无CD，附加伤害不二次触发） ──
+-- ── 诛仙（暴击追加15%ATK伤害，可暴击，无CD，附加伤害不二次触发） ──
 local FT_ZHUXIAN = {200, 50, 50, 255}  -- 深红
 EFFECT_HANDLERS["zhuxian"] = {
     onHit = function(eff, player, monster, isCrit)
         if not isCrit then return end
         if not monster.alive then return end
-        local dmg = math_max(1, math_floor(player:GetTotalAtk() * (eff.damagePercent or 0.30)))
-        local actualDmg = HitResolver.NoCrit(player, monster, dmg)
+        local raw = math_max(1, math_floor(player:GetTotalAtk() * (eff.damagePercent or 0.15)))
+        local actualDmg
+        if eff.canCrit then
+            actualDmg = HitResolver.Crit(player, monster, raw)
+        else
+            actualDmg = HitResolver.NoCrit(player, monster, raw)
+        end
         CombatSystem.AddFloatingText(
             monster.x, monster.y - 0.9,
             "诛仙 " .. actualDmg,
@@ -385,10 +390,29 @@ EFFECT_HANDLERS["xianxian"] = {
     end,
 }
 
--- ── 戮仙（重击时追加100%ATK伤害，附加伤害不二次触发） ──
--- 实际触发点在 CombatSystem.Init() 中通过 EventBus "player_heavy_hit" 注册
+-- ── 戮仙（普攻时10%概率连击，连击走完整普攻流程可触发其他普攻特效，不触发戮仙自身） ──
 local FT_LUXIAN = {255, 120, 40, 255}  -- 橙红
-EFFECT_HANDLERS["luxian"] = {}
+EFFECT_HANDLERS["luxian"] = {
+    onHit = function(eff, player, monster, isCrit, isChain)
+        if isChain then return end          -- 连击不触发戮仙自身，防止循环
+        if not monster.alive then return end
+        if math_random() >= (eff.procChance or 0.10) then return end
+        -- 连击：走完整普攻判定（含暴击、装备特效，但标记 isChain=true 排除戮仙）
+        local chainDmg, chainCrit = HitResolver.Hit(player, monster, player:GetTotalAtk(), { noEvent = true })
+        if chainCrit then
+            CombatSystem.AddFloatingText(monster.x, monster.y - 1.1, "连击暴击 " .. chainDmg, FT_CRIT_YELLOW, 1.3)
+        else
+            CombatSystem.AddFloatingText(monster.x, monster.y - 1.1, "连击 " .. chainDmg, FT_LUXIAN, 1.1)
+        end
+        CombatSystem.AddSlashEffect(player, monster, player:GetAttackInterval() * 0.6)
+        print("[Combat] 戮仙连击! " .. chainDmg)
+        -- 触发普攻相关特效（传入 isChain=true，防止戮仙递归）
+        CombatSystem.TriggerEquipEffectsOnHit(player, monster, chainCrit, true)
+        -- 连击也触发 player_normal_hit 系列事件（绝仙叠层、灭影等依赖此事件）
+        EventBus.Emit("player_normal_hit", player, monster)
+        EventBus.Emit("player_deal_damage", player, monster)
+    end,
+}
 
 -- ── 绝仙（每次攻击+1层绝命，ATK+3%/层，最多5层，4秒持续，命中刷新） ──
 local FT_JUEXIAN = {180, 0, 220, 255}  -- 暗紫
@@ -432,13 +456,14 @@ EFFECT_HANDLERS["juexian"] = {
 -- ── 装备特效分派函数 ──
 
 --- 攻击命中时触发所有装备特效
-function CombatSystem.TriggerEquipEffectsOnHit(player, monster, isCrit)
+---@param isChain boolean|nil 是否为连击（true时戮仙handler自动跳过，防止递归）
+function CombatSystem.TriggerEquipEffectsOnHit(player, monster, isCrit, isChain)
     local effects = player.equipSpecialEffects
     if not effects then return end
     for _, eff in ipairs(effects) do
         local h = EFFECT_HANDLERS[eff.type]
         if h and h.onHit then
-            h.onHit(eff, player, monster, isCrit)
+            h.onHit(eff, player, monster, isCrit, isChain)
         end
     end
 end
@@ -542,26 +567,7 @@ function CombatSystem.Init()
         end
     end)
 
-    -- 戮仙：重击时追加100%ATK伤害（必须在Init中注册，否则会被EventBus.Clear()清除）
-    EventBus.On("player_heavy_hit", function(player, monster)
-        if not player or not player.alive then return end
-        if not monster or not monster.alive then return end
-        local effects = player.equipSpecialEffects
-        if not effects then return end
-        for _, eff in ipairs(effects) do
-            if eff.type == "luxian" then
-                local dmg = math_max(1, math_floor(player:GetTotalAtk() * (eff.damagePercent or 1.00)))
-                local actualDmg = HitResolver.NoCrit(player, monster, dmg)
-                CombatSystem.AddFloatingText(
-                    monster.x, monster.y - 0.9,
-                    "戮仙 " .. actualDmg,
-                    FT_LUXIAN, 1.3
-                )
-                print("[Combat] 戮仙! " .. actualDmg)
-                break
-            end
-        end
-    end)
+    -- 戮仙：已迁移至 EFFECT_HANDLERS["luxian"].onHit（连击机制，无需 EventBus 注册）
 
     -- 初始化套装AOE事件监听
     CombatSystem.InitSetAoeListeners()

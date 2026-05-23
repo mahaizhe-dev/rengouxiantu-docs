@@ -42,8 +42,8 @@ end
 
 -- 额外页签定义（背包打造模式）— 使用渐变色系与前5个Tab做区分
 local EXTRA_TABS = {
-    [6] = { label = "🐲龙极令", color = {255, 180, 30, 255}, inactiveColor = {80, 60, 20, 220} },
-    [7] = { label = "⚒️灵器铸造", color = {50, 220, 180, 255}, inactiveColor = {20, 60, 55, 220} },
+    [6] = { label = "🐲龙极令",  color = {255, 180, 30, 255},  inactiveColor = {80, 60, 20, 220}  },
+    [7] = { label = "⚒️灵器铸造", color = {50, 220, 180, 255},  inactiveColor = {20, 60, 55, 220}  },
 }
 
 --- 构建页签栏
@@ -79,7 +79,7 @@ local function BuildTabBar()
         })
     end
 
-    -- 追加额外页签（龙极令、灵器铸造）
+    -- 追加额外页签（龙极令、灵器铸造，仅第四章显示）
     for tabIdx = 6, 7 do
         local def = EXTRA_TABS[tabIdx]
         local isActive = (tabIdx == currentTab_)
@@ -183,8 +183,8 @@ local function GetSpecialEffectDesc(eff)
             (eff.highHpThreshold or 0.50) * 100, (eff.critDmgBonus or 0.50) * 100,
             (eff.highHpThreshold or 0.50) * 100, (eff.lowHpRegenPercent or 0.02) * 100)
     elseif eff.type == "luxian" then
-        return string.format("重击时，额外追加一次%.0f%%攻击力的伤害",
-            (eff.damagePercent or 1.00) * 100)
+        return string.format("普攻时有%.0f%%概率发动连击，连击可触发普攻特效",
+            (eff.procChance or 0.10) * 100)
     elseif eff.type == "juexian" then
         return string.format("每次攻击获得1层绝命，每层攻击力+%.0f%%，最多%d层，持续%.0f秒",
             (eff.stackPercent or 0.03) * 100, eff.maxStacks or 5, eff.duration or 4.0)
@@ -568,6 +568,8 @@ local function BuildLingqiContent()
     return children
 end
 
+
+
 --- 构建动态内容（每次刷新重建）
 local function BuildContent()
     local EquipTooltip = require("ui.EquipTooltip")
@@ -575,7 +577,7 @@ local function BuildContent()
     local player = GameState.player
     local children = {}
 
-    -- Tab 6/7 走背包打造模式
+    -- Tab 6/7 走背包打造模式（Tab 8 铸剑地炉已迁移至 SwordForgeUI.lua）
     if currentTab_ == 6 then return BuildLongjiContent() end
     if currentTab_ == 7 then return BuildLingqiContent() end
 
@@ -1268,6 +1270,27 @@ local function ShowBagForgeSuccess(item, title, subtitle)
         }
     end
 
+    -- 圣性属性
+    local saintWidget = nil
+    if item.saintStat then
+        local ss = item.saintStat
+        saintWidget = UI.Panel {
+            width = "100%",
+            backgroundColor = {50, 10, 10, 230},
+            borderRadius = T.radius.sm,
+            borderWidth = 1, borderColor = {255, 60, 60, 150},
+            padding = T.spacing.sm, gap = T.spacing.xs,
+            children = {
+                UI.Label { text = "▸ 圣性属性", fontSize = T.fontSize.xs, fontColor = {255, 80, 80, 230}, paddingLeft = T.spacing.xs },
+                SuccessStatRow(
+                    STAT_ICONS[ss.stat] or "🔴", ss.name or STAT_NAMES[ss.stat] or ss.stat,
+                    FormatStatVal(ss.stat, ss.value),
+                    {255, 180, 180, 255}, {255, 80, 80, 255}
+                ),
+            },
+        }
+    end
+
     -- 套装标记
     local setWidget = nil
     if item.setId then
@@ -1309,6 +1332,7 @@ local function ShowBagForgeSuccess(item, title, subtitle)
         },
     }
     if spiritWidget then table.insert(contentChildren, spiritWidget) end
+    if saintWidget then table.insert(contentChildren, saintWidget) end
     if setWidget then table.insert(contentChildren, setWidget) end
 
     -- 技能标记（法宝专用）
@@ -1548,6 +1572,8 @@ function DragonForgeUI.DoForgeLingqi()
         resultLabel_:SetStyle({ fontColor = {100, 255, 150, 255} })
     end
 end
+
+
 
 function DragonForgeUI.Show(npc)
     if panel_ and not visible_ then

@@ -51,6 +51,18 @@ function InventorySystem.GetManager()
     return manager_
 end
 
+--- 🔴 仅供测试使用：安全注入一个隔离的 mock manager，不会影响 Init() 的副作用。
+--- 测试用法（推荐 pcall 保护 + 事后恢复原 manager）：
+---   local orig = InventorySystem.GetManager()
+---   InventorySystem.SetManager(mockMgr)
+---   -- ... 测试代码 ...
+---   InventorySystem.SetManager(orig)
+--- 禁止在非测试代码中调用此函数。
+---@param mgr InventoryManager
+function InventorySystem.SetManager(mgr)
+    manager_ = mgr
+end
+
 --- 添加物品到背包
 ---@param item table
 ---@return boolean success
@@ -917,6 +929,54 @@ end
 -- 灵韵果使用
 -- ============================================================================
 
+--- 使用上品修炼果（+100000 EXP，每次1颗，境界等级上限时不可用）
+---@return boolean success, string|nil errorMsg
+function InventorySystem.UseExpPillSuperior()
+    local player = GameState.player
+    if not player then return false, "玩家不存在" end
+
+    local count = InventorySystem.CountConsumable("exp_pill_superior")
+    if count < 1 then return false, "上品修炼果不足" end
+
+    local realmData = GameConfig.REALMS[player.realm]
+    if realmData then
+        local maxLevel = realmData.maxLevel
+        if player.level >= maxLevel then
+            local curLevelExp = GameConfig.EXP_TABLE[player.level] or 0
+            local nextLevelExp = GameConfig.EXP_TABLE[player.level + 1]
+            if nextLevelExp then
+                local cap = curLevelExp + math.floor((nextLevelExp - curLevelExp) * 0.99)
+                if player.exp >= cap then
+                    return false, "经验已达境界上限，请先突破境界"
+                end
+            end
+        end
+    end
+
+    local ok = InventorySystem.ConsumeConsumable("exp_pill_superior", 1)
+    if not ok then return false, "消耗失败" end
+
+    player:GainExp(100000)
+    EventBus.Emit("exp_pill_used", 100000)
+    return true, nil
+end
+
+--- 使用上品灵韵果（+500 灵韵，每次1颗）
+---@return boolean success, string|nil errorMsg
+function InventorySystem.UseLingyunFruitSuperior()
+    local player = GameState.player
+    if not player then return false, "玩家不存在" end
+
+    local count = InventorySystem.CountConsumable("lingyun_fruit_superior")
+    if count < 1 then return false, "上品灵韵果不足" end
+
+    local ok = InventorySystem.ConsumeConsumable("lingyun_fruit_superior", 1)
+    if not ok then return false, "消耗失败" end
+
+    player:GainLingYun(500)
+    return true, nil
+end
+
 --- 使用灵韵果（+50 灵韵，每次1颗）
 ---@return boolean success, string|nil errorMsg
 function InventorySystem.UseLingyunFruit()
@@ -1000,7 +1060,7 @@ end
 
 -- ============================================================================
 -- 批量使用/出售消耗品
--- 支持：金条(gold_bar)、灵韵果(lingyun_fruit)、修炼果(exp_pill)
+-- 支持：金条(gold_bar)、灵韵果(lingyun_fruit)、上品灵韵果(lingyun_fruit_superior)、修炼果(exp_pill)、上品修炼果(exp_pill_superior)
 -- ============================================================================
 
 --- 批量使用/出售消耗品统一入口
@@ -1030,8 +1090,12 @@ function InventorySystem.UseBatchConsumable(consumableId, count)
 
     if consumableId == "exp_pill" then
         return InventorySystem._UseBatchExpPill(count)
+    elseif consumableId == "exp_pill_superior" then
+        return InventorySystem._UseBatchExpPillSuperior(count)
     elseif consumableId == "lingyun_fruit" then
         return InventorySystem._UseBatchLingyunFruit(count)
+    elseif consumableId == "lingyun_fruit_superior" then
+        return InventorySystem._UseBatchLingyunFruitSuperior(count)
     elseif consumableId == "gold_bar" or consumableId == "gold_brick"
         or (cfgData and cfgData.category == "event") then
         return InventorySystem._SellBatchConsumable(consumableId, count)
@@ -1041,6 +1105,8 @@ function InventorySystem.UseBatchConsumable(consumableId, count)
         return InventorySystem._UseTokenBox(consumableId, "sha_hai_ling")
     elseif consumableId == "taixu_token_box" then
         return InventorySystem._UseTokenBox(consumableId, "taixu_token")
+    elseif consumableId == "taixu_jianling_box" then
+        return InventorySystem._UseTokenBox(consumableId, "taixu_jianling")
     else
         return false, "该物品不支持批量操作"
     end
@@ -1138,6 +1204,91 @@ function InventorySystem._UseBatchLingyunFruit(count)
     player:GainLingYun(totalLingYun)
 
     local msg = "使用 " .. count .. " 颗灵韵果，获得 " .. totalLingYun .. " 灵韵！"
+    print("[InventorySystem] " .. msg)
+    return true, msg, count
+end
+
+--- 批量使用上品修炼果（预计算经验上限，一次性扣除+发放）
+---@param count number 期望使用数量
+---@return boolean success, string|nil message, number|nil actualCount
+function InventorySystem._UseBatchExpPillSuperior(count)
+    local player = GameState.player
+    if not player then return false, "玩家不存在" end
+
+    local EXP_PER_PILL = 100000
+
+    local expBonus = player.titleExpBonus or 0
+    local expMultiplier = 1 + expBonus
+    local effectiveExpPerPill = math.floor(EXP_PER_PILL * expMultiplier)
+
+    local realmData = GameConfig.REALMS[player.realm]
+    if not realmData then return false, "境界数据异常" end
+
+    local maxLevel = realmData.maxLevel
+    local expCap = math.huge
+
+    if player.level >= maxLevel then
+        local curLevelExp = GameConfig.EXP_TABLE[player.level] or 0
+        local nextLevelExp = GameConfig.EXP_TABLE[player.level + 1]
+        if nextLevelExp then
+            expCap = curLevelExp + math.floor((nextLevelExp - curLevelExp) * 0.99)
+        end
+        if player.exp >= expCap then
+            return false, "经验已达境界上限，请先突破境界"
+        end
+    end
+
+    local maxUsable = count
+    if player.level >= maxLevel and expCap ~= math.huge then
+        local remainingExp = expCap - player.exp
+        if remainingExp <= 0 then
+            return false, "经验已达境界上限，请先突破境界"
+        end
+        local canUse = math.max(1, math.floor(remainingExp / effectiveExpPerPill))
+        maxUsable = math.min(count, canUse)
+    end
+
+    if maxUsable <= 0 then
+        return false, "经验已达境界上限，请先突破境界"
+    end
+
+    local have = InventorySystem.CountConsumable("exp_pill_superior")
+    maxUsable = math.min(maxUsable, have)
+    if maxUsable <= 0 then return false, "上品修炼果不足" end
+
+    local ok = InventorySystem.ConsumeConsumable("exp_pill_superior", maxUsable)
+    if not ok then return false, "消耗失败" end
+
+    local totalRawExp = EXP_PER_PILL * maxUsable
+    player:GainExp(totalRawExp)
+
+    local actualExp = math.floor(totalRawExp * expMultiplier)
+    EventBus.Emit("exp_pill_used", actualExp)
+    local msg = "使用 " .. maxUsable .. " 颗上品修炼果，获得 " .. actualExp .. " 经验！"
+    print("[InventorySystem] " .. msg)
+    return true, msg, maxUsable
+end
+
+--- 批量使用上品灵韵果（一次性扣除+发放）
+---@param count number 期望使用数量
+---@return boolean success, string|nil message, number|nil actualCount
+function InventorySystem._UseBatchLingyunFruitSuperior(count)
+    local player = GameState.player
+    if not player then return false, "玩家不存在" end
+
+    local LINGYUN_PER_FRUIT = 500
+
+    local have = InventorySystem.CountConsumable("lingyun_fruit_superior")
+    count = math.min(count, have)
+    if count <= 0 then return false, "上品灵韵果不足" end
+
+    local ok = InventorySystem.ConsumeConsumable("lingyun_fruit_superior", count)
+    if not ok then return false, "消耗失败" end
+
+    local totalLingYun = LINGYUN_PER_FRUIT * count
+    player:GainLingYun(totalLingYun)
+
+    local msg = "使用 " .. count .. " 颗上品灵韵果，获得 " .. totalLingYun .. " 灵韵！"
     print("[InventorySystem] " .. msg)
     return true, msg, count
 end

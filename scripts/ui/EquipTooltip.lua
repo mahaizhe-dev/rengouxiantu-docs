@@ -207,6 +207,24 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
         })
     end
 
+    -- 圣性属性
+    if item.saintStat then
+        local ss = item.saintStat
+        table.insert(rows, UI.Panel {
+            backgroundColor = {50, 10, 10, 210}, borderRadius = T.radius.sm,
+            borderWidth = 1, borderColor = {255, 60, 60, 130},
+            padding = T.spacing.sm, gap = T.spacing.xs,
+            children = {
+                UI.Label { text = "▸ 圣性属性", fontSize = T.fontSize.xs, fontColor = {255, 80, 80, 220}, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
+                StatRow(
+                    STAT_ICONS[ss.stat] or "🔴", ss.name or STAT_NAMES[ss.stat] or ss.stat,
+                    FormatStatValue(ss.stat, ss.value),
+                    {255, 180, 180, 255}, {255, 80, 80, 255}, T.fontSize.md
+                ),
+            },
+        })
+    end
+
     -- 套装
     if item.setId then
         local setData = EquipmentData.SetBonuses[item.setId]
@@ -408,8 +426,8 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
                 (eff.highHpThreshold or 0.50) * 100, (eff.critDmgBonus or 0.50) * 100,
                 (eff.highHpThreshold or 0.50) * 100, (eff.lowHpRegenPercent or 0.02) * 100)
         elseif eff.type == "luxian" then
-            descText = string.format("重击时，额外追加一次%.0f%%攻击力的伤害",
-                (eff.damagePercent or 1.00) * 100)
+            descText = string.format("普攻时有%.0f%%概率发动连击，连击可触发普攻特效",
+                (eff.procChance or 0.10) * 100)
         elseif eff.type == "juexian" then
             descText = string.format("每次攻击获得1层绝命，每层攻击力+%.0f%%，最多%d层，持续%.0f秒",
                 (eff.stackPercent or 0.03) * 100, eff.maxStacks or 5, eff.duration or 4.0)
@@ -510,6 +528,9 @@ local function CollectAllStats(item)
     end
     if item.spiritStat then
         stats[item.spiritStat.stat] = (stats[item.spiritStat.stat] or 0) + item.spiritStat.value
+    end
+    if item.saintStat then
+        stats[item.saintStat.stat] = (stats[item.saintStat.stat] or 0) + item.saintStat.value
     end
     return stats
 end
@@ -695,12 +716,16 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         end
         local _cfgItem = item.consumableId and GameConfig.CONSUMABLES[item.consumableId]
         local _isEventItem = _cfgItem and _cfgItem.category == "event"
-        if item.consumableId == "lingyun_fruit" or item.consumableId == "exp_pill" or item.consumableId == "gold_bar" or item.consumableId == "gold_brick" then
+        if item.consumableId == "lingyun_fruit" or item.consumableId == "exp_pill"
+            or item.consumableId == "lingyun_fruit_superior" or item.consumableId == "exp_pill_superior"
+            or item.consumableId == "gold_bar" or item.consumableId == "gold_brick" then
             -- 批量使用/出售 UI：×1 / ×10 / ×50 / 全部
             local cId = item.consumableId
             local totalCount = InventorySystem.CountConsumable(cId)
             local actionLabel = (cId == "gold_bar" or cId == "gold_brick") and "出售" or "使用"
-            local actionIcon = cId == "lingyun_fruit" and "🍇" or (cId == "exp_pill" and "💊" or "💰")
+            local actionIcon = (cId == "lingyun_fruit" or cId == "lingyun_fruit_superior") and "🍇"
+                or (cId == "exp_pill" or cId == "exp_pill_superior") and "💊"
+                or "💰"
             local batchAmounts = { 1, 10, 50, totalCount }
             local batchLabels = { "×1", "×10", "×50", "全部(" .. totalCount .. ")" }
             local batchBtns = {}
@@ -741,7 +766,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
                 children = batchBtns,
             })
         end
-        if item.consumableId == "wubao_token_box" or item.consumableId == "sha_hai_ling_box" or item.consumableId == "taixu_token_box" then
+        if item.consumableId == "wubao_token_box" or item.consumableId == "sha_hai_ling_box" or item.consumableId == "taixu_token_box" or item.consumableId == "taixu_jianling_box" then
             local cId = item.consumableId
             table.insert(btnChildren, UI.Button {
                 text = "📦 使用", variant = "primary", flexGrow = 1,
@@ -773,8 +798,12 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
                 end,
             })
         end
-        -- 修炼果、灵韵果、守护者证明不可出售，金条/金砖已有批量出售UI
-        if item.consumableId ~= "exp_pill" and item.consumableId ~= "lingyun_fruit" and item.consumableId ~= "item_guardian_token" and item.consumableId ~= "gold_bar" and item.consumableId ~= "gold_brick" and item.consumableId ~= "wubao_token_box" and item.consumableId ~= "sha_hai_ling_box" and item.consumableId ~= "taixu_token_box" then
+        -- 修炼果、灵韵果（含上品）、守护者证明不可出售，金条/金砖已有批量出售UI
+        if item.consumableId ~= "exp_pill" and item.consumableId ~= "exp_pill_superior"
+            and item.consumableId ~= "lingyun_fruit" and item.consumableId ~= "lingyun_fruit_superior"
+            and item.consumableId ~= "item_guardian_token"
+            and item.consumableId ~= "gold_bar" and item.consumableId ~= "gold_brick"
+            and item.consumableId ~= "wubao_token_box" and item.consumableId ~= "sha_hai_ling_box" and item.consumableId ~= "taixu_token_box" and item.consumableId ~= "taixu_jianling_box" then
             table.insert(btnChildren, UI.Button {
                 text = "出售", variant = "warning", flexGrow = 1,
                 onClick = function(self)

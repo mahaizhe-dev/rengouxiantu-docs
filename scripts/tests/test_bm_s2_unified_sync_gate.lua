@@ -310,7 +310,15 @@ print("  --- 行为层 ---")
 
 -- 初始化 InventorySystem 和 WarehouseSystem
 local InventorySystem = require("systems.InventorySystem")
-InventorySystem.Init()
+-- 🔴 绝对禁止调用 InventorySystem.Init()！
+-- Init() 在真实引擎中会用空 manager_ 替换玩家真实背包，
+-- 自动存档触发后玩家所有物品永久丢失（线上事故级）。
+-- 用 UI mock 构造隔离 manager 并通过 SetManager 安全注入。
+do
+    local UI = package.loaded["urhox-libs/UI"]
+    local mockMgr = UI.InventoryManager.new({ inventorySize = 30, equipmentSlots = {} })
+    InventorySystem.SetManager(mockMgr)
+end
 local WarehouseSystem = require("systems.WarehouseSystem")
 WarehouseSystem.Init()
 local GameState = require("core.GameState")

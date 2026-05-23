@@ -25,6 +25,45 @@
   - 删除 SaveSystem.MIGRATIONS 中已有的迁移函数（旧版存档无法加载）
   - 修改 REALM_LIST 中已有境界的 order 值（排行榜排序错乱）
   - 修改 EXP_TABLE 中已有等级的经验值（玩家经验进度异常）
+  - 在测试代码中调用 InventorySystem.Init()（直接后果：玩家背包/装备被清空并自动存档，数据永久丢失）
+```
+
+### 测试代码安全红线
+
+```
+🔴 测试文件（scripts/tests/）中绝对禁止：
+  - 调用任何会替换全局单例的 Init() 函数（InventorySystem.Init、CombatSystem.Init 等）
+  - 事故复盘：2026-05 test_jiefeng_forge_pipeline.lua 的 ResetInventory() 调用了
+    InventorySystem.Init()，在真实引擎中把玩家背包替换为空 manager_，
+    自动存档触发后玩家所有物品永久丢失。
+    根本原因：修复测试 crash（RemoveInventoryItem→SetInventoryItem）后测试能跑完，
+    Init() 的破坏性副作用才得以执行。
+
+✅ 正确做法：测试需要隔离的存储对象时，直接 new 一个局部 manager，绝不碰全局单例：
+    -- ✅ 安全
+    local mgr = _InventoryManager.new({ inventorySize = 30 })
+
+    -- ❌ 致命错误
+    InventorySystem.Init()          -- 替换全局 manager_，触发存档丢失
+    return InventorySystem.GetManager()
+
+🔴 使用 SetManager() 的测试必须在 TestRegistry 中禁用（lupa_only）：
+  - InventorySystem.SetManager(mockMgr) 同样会替换全局 manager_
+  - 测试跑完后 mock 留在原地，auto-save 触发 → 玩家背包存空 → 数据永久丢失
+  - 事故复盘：2026-05 在修复 manager_ 为 nil 的 bug 时引入 SetManager()，
+    导致 GetAllEquipment 在真实引擎崩溃，再次触发玩家背包丢失（事故 #3）
+
+  正确的隔离策略：凡使用 SetManager() 或任何操纵全局单例的测试文件，
+  必须在 TestRegistry.lua 中将对应条目标记为：
+    enabled = false, mode = "skip", gate = "non_blocking"
+    skip_reason = "lupa_only: ..."
+  这类测试只能在离线 Python/lupa 环境中运行，禁止在真实引擎中执行。
+
+  当前已禁用的 lupa_only 测试（2026-05）：
+    - jiefeng_forge_pipeline
+    - sword_forge_comprehensive
+    - bm_warehouse_consistency_01a
+    - bm_s2_unified_sync_gate
 ```
 
 ### 必须遵守的兼容性原则

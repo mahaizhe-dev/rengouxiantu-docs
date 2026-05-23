@@ -29,6 +29,7 @@ local TrialTowerUI_ = nil
 local TrialOfferingUI_ = nil
 local SeaPillarUI_ = nil
 local DragonForgeUI_ = nil
+local SwordForgeUI_ = nil
 local WarehouseUI_ = nil
 local GourdUI_ = nil
 local BlackMerchantUI_ = nil
@@ -128,6 +129,11 @@ end
 local function GetDragonForgeUI()
     if not DragonForgeUI_ then DragonForgeUI_ = require("ui.DragonForgeUI") end
     return DragonForgeUI_
+end
+
+local function GetSwordForgeUI()
+    if not SwordForgeUI_ then SwordForgeUI_ = require("ui.SwordForgeUI") end
+    return SwordForgeUI_
 end
 
 local function GetWarehouseUI()
@@ -305,6 +311,7 @@ function NPCDialog.Create(parentOverlay)
     GetTrialOfferingUI().Create(parentOverlay)
     GetSeaPillarUI().Create(parentOverlay)
     GetDragonForgeUI().Create(parentOverlay)
+    GetSwordForgeUI().Create(parentOverlay)
     GetWarehouseUI().Create(parentOverlay)
     GetGourdUI().Create(parentOverlay)
     GetBlackMerchantUI().Create(parentOverlay)
@@ -485,6 +492,7 @@ local INTERACT_HANDLERS = {
     challenge_envoy   = function(npc)  GetChallengeUI().Show(npc) end,
     seal_demon        = function(npc)  GetSealDemonUI().Show(npc) end,
     dragon_forge      = function(npc)  GetDragonForgeUI().Show(npc) end,
+    sword_forge       = function(npc)  GetSwordForgeUI().Show(npc) end,
     warehouse         = function(npc)  GetWarehouseUI().Show(npc) end,
     dao_question      = function(npc)
         local player = GameState.player

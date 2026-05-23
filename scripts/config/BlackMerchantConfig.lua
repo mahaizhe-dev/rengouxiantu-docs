@@ -195,18 +195,25 @@ BMConfig.ITEMS = {
     shihun_essence     = ItemFromGame("shihun_essence",     { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 8 }),
     lingxi_essence     = ItemFromGame("lingxi_essence",     { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 9 }),
     dragon_blood_herb  = ItemFromGame("dragon_blood_herb",  { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 10 }),
+    -- Ch5 圣器材料（炼制太虚剑丹/狱甲丹/圣器的必需材料，高价值稀有草药）
+    sword_intent_crystal   = ItemFromGame("sword_intent_crystal",   { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 5, sort_order = 11 }),
+    abyss_seal_shard       = ItemFromGame("abyss_seal_shard",       { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 5, sort_order = 12 }),
 
-    -- === 消耗品（龙神材料、金砖、令牌盒） ===
+    -- === 消耗品（龙神材料、仙人精血、金砖、令牌盒） ===
     dragon_scale_ice   = ItemFromGame("dragon_scale_ice",   { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 5, sort_order = 1 }),
     dragon_scale_abyss = ItemFromGame("dragon_scale_abyss", { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 5, sort_order = 2 }),
     dragon_scale_fire  = ItemFromGame("dragon_scale_fire",  { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 5, sort_order = 3 }),
     dragon_scale_sand  = ItemFromGame("dragon_scale_sand",  { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 5, sort_order = 4 }),
-    gold_brick         = ItemFromGame("gold_brick",         { buy_price = 1,  sell_price = 2,  category = "consumable_mat", max_stock = 10, sort_order = 5 }),
+    -- 仙人精血（第五章消耗品，买15卖30仙石，限购5）
+    immortal_essence_blood = ItemFromGame("immortal_essence_blood", { buy_price = 15, sell_price = 30, category = "consumable_mat", max_stock = 5, sort_order = 5 }),
+    gold_brick         = ItemFromGame("gold_brick",         { buy_price = 1,  sell_price = 2,  category = "consumable_mat", max_stock = 10, sort_order = 6 }),
 
     -- === 令牌盒（100令牌+100灵韵炼制，买2卖4仙石，限购10） ===
-    wubao_token_box    = ItemFromGame("wubao_token_box",    { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 6 }),
-    sha_hai_ling_box   = ItemFromGame("sha_hai_ling_box",   { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 7 }),
-    taixu_token_box    = ItemFromGame("taixu_token_box",    { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 8 }),
+    wubao_token_box    = ItemFromGame("wubao_token_box",    { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 7 }),
+    sha_hai_ling_box   = ItemFromGame("sha_hai_ling_box",   { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 8 }),
+    taixu_token_box    = ItemFromGame("taixu_token_box",    { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 9 }),
+    -- 太虚剑令盒（100太虚剑令+100灵韵炼制，第五章令牌盒，买2卖4仙石，限购10）
+    taixu_jianling_box = ItemFromGame("taixu_jianling_box", { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 10 }),
 
     -- === 五一活动信物（已下架） ===
 
@@ -224,8 +231,14 @@ BMConfig.ITEMS = {
         boss = "沙万里/狮王/蜃妖王",
     }),
     silong_ring_ch4 = EquipItemFromData("silong_ring_ch4", {
-        buy_price = 15, sell_price = 30, category = "special_equip", sort_order = 4,
+        buy_price = 12, sell_price = 24, category = "special_equip", sort_order = 4,
         boss = "四龙",
+    }),
+
+    -- === 帝尊五戒（Ch5 精英BOSS掉落，30仙石购买/15仙石收购）===
+    dizun_ring_ch5 = EquipItemFromData("dizun_ring_ch5", {
+        buy_price = 15, sell_price = 30, category = "special_equip", sort_order = 5,
+        boss = "第五章精英BOSS",
     }),
 
     -- === 中级技能书（紫色品质，sellPrice=1000金，收2售4仙石，限购5） ===

@@ -3070,12 +3070,21 @@ MonsterData.WORLD_DROP_POOLS = {
         },
     },
     ch5 = {
-        eliteLabel = "3%", bossLabel = "5%",
+        eliteLabel = "3%",
         items = {
-            { type = "consumable", consumableId = "exp_pill" },          -- 修炼果
-            { type = "consumable", consumableId = "gold_bar" },          -- 金条
-            { type = "consumable", consumableId = "demon_essence" },     -- 妖兽精华
-            { type = "consumable", consumableId = "lingyun_fruit", bossOnly = true }, -- 灵韵果（BOSS专属）
+            { type = "consumable", consumableId = "exp_pill" },      -- 修炼果
+            { type = "consumable", consumableId = "gold_bar" },      -- 金条
+            { type = "consumable", consumableId = "demon_essence" }, -- 妖兽精华
+        },
+    },
+    ch5_boss = {
+        bossLabel = "3%",
+        items = {
+            { type = "consumable", consumableId = "lingyun_fruit" },          -- 灵韵果
+            { type = "consumable", consumableId = "exp_pill_superior" },      -- 上品修炼果
+            { type = "consumable", consumableId = "lingyun_fruit_superior" }, -- 上品灵韵果
+            { type = "consumable", consumableId = "gold_brick" },             -- 金砖
+            { type = "consumable", consumableId = "dragon_marrow" },          -- 龙髓
         },
     },
     -- 万仇/万海专用：筑基丹与修炼果共享掉落池

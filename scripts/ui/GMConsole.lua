@@ -375,6 +375,22 @@ local GM_CATEGORIES = {
                 InventorySystem.AddConsumable("gold_brick", 10)
                 ShowLog("发放 10 金砖", {255, 215, 0, 255})
             end },
+            { label = "上品修炼果 +10", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                InventorySystem.AddConsumable("exp_pill_superior", 10)
+                ShowLog("发放 10 上品修炼果", {255, 160, 60, 255})
+            end },
+            { label = "上品灵韵果 +10", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                InventorySystem.AddConsumable("lingyun_fruit_superior", 10)
+                ShowLog("发放 10 上品灵韵果", {180, 80, 255, 255})
+            end },
+            { label = "上品修炼果+灵韵果 各×10", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                InventorySystem.AddConsumable("exp_pill_superior", 10)
+                InventorySystem.AddConsumable("lingyun_fruit_superior", 10)
+                ShowLog("发放 上品修炼果×10 + 上品灵韵果×10", {255, 140, 200, 255})
+            end },
             { label = "司空蕴灵书×3", action = function()
                 SendGMCommand("give_sikong_books", function()
                     local InventorySystem = require("systems.InventorySystem")
@@ -454,6 +470,7 @@ local GM_CATEGORIES = {
                 local ids = {
                     "dizun_ring_ch1", "dizun_ring_ch2",
                     "dizun_ring_ch3", "silong_ring_ch4",
+                    "dizun_ring_ch5",
                 }
                 local added = 0
                 for _, eqId in ipairs(ids) do
@@ -462,10 +479,10 @@ local GM_CATEGORIES = {
                         added = added + 1
                     end
                 end
-                if added == 4 then
-                    ShowLog("帝尊戒指×4 已放入背包", {0, 220, 255, 255})
+                if added == 5 then
+                    ShowLog("帝尊壹~伍戒×5 已放入背包", {0, 220, 255, 255})
                 else
-                    ShowLog("放入 " .. added .. "/4（背包空间不足）", {255, 120, 100, 255})
+                    ShowLog("放入 " .. added .. "/5（背包空间不足）", {255, 120, 100, 255})
                 end
             end },
             { label = "封印仙剑×4", action = function()
@@ -606,6 +623,90 @@ local GM_CATEGORIES = {
                 else
                     ShowLog("创建失败", {255, 120, 100, 255})
                 end
+            end },
+            -- ── 铸剑地炉圣器测试 ──
+            { label = "帝尊圣戒×1", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                local LootSystem = require("systems.LootSystem")
+                if InventorySystem.GetFreeSlots() < 1 then ShowLog("背包已满！", {255, 120, 100, 255}); return end
+                local item = LootSystem.CreateSaintEquipment("dizun_saint_ring")
+                if item and InventorySystem.AddItem(item) then
+                    ShowLog(item.name .. " 已放入背包", {255, 100, 100, 255})
+                else ShowLog("创建失败", {255, 120, 100, 255}) end
+            end },
+            { label = "道藏圣衣×1", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                local LootSystem = require("systems.LootSystem")
+                if InventorySystem.GetFreeSlots() < 1 then ShowLog("背包已满！", {255, 120, 100, 255}); return end
+                local item = LootSystem.CreateSaintEquipment("daozang_saint_armor")
+                if item and InventorySystem.AddItem(item) then
+                    ShowLog(item.name .. " 已放入背包", {255, 100, 100, 255})
+                else ShowLog("创建失败", {255, 120, 100, 255}) end
+            end },
+            { label = "深渊圣氅×1", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                local LootSystem = require("systems.LootSystem")
+                if InventorySystem.GetFreeSlots() < 1 then ShowLog("背包已满！", {255, 120, 100, 255}); return end
+                local item = LootSystem.CreateSaintEquipment("saint_cape_ch5")
+                if item and InventorySystem.AddItem(item) then
+                    ShowLog(item.name .. " 已放入背包", {255, 100, 100, 255})
+                else ShowLog("创建失败", {255, 120, 100, 255}) end
+            end },
+            { label = "龙魂令×1", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                local LootSystem = require("systems.LootSystem")
+                if InventorySystem.GetFreeSlots() < 1 then ShowLog("背包已满！", {255, 120, 100, 255}); return end
+                local item = LootSystem.CreateLonghunling(nil)
+                if item and InventorySystem.AddItem(item) then
+                    ShowLog(item.name .. " 已放入背包", {255, 150, 50, 255})
+                else ShowLog("创建失败", {255, 120, 100, 255}) end
+            end },
+            { label = "解封古剑·诛仙×1", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                local LootSystem = require("systems.LootSystem")
+                if InventorySystem.GetFreeSlots() < 1 then ShowLog("背包已满！", {255, 120, 100, 255}); return end
+                local item = LootSystem.CreateJiefengSword(nil, "jiefeng_zhuxian_ch5")
+                if item and InventorySystem.AddItem(item) then
+                    ShowLog(item.name .. " 已放入背包", {255, 80, 80, 255})
+                else ShowLog("创建失败", {255, 120, 100, 255}) end
+            end },
+            { label = "解封古剑·绝仙×1", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                local LootSystem = require("systems.LootSystem")
+                if InventorySystem.GetFreeSlots() < 1 then ShowLog("背包已满！", {255, 120, 100, 255}); return end
+                local item = LootSystem.CreateJiefengSword(nil, "jiefeng_juexian_ch5")
+                if item and InventorySystem.AddItem(item) then
+                    ShowLog(item.name .. " 已放入背包", {255, 80, 80, 255})
+                else ShowLog("创建失败", {255, 120, 100, 255}) end
+            end },
+            { label = "铸剑材料包", action = function()
+                -- 给予铸剑地炉所有配方所需消耗材料（各30）
+                local InventorySystem = require("systems.InventorySystem")
+                local LootSystem = require("systems.LootSystem")
+                local mats = {
+                    "dragon_scale_ice", "dragon_scale_abyss", "dragon_scale_fire", "dragon_scale_sand",
+                    "immortal_essence_blood", "taixu_jianling",
+                }
+                local added = 0
+                for _, matId in ipairs(mats) do
+                    InventorySystem.AddConsumable(matId, 30)
+                    added = added + 1
+                end
+                -- 同时补充铸剑所需的背包装备：五件帝尊戒、藏真玄衣、泽渊仙铠、噬渊魔氅、天渊灵披
+                local equipIds = {
+                    "dizun_ring_ch1", "dizun_ring_ch2", "dizun_ring_ch3",
+                    "silong_ring_ch4", "dizun_ring_ch5",
+                    "cangzhen_armor_ch5", "zeyuan_armor_ch4",
+                    "shiyuan_cape_ch5", "lingqi_cape_ch5",
+                }
+                local eqAdded = 0
+                for _, eqId in ipairs(equipIds) do
+                    local item = LootSystem.CreateSpecialEquipment(eqId)
+                    if item and InventorySystem.AddItem(item) then
+                        eqAdded = eqAdded + 1
+                    end
+                end
+                ShowLog("铸剑材料包：消耗品×30（" .. added .. "种）+ 装备×" .. eqAdded .. "件", {255, 200, 80, 255})
             end },
         },
     },
@@ -959,6 +1060,35 @@ local GM_CATEGORIES = {
                     ShowLog("快捷回城: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
                 else
                     ShowLog("快捷回城: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
+                end
+            end },
+            { label = "解封流水线自测", action = function()
+                package.loaded["tests.test_jiefeng_forge_pipeline"] = nil
+                local M = require("tests.test_jiefeng_forge_pipeline")
+                local result = M.Run()
+                if type(result) == "table" then
+                    local p, f = result.passed or 0, result.failed or 0
+                    if f == 0 then
+                        ShowLog("解封流水线: 全部 " .. p .. " 项通过!", {100, 255, 100, 255})
+                    else
+                        ShowLog("解封流水线: " .. f .. " 项失败 / " .. (p + f) .. " 项", {255, 100, 100, 255})
+                    end
+                else
+                    ShowLog("解封流水线: 脚本未返回结果表", {255, 100, 100, 255})
+                end
+            end },
+            { label = "铸剑地炉综合自测", action = function()
+                package.loaded["tests.test_sword_forge_comprehensive"] = nil
+                local result = require("tests.test_sword_forge_comprehensive")
+                if type(result) == "table" then
+                    local p, f = result.passed or 0, result.failed or 0
+                    if f == 0 then
+                        ShowLog("铸剑地炉: 全部 " .. p .. " 项通过!", {100, 255, 100, 255})
+                    else
+                        ShowLog("铸剑地炉: " .. f .. " 项失败 / " .. (p + f) .. " 项", {255, 100, 100, 255})
+                    end
+                else
+                    ShowLog("铸剑地炉: 脚本未返回结果表", {255, 100, 100, 255})
                 end
             end },
         },

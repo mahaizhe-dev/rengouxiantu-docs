@@ -175,6 +175,7 @@ GameConfig.PET_MATERIALS = {
     jindan_sand = { name = "金丹沙", icon = "icon_jindan_sand.png", sellPrice = 0, quality = "orange", desc = "蕴含金丹之力的灵沙，修炼突破的珍贵材料。\n用途：突破金丹境界的必需品。\n价值：1颗 = 100灵韵\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
     yuanying_fruit = { name = "元婴果", icon = "icon_yuanying_fruit.png", sellPrice = 0, quality = "orange", desc = "蕴含元婴之力的灵果，散发金色荧光。\n用途：突破元婴境界的必需品。\n价值：1颗 = 100灵韵\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
     exp_pill = { name = "修炼果", icon = "icon_exp_pill.png", sellPrice = 0, quality = "blue", desc = "蕴含灵气的修炼灵果，吸收后可获得大量修炼经验。\n用途：使用后获得10000点经验。\n限制：每次使用1颗，经验达到境界上限时无法使用。" },
+    exp_pill_superior = { name = "上品修炼果", icon = "icon_exp_pill.png", sellPrice = 0, quality = "orange", desc = "太虚宗珍藏的上品修炼灵果，蕴含磅礴灵气，吸收后可获得大量修炼经验。\n用途：使用后获得100000点经验。\n限制：每次使用1颗，经验达到境界上限时无法使用。" },
     -- 封魔系统：体魄丹（永久+1体魄，上限50）
     physique_pill = { name = "体魄丹", icon = "💊", sellPrice = 0, quality = "purple", desc = "封魔谷秘制的丹药，服用后可永久强化体魄。\n用途：使用后永久+1体魄（上限50）。\n获取：每日封魔任务固定奖励（1枚/天）。" },
     -- 炼丹材料
@@ -183,6 +184,7 @@ GameConfig.PET_MATERIALS = {
     diamond_wood = { name = "金刚木", icon = "icon_diamond_wood.png", sellPrice = 1000, quality = "orange", desc = "坚硬如铁的灵木，据说吸收了天地精华。\n用途：炼制金刚丹的必需材料。\n获取：击败乌天南、乌地北（3%掉率）" },
     wind_eroded_grass = { name = "风蚀草", icon = "🌿", sellPrice = 1000, quality = "orange", desc = "沙漠中被风沙打磨千年的灵草，韧如精钢。\n用途：炼制千锤百炼丹的材料。\n获取：沙漠九寨怪物掉落" },
     lingyun_fruit = { name = "灵韵果", icon = "🍇", sellPrice = 0, quality = "orange", desc = "八卦海灵脉孕育的奇果，咬破果皮，灵韵四溢。\n用途：使用后获得50灵韵（不可出售）。\n获取：第四章BOSS掉落" },
+    lingyun_fruit_superior = { name = "上品灵韵果", icon = "🍇", sellPrice = 0, quality = "red", desc = "太虚宗灵脉深处孕育的上品奇果，灵韵浓郁，异香扑鼻。\n用途：使用后获得500灵韵（不可出售）。\n获取：第五章BOSS掉落" },
     -- 高阶境界突破材料
     jiuzhuan_jindan = { name = "九转金丹", icon = "icon_jiuzhuan_jindan.png", sellPrice = 0, quality = "red", desc = "传说中的仙丹，需九次淬炼方成，蕴含无上仙力。\n用途：化神·合体境界突破的必需品。\n炼制：500灵韵 → 1颗（第四章炼丹炉）\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
     dujie_dan = { name = "渡劫丹", icon = "icon_dujie_dan.png", sellPrice = 0, quality = "red", desc = "以九天雷髓与万年灵液淬炼而成的极品仙丹，丹中隐现雷纹。\n用途：大乘境界突破的必需品。\n炼制：1000灵韵 → 1颗（第五章炼丹炉）\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
@@ -229,8 +231,8 @@ GameConfig.PET_MATERIALS = {
     dragon_scale_abyss = { name = "渊蛟龙骨", icon = "🦴", sellPrice = 10000, quality = "red", desc = "堕渊蛟龙的脊骨碎片，散发幽紫光芒，蕴含深渊之力。\n用途：圣器打造材料。\n获取：堕渊蛟龙掉落（1%）" },
     dragon_scale_fire = { name = "焚天龙焰", icon = "🔥", sellPrice = 10000, quality = "red", desc = "焚天蜃龙的凝固龙焰，灼热异常，永不熄灭。\n用途：圣器打造材料。\n获取：焚天蜃龙掉落（1%）" },
     dragon_scale_sand = { name = "蚀骨龙牙", icon = "🦷", sellPrice = 10000, quality = "red", desc = "蚀骨螭龙的獠牙碎片，坚逾金刚，可侵蚀万物。\n用途：圣器打造材料。\n获取：蚀骨螭龙掉落（1%）" },
-    -- 仙人精血（噬渊血犼+四仙剑掉落，圣器打造材料）
-    immortal_essence_blood = { name = "仙人精血", icon = "🩸", sellPrice = 10000, quality = "red", desc = "洒落的仙人之血，浸透断壁残兵，千年不枯。谪仙之上，无一不是从尸山血海中走出来的。\n用途：圣器打造材料。\n获取：裂渊屠血将（0.2%）/ 噬渊血犼（1%）/ 四仙剑（3%）" },
+    -- 仙人精血（屠血将0.2%+噬渊血犼/蚀骨/裂魂1%+四仙剑3%，圣器打造材料）
+    immortal_essence_blood = { name = "仙人精血", icon = "🩸", sellPrice = 10000, quality = "red", desc = "洒落的仙人之血，浸透断壁残兵，千年不枯。谪仙之上，无一不是从尸山血海中走出来的。\n用途：圣器打造材料。\n获取：裂渊屠血将（0.2%）/ 噬渊血犼（1%）/ 蚀骨（1%）/ 裂魂（1%）/ 四仙剑（3%）" },
     -- 天帝剑痕碎片（仙劫战场·域外邪魔掉落，9片合成天帝剑痕）
     tiandi_fragment_1 = { name = "天帝剑痕碎片·壹", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "远古天帝斩落域外邪魔时遗留的剑痕残片，剑意犹存，隐约可闻天雷余响。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },
     tiandi_fragment_2 = { name = "天帝剑痕碎片·贰", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "据传天帝以此一剑斩断天外入侵通道，立下中洲万世屏障。碎片表面仍残留斩裂虚空的痕迹。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },

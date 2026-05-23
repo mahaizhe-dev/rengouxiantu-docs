@@ -358,6 +358,7 @@ function SaveSerializer.SerializeItemFull(item)
         sellPrice = item.sellPrice,
         forgeStat = item.forgeStat,
         spiritStat = item.spiritStat,
+        saintStat  = item.saintStat,   -- 铸剑地炉圣器属性（dizun/daozang/cape/jiefeng四剑）
         isSpecial = item.isSpecial,
         isFabao = item.isFabao,
         skillId = item.skillId,

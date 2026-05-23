@@ -509,6 +509,11 @@ function LootSystem.CreateSpecialEquipment(equipId)
         end
     end
 
+    -- 封印古剑等标记了 hasSpiritStat 的特殊装备，掉落时附加1条随机灵性属性
+    if template.hasSpiritStat and not item.spiritStat then
+        item.spiritStat = LootSystem.GenerateSpiritStat(item.tier, "atk", item.quality)
+    end
+
     return item
 end
 
@@ -749,6 +754,146 @@ function LootSystem.GenerateSpiritStat(tier, mainStatType, quality)
         name = sub.name,
         value = value,
     }
+end
+
+--- 生成圣性属性（红·圣器专属，全值副属性，不排斥主属性以外的属性）
+--- 与 GenerateSpiritStat 逻辑相同，但不乘以 0.5（全值）
+---@param tier number 阶级
+---@param mainStatType string 主属性类型（排斥）
+---@param quality string 品质
+---@return table|nil saintStat { stat, name, value }
+function LootSystem.GenerateSaintStat(tier, mainStatType, quality)
+    local pool = {}
+    for _, sub in ipairs(EquipmentData.SUB_STATS) do
+        if sub.stat ~= mainStatType then
+            table.insert(pool, sub)
+        end
+    end
+    if #pool == 0 then return nil end
+
+    local sub = pool[math.random(1, #pool)]
+
+    local qualityOrder = GameConfig.QUALITY_ORDER[quality] or 1
+    local shift = math.max(0, qualityOrder - 4) * 0.1
+    local randBase = 0.8 + shift
+
+    local numTierMult = EquipmentData.SUB_STAT_TIER_MULT[tier] or 1.0
+    local pctTierMult = EquipmentData.PCT_SUB_TIER_MULT[tier] or 1.0
+
+    local value
+    if sub.linearGrowth then
+        local qualityConfig = GameConfig.QUALITY[quality]
+        local qualityMult = qualityConfig and qualityConfig.multiplier or 1.0
+        value = math.floor(tier * qualityMult)  -- 全值（无×0.5）
+        if value <= 0 then value = 1 end
+    else
+        local tierMult = EquipmentData.PCT_STATS[sub.stat] and pctTierMult or numTierMult
+        value = sub.baseValue * tierMult
+        value = value * (randBase + math.random() * 0.4)
+        -- 全值（无×0.5）
+        value = math.floor(value * 100 + 0.5) / 100
+        if value <= 0 then value = 0.01 end
+    end
+
+    return {
+        stat = sub.stat,
+        name = sub.name,
+        value = value,
+    }
+end
+
+--- 铸剑地炉：打造普通圣器装备（帝尊圣戒/道藏圣甲/深渊圣氅）
+--- 无需背包中的旧装备，直接从模板创建并注入圣性属性
+---@param equipId string 目标装备 ID（必须在 EquipmentData.SpecialEquipment 中）
+---@return table|nil 新圣器装备实例
+function LootSystem.CreateSaintEquipment(equipId)
+    local template = EquipmentData.SpecialEquipment[equipId]
+    if not template then
+        print("[LootSystem] CreateSaintEquipment: template not found: " .. tostring(equipId))
+        return nil
+    end
+
+    -- 继承 CreateSpecialEquipment 的副属性波动逻辑
+    local item = LootSystem.CreateSpecialEquipment(equipId)
+    if not item then return nil end
+
+    -- 圣性/灵性互斥：部分模板带 hasSpiritStat=true，CreateSpecialEquipment 会生成 spiritStat；
+    -- 铸剑地炉产出的圣器只携带 saintStat，必须清除 spiritStat
+    item.spiritStat = nil
+
+    -- 如果模板已经包含 saintStat（固定圣性），则不再随机生成
+    if not item.saintStat then
+        -- 获取主属性类型用于排斥
+        local mainStatType = nil
+        if template.mainStat then
+            for k, _ in pairs(template.mainStat) do
+                mainStatType = k
+                break
+            end
+        end
+        local quality = template.quality or "red"
+        local tier = template.tier or 10
+        item.saintStat = LootSystem.GenerateSaintStat(tier, mainStatType, quality)
+    end
+
+    print("[LootSystem] CreateSaintEquipment: " .. equipId ..
+          " saintStat=" .. (item.saintStat and (item.saintStat.name .. "+" .. item.saintStat.value) or "nil"))
+    return item
+end
+
+--- 铸剑地炉：解封古剑（从背包中消耗封印古剑，产出对应解封古剑 + 随机圣性属性）
+--- sourceFengyinItem 被消耗后，产出新的解封古剑，保留封印古剑的副属性波动
+---@param sourceFengyinItem table 背包中的封印古剑实例（会被消耗）
+---@param targetEquipId string 目标解封古剑 ID（如 "jiefeng_zhuxian_ch5"）
+---@return table|nil 新解封古剑实例
+function LootSystem.CreateJiefengSword(sourceFengyinItem, targetEquipId)
+    local template = EquipmentData.SpecialEquipment[targetEquipId]
+    if not template then
+        print("[LootSystem] CreateJiefengSword: template not found: " .. tostring(targetEquipId))
+        return nil
+    end
+    if not sourceFengyinItem then
+        print("[LootSystem] CreateJiefengSword: sourceFengyinItem is nil")
+        return nil
+    end
+
+    -- 从模板创建基础圣器（含副属性波动）
+    local item = LootSystem.CreateSpecialEquipment(targetEquipId)
+    if not item then return nil end
+
+    -- 圣性属性：随机生成（解封古剑的圣性为随机，体现个体差异）
+    local mainStatType = "atk"  -- 武器主属性固定为atk
+    local quality = template.quality or "red"
+    local tier = template.tier or 10
+    item.saintStat = LootSystem.GenerateSaintStat(tier, mainStatType, quality)
+
+    print("[LootSystem] CreateJiefengSword: " .. targetEquipId ..
+          " from=" .. tostring(sourceFengyinItem.equipId) ..
+          " saintStat=" .. (item.saintStat and (item.saintStat.name .. "+" .. item.saintStat.value) or "nil"))
+    return item
+end
+
+--- 铸剑地炉：升级龙极令为龙魂令
+--- 消耗背包中的龙极令（fabao_longjiling）实例，产出 T10 圣器龙魂令
+---@param sourceLongjiItem table 背包中的龙极令实例（会被消耗）
+---@return table|nil 新龙魂令实例
+function LootSystem.CreateLonghunling(sourceLongjiItem)
+    if not sourceLongjiItem then
+        print("[LootSystem] CreateLonghunling: sourceLongjiItem is nil")
+        return nil
+    end
+
+    -- 龙魂令固定 T10 圣器
+    local tier    = 10
+    local quality = "red"
+    local item = LootSystem.CreateFabaoEquipment("fabao_longhunling", tier, quality)
+    if not item then
+        print("[LootSystem] CreateLonghunling: CreateFabaoEquipment failed")
+        return nil
+    end
+
+    print("[LootSystem] CreateLonghunling: success, mainStat=" .. tostring(item.mainStat and item.mainStat.atk))
+    return item
 end
 
 --- 获取槽位图标（根据阶级返回对应图标）

@@ -11,7 +11,16 @@ forge.regions = {
     ch5_forge = { x1 = 4, y1 = 21, x2 = 17, y2 = 34, zone = "ch5_forge" },
 }
 
-forge.npcs = {}
+forge.npcs = {
+    -- 铸剑地炉本体（可交互对象）
+    { id = "ch5_sword_forge", name = "铸剑地炉", subtitle = "铸造圣器",
+      x = 10.5, y = 27.5, icon = "🔥",
+      portrait = "Textures/npc_alchemy_furnace.png",
+      interactType = "sword_forge", isObject = true, zone = "ch5_forge",
+      label = "铸剑地炉",
+      dialog = "地炉炉火熊熊，炉壁上古纹闪烁。\n此乃上古铸剑秘法，需以天材地宝为引，方可铸就圣器。",
+    },
+}
 forge.spawns = {
     -- 铸剑地炉：无普通怪，仅精英+BOSS
     -- 精英怪：炼炉兵傀 ×4（炉区四方位）

@@ -184,8 +184,11 @@ local GameConfig = require("config.GameConfig")
 local WarehouseSystem = require("systems.WarehouseSystem")
 local InventorySystem = require("systems.InventorySystem")
 
--- InventorySystem.Init() 需要 UI.InventoryManager
-InventorySystem.Init()
+-- 🔴 绝对禁止调用 InventorySystem.Init()！
+-- Init() 在真实引擎中会用空 manager_ 替换玩家真实背包，
+-- 自动存档触发后玩家所有物品永久丢失（线上事故级）。
+-- 改为直接构造 mock manager 并通过 SetManager 安全注入。
+InventorySystem.SetManager(_makeMockManager())
 
 -- ============================================================================
 -- 辅助：事件追踪

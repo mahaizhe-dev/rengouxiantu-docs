@@ -159,13 +159,8 @@ function MobileControls._onNPCInteract()
                         SwordPoolUI.Show()
                         return
                     elseif tile == T.CH5_FURNACE then
-                        NPCDialog.Show({
-                            name = "铸剑地炉",
-                            subtitle = "太虚锻造坊",
-                            dialog = "炉火虽已熄灭千年，炉壁上的符文仍泛着微光。此炉曾锻造出无数传世神兵。\n\n铸剑地炉，敬请期待。",
-                            buttons = {},
-                            interactType = "coming_soon",
-                        })
+                        local SwordForgeUI = require("ui.SwordForgeUI")
+                        SwordForgeUI.Show()
                         return
                     end
                 end

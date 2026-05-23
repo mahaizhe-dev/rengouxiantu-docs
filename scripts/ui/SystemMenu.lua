@@ -472,11 +472,24 @@ local function BuildBestiaryContent(chapterIndex)
     end
 
     -- ==================== 世界掉落栏 ====================
-    local CHAPTER_POOL_MAP = { [1] = "ch1", [2] = "ch2", [3] = "ch3", [4] = "ch4", [5] = "ch5" }
-    local poolId = CHAPTER_POOL_MAP[chapterIndex]
-    local pool = poolId and MonsterData.WORLD_DROP_POOLS[poolId]
-    if pool and pool.items and #pool.items > 0 then
-        -- 标题
+    local CHAPTER_POOL_MAP = {
+        [1] = { "ch1" },
+        [2] = { "ch2" },
+        [3] = { "ch3" },
+        [4] = { "ch4" },
+        [5] = { "ch5", "ch5_boss" },
+    }
+    local poolIds = CHAPTER_POOL_MAP[chapterIndex] or {}
+    -- 收集所有有效池
+    local validPools = {}
+    for _, pid in ipairs(poolIds) do
+        local p = MonsterData.WORLD_DROP_POOLS[pid]
+        if p and p.items and #p.items > 0 then
+            table.insert(validPools, p)
+        end
+    end
+    if #validPools > 0 then
+        -- 标题（只插一次）
         table.insert(children, UI.Panel {
             flexDirection = "row",
             alignItems = "center",
@@ -498,69 +511,95 @@ local function BuildBestiaryContent(chapterIndex)
             backgroundColor = {80, 70, 40, 150},
             marginBottom = T.spacing.xs,
         })
-        -- 说明
-        table.insert(children, UI.Label {
-            text = "以下物品由本章所有精英(" .. pool.eliteLabel .. ")和首领(" .. pool.bossLabel .. ")共享掉落",
-            fontSize = T.fontSize.xs,
-            fontColor = {180, 170, 130, 200},
-            marginBottom = T.spacing.xs,
-        })
-        -- 物品列表
-        for _, item in ipairs(pool.items) do
-            local itemName, itemIcon, itemColor
-            if item.type == "equipment" and item.equipId then
-                local spec = EquipmentData.SpecialEquipment[item.equipId]
-                if spec then
-                    itemName = spec.name
-                    itemIcon = "🪖"
-                    local qc = GameConfig.QUALITY[spec.quality]
-                    itemColor = qc and qc.color or {200, 200, 200, 255}
-                end
-            elseif item.type == "consumable" and item.consumableId then
-                itemName = GetConsumableName(item.consumableId)
-                local cData = GameConfig.PET_FOOD[item.consumableId]
-                    or GameConfig.PET_MATERIALS[item.consumableId]
-                    or (PetSkillData and PetSkillData.SKILL_BOOKS and PetSkillData.SKILL_BOOKS[item.consumableId])
-                itemIcon = cData and cData.icon or "📦"
-                local cq = cData and cData.quality
-                local qc = cq and GameConfig.QUALITY[cq]
-                itemColor = qc and qc.color or {255, 220, 100, 255}
+        -- 遍历所有有效池，每个池显示说明 + 物品列表
+        for _, pool in ipairs(validPools) do
+            -- 池说明文字
+            local descText
+            if pool.eliteLabel and pool.bossLabel then
+                descText = "以下物品由本章所有精英(" .. pool.eliteLabel .. ")和首领(" .. pool.bossLabel .. ")共享掉落"
+            elseif pool.bossLabel then
+                descText = "以下物品由本章首领(" .. pool.bossLabel .. ")专属掉落"
+            elseif pool.eliteLabel then
+                descText = "以下物品由本章精英(" .. pool.eliteLabel .. ")共享掉落"
+            else
+                descText = "世界掉落"
             end
-            if itemName then
-                local chanceText
-                if item.bossOnly then
-                    chanceText = "首领" .. pool.bossLabel .. "专属"
-                else
-                    chanceText = "精英" .. pool.eliteLabel .. " / 首领" .. pool.bossLabel
+            table.insert(children, UI.Label {
+                text = descText,
+                fontSize = T.fontSize.xs,
+                fontColor = {180, 170, 130, 200},
+                marginBottom = T.spacing.xs,
+            })
+            -- 物品列表
+            for _, item in ipairs(pool.items) do
+                local itemName, itemIcon, itemColor
+                if item.type == "equipment" and item.equipId then
+                    local spec = EquipmentData.SpecialEquipment[item.equipId]
+                    if spec then
+                        itemName = spec.name
+                        itemIcon = "🪖"
+                        local qc = GameConfig.QUALITY[spec.quality]
+                        itemColor = qc and qc.color or {200, 200, 200, 255}
+                    end
+                elseif item.type == "consumable" and item.consumableId then
+                    itemName = GetConsumableName(item.consumableId)
+                    local cData = GameConfig.PET_FOOD[item.consumableId]
+                        or GameConfig.PET_MATERIALS[item.consumableId]
+                        or (PetSkillData and PetSkillData.SKILL_BOOKS and PetSkillData.SKILL_BOOKS[item.consumableId])
+                    itemIcon = cData and cData.icon or "📦"
+                    local cq = cData and cData.quality
+                    local qc = cq and GameConfig.QUALITY[cq]
+                    itemColor = qc and qc.color or {255, 220, 100, 255}
                 end
+                if itemName then
+                    local chanceText
+                    if pool.bossLabel and not pool.eliteLabel then
+                        chanceText = "首领" .. pool.bossLabel .. "专属"
+                    elseif pool.eliteLabel and pool.bossLabel then
+                        chanceText = "精英" .. pool.eliteLabel .. " / 首领" .. pool.bossLabel
+                    elseif pool.eliteLabel then
+                        chanceText = "精英" .. pool.eliteLabel
+                    else
+                        chanceText = "掉落"
+                    end
+                    table.insert(children, UI.Panel {
+                        width = "100%",
+                        flexDirection = "row",
+                        alignItems = "center",
+                        gap = T.spacing.sm,
+                        backgroundColor = {40, 38, 30, 200},
+                        borderRadius = T.radius.sm,
+                        padding = T.spacing.sm,
+                        marginBottom = T.spacing.xs,
+                        borderWidth = 1,
+                        borderColor = {itemColor[1], itemColor[2], itemColor[3], 60},
+                        children = {
+                            IconUtils.IsImagePath(itemIcon)
+                                and UI.Panel { width = 28, height = 28, backgroundImage = itemIcon, backgroundFit = "contain" }
+                                or  UI.Label { text = itemIcon, fontSize = T.fontSize.lg },
+                            UI.Label {
+                                text = itemName,
+                                fontSize = T.fontSize.sm,
+                                fontWeight = "bold",
+                                fontColor = itemColor,
+                                flexGrow = 1,
+                            },
+                            UI.Label {
+                                text = chanceText,
+                                fontSize = T.fontSize.xs,
+                                fontColor = pool.bossLabel and not pool.eliteLabel and {255, 160, 80, 200} or {160, 160, 140, 200},
+                            },
+                        },
+                    })
+                end
+            end
+            -- 池间隔线（多池时分隔）
+            if _ < #validPools then
                 table.insert(children, UI.Panel {
-                    width = "100%",
-                    flexDirection = "row",
-                    alignItems = "center",
-                    gap = T.spacing.sm,
-                    backgroundColor = {40, 38, 30, 200},
-                    borderRadius = T.radius.sm,
-                    padding = T.spacing.sm,
+                    width = "100%", height = 1,
+                    backgroundColor = {60, 55, 35, 100},
+                    marginTop = T.spacing.xs,
                     marginBottom = T.spacing.xs,
-                    borderWidth = 1,
-                    borderColor = {itemColor[1], itemColor[2], itemColor[3], 60},
-                    children = {
-                        IconUtils.IsImagePath(itemIcon)
-                            and UI.Panel { width = 28, height = 28, backgroundImage = itemIcon, backgroundFit = "contain" }
-                            or  UI.Label { text = itemIcon, fontSize = T.fontSize.lg },
-                        UI.Label {
-                            text = itemName,
-                            fontSize = T.fontSize.sm,
-                            fontWeight = "bold",
-                            fontColor = itemColor,
-                            flexGrow = 1,
-                        },
-                        UI.Label {
-                            text = chanceText,
-                            fontSize = T.fontSize.xs,
-                            fontColor = item.bossOnly and {255, 160, 80, 200} or {160, 160, 140, 200},
-                        },
-                    },
                 })
             end
         end

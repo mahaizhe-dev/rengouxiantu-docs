@@ -1678,7 +1678,7 @@ EquipmentData.SpecialEquipment = {
     lingqi_cape_ch5 = {
         name = "天渊灵披",
         slot = "cape",
-        icon = "icon_shiyuan_cape_ch5.png",
+        icon = "image/icon_lingqi_cape_ch5_20260523093217.png",
         quality = "cyan",
         tier = 10,
         sellPrice = 5,
@@ -1810,7 +1810,7 @@ EquipmentData.SpecialEquipment = {
     lingqi_ring_ch5 = {
         name = "均灵环",
         slot = "ring2",
-        icon = "icon_dizun_ring_ch5.png",
+        icon = "image/icon_lingqi_ring_ch5_20260523093208.png",
         quality = "cyan",
         tier = 10,
         sellPrice = 5,
@@ -1841,6 +1841,7 @@ EquipmentData.SpecialEquipment = {
         tier = 10,
         sellPrice = 5,
         sellCurrency = "lingYun",
+        hasSpiritStat = true,  -- 掉落时自动附加1条随机灵性属性
         mainStat = { atk = 189 },
         subStats = {
             { stat = "critDmg", name = "暴击伤害", value = 0.375 },
@@ -1850,8 +1851,9 @@ EquipmentData.SpecialEquipment = {
         specialEffect = {
             type = "zhuxian",
             name = "诛仙",
-            desc = "暴击时，追加一次30%攻击力的伤害",
-            damagePercent = 0.30,
+            desc = "暴击时，追加一次15%攻击力的伤害（可暴击）",
+            damagePercent = 0.15,
+            canCrit = true,
         },
     },
 
@@ -1865,6 +1867,7 @@ EquipmentData.SpecialEquipment = {
         tier = 10,
         sellPrice = 5,
         sellCurrency = "lingYun",
+        hasSpiritStat = true,  -- 掉落时自动附加1条随机灵性属性
         mainStat = { atk = 189 },
         subStats = {
             { stat = "physique", name = "体魄", value = 18 },
@@ -1891,6 +1894,7 @@ EquipmentData.SpecialEquipment = {
         tier = 10,
         sellPrice = 5,
         sellCurrency = "lingYun",
+        hasSpiritStat = true,  -- 掉落时自动附加1条随机灵性属性
         mainStat = { atk = 189 },
         subStats = {
             { stat = "constitution", name = "根骨", value = 18 },
@@ -1900,8 +1904,8 @@ EquipmentData.SpecialEquipment = {
         specialEffect = {
             type = "luxian",
             name = "戮仙",
-            desc = "重击时，额外追加一次100%攻击力的伤害",
-            damagePercent = 1.00,
+            desc = "普攻时有10%概率发动连击，连击可触发普攻特效",
+            procChance = 0.10,
         },
     },
 
@@ -1915,6 +1919,7 @@ EquipmentData.SpecialEquipment = {
         tier = 10,
         sellPrice = 5,
         sellCurrency = "lingYun",
+        hasSpiritStat = true,  -- 掉落时自动附加1条随机灵性属性
         mainStat = { atk = 189 },  -- 5 × 21.0 × 1.8 = 189（weapon BASE=5）
         subStats = {
             { stat = "killHeal", name = "击杀回血", value = 39 },    -- 3 × 13.0 = 39
@@ -1928,6 +1933,212 @@ EquipmentData.SpecialEquipment = {
             stackPercent = 0.03,   -- 每层+3%攻击
             maxStacks = 5,         -- 最多5层
             duration = 4.0,        -- 持续4秒，命中刷新
+        },
+    },
+
+    -- ======================================================================
+    -- 铸剑地炉打造装备（第五章 T10 圣器，需铸剑地炉合成）
+    -- 圣器 qualityMult=2.1，SPECIAL_FLUCTUATION["red"]={1.2,0.3}
+    -- ======================================================================
+
+    -- 帝尊圣戒（铸剑地炉打造）：T10 红/圣器 戒指
+    -- 主属性: 3 × 21.0(T10) × 2.1(圣器) = 132.3
+    -- 副属性: 3条，圣器波动 1.2~1.5（linearGrowth无波动）
+    -- 圣性属性: 福缘+21（floor(10×2.1×1.0)=21）
+    dizun_saint_ring = {
+        name = "帝尊圣戒",
+        desc = "帝尊之位，以此戒为证，天下福缘汇聚于此。",
+        slot = "ring1",
+        icon = "image/icon_dizun_saint_ring_20260523093147.png",
+        quality = "red",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { atk = 132.3 },  -- ring1 BASE=3 × TIER_MULT[T10]=21.0 × qualityMult=2.1 = 132.3
+        subStats = {
+            { stat = "wisdom",       name = "悟性", value = 21 },  -- linearGrowth: floor(10×2.1)=21
+            { stat = "constitution", name = "根骨", value = 21 },  -- linearGrowth: floor(10×2.1)=21
+            { stat = "physique",     name = "体魄", value = 21 },  -- linearGrowth: floor(10×2.1)=21
+        },
+        -- 圣性属性：福缘，打造时确认（非随机）
+        saintStat = { stat = "fortune", name = "福缘", value = 21, confirmed = true },
+    },
+
+    -- 道藏圣甲（铸剑地炉打造）：T10 红/圣器 护甲
+    -- 主属性: 4 × 21.0(T10) × 2.1(圣器) = 176.4
+    -- 副属性: 3条，圣器波动 1.2~1.5
+    -- 圣性属性: 体魄+21（floor(10×2.1×1.0)=21）
+    daozang_saint_armor = {
+        name = "道藏圣衣",
+        desc = "藏真玄衣与泽渊仙铠熔铸相融，凝就护体圣衣，道藏千卷精华尽聚于此。",
+        slot = "armor",
+        icon = "image/icon_daozang_saint_armor_20260523093147.png",
+        quality = "red",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { def = 176.4 },  -- 4 × 21.0 × 2.1 = 176.4
+        subStats = {
+            { stat = "physique",  name = "体魄",     value = 21 },    -- linearGrowth: floor(10×2.1)=21
+            { stat = "maxHp",     name = "生命值",   value = 126.0 }, -- 6 × 21.0 = 126.0
+            { stat = "critDmg",   name = "暴击伤害", value = 0.315 }, -- 0.05 × 3.0 × 2.1 = 0.315
+        },
+        -- 随机灵性属性（锻造时生成）
+        hasSpiritStat = true,
+        specialEffect = {
+            type = "hp_regen_full",
+            name = "泽渊生息",
+            desc = "每秒恢复2%最大生命值，生命满时停止恢复",
+            regenPercent = 0.02,
+        },
+    },
+
+    -- 深渊圣氅（铸剑地炉打造）：T10 红/圣器 披风
+    -- 主属性: 0.02 × 8.0(PCT_T10) × 2.1(圣器) = 0.336
+    -- 副属性: 3条，圣器波动 1.2~1.5
+    -- 圣性属性: 根骨+21（floor(10×2.1×1.0)=21）
+    saint_cape_ch5 = {
+        name = "深渊圣氅",
+        desc = "以深渊之力与圣器精华合铸，气势如虹，穿此圣氅者百邪莫侵。",
+        slot = "cape",
+        icon = "image/icon_saint_cape_ch5_20260523093152.png",
+        quality = "red",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { dmgReduce = 0.336 },  -- 0.02 × 8.0 × 2.1 = 0.336
+        subStats = {
+            { stat = "def",      name = "防御力",   value = 31.5 },  -- 1.5 × 21.0 = 31.5
+            { stat = "critDmg",  name = "暴击伤害", value = 0.315 }, -- 0.05 × 3.0 × 2.1 = 0.315
+            { stat = "wisdom",   name = "悟性",     value = 21 },    -- linearGrowth: floor(10×2.1)=21
+        },
+        -- 灵性属性：打造时随机生成1条
+        hasSpiritStat = true,
+        specialEffect = {
+            type = "abyss_guard",
+            name = "渊甲护身",
+            desc = "受到伤害后，若当前生命低于50%，获得12%减伤，持续4秒，冷却8秒",
+            lowHpThreshold = 0.50,
+            dmgReduce = 0.12,
+            duration = 4,
+            cooldown = 8,
+        },
+    },
+
+    -- 解封古剑·诛仙（铸剑地炉打造）：T10 红/圣器 武器
+    -- 源自 fengyin_zhuxian_ch5，解封后焕发圣威
+    -- 主属性: 5 × 21.0(T10) × 2.1(圣器) = 220.5
+    -- 圣性属性: 随机（由 LootSystem.GenerateSaintStat 生成）
+    jiefeng_zhuxian_ch5 = {
+        name = "解封古剑·诛仙",
+        desc = "封印尽去，诛天之意彻底绽放，千里之外斩灵魂于无形。",
+        slot = "weapon",
+        icon = "image/icon_fengyin_zhuxian_ch5_20260518083648.png",
+        quality = "red",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { atk = 220.5 },  -- 5 × 21.0 × 2.1 = 220.5
+        subStats = {
+            { stat = "critDmg", name = "暴击伤害", value = 0.4375 }, -- 封印版0.375 × (2.1/1.8) = 0.4375
+            { stat = "critDmg", name = "暴击伤害", value = 0.4375 }, -- 封印版0.375 × (2.1/1.8) = 0.4375
+            { stat = "atk",     name = "攻击力",   value = 22.75 },  -- 封印版19.5 × (2.1/1.8) = 22.75
+        },
+        -- 圣性属性（灵性升级）：有圣性则无灵性
+        hasSaintStat = true,
+        specialEffect = {
+            type = "zhuxian",
+            name = "诛仙·圣威",
+            desc = "每次攻击30%概率触发诛仙剑气，造成额外180%攻击伤害，圣威加持下伤害再提升50%",
+            procChance = 0.30,
+            dmgMult = 1.80,
+            saintBonus = 1.50,
+        },
+    },
+
+    -- 解封古剑·陷仙（铸剑地炉打造）：T10 红/圣器 武器
+    jiefeng_xianxian_ch5 = {
+        name = "解封古剑·陷仙",
+        desc = "封印尽去，陷地之力汹涌而出，万物沉于无尽深渊。",
+        slot = "weapon",
+        icon = "image/icon_fengyin_xianxian_ch5_20260518085543.png",
+        quality = "red",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { atk = 220.5 },
+        subStats = {
+            { stat = "physique",  name = "体魄",   value = 21 },    -- linearGrowth: floor(10×2.1)=21
+            { stat = "maxHp",     name = "生命值", value = 91 },    -- 封印版78 × (2.1/1.8) ≈ 91
+            { stat = "critRate",  name = "暴击率", value = 0.0875 }, -- 封印版0.075 × (2.1/1.8) = 0.0875
+        },
+        -- 圣性属性（灵性升级）：有圣性则无灵性
+        hasSaintStat = true,
+        specialEffect = {
+            type = "xianxian",
+            name = "陷仙·圣威",
+            desc = "攻击使目标陷入重压，每层防御-8%，最多5层，持续6秒，圣威加持下层数上限+2",
+            defReductionPerStack = 0.08,
+            maxStacks = 5,
+            saintMaxStacksBonus = 2,
+            duration = 6.0,
+        },
+    },
+
+    -- 解封古剑·戮仙（铸剑地炉打造）：T10 红/圣器 武器
+    jiefeng_luxian_ch5 = {
+        name = "解封古剑·戮仙",
+        desc = "封印尽去，戮灵之威席卷而出，百鬼匿迹，万灵颤栗。",
+        slot = "weapon",
+        icon = "image/icon_fengyin_luxian_ch5_20260518083709.png",
+        quality = "red",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { atk = 220.5 },
+        subStats = {
+            { stat = "constitution", name = "根骨",     value = 21 },    -- linearGrowth: floor(10×2.1)=21
+            { stat = "heavyHit",     name = "重击伤害", value = 121 },   -- 封印版104 × (2.1/1.8) ≈ 121
+            { stat = "atk",          name = "攻击力",   value = 22.75 }, -- 封印版19.5 × (2.1/1.8) = 22.75
+        },
+        -- 圣性属性（灵性升级）：有圣性则无灵性
+        hasSaintStat = true,
+        specialEffect = {
+            type = "luxian",
+            name = "戮仙·圣威",
+            desc = "击杀敌人时爆发戮仙剑气，对周围敌人造成200%攻击伤害，圣威加持范围+50%",
+            killDmgMult = 2.00,
+            aoeRadius = 3.0,
+            saintAoeBonus = 1.50,
+        },
+    },
+
+    -- 解封古剑·绝仙（铸剑地炉打造）：T10 红/圣器 武器
+    jiefeng_juexian_ch5 = {
+        name = "解封古剑·绝仙",
+        desc = "封印尽去，绝世之锋重临，一剑在手，可断天地，可诛神灵。",
+        slot = "weapon",
+        icon = "image/icon_fengyin_juexian_ch5_20260518083649.png",
+        quality = "red",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { atk = 220.5 },
+        subStats = {
+            { stat = "killHeal", name = "击杀回血", value = 45.5 },  -- 封印版39 × (2.1/1.8) ≈ 45.5
+            { stat = "atk",      name = "攻击力",   value = 22.75 }, -- 封印版19.5 × (2.1/1.8) = 22.75
+            { stat = "atk",      name = "攻击力",   value = 22.75 }, -- 封印版19.5 × (2.1/1.8) = 22.75
+        },
+        -- 圣性属性（灵性升级）：有圣性则无灵性
+        hasSaintStat = true,
+        specialEffect = {
+            type = "juexian",
+            name = "绝仙·圣威",
+            desc = "每次攻击获得1层绝命，每层攻击+4%，最多5层，持续4秒，圣威加持每层攻击额外+2%",
+            stackPercent = 0.04,
+            maxStacks = 5,
+            saintStackBonus = 0.02,
+            duration = 4.0,
         },
     },
 
@@ -2134,11 +2345,22 @@ EquipmentData.Collection = {
                 "tuxue_belt_ch5",
                 "qijian_boots_ch5",
                 "tuxue_shoulder_ch5",
+                "lingqi_cape_ch5",
+                "lingqi_ring_ch5",
                 "dizun_ring_ch5",
                 "fengyin_zhuxian_ch5",
                 "fengyin_xianxian_ch5",
                 "fengyin_luxian_ch5",
                 "fengyin_juexian_ch5",
+                -- 铸剑地炉打造（圣器）
+                "dizun_saint_ring",
+                "daozang_saint_armor",
+                "saint_cape_ch5",
+                "jiefeng_zhuxian_ch5",
+                "jiefeng_xianxian_ch5",
+                "jiefeng_luxian_ch5",
+                "jiefeng_juexian_ch5",
+                "fabao_longhunling",
             },
         },
     },
@@ -2227,6 +2449,8 @@ EquipmentData.Collection = {
         "tuxue_belt_ch5",
         "qijian_boots_ch5",
         "tuxue_shoulder_ch5",
+        "lingqi_cape_ch5",
+        "lingqi_ring_ch5",
         "dizun_ring_ch5",
         "fengyin_zhuxian_ch5",
         "fengyin_xianxian_ch5",
@@ -2527,53 +2751,61 @@ EquipmentData.Collection = {
             bonus = { atk = 5, wisdom = 5 },
             desc = "四龙之威凝为一令，龙息喷吐，百鬼辟易。",
         },
-        -- 第五章·太虚遗藏（合计：atk=36, def=64, maxHp=170, killHeal=20, hpRegen=8, heavyHit=35, wisdom=6, constitution=6, physique=14）
+        -- 第五章·太虚遗藏（合计：atk=48, def=78, maxHp=330, killHeal=40, hpRegen=10）
         zhenpai_boots_ch5 = {
-            bonus = { def = 8, maxHp = 20 },
+            bonus = { def = 8, maxHp = 30 },
             desc = "太虚剑宫护山石傀遗留的重铸石靴，步如山岳。",
         },
         wenfeng_necklace_ch5 = {
-            bonus = { atk = 8, constitution = 6 },
+            bonus = { atk = 8, killHeal = 8 },
             desc = "裴千岳问剑之刃化为的雷纹坠，剑意如雷。",
         },
         hanchi_ring_ch5 = {
-            bonus = { physique = 8, hpRegen = 1 },
+            bonus = { maxHp = 30, hpRegen = 1 },
             desc = "霜鸾寒池凝结的冰华戒指，冰魄入骨。",
         },
         bailian_belt_ch5 = {
-            bonus = { maxHp = 30, hpRegen = 2 },
+            bonus = { maxHp = 30, hpRegen = 1 },
             desc = "韩百炼地炉淬火的腰绶，百炼不屈。",
         },
         guanlan_necklace_ch5 = {
-            bonus = { atk = 8, wisdom = 6 },
+            bonus = { atk = 8, def = 8 },
             desc = "石观澜碑林守护的佩饰，碑文如剑。",
         },
         suxin_ring_ch5 = {
-            bonus = { atk = 10, heavyHit = 20 },
+            bonus = { atk = 8, killHeal = 8 },
             desc = "宁栖梧宿心之怨凝为残戒，杀意难消。",
         },
         cangzhen_armor_ch5 = {
-            bonus = { def = 12, maxHp = 30, hpRegen = 3 },
+            bonus = { def = 6, maxHp = 30, hpRegen = 1 },
             desc = "温素章藏经阁护法玄衣，守正辟邪。",
         },
         cangzhen_helmet_ch5 = {
-            bonus = { atk = 10, physique = 6, killHeal = 10 },
+            bonus = { atk = 8, killHeal = 8 },
             desc = "藏真一脉护脉玄冠，杀伐之中养护经脉。",
         },
         tuxue_belt_ch5 = {
-            bonus = { maxHp = 30, def = 10, killHeal = 10 },
+            bonus = { def = 6, maxHp = 30 },
             desc = "屠血将命绶，杀戮淬炼，血脉坚韧。",
         },
         qijian_boots_ch5 = {
-            bonus = { def = 12, maxHp = 30 },
+            bonus = { def = 8, maxHp = 30 },
             desc = "栖剑行靴，剑气护步，铁壁无隙。",
         },
         tuxue_shoulder_ch5 = {
-            bonus = { def = 12, maxHp = 30, hpRegen = 2 },
+            bonus = { def = 6, maxHp = 30 },
             desc = "屠血魔肩，血战千场，铁肩担道。",
         },
+        lingqi_cape_ch5 = {
+            bonus = { def = 8, maxHp = 30 },
+            desc = "镇渊魔帅·蚀骨所守的天渊灵披，深渊灵气护体。",
+        },
+        lingqi_ring_ch5 = {
+            bonus = { def = 8, maxHp = 30 },
+            desc = "镇渊魔帅·裂魂所守的均灵环，阴阳均衡，灵力护身。",
+        },
         shiyuan_cape_ch5 = {
-            bonus = { heavyHit = 30, def = 10 },
+            bonus = { def = 8, maxHp = 30 },
             desc = "噬渊血犼魔氅，深渊之力镇煞四方。",
         },
         dizun_ring_ch5 = {
@@ -2581,20 +2813,49 @@ EquipmentData.Collection = {
             desc = "帝尊五铸之戒，太虚淬炼，福泽深厚。",
         },
         fengyin_zhuxian_ch5 = {
-            bonus = { atk = 5 },
+            bonus = { atk = 8, killHeal = 8, hpRegen = 1 },
             desc = "封印之下犹有诛天之意，剑气冲霄。",
         },
         fengyin_xianxian_ch5 = {
-            bonus = { atk = 5 },
+            bonus = { atk = 8, maxHp = 30, hpRegen = 1 },
             desc = "封印之下犹有陷地之力，万物沉沦。",
         },
         fengyin_luxian_ch5 = {
-            bonus = { atk = 5 },
+            bonus = { atk = 8, def = 8, hpRegen = 1 },
             desc = "封印之下犹有戮灵之威，杀伐无情。",
         },
         fengyin_juexian_ch5 = {
-            bonus = { atk = 5 },
+            bonus = { atk = 8, maxHp = 30, killHeal = 8 },
             desc = "封印之下犹有绝世之锋，一剑断仙。",
+        },
+        -- 铸剑地炉打造（圣器）
+        dizun_saint_ring = {
+            bonus = { constitution = 5, physique = 5 },
+            desc = "帝尊圣戒，天下福缘汇聚，万邦来朝。",
+        },
+        daozang_saint_armor = {
+            bonus = { def = 6, maxHp = 30, hpRegen = 2 },
+            desc = "道藏圣甲，千卷护体，邪祟不侵。",
+        },
+        saint_cape_ch5 = {
+            bonus = { def = 8, maxHp = 30 },
+            desc = "深渊圣氅，以深渊之力与圣器精华合铸，百邪莫近。",
+        },
+        jiefeng_zhuxian_ch5 = {
+            bonus = { atk = 8, killHeal = 8, hpRegen = 1 },
+            desc = "解封之后，诛天之意倾泻而出，天地为之颤抖。",
+        },
+        jiefeng_xianxian_ch5 = {
+            bonus = { atk = 8, maxHp = 30, hpRegen = 1 },
+            desc = "解封之后，陷地之力无可阻挡，万物归于沉寂。",
+        },
+        jiefeng_luxian_ch5 = {
+            bonus = { atk = 8, def = 8, hpRegen = 1 },
+            desc = "解封之后，戮灵之威蔓延四方，鬼神皆惧。",
+        },
+        jiefeng_juexian_ch5 = {
+            bonus = { atk = 8, maxHp = 30, killHeal = 8 },
+            desc = "解封之后，绝世之锋重现，神仙亦可斩。",
         },
     },
 }
@@ -2975,6 +3236,150 @@ EquipmentData.FabaoTemplates = {
         },
         forgeType = "dragon_longji",
     },
+    -- 龙魂令（攻击型法宝，第五章铸剑地炉升级自龙极令，T10 圣器，standard 公式）
+    -- 主属性: 2 × TIER_MULT(T10) × qualityMult(2.1) = 2 × 21.0 × 2.1 / 21.0 = 42
+    -- （standard 公式实际 = base × tier × qualityMult = 2 × 10 × 2.1 = 42）
+    fabao_longhunling = {
+        name      = "龙魂令",
+        slot      = "exclusive",
+        mainStatType = "atk",
+        mainStatFormula = "standard",
+        mainStatBase = 2,                 -- 攻击法宝 base=2，T10圣器: 2×10×2.1=42
+        skillId   = "dragon_soul_breath", -- 升级版龙息技能
+        iconByTier = {
+            [10] = "icon_fabao_longjiling.png",  -- 复用图标（后续可替换）
+        },
+        sellPriceByTier = {
+            [10] = 2000,
+        },
+        forgeType = "sword_forge_longhun",
+    },
+}
+
+-- ============================================================================
+-- 铸剑地炉打造配方（第五章，需在铸剑炉NPC处操作）
+-- ============================================================================
+EquipmentData.SWORD_FORGE_COSTS = {
+    -- 配方1：帝尊圣戒（帝尊壹~伍戒合五为一，无普通材料）
+    dizun_saint_ring = {
+        outputId    = "dizun_saint_ring",
+        label       = "帝尊圣戒",
+        desc        = "五戒归一，福缘汇聚，帝尊之位以此戒为证。",
+        gold        = 1000000,
+        fromBagList = {
+            { equipId = "dizun_ring_ch1"  },   -- 帝尊壹戒
+            { equipId = "dizun_ring_ch2"  },   -- 帝尊贰戒
+            { equipId = "dizun_ring_ch3"  },   -- 帝尊叁戒
+            { equipId = "silong_ring_ch4" },   -- 帝尊肆戒
+            { equipId = "dizun_ring_ch5"  },   -- 帝尊伍戒
+        },
+    },
+    -- 配方2：道藏圣衣（藏真玄衣 + 泽渊仙铠 + 帝尊圣戒 + 仙人精血×4）
+    daozang_saint_armor = {
+        outputId    = "daozang_saint_armor",
+        label       = "道藏圣衣",
+        desc        = "藏真玄衣与泽渊仙铠熔铸相融，以帝尊圣戒为媒，凝就道藏圣衣。",
+        gold        = 5000000,
+        fromBagList = {
+            { equipId = "cangzhen_armor_ch5" },  -- 藏真玄衣
+            { equipId = "zeyuan_armor_ch4"   },  -- 泽渊仙铠
+            { equipId = "dizun_saint_ring"   },  -- 帝尊圣戒（消耗）
+        },
+        materials = {
+            { id = "immortal_essence_blood", count = 4 },
+        },
+    },
+    -- 配方3：深渊圣氅（噬渊魔氅 + 帝尊圣戒 + 天渊灵披 + 仙人精血×4）
+    saint_cape_ch5 = {
+        outputId    = "saint_cape_ch5",
+        label       = "深渊圣氅",
+        desc        = "噬渊魔氅与天渊灵披合而为一，以帝尊圣戒为媒，炼就深渊圣氅。",
+        gold        = 5000000,
+        fromBagList = {
+            { equipId = "shiyuan_cape_ch5" },    -- 噬渊魔氅
+            { equipId = "dizun_saint_ring"  },   -- 帝尊圣戒（消耗）
+            { equipId = "lingqi_cape_ch5"   },   -- 天渊灵披
+        },
+        materials = {
+            { id = "immortal_essence_blood", count = 4 },
+        },
+    },
+    -- 配方4：龙魂令（任意龙极令×1 + 仙人精血×1 + 太虚剑令×1000，免费）
+    fabao_longhunling = {
+        outputId  = "fabao_longhunling",
+        label     = "龙魂令",
+        desc      = "将龙极令与千枚太虚剑令融合，以仙人精血为引，铸就承载龙魂之法宝。",
+        gold      = 0,
+        fromBag   = { equipId = "fabao_longjiling" },  -- 龙极令（消耗）
+        materials = {
+            { id = "immortal_essence_blood", count = 1    },
+            { id = "taixu_jianling",         count = 1000 },
+        },
+    },
+    -- 配方5-1：一重解封·诛仙（封印古剑·诛仙 + 帝尊圣戒 + 蚀骨龙牙×4 + 仙人精血×4）
+    jiefeng_zhuxian_ch5 = {
+        outputId  = "jiefeng_zhuxian_ch5",
+        label     = "解封古剑·诛仙",
+        desc      = "以帝尊圣戒之力解开封印，令诛仙古剑重焕圣威。",
+        gold      = 10000000,
+        fromBag   = { equipId = "fengyin_zhuxian_ch5" },  -- 封印古剑·诛仙（消耗）
+        fromBag2  = { equipId = "dizun_saint_ring"    },  -- 帝尊圣戒（消耗）
+        materials = {
+            { id = "immortal_essence_blood", count = 4 },
+            { id = "dragon_scale_sand",      count = 4 },  -- 蚀骨龙牙
+        },
+    },
+    -- 配方5-2：一重解封·陷仙（封印古剑·陷仙 + 帝尊圣戒 + 封霜龙鳞×4 + 仙人精血×4）
+    jiefeng_xianxian_ch5 = {
+        outputId  = "jiefeng_xianxian_ch5",
+        label     = "解封古剑·陷仙",
+        desc      = "以帝尊圣戒之力解开封印，令陷仙古剑重焕圣威。",
+        gold      = 10000000,
+        fromBag   = { equipId = "fengyin_xianxian_ch5" },
+        fromBag2  = { equipId = "dizun_saint_ring"     },
+        materials = {
+            { id = "immortal_essence_blood", count = 4 },
+            { id = "dragon_scale_ice",       count = 4 },  -- 封霜龙鳞
+        },
+    },
+    -- 配方5-3：一重解封·戮仙（封印古剑·戮仙 + 帝尊圣戒 + 焚天龙焰×4 + 仙人精血×4）
+    jiefeng_luxian_ch5 = {
+        outputId  = "jiefeng_luxian_ch5",
+        label     = "解封古剑·戮仙",
+        desc      = "以帝尊圣戒之力解开封印，令戮仙古剑重焕圣威。",
+        gold      = 10000000,
+        fromBag   = { equipId = "fengyin_luxian_ch5" },
+        fromBag2  = { equipId = "dizun_saint_ring"   },
+        materials = {
+            { id = "immortal_essence_blood", count = 4 },
+            { id = "dragon_scale_fire",      count = 4 },  -- 焚天龙焰
+        },
+    },
+    -- 配方5-4：一重解封·绝仙（封印古剑·绝仙 + 帝尊圣戒 + 渊蛟龙骨×4 + 仙人精血×4）
+    jiefeng_juexian_ch5 = {
+        outputId  = "jiefeng_juexian_ch5",
+        label     = "解封古剑·绝仙",
+        desc      = "以帝尊圣戒之力解开封印，令绝仙古剑重焕圣威。",
+        gold      = 10000000,
+        fromBag   = { equipId = "fengyin_juexian_ch5" },
+        fromBag2  = { equipId = "dizun_saint_ring"    },
+        materials = {
+            { id = "immortal_essence_blood", count = 4 },
+            { id = "dragon_scale_abyss",     count = 4 },  -- 渊蛟龙骨
+        },
+    },
+}
+
+-- 铸剑地炉配方显示顺序（上排：解封古剑；下排：圣器；最后：灵器龙魂令）
+EquipmentData.SWORD_FORGE_ORDER = {
+    "jiefeng_zhuxian_ch5",
+    "jiefeng_xianxian_ch5",
+    "jiefeng_luxian_ch5",
+    "jiefeng_juexian_ch5",
+    "dizun_saint_ring",
+    "daozang_saint_armor",
+    "saint_cape_ch5",
+    "fabao_longhunling",
 }
 
 return EquipmentData
