@@ -16,36 +16,10 @@
 -- 测试框架：返回 { passed, failed, total }（与 TestRegistry "run_file" 兼容）
 -- ============================================================================
 
--- ── mock：让纯 Lua 测试环境能 require 游戏模块 ───────────────────────────────
+-- ── Mock 构建器（仅在 Run() 内调用，禁止顶层执行）────────────────────────────
+-- ⚠️ 安全规则：所有 package.loaded 改写必须在 SetupMocks() 内完成，绝对禁止顶层执行。
+--    顶层执行 = 任何 require("test_sword_forge_comprehensive") 都会污染引擎全局状态。
 
--- EventBus mock
-local EventBus_mock = { _emitted = {} }
-EventBus_mock.Emit  = function(_, evt) table.insert(EventBus_mock._emitted, evt) end
-EventBus_mock.On    = function() end
-package.loaded["core.EventBus"] = EventBus_mock
-
--- BlackMarketTradeLock mock（ConsumeConsumable 会调用）
-package.loaded["systems.BlackMarketTradeLock"] = {
-    IsLocked               = function() return false end,
-    HasAnyLockedConsumable = function() return false end,
-    CountUnlockedConsumable = function(getItem, size, id)
-        local n = 0
-        for i = 1, size do
-            local item = getItem(i)
-            if item and item.category == "consumable" and item.consumableId == id then
-                n = n + (item.count or 1)
-            end
-        end
-        return n
-    end,
-    MarkConsumeUsed       = function() end,
-    ClearAllOnSaveSuccess = function() end,
-}
-package.loaded["systems.BlackMarketSyncState"]  = { MarkConsumeUsed = function() end }
-package.loaded["config.BlackMerchantConfig"]    = { ITEMS = {} }
-package.loaded["systems.InventorySortUtil"]      = {}
-
--- UI mock（InventorySystem 顶层 require "urhox-libs/UI"）
 local _InventoryManager = {}
 _InventoryManager.__index = _InventoryManager
 
@@ -72,23 +46,84 @@ function _InventoryManager:SetInventoryItem(i, v) self._inventory[i] = v end
 function _InventoryManager:GetEquipmentItem(slot)   return self._equipment[slot] end
 function _InventoryManager:SetEquipmentItem(slot, v) self._equipment[slot] = v; return true end
 
-package.loaded["urhox-libs/UI"] = {
-    InventoryManager = _InventoryManager,
-    Init = function() end,
-    SetRoot = function() end,
+-- 真实模块引用（SetupMocks 中赋值，供各 Test 函数使用）
+local GameConfig, EquipmentData, LootSystem, InventorySystem, SaveSerializer
+-- EventBus_mock 需要在 TestC* 中访问（检查 Emit 调用），提升到文件作用域
+local EventBus_mock
+
+local _saved_pkg = {}
+local _MOCK_KEYS = {
+    "core.EventBus",
+    "systems.BlackMarketTradeLock",
+    "systems.BlackMarketSyncState",
+    "config.BlackMerchantConfig",
+    "systems.InventorySortUtil",
+    "urhox-libs/UI",
+    "core.GameState",
+    "systems.InventorySystem",
 }
 
--- GameState mock
-package.loaded["core.GameState"] = {
-    player = nil, pet = nil, currentChapter = 1,
-}
+local function SetupMocks()
+    for _, k in ipairs(_MOCK_KEYS) do
+        _saved_pkg[k] = package.loaded[k]
+    end
 
--- ── 真实模块 ──────────────────────────────────────────────────────────────────
-local GameConfig      = require("config.GameConfig")
-local EquipmentData   = require("config.EquipmentData")
-local LootSystem      = require("systems.LootSystem")
-local InventorySystem = require("systems.InventorySystem")
-local SaveSerializer  = require("systems.save.SaveSerializer")
+    -- EventBus mock
+    EventBus_mock = { _emitted = {} }
+    EventBus_mock.Emit  = function(_, evt) table.insert(EventBus_mock._emitted, evt) end
+    EventBus_mock.On    = function() end
+    package.loaded["core.EventBus"] = EventBus_mock
+
+    -- BlackMarketTradeLock mock（ConsumeConsumable 会调用）
+    package.loaded["systems.BlackMarketTradeLock"] = {
+        IsLocked               = function() return false end,
+        HasAnyLockedConsumable = function() return false end,
+        CountUnlockedConsumable = function(getItem, size, id)
+            local n = 0
+            for i = 1, size do
+                local item = getItem(i)
+                if item and item.category == "consumable" and item.consumableId == id then
+                    n = n + (item.count or 1)
+                end
+            end
+            return n
+        end,
+        MarkConsumeUsed       = function() end,
+        ClearAllOnSaveSuccess = function() end,
+    }
+    package.loaded["systems.BlackMarketSyncState"]  = { MarkConsumeUsed = function() end }
+    package.loaded["config.BlackMerchantConfig"]    = { ITEMS = {} }
+    package.loaded["systems.InventorySortUtil"]      = {}
+
+    -- UI mock（InventorySystem 顶层 require "urhox-libs/UI"）
+    package.loaded["urhox-libs/UI"] = {
+        InventoryManager = _InventoryManager,
+        Init = function() end,
+        SetRoot = function() end,
+    }
+
+    -- GameState mock
+    package.loaded["core.GameState"] = {
+        player = nil, pet = nil, currentChapter = 1,
+    }
+
+    -- 强制重新加载 InventorySystem，使其使用上面的 mock
+    package.loaded["systems.InventorySystem"] = nil
+
+    -- ── 真实模块加载 ──────────────────────────────────────────────────────────
+    GameConfig      = require("config.GameConfig")
+    EquipmentData   = require("config.EquipmentData")
+    LootSystem      = require("systems.LootSystem")
+    InventorySystem = require("systems.InventorySystem")
+    SaveSerializer  = require("systems.save.SaveSerializer")
+end
+
+local function TeardownMocks()
+    for _, k in ipairs(_MOCK_KEYS) do
+        package.loaded[k] = _saved_pkg[k]
+    end
+    _saved_pkg = {}
+end
 
 -- ── 测试框架 ──────────────────────────────────────────────────────────────────
 local passCount = 0
@@ -951,6 +986,9 @@ end
 local M = {}
 
 function M.Run()
+    -- ⚠️ 必须第一步：注入 mock，隔离引擎全局状态
+    SetupMocks()
+
     passCount = 0
     failCount = 0
     errors    = {}
@@ -978,9 +1016,14 @@ function M.Run()
     end
     LOG("════════════════════════════════════════════════════")
 
+    -- ⚠️ 最后一步：恢复 package.loaded，防止 mock 泄漏到引擎全局
+    TeardownMocks()
+
     return { passed = passCount, failed = failCount, total = total }
 end
 
--- run_file 模式：直接 dofile 时自动执行并返回结果
-local result = M.Run()
-return result
+-- lupa 离线运行入口：_run_via_lupa.py 使用 dofile() 执行本文件，
+-- dofile 会执行顶层代码但不走 package.loaded 缓存。
+-- 此文件以 require 方式加载时，仅返回 M 模块，不自动执行任何测试。
+-- ⚠️ 此文件标记为 lupa_only，禁止在引擎中 require。
+return M

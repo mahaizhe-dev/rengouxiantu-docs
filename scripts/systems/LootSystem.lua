@@ -813,17 +813,35 @@ function LootSystem.CreateSaintEquipment(equipId)
         return nil
     end
 
-    -- 继承 CreateSpecialEquipment 的副属性波动逻辑
+    -- 继承 CreateSpecialEquipment 的副属性波动逻辑（hasSpiritStat 由此处生成）
     local item = LootSystem.CreateSpecialEquipment(equipId)
     if not item then return nil end
 
-    -- 圣性/灵性互斥：部分模板带 hasSpiritStat=true，CreateSpecialEquipment 会生成 spiritStat；
-    -- 铸剑地炉产出的圣器只携带 saintStat，必须清除 spiritStat
-    item.spiritStat = nil
-
-    -- 如果模板已经包含 saintStat（固定圣性），则不再随机生成
-    if not item.saintStat then
-        -- 获取主属性类型用于排斥
+    -- 圣性/灵性规则（按模板标记分支，不统一清除）：
+    --
+    --   hasSpiritStat = true  → 灵器/圣器带灵性，保留 spiritStat，不生成 saintStat
+    --                           例：道藏圣衣(daozang_saint_armor)、深渊圣氅(saint_cape_ch5)
+    --
+    --   saintStat 已在模板中固定 → 保留，不随机覆盖，不清除 spiritStat
+    --                           例：帝尊圣戒(dizun_saint_ring) 的 fortune+21
+    --
+    --   其余（无 hasSpiritStat，无固定 saintStat） → 清除 spiritStat，随机生成 saintStat
+    --                           例：未来可能新增的纯圣器
+    --
+    if template.hasSpiritStat then
+        -- 带灵性的圣器：保留 spiritStat（CreateSpecialEquipment 已生成），不附加 saintStat
+        item.saintStat = nil
+        print("[LootSystem] CreateSaintEquipment: " .. equipId ..
+              " hasSpiritStat → spiritStat=" ..
+              (item.spiritStat and (item.spiritStat.name .. "+" .. tostring(item.spiritStat.value)) or "nil"))
+    elseif item.saintStat then
+        -- 模板已有固定 saintStat（如帝尊圣戒），直接使用，不随机覆盖
+        item.spiritStat = nil
+        print("[LootSystem] CreateSaintEquipment: " .. equipId ..
+              " fixed saintStat=" .. item.saintStat.name .. "+" .. tostring(item.saintStat.value))
+    else
+        -- 纯圣器：清除灵性，随机生成圣性
+        item.spiritStat = nil
         local mainStatType = nil
         if template.mainStat then
             for k, _ in pairs(template.mainStat) do
@@ -834,10 +852,10 @@ function LootSystem.CreateSaintEquipment(equipId)
         local quality = template.quality or "red"
         local tier = template.tier or 10
         item.saintStat = LootSystem.GenerateSaintStat(tier, mainStatType, quality)
+        print("[LootSystem] CreateSaintEquipment: " .. equipId ..
+              " random saintStat=" .. (item.saintStat and (item.saintStat.name .. "+" .. tostring(item.saintStat.value)) or "nil"))
     end
 
-    print("[LootSystem] CreateSaintEquipment: " .. equipId ..
-          " saintStat=" .. (item.saintStat and (item.saintStat.name .. "+" .. item.saintStat.value) or "nil"))
     return item
 end
 
@@ -861,7 +879,11 @@ function LootSystem.CreateJiefengSword(sourceFengyinItem, targetEquipId)
     local item = LootSystem.CreateSpecialEquipment(targetEquipId)
     if not item then return nil end
 
-    -- 圣性属性：随机生成（解封古剑的圣性为随机，体现个体差异）
+    -- 灵性属性：继承原封印古剑实例的 spiritStat（而非模板重新随机生成）
+    -- 文档要求：保留封印古剑原有 spiritStat，体现同一把剑的传承
+    item.spiritStat = sourceFengyinItem.spiritStat
+
+    -- 圣性属性：随机生成（解封古剑新获得的圣性，体现个体差异）
     local mainStatType = "atk"  -- 武器主属性固定为atk
     local quality = template.quality or "red"
     local tier = template.tier or 10
@@ -869,7 +891,8 @@ function LootSystem.CreateJiefengSword(sourceFengyinItem, targetEquipId)
 
     print("[LootSystem] CreateJiefengSword: " .. targetEquipId ..
           " from=" .. tostring(sourceFengyinItem.equipId) ..
-          " saintStat=" .. (item.saintStat and (item.saintStat.name .. "+" .. item.saintStat.value) or "nil"))
+          " spiritStat=" .. (item.spiritStat and (item.spiritStat.name .. "+" .. tostring(item.spiritStat.value)) or "nil") ..
+          " saintStat=" .. (item.saintStat and (item.saintStat.name .. "+" .. tostring(item.saintStat.value)) or "nil"))
     return item
 end
 

@@ -20,42 +20,11 @@
 -- 测试框架：参照 test_challenge_fabao.lua 模式，返回 {passed,failed,total}
 -- ============================================================================
 
--- ── 轻量依赖 mock（让模块在无引擎环境下可 require）──────────────────────────
+-- ── Mock 构建器（仅在 Run() 内调用，禁止顶层执行）────────────────────────────
+-- ⚠️ 安全规则：所有 package.loaded 改写、模块 require、SetManager 调用
+--    必须在 SetupMocks() 内完成，绝对禁止移到顶层。
+--    顶层执行 = 任何 require("test_jiefeng_forge_pipeline") 都会污染引擎全局状态。
 
--- EventBus mock（ConsumeConsumable 会 Emit）
-local EventBus_mock = { _handlers = {} }
-EventBus_mock.Emit = function() end
-EventBus_mock.On   = function(_, _, h) end
-package.loaded["core.EventBus"] = EventBus_mock
-
--- BlackMarketTradeLock mock
-package.loaded["systems.BlackMarketTradeLock"] = {
-    IsLocked              = function() return false end,
-    HasAnyLockedConsumable= function() return false end,
-    CountUnlockedConsumable = function(getItem, size, id)
-        -- 直接透传计数（测试中无锁定物品）
-        local n = 0
-        for i = 1, size do
-            local item = getItem(i)
-            if item and item.category == "consumable" and item.consumableId == id then
-                n = n + (item.count or 1)
-            end
-        end
-        return n
-    end,
-    MarkConsumeUsed = function() end,
-    ClearAllOnSaveSuccess = function() end,
-}
-
--- BlackMarketSyncState mock
-package.loaded["systems.BlackMarketSyncState"] = {
-    MarkConsumeUsed = function() end,
-}
-
--- BlackMerchantConfig mock（让 ConsumeConsumable 走黑市置脏路径，不影响逻辑）
-package.loaded["config.BlackMerchantConfig"] = { ITEMS = {} }
-
--- UI mock（InventorySystem 顶层 require "urhox-libs/UI"）
 local _InventoryManager = {}
 _InventoryManager.__index = _InventoryManager
 
@@ -101,30 +70,100 @@ function _InventoryManager:SetEquipmentItem(slotId, item)
     return true
 end
 
-local _UI_mock = {
-    InventoryManager = _InventoryManager,
-    Init = function() end,
-    SetRoot = function() end,
-}
-package.loaded["urhox-libs/UI"] = _UI_mock
+-- 真实模块引用（在 SetupMocks 中赋值，供各 Test 函数使用）
+local GameConfig, EquipmentData, LootSystem, InventorySystem, SaveSerializer
 
--- InventorySortUtil mock
-package.loaded["systems.InventorySortUtil"] = {}
-
--- SortUtil mock（InventorySystem 内部可能用到）
--- GameState mock（轻量）
-package.loaded["core.GameState"] = {
-    player  = nil,
-    pet     = nil,
-    currentChapter = 1,
+-- 记录 SetupMocks 执行前的原始 package.loaded 值，用于 TeardownMocks 恢复
+local _saved_pkg = {}
+local _MOCK_KEYS = {
+    "core.EventBus",
+    "systems.BlackMarketTradeLock",
+    "systems.BlackMarketSyncState",
+    "config.BlackMerchantConfig",
+    "urhox-libs/UI",
+    "systems.InventorySortUtil",
+    "core.GameState",
+    "systems.InventorySystem",
 }
 
--- ── 真实模块加载 ─────────────────────────────────────────────────────────────
-local GameConfig    = require("config.GameConfig")
-local EquipmentData = require("config.EquipmentData")
-local LootSystem    = require("systems.LootSystem")
-local InventorySystem = require("systems.InventorySystem")
-local SaveSerializer  = require("systems.save.SaveSerializer")
+local function SetupMocks()
+    -- 保存原始值
+    for _, k in ipairs(_MOCK_KEYS) do
+        _saved_pkg[k] = package.loaded[k]
+    end
+
+    -- EventBus mock（ConsumeConsumable 会 Emit）
+    local EventBus_mock = { _handlers = {} }
+    EventBus_mock.Emit = function() end
+    EventBus_mock.On   = function(_, _, h) end
+    package.loaded["core.EventBus"] = EventBus_mock
+
+    -- BlackMarketTradeLock mock
+    package.loaded["systems.BlackMarketTradeLock"] = {
+        IsLocked              = function() return false end,
+        HasAnyLockedConsumable= function() return false end,
+        CountUnlockedConsumable = function(getItem, size, id)
+            local n = 0
+            for i = 1, size do
+                local item = getItem(i)
+                if item and item.category == "consumable" and item.consumableId == id then
+                    n = n + (item.count or 1)
+                end
+            end
+            return n
+        end,
+        MarkConsumeUsed = function() end,
+        ClearAllOnSaveSuccess = function() end,
+    }
+
+    -- BlackMarketSyncState mock
+    package.loaded["systems.BlackMarketSyncState"] = {
+        MarkConsumeUsed = function() end,
+    }
+
+    -- BlackMerchantConfig mock
+    package.loaded["config.BlackMerchantConfig"] = { ITEMS = {} }
+
+    -- UI mock（InventorySystem 顶层 require "urhox-libs/UI"）
+    local _UI_mock = {
+        InventoryManager = _InventoryManager,
+        Init = function() end,
+        SetRoot = function() end,
+    }
+    package.loaded["urhox-libs/UI"] = _UI_mock
+
+    -- InventorySortUtil mock
+    package.loaded["systems.InventorySortUtil"] = {}
+
+    -- GameState mock（轻量）
+    package.loaded["core.GameState"] = {
+        player  = nil,
+        pet     = nil,
+        currentChapter = 1,
+    }
+
+    -- 强制重新加载 InventorySystem，使其使用上面的 mock
+    package.loaded["systems.InventorySystem"] = nil
+
+    -- ── 真实模块加载 ──────────────────────────────────────────────────────────
+    GameConfig    = require("config.GameConfig")
+    EquipmentData = require("config.EquipmentData")
+    LootSystem    = require("systems.LootSystem")
+    InventorySystem = require("systems.InventorySystem")
+    SaveSerializer  = require("systems.save.SaveSerializer")
+end
+
+local function TeardownMocks()
+    -- 恢复所有 package.loaded 到运行前状态，防止污染引擎全局
+    for _, k in ipairs(_MOCK_KEYS) do
+        package.loaded[k] = _saved_pkg[k]
+    end
+    -- InventorySystem 需额外恢复（SetupMocks 里清空过）
+    -- 注意：此处恢复后的 InventorySystem 是真实引擎版本（若之前已加载）
+    -- 但 InventorySystem.manager_ 内部状态可能已被 SetManager(mock) 改写。
+    -- 恢复 manager_ 只能依赖引擎启动时的 Init()；lupa 环境下无需关心。
+    _saved_pkg = {}
+end
 
 -- 初始化一个干净的背包
 local function MakeManager(size)
@@ -240,14 +279,16 @@ end
 -- 构造一个最小合法的封印古剑背包物品（供 CreateJiefengSword 消耗）
 local function MakeFengyinItem(equipId)
     return {
-        id       = 9999,
-        equipId  = equipId,
-        name     = "封印古剑",
-        slot     = "weapon",
-        tier     = 10,
-        quality  = "red",
-        isSpecial= true,
-        subStats = {},
+        id        = 9999,
+        equipId   = equipId,
+        name      = "封印古剑",
+        slot      = "weapon",
+        tier      = 10,
+        quality   = "red",
+        isSpecial = true,
+        subStats  = {},
+        -- 模拟封印古剑已有灵性属性，解封后应继承
+        spiritStat = { stat = "atk", name = "攻击", value = 120 },
     }
 end
 
@@ -271,8 +312,13 @@ local function TestS1_AttributeImpl()
         -- 1b. 有圣性（saintStat 不为 nil）
         ASSERT_NOT_NIL(sword.saintStat, jid .. " saintStat 不为 nil")
 
-        -- 1c. 无灵性（解封古剑不应有 spiritStat）
-        ASSERT(sword.spiritStat == nil, jid .. " spiritStat 为 nil（圣性/灵性互斥）")
+        -- 1c. 灵性属性：继承封印古剑原有 spiritStat（文档 Phase1 Rule A）
+        ASSERT_NOT_NIL(sword.spiritStat, jid .. " spiritStat 继承自来源封印剑（不为 nil）")
+        if sword.spiritStat and fengyinItem.spiritStat then
+            ASSERT_EQ(sword.spiritStat.stat,  fengyinItem.spiritStat.stat,  jid .. " spiritStat.stat 与来源一致")
+            ASSERT_EQ(sword.spiritStat.value, fengyinItem.spiritStat.value, jid .. " spiritStat.value 与来源一致")
+            ASSERT_EQ(sword.spiritStat.name,  fengyinItem.spiritStat.name,  jid .. " spiritStat.name 与来源一致")
+        end
 
         -- 1d. isSpecial = true
         ASSERT(sword.isSpecial == true, jid .. " isSpecial = true")
@@ -453,8 +499,13 @@ local function TestS3_SaveLoad()
         ASSERT_EQ(serialized.saintStat.name,  sword.saintStat.name,  "saintStat.name 一致")
     end
 
-    -- 3c. spiritStat 不存在（必须为 nil）
-    ASSERT(serialized.spiritStat == nil, "序列化 spiritStat = nil（圣性/灵性互斥）")
+    -- 3c. spiritStat 序列化后保留（解封古剑继承来源封印剑 spiritStat）
+    ASSERT_NOT_NIL(serialized.spiritStat, "序列化 spiritStat 不丢失（继承来源封印剑）")
+    if serialized.spiritStat and sword.spiritStat then
+        ASSERT_EQ(serialized.spiritStat.stat,  sword.spiritStat.stat,  "spiritStat.stat 序列化一致")
+        ASSERT_EQ(serialized.spiritStat.value, sword.spiritStat.value, "spiritStat.value 序列化一致")
+        ASSERT_EQ(serialized.spiritStat.name,  sword.spiritStat.name,  "spiritStat.name 序列化一致")
+    end
 
     -- 3d. subStats 数组保留
     ASSERT_NOT_NIL(serialized.subStats, "序列化 subStats 不丢失")
@@ -483,7 +534,7 @@ local function TestS3_SaveLoad()
     if bpItem then
         ASSERT_EQ(bpItem.equipId,   JIEFENG_IDS[1], "背包序列化 equipId 正确")
         ASSERT(bpItem.saintStat ~= nil, "背包序列化 saintStat 存在")
-        ASSERT(bpItem.spiritStat == nil, "背包序列化 spiritStat=nil")
+        ASSERT(bpItem.spiritStat ~= nil, "背包序列化 spiritStat 存在（继承来源封印剑）")
         ASSERT(bpItem.isSpecial == true, "背包序列化 isSpecial=true")
     end
 
@@ -762,6 +813,9 @@ end
 local M = {}
 
 function M.Run()
+    -- ⚠️ 必须第一步：注入 mock，隔离引擎全局状态
+    SetupMocks()
+
     passCount = 0
     failCount = 0
     errors    = {}
@@ -786,6 +840,9 @@ function M.Run()
         end
     end
     LOG("════════════════════════════════════════════")
+
+    -- ⚠️ 最后一步：恢复 package.loaded，防止 mock 泄漏到引擎全局
+    TeardownMocks()
 
     return { passed = passCount, failed = failCount, total = total }
 end

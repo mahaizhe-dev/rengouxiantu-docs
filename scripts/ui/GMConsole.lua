@@ -1062,35 +1062,12 @@ local GM_CATEGORIES = {
                     ShowLog("快捷回城: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
                 end
             end },
-            { label = "解封流水线自测", action = function()
-                package.loaded["tests.test_jiefeng_forge_pipeline"] = nil
-                local M = require("tests.test_jiefeng_forge_pipeline")
-                local result = M.Run()
-                if type(result) == "table" then
-                    local p, f = result.passed or 0, result.failed or 0
-                    if f == 0 then
-                        ShowLog("解封流水线: 全部 " .. p .. " 项通过!", {100, 255, 100, 255})
-                    else
-                        ShowLog("解封流水线: " .. f .. " 项失败 / " .. (p + f) .. " 项", {255, 100, 100, 255})
-                    end
-                else
-                    ShowLog("解封流水线: 脚本未返回结果表", {255, 100, 100, 255})
-                end
-            end },
-            { label = "铸剑地炉综合自测", action = function()
-                package.loaded["tests.test_sword_forge_comprehensive"] = nil
-                local result = require("tests.test_sword_forge_comprehensive")
-                if type(result) == "table" then
-                    local p, f = result.passed or 0, result.failed or 0
-                    if f == 0 then
-                        ShowLog("铸剑地炉: 全部 " .. p .. " 项通过!", {100, 255, 100, 255})
-                    else
-                        ShowLog("铸剑地炉: " .. f .. " 项失败 / " .. (p + f) .. " 项", {255, 100, 100, 255})
-                    end
-                else
-                    ShowLog("铸剑地炉: 脚本未返回结果表", {255, 100, 100, 255})
-                end
-            end },
+            -- [已禁用] 解封流水线自测 / 铸剑地炉综合自测
+            -- 这两个测试在真实引擎中会通过 require() 触发顶层 package.loaded 改写
+            -- 和 InventorySystem.SetManager(mock)，导致玩家背包被 mock 替换。
+            -- mock 无 GetAllEquipment，任何后续背包操作均崩溃（线上事故级）。
+            -- 必须通过 lupa 离线运行：python3 scripts/tests/_run_via_lupa.py
+            -- 禁止在 GMConsole 中恢复此入口。
         },
     },
     {
