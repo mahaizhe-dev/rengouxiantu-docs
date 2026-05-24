@@ -178,8 +178,12 @@ local function BuildForgePreviewRows(targetDef)
     local qColor = {255, 50, 50, 255}
     local randLo = 1.1
     local randHi = 1.5
-    local numTM  = EquipmentData.SUB_STAT_TIER_MULT and EquipmentData.SUB_STAT_TIER_MULT[9] or 11.0
-    local pctTM  = EquipmentData.PCT_SUB_TIER_MULT  and EquipmentData.PCT_SUB_TIER_MULT[9]  or 6.0
+    -- 使用产出装备的实际阶级，而非 hardcode T9（铸剑地炉圣器均为 T10）
+    local tier   = targetDef.tier or 10
+    local numTM  = (EquipmentData.SUB_STAT_TIER_MULT and EquipmentData.SUB_STAT_TIER_MULT[tier])
+                   or (EquipmentData.SUB_STAT_TIER_MULT and EquipmentData.SUB_STAT_TIER_MULT[9]) or 11.0
+    local pctTM  = (EquipmentData.PCT_SUB_TIER_MULT  and EquipmentData.PCT_SUB_TIER_MULT[tier])
+                   or (EquipmentData.PCT_SUB_TIER_MULT  and EquipmentData.PCT_SUB_TIER_MULT[9])  or 6.0
     local qMult  = GameConfig.QUALITY["red"] and GameConfig.QUALITY["red"].multiplier or 2.1
 
     -- 装备名称 & 阶位
@@ -242,7 +246,8 @@ local function BuildForgePreviewRows(targetDef)
         end
         local valStr
         if subDef and subDef.linearGrowth then
-            valStr = "+" .. math.floor(9 * qMult)
+            -- linearGrowth 属性值 = floor(tier × qMult)，使用产出装备实际阶级
+            valStr = "+" .. math.floor(tier * qMult)
         else
             local baseVal = subDef and subDef.baseValue or 1
             local tierMult = (EquipmentData.PCT_STATS and EquipmentData.PCT_STATS[sub.stat]) and pctTM or numTM

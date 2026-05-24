@@ -349,7 +349,8 @@ EFFECT_HANDLERS["zhuxian"] = {
         local raw = math_max(1, math_floor(player:GetTotalAtk() * (eff.damagePercent or 0.15)))
         local actualDmg
         if eff.canCrit then
-            actualDmg = HitResolver.Crit(player, monster, raw)
+            -- 追加伤害走完整管线（含暴击），noEvent 避免二次触发 player_deal_damage
+            actualDmg = HitResolver.Hit(player, monster, raw, { noEvent = true })
         else
             actualDmg = HitResolver.NoCrit(player, monster, raw)
         end

@@ -817,24 +817,18 @@ function LootSystem.CreateSaintEquipment(equipId)
     local item = LootSystem.CreateSpecialEquipment(equipId)
     if not item then return nil end
 
-    -- 圣性/灵性规则（按模板标记分支，不统一清除）：
+    -- 圣性/灵性规则：圣器一律含 saintStat，不含 spiritStat（圣性/灵性互斥）
     --
-    --   hasSpiritStat = true  → 灵器/圣器带灵性，保留 spiritStat，不生成 saintStat
-    --                           例：道藏圣衣(daozang_saint_armor)、深渊圣氅(saint_cape_ch5)
-    --
-    --   saintStat 已在模板中固定 → 保留，不随机覆盖，不清除 spiritStat
+    --   saintStat 已在模板中固定 → 保留，不随机覆盖，清除 spiritStat
     --                           例：帝尊圣戒(dizun_saint_ring) 的 fortune+21
     --
-    --   其余（无 hasSpiritStat，无固定 saintStat） → 清除 spiritStat，随机生成 saintStat
-    --                           例：未来可能新增的纯圣器
+    --   其余（含 hasSpiritStat=true 的装备） → 清除 spiritStat，随机生成 saintStat
+    --                           例：道藏圣衣(daozang_saint_armor)、深渊圣氅(saint_cape_ch5)
     --
-    if template.hasSpiritStat then
-        -- 带灵性的圣器：保留 spiritStat（CreateSpecialEquipment 已生成），不附加 saintStat
-        item.saintStat = nil
-        print("[LootSystem] CreateSaintEquipment: " .. equipId ..
-              " hasSpiritStat → spiritStat=" ..
-              (item.spiritStat and (item.spiritStat.name .. "+" .. tostring(item.spiritStat.value)) or "nil"))
-    elseif item.saintStat then
+    --   注意：hasSpiritStat=true 只影响 CreateSpecialEquipment 的灵性生成逻辑；
+    --         在铸剑地炉流程中，圣性优先，spiritStat 必须清除。
+    --
+    if item.saintStat then
         -- 模板已有固定 saintStat（如帝尊圣戒），直接使用，不随机覆盖
         item.spiritStat = nil
         print("[LootSystem] CreateSaintEquipment: " .. equipId ..
@@ -879,9 +873,9 @@ function LootSystem.CreateJiefengSword(sourceFengyinItem, targetEquipId)
     local item = LootSystem.CreateSpecialEquipment(targetEquipId)
     if not item then return nil end
 
-    -- 灵性属性：继承原封印古剑实例的 spiritStat（而非模板重新随机生成）
-    -- 文档要求：保留封印古剑原有 spiritStat，体现同一把剑的传承
-    item.spiritStat = sourceFengyinItem.spiritStat
+    -- 圣性/灵性互斥：解封后产出圣器，必须清除灵性属性
+    -- 封印古剑（青/灵器）有 spiritStat，解封升华为圣器后，spiritStat 归零，只有 saintStat
+    item.spiritStat = nil
 
     -- 圣性属性：随机生成（解封古剑新获得的圣性，体现个体差异）
     local mainStatType = "atk"  -- 武器主属性固定为atk
