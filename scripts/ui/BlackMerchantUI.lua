@@ -57,6 +57,7 @@ local tabBtnHerb_ = nil
 local tabBtnRake_ = nil
 local tabBtnBagua_ = nil
 local tabBtnTiandi_ = nil
+local tabBtnZhentu_ = nil
 local tabBtnLingyu_ = nil
 local tabBtnSpecialEquip_ = nil
 local tabBtnSkillBookMid_ = nil
@@ -64,7 +65,7 @@ local tabBtnSkillBookHigh_ = nil
 local tabBtnSkillBookSpecial_ = nil
 local tabBtnHistory_ = nil
 
-local activeTab_ = "consumable_mat"   -- "consumable_mat" | "herb" | "rake" | "bagua" | "tiandi" | "lingyu" | "special_equip" | "skill_book_mid" | "skill_book_high" | "skill_book_special" | "history"
+local activeTab_ = "consumable_mat"   -- "consumable_mat" | "herb" | "rake" | "bagua" | "tiandi" | "zhentu" | "lingyu" | "special_equip" | "skill_book_mid" | "skill_book_high" | "skill_book_special" | "history"
 
 -- 轮询
 local POLL_INTERVAL = 30.0  -- P0: 降频，减少 SYSTEM_UID 热读压力
@@ -446,6 +447,7 @@ local function SetActiveTab(tab)
     if tabBtnRake_ then tabBtnRake_:SetStyle({ backgroundColor = (tab == "rake") and C.tabActive or C.tabInactive }) end
     if tabBtnBagua_ then tabBtnBagua_:SetStyle({ backgroundColor = (tab == "bagua") and C.tabActive or C.tabInactive }) end
     if tabBtnTiandi_ then tabBtnTiandi_:SetStyle({ backgroundColor = (tab == "tiandi") and C.tabActive or C.tabInactive }) end
+    if tabBtnZhentu_ then tabBtnZhentu_:SetStyle({ backgroundColor = (tab == "zhentu") and C.tabActive or C.tabInactive }) end
     if tabBtnLingyu_ then tabBtnLingyu_:SetStyle({ backgroundColor = (tab == "lingyu") and C.tabActive or C.tabInactive }) end
     if tabBtnSpecialEquip_ then tabBtnSpecialEquip_:SetStyle({ backgroundColor = (tab == "special_equip") and C.tabActive or C.tabInactive }) end
     if tabBtnSkillBookMid_ then tabBtnSkillBookMid_:SetStyle({ backgroundColor = (tab == "skill_book_mid") and C.tabActive or C.tabInactive }) end
@@ -827,6 +829,8 @@ function BlackMerchantUI.RefreshContent()
         children = BuildShowcase(BMConfig.CATEGORY_BAGUA)
     elseif activeTab_ == "tiandi" then
         children = BuildShowcase(BMConfig.CATEGORY_TIANDI)
+    elseif activeTab_ == "zhentu" then
+        children = BuildShowcase(BMConfig.CATEGORY_ZHENTU)
     elseif activeTab_ == "lingyu" then
         children = BuildShowcase(BMConfig.CATEGORY_LINGYU)
     elseif activeTab_ == "consumable_mat" then
@@ -1176,6 +1180,14 @@ function BlackMerchantUI.Create(parentOverlay)
         backgroundColor = C.tabInactive,
         onClick = function() SetActiveTab("tiandi") end,
     }
+    tabBtnZhentu_ = UI.Button {
+        text = BMConfig.CATEGORY_NAMES.zhentu,
+        flexGrow = 1, height = 28,
+        fontSize = T.fontSize.xs, fontWeight = "bold",
+        borderRadius = T.radius.xs,
+        backgroundColor = C.tabInactive,
+        onClick = function() SetActiveTab("zhentu") end,
+    }
 
     -- 动态内容区（双列网格）
     contentPanel_ = UI.Panel {
@@ -1433,6 +1445,7 @@ function BlackMerchantUI.Create(parentOverlay)
                                     tabBtnRake_,
                                     tabBtnBagua_,
                                     tabBtnTiandi_,
+                                    tabBtnZhentu_,
                                 },
                             },
                             -- 状态提示
@@ -1475,6 +1488,7 @@ function BlackMerchantUI.Show()
     if tabBtnRake_ then tabBtnRake_:SetStyle({ backgroundColor = C.tabInactive }) end
     if tabBtnBagua_ then tabBtnBagua_:SetStyle({ backgroundColor = C.tabInactive }) end
     if tabBtnTiandi_ then tabBtnTiandi_:SetStyle({ backgroundColor = C.tabInactive }) end
+    if tabBtnZhentu_ then tabBtnZhentu_:SetStyle({ backgroundColor = C.tabInactive }) end
     if tabBtnLingyu_ then tabBtnLingyu_:SetStyle({ backgroundColor = C.tabInactive }) end
     if tabBtnSpecialEquip_ then tabBtnSpecialEquip_:SetStyle({ backgroundColor = C.tabInactive }) end
     if tabBtnSkillBookMid_ then tabBtnSkillBookMid_:SetStyle({ backgroundColor = C.tabInactive }) end

@@ -293,7 +293,8 @@ function LootSystem.GenerateDrops(dropTable, monster)
                 if setIds and #setIds > 0 then
                     local chosenSetId = setIds[math.random(1, #setIds)]
                     local mLevel = monster.level or 1
-                    local item = LootSystem.GenerateSetEquipment(mLevel, chosenSetId)
+                    -- entry.tier 可选，显式传入时产出对应阶级套装（如 T10）；缺省产出 T9
+                    local item = LootSystem.GenerateSetEquipment(mLevel, chosenSetId, nil, entry.tier)
                     if item then
                         table.insert(result.items, item)
                     end
@@ -422,15 +423,16 @@ function LootSystem.GenerateRandomEquipment(monsterLevel, minQuality, maxQuality
     return item
 end
 
---- 生成套装灵器装备（BOSS 掉落专用，兼容旧掉落表调用）
---- 固定 T9 灵器(cyan)品质，附加 setId 标识
+--- 生成套装灵器装备（BOSS 掉落 / 龙锻铸造专用）
+--- 品质固定为青色灵器(cyan)，tier 由调用方指定（默认 T9，T10 掉落传 tierOverride=10）
 ---@param monsterLevel number 怪物等级
 ---@param setId string 套装 ID（如 "xuesha"）
 ---@param slotOverride string|nil 强制指定槽位（nil=随机）
+---@param tierOverride number|nil 阶级覆盖（nil=T9，传 10=T10）
 ---@return table|nil
-function LootSystem.GenerateSetEquipment(monsterLevel, setId, slotOverride)
-    -- 固定参数：T9 灵器品质
-    local tier = 9
+function LootSystem.GenerateSetEquipment(monsterLevel, setId, slotOverride, tierOverride)
+    -- 制式套装 T1：品质固定为青色灵器；tier 由调用方指定（默认 T9，T10 掉落传 10）
+    local tier = tierOverride or 9
     local quality = "cyan"
     local qualityConfig = GameConfig.QUALITY[quality]
     if not qualityConfig then return nil end
@@ -533,9 +535,11 @@ function LootSystem.CreateFabaoEquipment(templateId, tier, quality)
 
     -- quality 为 nil 时自动随机抽取（非首通场景）
     if not quality then
-        -- 品质上限按 Tier：T3-T4→紫, T5-T8→橙, T9+→灵器(cyan)
+        -- 品质上限按 Tier：T3-T4→紫, T5-T8→橙, T9→灵器(cyan), T10+→红(red)
         local maxQ = "purple"
-        if tier >= 9 then
+        if tier >= 10 then
+            maxQ = "red"
+        elseif tier >= 9 then
             maxQ = "cyan"
         elseif tier >= 5 then
             maxQ = "orange"
@@ -1464,6 +1468,107 @@ function LootSystem.GenerateXianyuanReward(tier, quality, guaranteedSubStat)
 
         items[#items + 1] = item
         ::continue_slot::
+    end
+
+    return items
+end
+
+--- 为仙缘宝箱（第五章）生成 3 件候选套装灵器（固定 tier=10，随机套装 ID，保底 1 条仙缘副属性）
+--- 与 GenerateXianyuanReward 的区别：每件装备携带 setId，名称含套装前缀
+---@param tier number 固定 tier（第五章传 10）
+---@param guaranteedSubStat string 保底仙缘副属性（"constitution"/"fortune"/"wisdom"/"physique"）
+---@return table[] items 3 件套装灵器（可能不足 3 件，由调用方检查）
+function LootSystem.GenerateXianyuanSetReward(tier, guaranteedSubStat)
+    local XianyuanChestConfig = require("config.XianyuanChestConfig")
+    local quality = "cyan"
+    local qualityConfig = GameConfig.QUALITY[quality]
+    if not qualityConfig then return {} end
+    local qualityMult = qualityConfig.multiplier
+    local qualityOrder = GameConfig.QUALITY_ORDER[quality] or 1
+
+    -- 仙劫四套装 ID
+    local SET_IDS = { "xuesha", "qingyun", "fengmo", "haoqi" }
+
+    -- 从 SLOT_POOL 中随机抽 3 个不重复槽位
+    local pool = {}
+    for _, s in ipairs(XianyuanChestConfig.SLOT_POOL) do
+        pool[#pool + 1] = s
+    end
+    local slots = {}
+    for i = 1, 3 do
+        local idx = math.random(1, #pool)
+        slots[i] = pool[idx]
+        table.remove(pool, idx)
+    end
+
+    -- 保底副属性信息
+    local guaranteedInfo = SUB_BASE_MAP[guaranteedSubStat]
+    local guaranteedValue = math.floor(tier * qualityMult)
+    if guaranteedValue <= 0 then guaranteedValue = 1 end
+
+    local items = {}
+    for i = 1, 3 do
+        local slot = slots[i]
+        -- 每件随机选一个套装（允许重复，玩家可选择凑套）
+        local setId = SET_IDS[math.random(1, #SET_IDS)]
+
+        -- 主属性计算
+        local mainValue, mainStatType = EquipmentUtils.CalcSlotMainStat(slot, tier, qualityMult)
+        if not mainValue then goto continue_set_slot end
+
+        -- 生成副属性
+        local subStats = LootSystem.GenerateSubStats(qualityConfig.subStatCount, tier, mainStatType, quality)
+
+        -- 强制注入保底仙缘副属性
+        if guaranteedInfo then
+            local found = false
+            for _, sub in ipairs(subStats) do
+                if sub.stat == guaranteedSubStat then
+                    sub.value = math.max(sub.value, guaranteedValue)
+                    found = true
+                    break
+                end
+            end
+            if not found then
+                subStats[#subStats] = {
+                    stat = guaranteedSubStat,
+                    name = guaranteedInfo.name,
+                    value = guaranteedValue,
+                }
+            end
+        end
+
+        -- 灵性属性（cyan 灵器）
+        local spiritStat = nil
+        if qualityOrder >= 6 then
+            spiritStat = LootSystem.GenerateSpiritStat(tier, mainStatType, quality)
+        end
+
+        -- 装备名称：套装前缀 + 槽位名
+        local setData = EquipmentData.SetBonuses[setId]
+        local setPrefix = setData and setData.name or setId
+        local tierNames = EquipmentData.TIER_SLOT_NAMES[tier]
+        local slotName = tierNames and tierNames[slot] or (EquipmentData.SLOT_NAMES[slot] or slot)
+        local itemName = setPrefix .. "·" .. slotName
+
+        local item = {
+            id = Utils.NextId(),
+            name = itemName,
+            slot = slot,
+            icon = LootSystem.GetSlotIcon(slot, tier),
+            quality = quality,
+            tier = tier,
+            mainStat = { [mainStatType] = mainValue },
+            subStats = subStats,
+            spiritStat = spiritStat,
+            setId = setId,
+            sellCurrency = "lingYun",
+            sellPrice = math.max(1, tier - 4),
+            isXianyuanReward = true,
+        }
+
+        items[#items + 1] = item
+        ::continue_set_slot::
     end
 
     return items

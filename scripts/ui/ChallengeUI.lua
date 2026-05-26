@@ -486,20 +486,54 @@ function ChallengeUI._ShowExtraDropTips(factionCfg)
     -- 构建每级掉落说明行
     local rows = {}
 
-    for repLevel = 1, 7 do
-        -- 掉落物列表
-        local items = {}
-        local barCount = ChallengeConfig.GetExtraGoldBarCount(repLevel)
-        table.insert(items, "金条×" .. barCount)
-
-        local foodId = ChallengeConfig.GetExtraFoodId(repLevel)
-        table.insert(items, getFoodName(foodId) .. "×1")
-
-        table.insert(items, "丹药精华×1")
-        table.insert(items, "修炼果×1")
-        if repLevel >= 6 then
-            table.insert(items, "灵韵果×1")
+    -- 类型→显示名映射辅助
+    local function getEntryDisplayName(entry)
+        if entry.type == "gold_bar" then
+            return "金条"
+        elseif entry.type == "food" then
+            return getFoodName(entry.subId)
+        elseif entry.type == "essence" then
+            local gc = GameConfig.CONSUMABLES and GameConfig.CONSUMABLES[entry.subId]
+            return gc and gc.name or entry.subId
+        elseif entry.type == "cultivation_fruit" then
+            return "修炼果"
+        elseif entry.type == "lingyun_fruit" then
+            return "灵韵果"
         end
+        return entry.type
+    end
+
+    for repLevel = 1, ChallengeConfig.MAX_REPUTATION_LEVEL do
+        -- 使用 BuildExtraDropTable 获取真实掉落数据
+        local dropEntries = ChallengeConfig.BuildExtraDropTable(repLevel)
+        local totalChance = ChallengeConfig.GetExtraDropChance(repLevel)
+
+        -- 合并同名条目用于显示（如5种精华合并为"丹药精华×5"）
+        local displayItems = {}
+        local essenceMerged = { count = 0, names = {} }
+        local gangguEntry = nil
+
+        for _, entry in ipairs(dropEntries) do
+            if entry.type == "essence" then
+                if entry.subId == "ganggu_essence" then
+                    gangguEntry = entry
+                else
+                    essenceMerged.count = essenceMerged.count + 1
+                end
+            else
+                table.insert(displayItems, getEntryDisplayName(entry) .. "×" .. entry.count)
+            end
+        end
+        -- 五系精华合并显示
+        if essenceMerged.count > 0 then
+            table.insert(displayItems, "丹药精华×" .. essenceMerged.count)
+        end
+        -- 钢骨精华单独显示
+        if gangguEntry then
+            table.insert(displayItems, "钢骨精华×" .. gangguEntry.count)
+        end
+
+        local chanceText = string.format("%.1f%%", totalChance * 100)
 
         table.insert(rows, UI.Panel {
             width = "100%",
@@ -522,14 +556,14 @@ function ChallengeUI._ShowExtraDropTips(factionCfg)
                             fontColor = {255, 255, 255, 240},
                         },
                         UI.Label {
-                            text = repLevel .. "%",
+                            text = chanceText,
                             fontSize = T.fontSize.xs,
                             fontColor = {255, 200, 80, 220},
                         },
                     },
                 },
                 UI.Label {
-                    text = table.concat(items, "、"),
+                    text = table.concat(displayItems, "、"),
                     fontSize = T.fontSize.xs,
                     fontColor = {180, 180, 200, 200},
                 },
@@ -1044,7 +1078,7 @@ end
 -- ============================================================================
 
 --- 声望解锁/挑战按钮点击
----@param repLevel number 1-7
+---@param repLevel number 1-8
 function ChallengeUI.OnRepButtonClick(repLevel)
     if not currentFaction_ then return end
 
@@ -1134,7 +1168,8 @@ end
 -- 按钮逻辑
 -- ============================================================================
 
---- 挑战/解锁按钮点击
+-- [LEGACY: 旧版tier挑战按钮逻辑，仅供存量玩家兼容路径]
+---@deprecated 新版声望使用 OnRepButtonClick
 ---@param tier number
 function ChallengeUI.OnTierButtonClick(tier)
     if not currentFaction_ then return end
@@ -1183,7 +1218,7 @@ end
 -- 挑战成功弹窗
 -- ============================================================================
 
---- 显示挑战成功弹窗
+--- 显示挑战成功弹窗（路由：新版声望 vs [LEGACY]旧版tier）
 ---@param data table 旧版: { faction, tier, isFirstClear, tierCfg, factionCfg, repeatDropResult }
 ---                  新版: { faction, repLevel, isFirstClear, repCfg, factionCfg, extraDropResult, isReputation=true }
 function ChallengeUI.ShowVictory(data)
@@ -1196,6 +1231,7 @@ function ChallengeUI.ShowVictory(data)
         return
     end
 
+    -- [LEGACY] 以下为旧版tier胜利弹窗，仅供存量玩家兼容
     local factionCfg = data.factionCfg
     local tierCfg = data.tierCfg
     local isFirstClear = data.isFirstClear
@@ -1825,8 +1861,11 @@ function ChallengeUI._ShowReputationVictory(data)
     local card1Ref = nil
     ---@type Panel|nil
     local card2Ref = nil
+    ---@type Panel|nil
+    local card3Ref = nil
     ---@type Button|nil
     local confirmBtnRef = nil
+    local hasThirdCard = choices[3] ~= nil
 
     -- 默认卡片边框（未选中）
     local unselBorder = {80, 85, 100, 120}
@@ -1845,6 +1884,12 @@ function ChallengeUI._ShowReputationVictory(data)
             card2Ref:SetStyle({
                 borderColor = idx == 2 and selBorder or unselBorder,
                 borderWidth = idx == 2 and 3 or 1,
+            })
+        end
+        if card3Ref then
+            card3Ref:SetStyle({
+                borderColor = idx == 3 and selBorder or unselBorder,
+                borderWidth = idx == 3 and 3 or 1,
             })
         end
         if confirmBtnRef then
@@ -1885,16 +1930,44 @@ function ChallengeUI._ShowReputationVictory(data)
         children = card2Children,
     }
 
+    -- 构建第3卡片（额外掉落命中时存在）
+    local cardWidth = hasThirdCard and 160 or 210
+    if hasThirdCard then
+        -- 缩小前两张卡片宽度以容纳第3张
+        card1Ref:SetStyle({ width = cardWidth })
+        card2Ref:SetStyle({ width = cardWidth })
+
+        local item3 = choices[3]
+        local card3Children = item3 and BuildItemDropCardRows(item3) or {}
+        card3Ref = UI.Panel {
+            flexDirection = "column", alignItems = "center", gap = 3,
+            backgroundColor = {40, 35, 20, 240},
+            borderRadius = T.radius.md, borderWidth = 1, borderColor = {255, 200, 80, 120},
+            padding = T.spacing.sm,
+            width = cardWidth, minHeight = 200,
+            onClick = function(self)
+                updateSelection(3)
+            end,
+            children = card3Children,
+        }
+    end
+
     -- 提示文字
-    local hintText = isFirstClear and "首通奖励：选择一件保底品质法宝" or "选择一件奖励"
-    -- 物品掉落提示（非首通时，如果有物品掉落项则显示）
-    local hasItemDrop = item2 and not item2.isFabao
+    local hintText
+    if isFirstClear then
+        hintText = "首通奖励：选择一件保底品质法宝"
+    elseif hasThirdCard then
+        hintText = "选择一件奖励（额外掉落已触发！）"
+    else
+        hintText = "选择一件奖励"
+    end
+    -- 额外掉落概率提示
     local dropHintChildren = {}
-    if hasItemDrop then
+    if hasThirdCard then
         local dropChance = ChallengeConfig.GetExtraDropChance(repLevel)
-        local dropPercent = math.floor(dropChance * 100 + 0.5)
+        local dropPercent = string.format("%.1f", dropChance * 100)
         table.insert(dropHintChildren, UI.Label {
-            text = "物品掉落触发！（掉率 " .. dropPercent .. "%）",
+            text = "额外掉落触发！（掉率 " .. dropPercent .. "%）",
             fontSize = T.fontSize.xs,
             fontColor = {255, 200, 80, 200},
             textAlign = "center",
@@ -1939,7 +2012,7 @@ function ChallengeUI._ShowReputationVictory(data)
                 paddingBottom = T.spacing.lg,
                 paddingLeft = T.spacing.lg,
                 paddingRight = T.spacing.lg,
-                minWidth = 480,
+                minWidth = hasThirdCard and 560 or 480,
                 onClick = function(self) end,  -- 防止点击穿透
                 children = {
                     -- 标题
@@ -1962,13 +2035,13 @@ function ChallengeUI._ShowReputationVictory(data)
                         fontSize = T.fontSize.sm,
                         fontColor = {200, 200, 220, 200}, textAlign = "center",
                     },
-                    -- 两张卡片并排
+                    -- 候选卡片并排（2或3张）
                     UI.Panel {
                         flexDirection = "row",
                         justifyContent = "center",
                         alignItems = "flex-start",
-                        gap = T.spacing.md,
-                        children = { card1Ref, card2Ref },
+                        gap = T.spacing.sm,
+                        children = hasThirdCard and { card1Ref, card2Ref, card3Ref } or { card1Ref, card2Ref },
                     },
                     -- 物品掉落提示
                     UI.Panel {
@@ -2008,7 +2081,7 @@ function ChallengeUI.OnVictoryConfirm(data)
         return
     end
 
-    -- ====== 旧版 tier 模式 ======
+    -- ====== [LEGACY] 旧版 tier 模式（仅供存量玩家兼容） ======
     -- 发放首通奖励（如果有）
     if data.isFirstClear and data.tierCfg.reward then
         ChallengeSystem.GrantReward(data.faction, data.tier, data.tierCfg.reward)

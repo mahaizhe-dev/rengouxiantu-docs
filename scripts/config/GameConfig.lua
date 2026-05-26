@@ -5,7 +5,7 @@
 local GameConfig = {}
 
 -- GM 调试开关（发布正式版前改为 false）
-GameConfig.GM_ENABLED = true
+GameConfig.GM_ENABLED = false
 GameConfig.GM_SHOW_COORDS = false  -- GM：鼠标悬停显示瓦片坐标
 
 -- 多人副本功能总开关（Kill Switch）
@@ -14,8 +14,8 @@ GameConfig.DUNGEON_ENABLED = false
 
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
-GameConfig.CODE_VERSION = 5
-GameConfig.DISPLAY_VERSION = "v1.11.1"
+GameConfig.CODE_VERSION = 6
+GameConfig.DISPLAY_VERSION = "v1.11.5"
 
 -- 地图设置
 GameConfig.TILE_SIZE = 128         -- 每个瓦片的逻辑像素大小（基准值，不要直接用于渲染）
@@ -176,8 +176,8 @@ GameConfig.PET_MATERIALS = {
     yuanying_fruit = { name = "元婴果", icon = "icon_yuanying_fruit.png", sellPrice = 0, quality = "orange", desc = "蕴含元婴之力的灵果，散发金色荧光。\n用途：突破元婴境界的必需品。\n价值：1颗 = 100灵韵\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
     exp_pill = { name = "修炼果", icon = "icon_exp_pill.png", sellPrice = 0, quality = "blue", desc = "蕴含灵气的修炼灵果，吸收后可获得大量修炼经验。\n用途：使用后获得10000点经验。\n限制：每次使用1颗，经验达到境界上限时无法使用。" },
     exp_pill_superior = { name = "上品修炼果", icon = "icon_exp_pill.png", sellPrice = 0, quality = "orange", desc = "太虚宗珍藏的上品修炼灵果，蕴含磅礴灵气，吸收后可获得大量修炼经验。\n用途：使用后获得100000点经验。\n限制：每次使用1颗，经验达到境界上限时无法使用。" },
-    -- 封魔系统：体魄丹（永久+1体魄，上限50）
-    physique_pill = { name = "体魄丹", icon = "💊", sellPrice = 0, quality = "purple", desc = "封魔谷秘制的丹药，服用后可永久强化体魄。\n用途：使用后永久+1体魄（上限50）。\n获取：每日封魔任务固定奖励（1枚/天）。" },
+    -- 封魔系统：体魄丹（永久+1体魄，上限100）
+    physique_pill = { name = "体魄丹", icon = "💊", sellPrice = 0, quality = "purple", desc = "封魔谷秘制的丹药，服用后可永久强化体魄。\n用途：使用后永久+1体魄（上限100）。\n获取：每日封魔任务固定奖励（1枚/天）。" },
     -- 炼丹材料
     tiger_bone = { name = "虎骨", icon = "icon_tiger_bone.png", sellPrice = 1000, quality = "orange", desc = "虎王体内精炼的坚骨，蕴含猛虎之力。\n用途：炼制虎骨丹的必需材料。\n获取：击败虎王（5%掉率）" },
     snake_fruit = { name = "灵蛇果", icon = "icon_snake_fruit.png", sellPrice = 1000, quality = "orange", desc = "蛇妖巢穴中孕育的灵果，散发幽绿荧光。\n用途：炼制灵蛇丹的必需材料。\n获取：击败蛇妖·碧鳞（3%掉率）" },
@@ -237,6 +237,16 @@ GameConfig.PET_MATERIALS = {
     tiandi_fragment_1 = { name = "天帝剑痕碎片·壹", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "远古天帝斩落域外邪魔时遗留的剑痕残片，剑意犹存，隐约可闻天雷余响。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },
     tiandi_fragment_2 = { name = "天帝剑痕碎片·贰", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "据传天帝以此一剑斩断天外入侵通道，立下中洲万世屏障。碎片表面仍残留斩裂虚空的痕迹。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },
     tiandi_fragment_3 = { name = "天帝剑痕碎片·叁", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "剑痕之中封存着天帝护佑中洲的意志，岁月流转仍不减分毫，是那场惊天一役的最后见证。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },
+    -- 诛仙阵图残符（第五章神器，9片对应九宫方位，激活诛仙阵图）
+    zhentu_fragment_1 = { name = "阵图残符·壹", icon = "icon_zhentu_fragment.png", sellPrice = 150000, quality = "red", desc = "诛仙阵图第一块残符，源自镇渊魔帅·蚀骨，暗含阵法根基之力。\n用途：集齐九片可重铸诛仙阵图。\n获取：镇渊魔帅·蚀骨掉落（0.1%）" },
+    zhentu_fragment_2 = { name = "阵图残符·贰", icon = "icon_zhentu_fragment.png", sellPrice = 150000, quality = "red", desc = "诛仙阵图第二块残符，源自镇渊魔帅·裂魂，内蕴撕裂灵魂的寒意。\n用途：集齐九片可重铸诛仙阵图。\n获取：镇渊魔帅·裂魂掉落（0.1%）" },
+    zhentu_fragment_3 = { name = "阵图残符·叁", icon = "icon_zhentu_fragment.png", sellPrice = 150000, quality = "red", desc = "诛仙阵图第三块残符，源自噬渊血犼，浸透深渊血气，阵纹隐现血色。\n用途：集齐九片可重铸诛仙阵图。\n获取：噬渊血犼掉落（0.1%）" },
+    zhentu_fragment_4 = { name = "阵图残符·肆", icon = "icon_zhentu_fragment.png", sellPrice = 150000, quality = "red", desc = "诛仙阵图第四块残符，源自裴千岳，残留天机秘术的推演轨迹。\n用途：集齐九片可重铸诛仙阵图。\n获取：裴千岳掉落（0.1%）" },
+    zhentu_fragment_5 = { name = "阵图残符·伍", icon = "icon_zhentu_fragment.png", sellPrice = 150000, quality = "red", desc = "诛仙阵图第五块残符，源自洗剑霜鸾，符面犹带凛冽剑气与霜华之息。\n用途：集齐九片可重铸诛仙阵图。\n获取：洗剑霜鸾掉落（0.1%）" },
+    zhentu_fragment_6 = { name = "阵图残符·陆", icon = "icon_zhentu_fragment.png", sellPrice = 150000, quality = "red", desc = "诛仙阵图第六块残符，源自韩百炼，百炼精钢之气凝固其中，坚不可摧。\n用途：集齐九片可重铸诛仙阵图。\n获取：韩百炼掉落（0.1%）" },
+    zhentu_fragment_7 = { name = "阵图残符·柒", icon = "icon_zhentu_fragment.png", sellPrice = 150000, quality = "red", desc = "诛仙阵图第七块残符，源自石观澜，承载着石台秘典的阵法推演。\n用途：集齐九片可重铸诛仙阵图。\n获取：石观澜掉落（0.1%）" },
+    zhentu_fragment_8 = { name = "阵图残符·捌", icon = "icon_zhentu_fragment.png", sellPrice = 150000, quality = "red", desc = "诛仙阵图第八块残符，源自宁栖梧，灵木仙息萦绕，阵纹如古树根系盘旋。\n用途：集齐九片可重铸诛仙阵图。\n获取：宁栖梧掉落（0.1%）" },
+    zhentu_fragment_9 = { name = "阵图残符·玖", icon = "icon_zhentu_fragment.png", sellPrice = 150000, quality = "red", desc = "诛仙阵图第九块残符，源自温素章，九符归一，阵法之力至此圆满。\n用途：集齐九片可重铸诛仙阵图。\n获取：温素章掉落（0.1%）" },
     -- 仙图录：守护者证明（运营发放，用于仙途守护者道印升级）
     item_guardian_token = { name = "守护者证明", icon = "🔖", sellPrice = 0, quality = "orange", desc = "铭刻守护之志的凭证，是对积极反馈者的认可。\n用途：使用后增加100点仙途守护者道印经验。\n（无法出售，只能使用）\n获取：兑换码发放。" },
 
@@ -261,6 +271,8 @@ GameConfig.PET_MATERIALS = {
         desc = "蕴含噬魂夺命之力的精华结晶。\n用途：炼制凝魂丹（击杀回血 +40），需1份精华 + 100灵韵。\n获取：阵营挑战物品掉落。" },
     lingxi_essence  = { name = "灵息精华", icon = "🌬️", sellPrice = 500, quality = "purple",
         desc = "蕴含灵气吐纳之力的精华结晶。\n用途：炼制凝息丹（生命回复 +6），需1份精华 + 100灵韵。\n获取：阵营挑战物品掉落。" },
+    ganggu_essence  = { name = "钢骨精华", icon = "🦴", sellPrice = 800, quality = "orange",
+        desc = "蕴含钢筋铁骨之力的精华结晶，极为稀有。\n用途：炼制钢筋铁骨丹（根骨 +1），需1份精华 + 1000灵韵。\n获取：R8阵营挑战额外掉落（1%）。" },
 }
 
 -- 职业定义（数据驱动，按 classId 索引）

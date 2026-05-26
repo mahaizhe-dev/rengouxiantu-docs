@@ -255,6 +255,7 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
                         ningyuan  = ChallengeSystem.ningyuanDanCount or 0,
                         ninghun   = ChallengeSystem.ninghunDanCount or 0,
                         ningxi    = ChallengeSystem.ningxiDanCount or 0,
+                        ganggu    = ChallengeSystem.gangguDanCount or 0,
                         -- 第五章丹药
                         sword_intent = AlchemyUI.GetSwordIntentPillCount(),
                         abyss_seal   = AlchemyUI.GetAbyssSealPillCount(),
@@ -313,6 +314,11 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
         if saveData.artifact_ch4 then
             local ArtifactCh4 = require("systems.ArtifactSystem_ch4")
             ArtifactCh4.Deserialize(saveData.artifact_ch4)
+        end
+
+        if saveData.artifact_ch5 then
+            local ArtifactCh5 = require("systems.ArtifactSystem_ch5")
+            ArtifactCh5.Deserialize(saveData.artifact_ch5)
         end
 
         if saveData.fortuneFruits then

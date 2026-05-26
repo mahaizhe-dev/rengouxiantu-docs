@@ -47,6 +47,7 @@ function EffectRenderer.Render(nvg, l, camera)
     EffectRenderer.RenderPetSlashEffects(nvg, l, camera)
     EffectRenderer.RenderClawEffects(nvg, l, camera)
     EffectRenderer.RenderRakeStrikeEffects(nvg, l, camera)
+    EffectRenderer.RenderZhentuSwordEffects(nvg, l, camera)
     EffectRenderer.RenderSetAoeEffects(nvg, l, camera)
     EffectRenderer.RenderBaguaAura(nvg, l, camera)
     EffectRenderer.RenderBuffAuras(nvg, l, camera)
@@ -3423,6 +3424,137 @@ function EffectRenderer.RenderBuffAuras(nvg, l, camera)
         nvgRect(nvg, px - pillarW * 0.5, sy - pillarH * 0.5, pillarW, pillarH)
         nvgFillPaint(nvg, pillarPaint)
         nvgFill(nvg)
+    end
+end
+
+-- ============================================================================
+-- 神器被动「四剑诛灭」剑影特效
+-- 四把剑从四个斜角飞向玩家，到达目标时爆出冲击光圈
+-- ============================================================================
+
+function EffectRenderer.RenderZhentuSwordEffects(nvg, l, camera)
+    local effects = CombatSystem.zhentuSwordEffects
+    if #effects == 0 then return end
+
+    local tileSize = camera:GetTileSize()
+
+    for i = 1, #effects do
+        local e = effects[i]
+        local t = e.elapsed / e.duration   -- 0 → 1
+
+        -- 插值：剑从起点飞向目标
+        -- 前70%时间飞行，后30%时间冲击光圈消散
+        local flyT = math.min(t / 0.70, 1.0)
+        -- 使用 ease-out（减速到达）
+        local eased = 1.0 - (1.0 - flyT) * (1.0 - flyT)
+
+        local wx = e.startX + (e.targetX - e.startX) * eased
+        local wy = e.startY + (e.targetY - e.startY) * eased
+
+        if not camera:IsVisible(wx, wy, l.w, l.h, 2) then goto continue end
+
+        local sx = (wx - camera.x) * tileSize + l.w / 2 + l.x
+        local sy = (wy - camera.y) * tileSize + l.h / 2 + l.y
+
+        local c = e.color
+        -- 飞行阶段 alpha（全程可见，到达后淡出）
+        local alpha
+        if t < 0.70 then
+            alpha = 0.7 + flyT * 0.3   -- 飞行中逐渐增亮
+        else
+            alpha = 1.0 - (t - 0.70) / 0.30
+        end
+        alpha = math.max(0, math.min(1, alpha))
+        local a = math.floor(alpha * 255)
+
+        local ang = e.angle
+        local cosA = math.cos(ang)
+        local sinA = math.sin(ang)
+
+        -- ① 剑身（矩形条）
+        local swordLen = tileSize * (0.55 + flyT * 0.1)   -- 飞行时略微拉长
+        local swordW   = tileSize * 0.06
+        local halfW    = swordW * 0.5
+        -- 前向(剑尖方向) & 侧向
+        local fx, fy = cosA, sinA
+        local rx, ry = -sinA, cosA
+
+        -- 剑尖在当前位置，剑柄在后方
+        local tipX = sx + fx * swordLen * 0.35
+        local tipY = sy + fy * swordLen * 0.35
+        local hiltX = sx - fx * swordLen * 0.65
+        local hiltY = sy - fy * swordLen * 0.65
+
+        -- 发光外层
+        nvgBeginPath(nvg)
+        nvgMoveTo(nvg, tipX, tipY)
+        nvgLineTo(nvg, hiltX + rx * halfW * 2.5, hiltY + ry * halfW * 2.5)
+        nvgLineTo(nvg, hiltX - rx * halfW * 2.5, hiltY - ry * halfW * 2.5)
+        nvgClosePath(nvg)
+        nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(a * 0.30)))
+        nvgFill(nvg)
+
+        -- 主剑身
+        nvgBeginPath(nvg)
+        nvgMoveTo(nvg, tipX, tipY)
+        nvgLineTo(nvg, hiltX + rx * halfW, hiltY + ry * halfW)
+        nvgLineTo(nvg, hiltX - rx * halfW, hiltY - ry * halfW)
+        nvgClosePath(nvg)
+        nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], a))
+        nvgFill(nvg)
+
+        -- 剑身高光（沿中线）
+        nvgBeginPath(nvg)
+        nvgMoveTo(nvg, tipX, tipY)
+        nvgLineTo(nvg, hiltX, hiltY)
+        nvgStrokeColor(nvg, nvgRGBA(255, 255, 255, math.floor(a * 0.6)))
+        nvgStrokeWidth(nvg, 1.5)
+        nvgLineCap(nvg, NVG_ROUND)
+        nvgStroke(nvg)
+
+        -- ② 拖尾（飞行方向反向的渐隐线）
+        if flyT < 0.98 then
+            local trailLen = tileSize * 0.5 * flyT
+            local trailX = sx - fx * trailLen
+            local trailY = sy - fy * trailLen
+            local trailPaint = nvgLinearGradient(nvg,
+                sx, sy, trailX, trailY,
+                nvgRGBA(c[1], c[2], c[3], math.floor(a * 0.55)),
+                nvgRGBA(c[1], c[2], c[3], 0))
+            nvgBeginPath(nvg)
+            nvgMoveTo(nvg, sx + rx * halfW * 1.5, sy + ry * halfW * 1.5)
+            nvgLineTo(nvg, sx - rx * halfW * 1.5, sy - ry * halfW * 1.5)
+            nvgLineTo(nvg, trailX, trailY)
+            nvgClosePath(nvg)
+            nvgFillPaint(nvg, trailPaint)
+            nvgFill(nvg)
+        end
+
+        -- ③ 到达冲击光圈（到达目标后展开）
+        if flyT >= 0.95 then
+            local impactT = (t - 0.70) / 0.30
+            impactT = math.max(0, math.min(1, impactT))
+            local ringR = tileSize * 0.6 * impactT
+            local ringA = math.floor(255 * (1.0 - impactT) * alpha)
+
+            -- 目标中心屏幕坐标
+            local tsx = (e.targetX - camera.x) * tileSize + l.w / 2 + l.x
+            local tsy = (e.targetY - camera.y) * tileSize + l.h / 2 + l.y
+
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, tsx, tsy, ringR)
+            nvgStrokeColor(nvg, nvgRGBA(c[1], c[2], c[3], ringA))
+            nvgStrokeWidth(nvg, 3.0 * (1.0 - impactT * 0.7))
+            nvgStroke(nvg)
+
+            -- 内圈填充（更淡）
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, tsx, tsy, ringR * 0.5)
+            nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(ringA * 0.15)))
+            nvgFill(nvg)
+        end
+
+        ::continue::
     end
 end
 

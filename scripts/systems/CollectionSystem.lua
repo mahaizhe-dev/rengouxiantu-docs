@@ -18,10 +18,14 @@ function CollectionSystem.Init()
     print("[CollectionSystem] Initialized")
 end
 
---- 获取图录条目总数
+--- 获取图录条目总数（动态统计，不依赖手动维护的 order 数组）
 ---@return number
 function CollectionSystem.GetTotalCount()
-    return #EquipmentData.Collection.order
+    local count = 0
+    for _ in pairs(EquipmentData.Collection.entries) do
+        count = count + 1
+    end
+    return count
 end
 
 --- 获取已收录数量

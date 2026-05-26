@@ -1505,6 +1505,28 @@ EquipmentData.SpecialEquipment = {
         name = "龙极令", slot = "exclusive", quality = "cyan", tier = 9,
         isFabaoCollection = true, fabaoTemplateId = "fabao_longjiling", fabaoTier = 9,
     },
+    -- 龙魂令（T10红色，第五章铸剑地炉升级自龙极令）
+    fabao_longhunling = {
+        name = "龙魂令", slot = "exclusive", quality = "red", tier = 10,
+        isFabaoCollection = true, fabaoTemplateId = "fabao_longhunling", fabaoTier = 10,
+    },
+    -- 第五章·T10 灵器级法宝（Lv.8）
+    fabao_xuehaitu_t10 = {
+        name = "血海图Lv.8", slot = "exclusive", quality = "cyan", tier = 10,
+        isFabaoCollection = true, fabaoTemplateId = "fabao_xuehaitu", fabaoTier = 10,
+    },
+    fabao_haoqiyin_t10 = {
+        name = "浩气印Lv.8", slot = "exclusive", quality = "cyan", tier = 10,
+        isFabaoCollection = true, fabaoTemplateId = "fabao_haoqiyin", fabaoTier = 10,
+    },
+    fabao_qingyunta_t10 = {
+        name = "青云塔Lv.8", slot = "exclusive", quality = "cyan", tier = 10,
+        isFabaoCollection = true, fabaoTemplateId = "fabao_qingyunta", fabaoTier = 10,
+    },
+    fabao_fengmopan_t10 = {
+        name = "封魔盘Lv.8", slot = "exclusive", quality = "cyan", tier = 10,
+        isFabaoCollection = true, fabaoTemplateId = "fabao_fengmopan", fabaoTier = 10,
+    },
 
     -- ===================== 第五章·太虚遗藏（章节专属装备） =====================
 
@@ -1824,7 +1846,7 @@ EquipmentData.SpecialEquipment = {
         specialEffect = {
             type = "xianyuan_lowest_boost",
             name = "仙缘均衡",
-            desc = "当前总值最低的仙缘属性额外获得100点加成",
+            desc = "当前总值最低的仙缘属性额外获得100点加成（唯一）",
             bonus = 100,
         },
     },
@@ -1854,6 +1876,7 @@ EquipmentData.SpecialEquipment = {
             desc = "暴击时，追加一次15%攻击力的伤害（可暴击）",
             damagePercent = 0.15,
             canCrit = true,
+            cooldown = 1.0,
         },
     },
 
@@ -1906,6 +1929,7 @@ EquipmentData.SpecialEquipment = {
             name = "戮仙",
             desc = "普攻时有10%概率发动连击，连击可触发普攻特效",
             procChance = 0.10,
+            cooldown = 1.0,
         },
     },
 
@@ -2049,10 +2073,10 @@ EquipmentData.SpecialEquipment = {
         specialEffect = {
             type = "zhuxian",
             name = "诛仙·圣威",
-            desc = "每次攻击30%概率触发诛仙剑气，造成额外180%攻击伤害，圣威加持下伤害再提升50%",
-            procChance = 0.30,
-            dmgMult = 1.80,
-            saintBonus = 1.50,
+            desc = "暴击时，追加一次15%攻击力的伤害（可暴击）",
+            damagePercent = 0.15,
+            canCrit = true,
+            cooldown = 1.0,
         },
     },
 
@@ -2077,11 +2101,10 @@ EquipmentData.SpecialEquipment = {
         specialEffect = {
             type = "xianxian",
             name = "陷仙·圣威",
-            desc = "攻击使目标陷入重压，每层防御-8%，最多5层，持续6秒，圣威加持下层数上限+2",
-            defReductionPerStack = 0.08,
-            maxStacks = 5,
-            saintMaxStacksBonus = 2,
-            duration = 6.0,
+            desc = "生命>50%时暴击伤害+50%；生命≤50%时每秒恢复2%最大生命",
+            highHpThreshold = 0.50,
+            critDmgBonus = 0.50,
+            lowHpRegenPercent = 0.02,
         },
     },
 
@@ -2106,10 +2129,9 @@ EquipmentData.SpecialEquipment = {
         specialEffect = {
             type = "luxian",
             name = "戮仙·圣威",
-            desc = "击杀敌人时爆发戮仙剑气，对周围敌人造成200%攻击伤害，圣威加持范围+50%",
-            killDmgMult = 2.00,
-            aoeRadius = 3.0,
-            saintAoeBonus = 1.50,
+            desc = "普攻时有10%概率发动连击，连击可触发普攻特效",
+            procChance = 0.10,
+            cooldown = 1.0,
         },
     },
 
@@ -2134,10 +2156,9 @@ EquipmentData.SpecialEquipment = {
         specialEffect = {
             type = "juexian",
             name = "绝仙·圣威",
-            desc = "每次攻击获得1层绝命，每层攻击+4%，最多5层，持续4秒，圣威加持每层攻击额外+2%",
-            stackPercent = 0.04,
+            desc = "每次攻击获得1层绝命，每层攻击+3%，最多5层，持续4秒",
+            stackPercent = 0.03,
             maxStacks = 5,
-            saintStackBonus = 0.02,
             duration = 4.0,
         },
     },
@@ -2360,6 +2381,11 @@ EquipmentData.Collection = {
                 "jiefeng_xianxian_ch5",
                 "jiefeng_luxian_ch5",
                 "jiefeng_juexian_ch5",
+                -- T10 灵器级法宝
+                "fabao_xuehaitu_t10",
+                "fabao_haoqiyin_t10",
+                "fabao_qingyunta_t10",
+                "fabao_fengmopan_t10",
                 "fabao_longhunling",
             },
         },
@@ -2456,6 +2482,20 @@ EquipmentData.Collection = {
         "fengyin_xianxian_ch5",
         "fengyin_luxian_ch5",
         "fengyin_juexian_ch5",
+        -- 铸剑地炉打造（圣器）
+        "dizun_saint_ring",
+        "daozang_saint_armor",
+        "saint_cape_ch5",
+        "jiefeng_zhuxian_ch5",
+        "jiefeng_xianxian_ch5",
+        "jiefeng_luxian_ch5",
+        "jiefeng_juexian_ch5",
+        -- T10 灵器级法宝
+        "fabao_xuehaitu_t10",
+        "fabao_haoqiyin_t10",
+        "fabao_qingyunta_t10",
+        "fabao_fengmopan_t10",
+        "fabao_longhunling",
     },
 
     -- 每个条目的收录奖励（总计≈T3绿全套的20%）
@@ -2857,6 +2897,26 @@ EquipmentData.Collection = {
             bonus = { atk = 8, maxHp = 30, killHeal = 8 },
             desc = "解封之后，绝世之锋重现，神仙亦可斩。",
         },
+        fabao_xuehaitu_t10 = {
+            bonus = { atk = 12, killHeal = 24 },
+            desc = "血煞盟至高秘典，血海滔天，杀意化为不灭洪流。",
+        },
+        fabao_haoqiyin_t10 = {
+            bonus = { killHeal = 24, hpRegen = 8 },
+            desc = "浩气宗镇宗法印，浩然正气充盈天地，百邪不侵。",
+        },
+        fabao_qingyunta_t10 = {
+            bonus = { heavyHit = 40, def = 12 },
+            desc = "青云门通天宝塔，塔影遮天蔽日，一击碎山河。",
+        },
+        fabao_fengmopan_t10 = {
+            bonus = { maxHp = 40, hpRegen = 4 },
+            desc = "封魔殿不灭法盘，万魔封印，血脉永固如山岳。",
+        },
+        fabao_longhunling = {
+            bonus = { constitution = 5, physique = 5 },
+            desc = "龙魂令在手，龙息长存，生生不息。",
+        },
     },
 }
 
@@ -3145,13 +3205,14 @@ EquipmentData.FabaoTemplates = {
             [4] = "icon_fabao_xuehaitu_lv1.png",
             [5] = "icon_fabao_xuehaitu_lv2.png",  -- T5-T6
             [6] = "icon_fabao_xuehaitu_lv2.png",
-            [7] = "icon_fabao_xuehaitu_lv3.png",  -- T7-T9
+            [7] = "icon_fabao_xuehaitu_lv3.png",  -- T7-T10
             [8] = "icon_fabao_xuehaitu_lv3.png",
             [9] = "icon_fabao_xuehaitu_lv3.png",
+            [10] = "icon_fabao_xuehaitu_lv3.png",
         },
         sellPriceByTier = {
             [3] = 300,  [4] = 400,  [5] = 500,
-            [6] = 600,  [7] = 700,  [8] = 800, [9] = 900,
+            [6] = 600,  [7] = 700,  [8] = 800, [9] = 900, [10] = 1200,
         },
     },
     -- 浩气宗 · 浩气印（主属性：福缘 fortune，仙缘公式）
@@ -3170,10 +3231,11 @@ EquipmentData.FabaoTemplates = {
             [7] = "icon_haoqi_seal_lv3.png",
             [8] = "icon_haoqi_seal_lv3.png",
             [9] = "icon_haoqi_seal_lv3.png",
+            [10] = "icon_haoqi_seal_lv3.png",
         },
         sellPriceByTier = {
             [3] = 300,  [4] = 400,  [5] = 500,
-            [6] = 600,  [7] = 700,  [8] = 800, [9] = 900,
+            [6] = 600,  [7] = 700,  [8] = 800, [9] = 900, [10] = 1200,
         },
     },
     -- 青云门 · 青云塔（主属性：根骨 constitution，仙缘公式）
@@ -3192,10 +3254,11 @@ EquipmentData.FabaoTemplates = {
             [7] = "icon_fabao_qingyunta_lv3.png",
             [8] = "icon_fabao_qingyunta_lv3.png",
             [9] = "icon_fabao_qingyunta_lv3.png",
+            [10] = "icon_fabao_qingyunta_lv3.png",
         },
         sellPriceByTier = {
             [3] = 300,  [4] = 400,  [5] = 500,
-            [6] = 600,  [7] = 700,  [8] = 800, [9] = 900,
+            [6] = 600,  [7] = 700,  [8] = 800, [9] = 900, [10] = 1200,
         },
     },
     -- 封魔殿 · 封魔盘（主属性：体魄 physique，仙缘公式）
@@ -3214,10 +3277,11 @@ EquipmentData.FabaoTemplates = {
             [7] = "icon_fabao_fengmopan_lv3.png",
             [8] = "icon_fabao_fengmopan_lv3.png",
             [9] = "icon_fabao_fengmopan_lv3.png",
+            [10] = "icon_fabao_fengmopan_lv3.png",
         },
         sellPriceByTier = {
             [3] = 300,  [4] = 400,  [5] = 500,
-            [6] = 600,  [7] = 700,  [8] = 800, [9] = 900,
+            [6] = 600,  [7] = 700,  [8] = 800, [9] = 900, [10] = 1200,
         },
     },
     -- 龙极令（攻击型法宝，第四章铸造，主属性：攻击力，standard 公式）
@@ -3245,7 +3309,7 @@ EquipmentData.FabaoTemplates = {
         mainStatType = "atk",
         mainStatFormula = "standard",
         mainStatBase = 2,                 -- 攻击法宝 base=2，T10圣器: 2×10×2.1=42
-        skillId   = "dragon_soul_breath", -- 升级版龙息技能
+        skillId   = "dragon_breath",        -- 复用龙极令龙息技能
         iconByTier = {
             [10] = "icon_fabao_longjiling.png",  -- 复用图标（后续可替换）
         },

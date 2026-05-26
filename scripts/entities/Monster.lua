@@ -1021,13 +1021,39 @@ function Monster:CheckPhaseTransition()
                 self.attackInterval = self.baseAttackInterval * phase.intervalMult
             end
 
-            -- 阶段新增技能
+            -- 阶段新增技能（单个）
             if phase.addSkill then
                 local skillDef = MonsterData.Skills[phase.addSkill]
                 if skillDef then
                     table.insert(self.skills, skillDef)
                     table.insert(self.skillTimers, 0)  -- 立即可用
                 end
+            end
+
+            -- 阶段新增技能（数组）
+            if phase.addSkills then
+                for _, sid in ipairs(phase.addSkills) do
+                    local skillDef = MonsterData.Skills[sid]
+                    if skillDef then
+                        table.insert(self.skills, skillDef)
+                        table.insert(self.skillTimers, 0)
+                    end
+                end
+            end
+
+            -- 阶段移除技能（数组）
+            if phase.removeSkills then
+                local removeSet = {}
+                for _, sid in ipairs(phase.removeSkills) do removeSet[sid] = true end
+                local newSkills, newTimers = {}, {}
+                for si, sk in ipairs(self.skills) do
+                    if not removeSet[sk.id] then
+                        table.insert(newSkills, sk)
+                        table.insert(newTimers, self.skillTimers[si] or 0)
+                    end
+                end
+                self.skills = newSkills
+                self.skillTimers = newTimers
             end
 
             -- 阶段触发技能（场地技能等，立即开始蓄力）

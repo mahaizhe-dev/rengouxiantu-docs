@@ -176,8 +176,13 @@ local function GetSpecialEffectDesc(eff)
         return string.format("受致命伤害%.0f%%概率免死，保留1点生命并无敌%.1f秒",
             (eff.immuneChance or 0) * 100, eff.immuneDuration or 1.0)
     elseif eff.type == "zhuxian" then
-        return string.format("暴击时，追加一次%.0f%%攻击力的额外伤害",
-            (eff.damagePercent or 0.30) * 100)
+        if eff.procChance then
+            return string.format("每次攻击%.0f%%概率触发诛仙剑气，造成%.0f%%攻击额外伤害",
+                (eff.procChance or 0.30) * 100, (eff.dmgMult or 1.80) * 100)
+        else
+            return string.format("暴击时，追加一次%.0f%%攻击力的额外伤害（可暴击）",
+                (eff.damagePercent or 0.15) * 100)
+        end
     elseif eff.type == "xianxian" then
         return string.format("生命>%.0f%%时暴击伤害+%.0f%%；生命≤%.0f%%时每秒恢复%.0f%%最大生命",
             (eff.highHpThreshold or 0.50) * 100, (eff.critDmgBonus or 0.50) * 100,
@@ -191,7 +196,7 @@ local function GetSpecialEffectDesc(eff)
     elseif eff.type == "def_boost" then
         return string.format("防御力提高%.0f%%", (eff.defPercent or 0) * 100)
     elseif eff.type == "xianyuan_lowest_boost" then
-        return string.format("当前总值最低的仙缘属性额外获得%d点加成", eff.bonus or 0)
+        return string.format("当前总值最低的仙缘属性额外获得%d点加成（唯一）", eff.bonus or 0)
     elseif eff.type == "yuanjia" then
         return string.format("受到伤害后，若当前生命低于50%%，获得%.0f%%减伤，持续%.0f秒（冷却%.0f秒）",
             (eff.dmgReduce or 0) * 100, eff.duration or 4, eff.cooldown or 8)

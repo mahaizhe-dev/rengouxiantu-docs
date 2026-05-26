@@ -834,10 +834,10 @@ end
 
 --- 阵营丹药炼制顺序（固定，保证 UI 展示一致）
 local CHALLENGE_PILL_ORDER = {
-    "ningli_dan", "ningjia_dan", "ningyuan_dan", "ninghun_dan", "ningxi_dan",
+    "ningli_dan", "ningjia_dan", "ningyuan_dan", "ninghun_dan", "ningxi_dan", "ganggu_dan",
 }
 
---- 构建中洲内容（5种阵营丹药）
+--- 构建中洲内容（6种阵营丹药）
 local function BuildMidlandContent()
     local player = GameState.player
     if not player then return {} end
@@ -985,28 +985,21 @@ function AlchemyUI.Create(parentOverlay)
                         alignItems = "center",
                         gap = T.spacing.md,
                         children = {
+                            UI.Button {
+                                text = "✕",
+                                width = T.size.closeButton, height = T.size.closeButton,
+                                fontSize = T.fontSize.md,
+                                borderRadius = T.size.closeButton / 2,
+                                backgroundColor = {60, 60, 70, 200},
+                                onClick = function() AlchemyUI.Hide() end,
+                            },
                             portraitPanel_,
-                            UI.Panel {
+                            UI.Label {
+                                text = "🔥 炼丹炉",
+                                fontSize = T.fontSize.lg,
+                                fontWeight = "bold",
+                                fontColor = T.color.titleText,
                                 flexGrow = 1, flexShrink = 1,
-                                flexDirection = "row",
-                                justifyContent = "space-between",
-                                alignItems = "center",
-                                children = {
-                                    UI.Label {
-                                        text = "🔥 炼丹炉",
-                                        fontSize = T.fontSize.lg,
-                                        fontWeight = "bold",
-                                        fontColor = T.color.titleText,
-                                    },
-                                    UI.Button {
-                                        text = "✕",
-                                        width = T.size.closeButton, height = T.size.closeButton,
-                                        fontSize = T.fontSize.md,
-                                        borderRadius = T.size.closeButton / 2,
-                                        backgroundColor = {60, 60, 70, 200},
-                                        onClick = function() AlchemyUI.Hide() end,
-                                    },
-                                },
                             },
                         },
                     },

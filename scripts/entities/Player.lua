@@ -110,7 +110,7 @@ function Player.New(x, y, opts)
     self.pillKillHeal = 0
     self.pillConstitution = 0
 
-    -- 悟道树悟性（每日参悟 25% 概率 +1，上限 50，连续5次不出第6次必出）
+    -- 悟道树悟性（每日参悟 25% 概率 +1，上限 100，连续5次不出第6次必出）
     self.daoTreeWisdom = 0
     self.daoTreeWisdomPity = 0  -- 保底计数器（连续未获得悟性次数）
 
@@ -128,6 +128,11 @@ function Player.New(x, y, opts)
     self.artifactTiandiAtk      = 0   -- 攻击
     self.artifactTiandiKillHeal = 0   -- 击杀回血（平值HP，与 equipKillHeal 同类型）
     self.artifactTiandiHpRegen  = 0   -- 生命恢复 HP/s
+
+    -- 第五章神器加成：诛仙阵图（由 ArtifactSystem_ch5 计算后设置）
+    self.artifactCh5Wisdom       = 0   -- 悟性
+    self.artifactCh5Constitution = 0   -- 体质
+    self.artifactCh5Physique     = 0   -- 根骨
 
     -- 称号加成（由 TitleSystem 计算后设置，所有已解锁称号累加）
     self.titleAtk = 0
@@ -280,7 +285,7 @@ function Player:_RecalcStatsCache()
     end
     local petBonusConst = self.petOwnerBonuses and self.petOwnerBonuses.constitution or 0
     local buffConst = (cs and cs.GetBuffConstitutionFlat) and cs.GetBuffConstitutionFlat() or 0
-    self._cachedTotalConstitution = (self.equipConstitution or 0) + (self.pillConstitution or 0) + (self.artifactConstitution or 0) + classConst + petBonusConst + (self.wineConstitution or 0) + (self.medalGengu or 0) + (self.collectionConstitution or 0) + buffConst + (self.daoConstitution or 0) + (skinBonuses.constitution or 0)
+    self._cachedTotalConstitution = (self.equipConstitution or 0) + (self.pillConstitution or 0) + (self.artifactConstitution or 0) + classConst + petBonusConst + (self.wineConstitution or 0) + (self.medalGengu or 0) + (self.collectionConstitution or 0) + buffConst + (self.daoConstitution or 0) + (skinBonuses.constitution or 0) + (self.artifactCh5Constitution or 0)
 
     -- GetTotalDef（依赖根骨）
     local defBase = self.def + self.equipDef + (self.collectionDef or 0) + (self.seaPillarDef or 0) + (self.swordPoolDef or 0) + (self.artifactCh4Defense or 0) + (self.medalDefFlat or 0) + (self.prisonTowerDef or 0)
@@ -308,7 +313,7 @@ function Player:_RecalcStatsCache()
     local petBonusPhys = self.petOwnerBonuses and self.petOwnerBonuses.physique or 0
     local pillPhysique = self.pillPhysique or 0
     local buffPhys = (cs and cs.GetBuffPhysiqueFlat) and cs.GetBuffPhysiqueFlat() or 0
-    self._cachedTotalPhysique = (self.equipPhysique or 0) + (self.artifactPhysique or 0) + petBonusPhys + pillPhysique + (self.winePhysique or 0) + (self.medalTipo or 0) + (self.collectionPhysique or 0) + buffPhys + classPhys + (self.daoPhysique or 0) + (skinBonuses.physique or 0)
+    self._cachedTotalPhysique = (self.equipPhysique or 0) + (self.artifactPhysique or 0) + petBonusPhys + pillPhysique + (self.winePhysique or 0) + (self.medalTipo or 0) + (self.collectionPhysique or 0) + buffPhys + classPhys + (self.daoPhysique or 0) + (skinBonuses.physique or 0) + (self.artifactCh5Physique or 0)
 
     -- GetTotalMaxHp（依赖体魄）
     local hpBase = self.maxHp + self.equipHp + (self.collectionHp or 0) + (self.seaPillarMaxHp or 0) + (self.swordPoolMaxHp or 0) + (self.medalHpFlat or 0) + (self.daoMaxHp or 0) + (self.prisonTowerMaxHp or 0)
@@ -331,11 +336,13 @@ function Player:_RecalcStatsCache()
     local petBonusWis = self.petOwnerBonuses and self.petOwnerBonuses.wisdom or 0
     local daoTreeWisdom = self.daoTreeWisdom or 0
     local buffWis = (cs and cs.GetBuffWisdomFlat) and cs.GetBuffWisdomFlat() or 0
-    self._cachedTotalWisdom = (self.equipWisdom or 0) + (self.artifactCh4Wisdom or 0) + petBonusWis + daoTreeWisdom + (self.wineWisdom or 0) + (self.medalWuxing or 0) + classWisdom + (self.collectionWisdom or 0) + buffWis + (self.daoWisdom or 0) + (skinBonuses.wisdom or 0)
+    self._cachedTotalWisdom = (self.equipWisdom or 0) + (self.artifactCh4Wisdom or 0) + petBonusWis + daoTreeWisdom + (self.wineWisdom or 0) + (self.medalWuxing or 0) + classWisdom + (self.collectionWisdom or 0) + buffWis + (self.daoWisdom or 0) + (skinBonuses.wisdom or 0) + (self.artifactCh5Wisdom or 0)
 
-    -- xianyuan_lowest_boost 特效：最低仙缘属性+bonus
+    -- xianyuan_lowest_boost 特效（唯一）：最低仙缘属性+bonus，并列最低时全部获得加成
+    local xianyuanApplied = false
     for _, eff in ipairs(self.equipSpecialEffects or {}) do
-        if eff.type == "xianyuan_lowest_boost" then
+        if eff.type == "xianyuan_lowest_boost" and not xianyuanApplied then
+            xianyuanApplied = true  -- 唯一：只生效一条
             local bonus = eff.bonus or 0
             if bonus > 0 then
                 local c = self._cachedTotalConstitution
@@ -343,15 +350,11 @@ function Player:_RecalcStatsCache()
                 local f = self._cachedTotalFortune
                 local w = self._cachedTotalWisdom
                 local minVal = math.min(c, p, f, w)
-                if c == minVal then
-                    self._cachedTotalConstitution = c + bonus
-                elseif p == minVal then
-                    self._cachedTotalPhysique = p + bonus
-                elseif f == minVal then
-                    self._cachedTotalFortune = f + bonus
-                else
-                    self._cachedTotalWisdom = w + bonus
-                end
+                -- 并列最低时全部获得加成（不用 elseif）
+                if c == minVal then self._cachedTotalConstitution = c + bonus end
+                if p == minVal then self._cachedTotalPhysique = p + bonus end
+                if f == minVal then self._cachedTotalFortune = f + bonus end
+                if w == minVal then self._cachedTotalWisdom = w + bonus end
             end
         end
     end

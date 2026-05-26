@@ -75,7 +75,7 @@ function M.HandleTrialClaimDaily(eventType, eventData)
 
             -- 内联 TrialTowerConfig 常量和计算
             local DAILY_UNLOCK_FLOOR = 10
-            local MAX_DAILY_TIER = 18
+            local MAX_DAILY_TIER = 26
 
             local currentTier = 0
             if highestFloor >= DAILY_UNLOCK_FLOOR then

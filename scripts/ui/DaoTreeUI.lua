@@ -84,7 +84,7 @@ local function BuildInteractPanel(npc)
     local npcName = npc.name or "悟道树"
     local dialog = npc.dialog or "古树通灵，静坐树下可感天地至理。"
     local daoTreeWisdom = player and player.daoTreeWisdom or 0
-    local wisdomCapped = daoTreeWisdom >= 50
+    local wisdomCapped = daoTreeWisdom >= 100
 
     -- 检查客户端缓存：是否已参悟过此树 / 是否达到每日上限
     local treeId = npc.npcId or npc.id or ""
@@ -155,7 +155,7 @@ local function BuildInteractPanel(npc)
             fontColor = {180, 200, 255, 240},
         },
         UI.Label {
-            text = "· 参悟耗时 10 秒\n· 每棵树每日可参悟 1 次\n· 每日最多参悟 3 棵树\n· 参悟有 30% 概率获得悟性\n· 悟道树悟性上限：50 点",
+            text = "· 参悟耗时 10 秒\n· 每棵树每日可参悟 1 次\n· 每日最多参悟 3 棵树\n· 参悟有 30% 概率获得悟性\n· 悟道树悟性上限：100 点",
             fontSize = T.fontSize.xs,
             fontColor = {170, 170, 190, 220},
             lineHeight = 1.6,
@@ -167,7 +167,7 @@ local function BuildInteractPanel(npc)
         },
         -- 悟道树悟性进度
         UI.Label {
-            text = "悟道树悟性：" .. daoTreeWisdom .. "/50" .. (wisdomCapped and "（已满）" or ""),
+            text = "悟道树悟性：" .. daoTreeWisdom .. "/100" .. (wisdomCapped and "（已满）" or ""),
             fontSize = T.fontSize.sm,
             fontColor = wisdomCapped and {255, 200, 80, 255} or {180, 220, 255, 255},
             textAlign = "center",
@@ -335,7 +335,7 @@ local function ShowRewardPanel(exp, gotWisdom, wisdomTotal, dailyUsed)
     })
 
     table.insert(contentChildren, UI.Label {
-        text = "悟道树悟性：" .. wisdomTotal .. "/50",
+        text = "悟道树悟性：" .. wisdomTotal .. "/100",
         fontSize = T.fontSize.sm,
         fontColor = {180, 220, 255, 220},
         textAlign = "center",

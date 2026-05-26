@@ -138,6 +138,12 @@ function SkillSystem.HandleSkillCastPassives(skillId, skill)
     for _, nthSkill in ipairs(nthSkills) do
         SkillSystem.TryNthCastTrigger(nthSkill, skillId, skill)
     end
+
+    -- 3. 诛仙阵图被动：四剑诛灭（第五章神器，施放主动技能时触发）
+    local okCh5, ArtifactCh5 = pcall(require, "systems.ArtifactSystem_ch5")
+    if okCh5 and ArtifactCh5 and ArtifactCh5.TryTriggerZhentu then
+        ArtifactCh5.TryTriggerZhentu(skillId, skill)
+    end
 end
 
 --- 检查并解锁可用技能（按当前职业的解锁列表）

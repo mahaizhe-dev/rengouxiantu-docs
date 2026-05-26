@@ -34,6 +34,7 @@ BMConfig.JINDAN_ORDER = 4
 BMConfig.CATEGORY_RAKE    = "rake"      -- 上宝逊金钯碎片
 BMConfig.CATEGORY_BAGUA   = "bagua"     -- 文王八卦盘碎片
 BMConfig.CATEGORY_TIANDI  = "tiandi"    -- 天帝剑痕碎片
+BMConfig.CATEGORY_ZHENTU  = "zhentu"    -- 诛仙阵图残符（第五章神器）
 BMConfig.CATEGORY_LINGYU   = "lingyu"    -- 附灵玉
 BMConfig.CATEGORY_MATERIAL     = "material"      -- 丹药材料（兼容旧引用）
 BMConfig.CATEGORY_CONSUMABLE_MAT = "consumable_mat" -- 消耗品（龙鳞、金砖、令牌盒等）
@@ -50,6 +51,7 @@ BMConfig.CATEGORY_NAMES = {
     rake          = "逊金钯",
     bagua         = "八卦盘",
     tiandi        = "天帝剑痕",
+    zhentu        = "诛仙阵图",
     lingyu        = "附灵玉",
     consumable_mat = "消耗品",
     herb          = "草药",
@@ -177,6 +179,37 @@ BMConfig.ITEMS = {
         buy_price = 25, sell_price = 50, category = "tiandi", boss = "域外邪魔",
     }),
 
+    -- === 诛仙阵图残符（太虚·第五章，对应9位BOSS） ===
+    -- 魔帅掉落（1-3）：收购价30仙石，出售价60仙石
+    -- 高层BOSS掉落（4-9）：收购价25仙石，出售价50仙石
+    zhentu_fragment_1 = ItemFromGame("zhentu_fragment_1", {
+        buy_price = 30, sell_price = 60, category = "zhentu", boss = "镇渊魔帅·蚀骨", isBoss = true,
+    }),
+    zhentu_fragment_2 = ItemFromGame("zhentu_fragment_2", {
+        buy_price = 30, sell_price = 60, category = "zhentu", boss = "镇渊魔帅·裂魂", isBoss = true,
+    }),
+    zhentu_fragment_3 = ItemFromGame("zhentu_fragment_3", {
+        buy_price = 30, sell_price = 60, category = "zhentu", boss = "噬渊血犼", isBoss = true,
+    }),
+    zhentu_fragment_4 = ItemFromGame("zhentu_fragment_4", {
+        buy_price = 25, sell_price = 50, category = "zhentu", boss = "裴千岳",
+    }),
+    zhentu_fragment_5 = ItemFromGame("zhentu_fragment_5", {
+        buy_price = 25, sell_price = 50, category = "zhentu", boss = "洗剑霜鸾",
+    }),
+    zhentu_fragment_6 = ItemFromGame("zhentu_fragment_6", {
+        buy_price = 25, sell_price = 50, category = "zhentu", boss = "韩百炼",
+    }),
+    zhentu_fragment_7 = ItemFromGame("zhentu_fragment_7", {
+        buy_price = 25, sell_price = 50, category = "zhentu", boss = "石观澜",
+    }),
+    zhentu_fragment_8 = ItemFromGame("zhentu_fragment_8", {
+        buy_price = 25, sell_price = 50, category = "zhentu", boss = "宁栖梧",
+    }),
+    zhentu_fragment_9 = ItemFromGame("zhentu_fragment_9", {
+        buy_price = 25, sell_price = 50, category = "zhentu", boss = "温素章",
+    }),
+
     -- === 附灵玉（附灵师·萃取产出，对应四大T9套装） ===
     -- 收购价20仙石（玩家卖出），出售价40仙石（玩家买入）
     lingyu_xuesha_lv1  = ItemFromGame("lingyu_xuesha_lv1",  { buy_price = 20, sell_price = 40, category = "lingyu" }),
@@ -195,9 +228,10 @@ BMConfig.ITEMS = {
     shihun_essence     = ItemFromGame("shihun_essence",     { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 8 }),
     lingxi_essence     = ItemFromGame("lingxi_essence",     { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 9 }),
     dragon_blood_herb  = ItemFromGame("dragon_blood_herb",  { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 10 }),
+    ganggu_essence     = ItemFromGame("ganggu_essence",     { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 5,  sort_order = 11 }),
     -- Ch5 圣器材料（炼制太虚剑丹/狱甲丹/圣器的必需材料，高价值稀有草药）
-    sword_intent_crystal   = ItemFromGame("sword_intent_crystal",   { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 5, sort_order = 11 }),
-    abyss_seal_shard       = ItemFromGame("abyss_seal_shard",       { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 5, sort_order = 12 }),
+    sword_intent_crystal   = ItemFromGame("sword_intent_crystal",   { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 5, sort_order = 12 }),
+    abyss_seal_shard       = ItemFromGame("abyss_seal_shard",       { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 5, sort_order = 13 }),
 
     -- === 消耗品（龙神材料、仙人精血、金砖、令牌盒） ===
     dragon_scale_ice   = ItemFromGame("dragon_scale_ice",   { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 5, sort_order = 1 }),

@@ -1,7 +1,7 @@
 -- ============================================================================
 -- TemperUI.lua - 附灵师面板（萃取 + 附灵）
 --
--- Tab1 萃取：背包中3件同套T9灵器 + 100灵韵 → 对应附灵玉
+-- Tab1 萃取：背包中3件同套制式套装灵器（T9/T10）+ 100灵韵 → 对应附灵玉
 -- Tab2 附灵：装备栏无套装/无附灵装备 + 1枚附灵玉 + 100灵韵 → 写入 enchantSetId
 --
 -- 设计文档：docs/设计文档/淬炼与附灵系统.md v2.0
@@ -48,7 +48,7 @@ local selectedLingyuId_  = nil   -- 选中的附灵玉 consumableId
 -- ── 常量 ─────────────────────────────────────────────────────────────────────
 local COST_LINGYUN = 100   -- 萃取和附灵均消耗 100 灵韵
 
--- 有效套装 setId 集合（T9 灵器判定用）
+-- 有效套装 setId 集合（制式套装灵器判定用）
 local VALID_SET_IDS = { xuesha = true, qingyun = true, fengmo = true, haoqi = true }
 
 -- 附灵玉 consumableId → setId 映射
@@ -85,7 +85,7 @@ local SET_COLORS = {
 
 -- ── 辅助函数 ──────────────────────────────────────────────────────────────────
 
---- 获取一件背包物品所属的套装 setId（T9原装用 setId，附灵装备用 enchantSetId）
+--- 获取一件背包物品所属的套装 setId（制式套装原装用 setId，附灵装备用 enchantSetId）
 ---@param item table
 ---@return string|nil
 local function GetItemExtractSetId(item)
@@ -95,7 +95,7 @@ local function GetItemExtractSetId(item)
     return nil
 end
 
---- 扫描背包中可萃取物品（T9套装原装 或 已附灵装备），返回平铺列表
+--- 扫描背包中可萃取物品（制式套装原装 或 已附灵装备），返回平铺列表
 ---@return table[] { {slotIndex, item, setId, setName, isEnchanted} }
 local function ScanExtractableItems()
     local manager = InventorySystem.GetManager()
@@ -219,7 +219,7 @@ local function GetDisplayName(item)
     if sid and SET_NAMES[sid] then
         return SET_NAMES[sid] .. "·" .. StripSetPrefix(item.name or "")
     end
-    -- T9 原套装装备：setId 存在时同样格式化展示
+    -- 制式套装原装：setId 存在时同样格式化展示
     if item.setId and SET_NAMES[item.setId] then
         return SET_NAMES[item.setId] .. "·" .. StripSetPrefix(item.name or "")
     end
@@ -395,7 +395,7 @@ local function BuildExtractTab()
     local cards = {}
     if #itemList == 0 then
         cards[1] = UI.Label {
-            text = "背包中没有可萃取的装备\n（需要属于四大套装的T9灵器，或已附灵的装备）",
+            text = "背包中没有可萃取的装备\n（需要属于四大套装的制式套装灵器，或已附灵的装备）",
             fontSize = T.fontSize.xs, fontColor = {140, 140, 150, 200},
             textAlign = "center", padding = T.spacing.md,
         }
@@ -419,7 +419,7 @@ local function BuildExtractTab()
             local borderColor = isSel and col or {55,60,75,180}
 
             -- 标签：T9原装 or 附灵
-            local tagText  = entry.isEnchanted and "附灵" or "T9"
+            local tagText  = entry.isEnchanted and "附灵" or "套装"
             local tagColor = entry.isEnchanted and {180,120,255,220} or {col[1],col[2],col[3],220}
 
             cards[#cards + 1] = UI.Panel {
@@ -482,7 +482,7 @@ local function BuildExtractTab()
                 padding = T.spacing.sm, gap = 4,
                 children = {
                     UI.Label {
-                        text = "从背包中选择3件同套装装备（T9原装 或 已附灵装备均可）进行萃取，消耗后获得对应套装附灵玉。",
+                        text = "从背包中选择3件同套装装备（制式套装原装 或 已附灵装备均可）进行萃取，消耗后获得对应套装附灵玉。",
                         fontSize = T.fontSize.xs, fontColor = {160, 180, 200, 200},
                     },
                     UI.Label { text = hintText, fontSize = T.fontSize.xs, fontColor = hintColor },

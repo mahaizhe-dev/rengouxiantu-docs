@@ -6,22 +6,22 @@
 --
 -- 三层边界定义：
 --   1. DTO_FIELDS      — P0-3A 合同 §4.1 定义的 22 个 DTO 主体字段
---   2. ENVELOPE_FIELDS  — DoSave 构建 coreData 时附加的 6 个信封/元数据字段
+--   2. ENVELOPE_FIELDS  — DoSave 构建 coreData 时附加的 7 个信封/元数据字段
 --   3. PASSTHROUGH_FIELDS — 透传字段（DTO 不解析，原样传递）
 --
 -- 后向兼容 (schema = DTO + envelope):
---   - GetSchemaFields()     → 返回 28 个字段（22 DTO + 6 envelope）
---   - GetSchemaFieldCount() → 28
---   - IsSchemaField()       → 检查 28 个字段
---   - ValidateBoundary()    → 检查所有 31 个已知字段
+--   - GetSchemaFields()     → 返回 29 个字段（22 DTO + 7 envelope）
+--   - GetSchemaFieldCount() → 29
+--   - IsSchemaField()       → 检查 29 个字段
+--   - ValidateBoundary()    → 检查所有 32 个已知字段
 --
 -- 新增显式 API:
 --   - GetDTOFields()        → 返回 22 个 DTO 主体字段
 --   - GetDTOFieldCount()    → 22
 --   - IsDTOField()          → 检查 22 个 DTO 主体字段
---   - GetEnvelopeFields()   → 返回 6 个信封字段
---   - GetEnvelopeFieldCount() → 6
---   - IsEnvelopeField()     → 检查 6 个信封字段
+--   - GetEnvelopeFields()   → 返回 7 个信封字段
+--   - GetEnvelopeFieldCount() → 7
+--   - IsEnvelopeField()     → 检查 7 个信封字段
 --
 -- 设计原则：
 --   1. 纯叶模块，零业务依赖（可纯 Lua 测试）
@@ -70,7 +70,7 @@ local DTO_FIELDS = {
     bossKillTimes   = true,  -- BOSS击杀冷却
 }
 
---- DoSave 构建 coreData 时附加的 6 个信封/元数据字段
+--- DoSave 构建 coreData 时附加的 7 个信封/元数据字段
 --- 这些字段在 coreData 中存在，但不属于 P0-3A 合同定义的 DTO 主体
 ---@type table<string, true>
 local ENVELOPE_FIELDS = {
@@ -80,6 +80,7 @@ local ENVELOPE_FIELDS = {
     _bossKillsMigrated = true,  -- bossKills 迁移标记
     bulletin           = true,  -- 公告数据（BulletinUI.Serialize）
     artifact_ch4       = true,  -- 第四章神器数据（ArtifactSystem_ch4.Serialize）
+    artifact_ch5       = true,  -- 第五章神器数据（ArtifactSystem_ch5.Serialize）
 }
 
 --- 透传字段：DTO 不解析内容，原样传递
@@ -150,10 +151,10 @@ function SaveDTO.IsDTOField(name)
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- 新增显式 API — 信封字段（6 个字段）
+-- 新增显式 API — 信封字段（7 个字段）
 -- ═══════════════════════════════════════════════════════════════════════════
 
---- 返回 6 个信封/元数据字段名（有序数组）
+--- 返回 7 个信封/元数据字段名（有序数组）
 ---@return string[]
 function SaveDTO.GetEnvelopeFields()
     return copyList(_envelopeList)
@@ -173,11 +174,11 @@ function SaveDTO.IsEnvelopeField(name)
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- 后向兼容 API — schema = DTO ∪ envelope（28 个字段）
+-- 后向兼容 API — schema = DTO ∪ envelope（29 个字段）
 -- 注：SavePersistence.lua 直接调用这些 API，禁止修改其行为
 -- ═══════════════════════════════════════════════════════════════════════════
 
---- 返回所有 schema 字段名（有序数组，28 个 = 22 DTO + 6 envelope）
+--- 返回所有 schema 字段名（有序数组，29 个 = 22 DTO + 7 envelope）
 ---@return string[]
 function SaveDTO.GetSchemaFields()
     return copyList(_schemaList)

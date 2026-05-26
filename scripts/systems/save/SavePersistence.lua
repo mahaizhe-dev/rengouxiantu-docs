@@ -184,6 +184,10 @@ function SavePersistence.DoSave(slot, callback, epoch)
             local ArtifactCh4 = require("systems.ArtifactSystem_ch4")
             return ArtifactCh4.Serialize()
         end)(),
+        artifact_ch5 = (function()
+            local ArtifactCh5 = require("systems.ArtifactSystem_ch5")
+            return ArtifactCh5.Serialize()
+        end)(),
         fortuneFruits = (function()
             local FortuneFruitSystem = require("systems.FortuneFruitSystem")
             return FortuneFruitSystem.Serialize()

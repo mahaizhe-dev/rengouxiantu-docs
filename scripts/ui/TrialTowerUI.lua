@@ -80,7 +80,7 @@ function TrialTowerUI.Show(npc)
     elseif realm and player then
         local playerRealmData = GameConfig.REALMS[player.realm]
         local playerOrder = playerRealmData and playerRealmData.order or 0
-        local requiredOrder = realmIndex  -- realmIndex 1~12 对应 REALMS 表 order
+        local requiredOrder = realmIndex  -- realmIndex 1~22 对应 GameConfig.REALMS order
         if playerOrder < requiredOrder then
             canEnter = false
             cantEnterMsg = "需要境界【" .. realm.name .. "】才能挑战"

@@ -35,6 +35,7 @@ local VALID_TREE_IDS = {
     dao_tree_ch2 = true,
     dao_tree_ch3 = true,
     dao_tree_ch4 = true,
+    dao_tree_ch5 = true,  -- 第五章·洗剑寒池悟道树
     dao_tree_mz  = true,  -- 中洲·瑶池悟道古树
 }
 M.VALID_TREE_IDS = VALID_TREE_IDS
@@ -50,7 +51,7 @@ end
 M.CalcDaoTreeExp = CalcDaoTreeExp
 
 --- 悟道树悟性上限
-local DAO_TREE_WISDOM_CAP = 50
+local DAO_TREE_WISDOM_CAP = 100
 M.DAO_TREE_WISDOM_CAP = DAO_TREE_WISDOM_CAP
 
 -- ============================================================================

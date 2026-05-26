@@ -10,6 +10,7 @@ local T = require("config.UITheme")
 local GameState = require("core.GameState")
 local AtlasSystem = require("systems.AtlasSystem")
 local MedalConfig = require("config.MedalConfig")
+local GameConfig = require("config.GameConfig")
 
 local AtlasUI = {}
 
@@ -22,7 +23,7 @@ local visible_ = false
 local currentTab_ = 1  -- 1=道印 2=神器
 local tabBtns_ = {}
 local contentArea_ = nil
-local artifactSubTab_ = 1  -- 1=上宝逊金钯 2=文王八卦盘
+local artifactSubTab_ = 1  -- 1=上宝逊金钯 2=文王八卦盘 3=天帝剑痕 4=诛仙阵图
 local subTabBtns_ = {}     -- 子切页按钮引用
 
 -- ============================================================================
@@ -337,52 +338,66 @@ local ARTIFACT_SUB_TABS = {
     { name = "上宝逊金钯", icon = "⚔", chapter = "第三章：万里黄沙" },
     { name = "文王八卦盘", icon = "☯", chapter = "第四章：八卦海" },
     { name = "天帝剑痕",   icon = "⚡", chapter = "中洲" },
+    { name = "诛仙阵图",   icon = "☠", chapter = "第五章：太虚之殇" },
 }
 
---- 构建子切页按钮栏
+--- 构建子切页按钮栏（两行布局，每行两个，防止超框）
 local function BuildSubTabBar()
-    local tabChildren = {}
     subTabBtns_ = {}
-    for i, sub in ipairs(ARTIFACT_SUB_TABS) do
-        local isActive = (i == artifactSubTab_)
-        local btn = UI.Button {
-            flexGrow = 1,
-            height = 44,
-            backgroundColor = isActive and A.subTabActive or A.subTabInactive,
-            borderRadius = T.radius.sm,
-            borderBottomWidth = isActive and 2 or 0,
-            borderColor = A.subTabIndicator,
-            transition = "backgroundColor 0.15s easeOut",
-            flexDirection = "column",
-            alignItems = "center",
-            justifyContent = "center",
-            gap = 1,
-            onClick = function(self)
-                if artifactSubTab_ == i then return end
-                artifactSubTab_ = i
-                RefreshContent()
-            end,
-            children = {
-                UI.Label {
-                    text = sub.icon .. " " .. sub.name,
-                    fontSize = T.fontSize.sm,
-                    color = {230, 220, 240, 255},
-                },
-                UI.Label {
-                    text = sub.chapter,
-                    fontSize = T.fontSize.xs - 1,
-                    color = {160, 140, 200, 180},
-                },
-            },
+    local rows = { {1, 2}, {3, 4} }
+    local rowPanels = {}
+    for _, idxPair in ipairs(rows) do
+        local rowChildren = {}
+        for _, i in ipairs(idxPair) do
+            local sub = ARTIFACT_SUB_TABS[i]
+            if sub then
+                local isActive = (i == artifactSubTab_)
+                local btn = UI.Button {
+                    flexGrow = 1,
+                    height = 44,
+                    backgroundColor = isActive and A.subTabActive or A.subTabInactive,
+                    borderRadius = T.radius.sm,
+                    borderBottomWidth = isActive and 2 or 0,
+                    borderColor = A.subTabIndicator,
+                    transition = "backgroundColor 0.15s easeOut",
+                    flexDirection = "column",
+                    alignItems = "center",
+                    justifyContent = "center",
+                    gap = 1,
+                    onClick = function(self)
+                        if artifactSubTab_ == i then return end
+                        artifactSubTab_ = i
+                        RefreshContent()
+                    end,
+                    children = {
+                        UI.Label {
+                            text = sub.icon .. " " .. sub.name,
+                            fontSize = T.fontSize.sm,
+                            color = {230, 220, 240, 255},
+                        },
+                        UI.Label {
+                            text = sub.chapter,
+                            fontSize = T.fontSize.xs - 1,
+                            color = {160, 140, 200, 180},
+                        },
+                    },
+                }
+                subTabBtns_[i] = btn
+                rowChildren[#rowChildren + 1] = btn
+            end
+        end
+        rowPanels[#rowPanels + 1] = UI.Panel {
+            width = "100%",
+            flexDirection = "row",
+            gap = T.spacing.xs,
+            children = rowChildren,
         }
-        subTabBtns_[i] = btn
-        tabChildren[#tabChildren + 1] = btn
     end
     return UI.Panel {
         width = "100%",
-        flexDirection = "row",
+        flexDirection = "column",
         gap = T.spacing.xs,
-        children = tabChildren,
+        children = rowPanels,
     }
 end
 
@@ -873,6 +888,147 @@ local function BuildTiandiContent()
     return children
 end
 
+--- 构建诛仙阵图内容（第五章神器）
+local function BuildZhentuContent()
+    local children = {}
+    local data = AtlasSystem.data
+    local ArtifactCh5 = require("systems.ArtifactSystem_ch5")
+
+    local activatedCount = 0
+    if data and data.artifact_ch5 then
+        for i = 1, ArtifactCh5.GRID_COUNT do
+            if data.artifact_ch5.activatedGrids[i] then
+                activatedCount = activatedCount + 1
+            end
+        end
+    end
+
+    -- 拼图区域：完整图片 + 3×3 格子覆盖（与天帝剑痕布局一致）
+    local gridRows = {}
+    for row = 1, 3 do
+        local rowCells = {}
+        for col = 1, 3 do
+            local idx = (row - 1) * 3 + col
+            local isActive = data and data.artifact_ch5 and data.artifact_ch5.activatedGrids[idx]
+
+            local cellText, cellFontSize, cellColor, borderColor, cellBg
+            if isActive then
+                cellText     = "✓"
+                cellFontSize = T.fontSize.md
+                cellColor    = {200, 120, 255, 220}
+                borderColor  = {180, 80, 255, 255}
+                cellBg       = MASK_ACTIVATED
+            else
+                cellText     = ArtifactCh5.GRID_NAMES[idx]
+                cellFontSize = T.fontSize.sm
+                cellColor    = {100, 100, 110, 150}
+                borderColor  = {50, 50, 60, 120}
+                cellBg       = MASK_LOCKED
+            end
+
+            rowCells[#rowCells + 1] = UI.Panel {
+                width = RAKE_CELL_W,
+                height = RAKE_CELL_H,
+                borderWidth = 1,
+                borderColor = borderColor,
+                backgroundColor = cellBg,
+                justifyContent = "center",
+                alignItems = "center",
+                children = {
+                    UI.Label {
+                        text = cellText,
+                        fontSize = cellFontSize,
+                        fontColor = cellColor,
+                    },
+                },
+            }
+        end
+        gridRows[#gridRows + 1] = UI.Panel {
+            flexDirection = "row",
+            gap = RAKE_GAP,
+            justifyContent = "center",
+            children = rowCells,
+        }
+    end
+
+    children[#children + 1] = UI.Panel {
+        width = "100%",
+        alignItems = "center",
+        children = {
+            UI.Panel {
+                width = RAKE_GRID_W,
+                height = RAKE_GRID_H,
+                alignSelf = "center",
+                borderRadius = T.radius.md,
+                overflow = "hidden",
+                backgroundImage = ArtifactCh5.FULL_IMAGE,
+                backgroundFit = "fill",
+                justifyContent = "center",
+                alignItems = "center",
+                gap = RAKE_GAP,
+                children = gridRows,
+            },
+        },
+    }
+
+    -- 进度文字
+    children[#children + 1] = UI.Panel {
+        flexDirection = "row",
+        justifyContent = "center",
+        alignItems = "center",
+        gap = T.spacing.sm,
+        children = {
+            UI.Label {
+                text = "位格收集",
+                fontSize = T.fontSize.xs,
+                fontColor = A.dim,
+            },
+            UI.Label {
+                text = activatedCount .. "/" .. ArtifactCh5.GRID_COUNT,
+                fontSize = T.fontSize.sm,
+                fontColor = activatedCount >= ArtifactCh5.GRID_COUNT and A.green or A.gold,
+                fontWeight = "bold",
+            },
+        },
+    }
+
+    -- 属性加成
+    children[#children + 1] = Divider()
+    local bonus        = ArtifactCh5.PER_GRID_BONUS
+    local fullReached  = activatedCount >= ArtifactCh5.GRID_COUNT
+    local fb           = ArtifactCh5.FULL_BONUS
+    local totalWisdom  = activatedCount * bonus.wisdom       + (fullReached and fb.wisdom       or 0)
+    local totalConst   = activatedCount * bonus.constitution + (fullReached and fb.constitution or 0)
+    local totalPhysiq  = activatedCount * bonus.physique     + (fullReached and fb.physique     or 0)
+
+    children[#children + 1] = UI.Panel {
+        width = "100%",
+        padding = T.spacing.sm,
+        backgroundColor = A.sectionBg,
+        borderRadius = T.radius.sm,
+        gap = T.spacing.xs,
+        children = {
+            UI.Label {
+                text = "属性加成",
+                fontSize = T.fontSize.sm,
+                fontColor = A.titleGold,
+                fontWeight = "bold",
+            },
+            StatRow("悟性",   "+" .. totalWisdom, A.green),
+            StatRow("体质",   "+" .. totalConst,  A.green),
+            StatRow("根骨",   "+" .. totalPhysiq, A.green),
+        },
+    }
+
+    -- 被动技能
+    children[#children + 1] = Divider()
+    local passiveUnlocked = data and data.artifact_ch5 and data.artifact_ch5.passiveUnlocked
+    children[#children + 1] = BuildPassivePanel(ArtifactCh5.PASSIVE, passiveUnlocked)
+
+    return children
+end
+
+
 local function BuildArtifactContent()
     local children = {}
 
@@ -880,7 +1036,7 @@ local function BuildArtifactContent()
     children[#children + 1] = BuildSubTabBar()
 
     -- 根据子切页选择内容
-    local subBuilders = { BuildRakeContent, BuildBaguaContent, BuildTiandiContent }
+    local subBuilders = { BuildRakeContent, BuildBaguaContent, BuildTiandiContent, BuildZhentuContent }
     local subBuilder  = subBuilders[artifactSubTab_] or BuildRakeContent
     local subItems = subBuilder()
     for _, item in ipairs(subItems) do
@@ -981,8 +1137,8 @@ function AtlasUI.Create(parentOverlay)
     contentArea_ = UI.Panel {
         id = "atlas_content",
         width = "100%",
-        flexGrow = 1,
-        flexShrink = 1,
+        flex = 1,
+        flexBasis = 0,      -- Yoga 滚动关键：从 0 开始而非从内容高度，确保 overflow=scroll 生效
         gap = T.spacing.sm,
         overflow = "scroll",
         padding = T.spacing.sm,
@@ -1063,15 +1219,15 @@ function AtlasUI.Create(parentOverlay)
             -- 中部：内容区域（限宽居中）
             UI.Panel {
                 width = "100%",
-                flexGrow = 1,
-                flexShrink = 1,
+                flex = 1,
+                flexBasis = 0,
                 alignItems = "center",
                 children = {
                     UI.Panel {
                         width = "100%",
                         maxWidth = 500,
-                        flexGrow = 1,
-                        flexShrink = 1,
+                        flex = 1,
+                        flexBasis = 0,
                         paddingLeft = T.spacing.md,
                         paddingRight = T.spacing.md,
                         gap = T.spacing.sm,
@@ -1118,6 +1274,7 @@ function AtlasUI.Show()
     AtlasUI.Refresh()
 end
 
+
 --- 隐藏仙图录
 function AtlasUI.Hide()
     if not panel_ or not visible_ then return end
@@ -1155,5 +1312,6 @@ function AtlasUI.Destroy()
     artifactSubTab_ = 1
     subTabBtns_ = {}
 end
+
 
 return AtlasUI

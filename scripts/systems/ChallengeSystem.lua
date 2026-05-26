@@ -1,7 +1,7 @@
 -- ============================================================================
 -- ChallengeSystem.lua - 阵营挑战/法宝系统（v3）
 -- 血煞盟·殷无咎（新版声望） / 浩气宗·陆青云（旧版 tiers）
--- 新版：7 级声望（T3-T9），法宝掉落，5 种凝X丹，精华材料
+-- 新版：8 级声望（T3-T10），法宝掉落，5 种凝X丹，精华材料
 -- 旧版：8 级 tiers（T1-T8），专属装备 + 血煞丹/浩气丹
 -- ============================================================================
 
@@ -41,7 +41,7 @@ ChallengeSystem.essence_counts = {
 ChallengeSystem.active = false          -- 是否在挑战副本中
 ChallengeSystem.currentFaction = nil    -- 当前挑战阵营 key
 ChallengeSystem.currentTier = nil       -- 当前挑战等级（旧版用 tier 数字）
-ChallengeSystem.currentRepLevel = nil   -- 当前挑战声望等级（新版用 1-7）
+ChallengeSystem.currentRepLevel = nil   -- 当前挑战声望等级（新版用 1-8）
 ChallengeSystem.challengeMonster = nil  -- 当前挑战怪物实例
 ChallengeSystem.rewardCollected = false -- 本次奖励是否已领取
 
@@ -59,6 +59,7 @@ ChallengeSystem.ningjiaDanCount = 0   -- 凝甲丹 DEF+8
 ChallengeSystem.ningyuanDanCount = 0  -- 凝元丹 maxHP+30
 ChallengeSystem.ninghunDanCount = 0   -- 凝魂丹 killHeal+40
 ChallengeSystem.ningxiDanCount = 0    -- 凝息丹 hpRegen+6
+ChallengeSystem.gangguDanCount = 0    -- 钢筋铁骨丹 constitution+1
 
 -- ============================================================================
 -- 丹药配置
@@ -156,6 +157,18 @@ ChallengeSystem.NEW_PILL_CONFIG = {
         effectDesc = "永久增加生命回复+6/s",
         color = {100, 220, 180, 255},
     },
+    ganggu_dan = {
+        bonuses = { { stat = "constitution", bonus = 1, desc = "根骨" } },
+        maxUse = 50,
+        countField = "gangguDanCount",
+        name = "钢筋铁骨丹",
+        icon = "🦴",
+        essenceId = "ganggu_essence",
+        essenceName = "钢骨精华",
+        lingYunCost = 1000,
+        effectDesc = "永久增加根骨+1",
+        color = {240, 200, 80, 255},
+    },
 }
 
 -- ============================================================================
@@ -182,6 +195,7 @@ function ChallengeSystem.Init()
     ChallengeSystem.ningyuanDanCount = 0
     ChallengeSystem.ninghunDanCount = 0
     ChallengeSystem.ningxiDanCount = 0
+    ChallengeSystem.gangguDanCount = 0
 
     -- 精华库存
     ChallengeSystem.essence_counts = {
@@ -213,8 +227,8 @@ function ChallengeSystem.Init()
             ChallengeSystem.treasure_challenge[factionKey] = {
                 [faction.treasureKey] = {},
             }
-            -- 声望 1-7 默认未解锁
-            for level = 1, 7 do
+            -- 声望 1-MAX 默认未解锁
+            for level = 1, ChallengeConfig.MAX_REPUTATION_LEVEL do
                 ChallengeSystem.treasure_challenge[factionKey][faction.treasureKey][tostring(level)] = {
                     unlocked = false,
                     completed = false,
@@ -248,7 +262,7 @@ end
 
 --- 获取新版声望进度
 ---@param factionKey string
----@param repLevel number 1-7
+---@param repLevel number 1-8
 ---@return table|nil { unlocked, completed }
 function ChallengeSystem.GetReputationProgress(factionKey, repLevel)
     local faction = ChallengeConfig.FACTIONS[factionKey]
@@ -296,7 +310,7 @@ end
 
 --- 解锁指定声望等级（新版）
 ---@param factionKey string
----@param repLevel number 1-7
+---@param repLevel number 1-8
 ---@return boolean success
 ---@return string|nil message
 function ChallengeSystem.UnlockReputation(factionKey, repLevel)
@@ -347,6 +361,8 @@ end
 --- 旧版解锁（保留不变）
 ---@param faction string
 ---@param tier number
+-- [LEGACY: 旧版tier挑战，仅供存量玩家兼容，新功能禁止调用]
+---@deprecated 使用 EnterReputation 代替
 ---@return boolean success
 ---@return string|nil message
 function ChallengeSystem.Unlock(faction, tier)
@@ -396,7 +412,7 @@ end
 
 --- 进入新版声望挑战
 ---@param factionKey string
----@param repLevel number 1-7
+---@param repLevel number 1-8
 ---@param gameMap table
 ---@param camera table|nil
 ---@return boolean success
@@ -459,7 +475,8 @@ function ChallengeSystem.EnterReputation(factionKey, repLevel, gameMap, camera)
     return true, nil
 end
 
---- 进入旧版 tier 挑战（保留不变）
+-- [LEGACY: 旧版tier挑战，仅供存量玩家兼容，新功能禁止调用]
+---@deprecated 使用 EnterReputation 代替
 ---@param faction string
 ---@param tier number
 ---@param gameMap table
@@ -759,7 +776,7 @@ end
 
 --- 新版声望怪物死亡处理
 ---@param factionKey string
----@param repLevel number 1-7
+---@param repLevel number 1-8
 function ChallengeSystem._onRepMonsterDeath(factionKey, repLevel)
     local factionCfg = ChallengeConfig.FACTIONS[factionKey]
     local repCfg = factionCfg and factionCfg.reputation[repLevel]
@@ -791,22 +808,25 @@ function ChallengeSystem._onRepMonsterDeath(factionKey, repLevel)
         choices = { fabaoA, fabaoB }
         print("[ChallengeSystem] FirstClear: generated 2 fabao T" .. tier .. " quality=" .. quality)
     else
-        -- 非首通：第一件随机法宝
+        -- 非首通：固定2件随机法宝 + 额外掉落判定第3候选
         local fabaoA = LootSystem.CreateFabaoEquipment(templateId, tier, nil)
-        -- 物品掉落判定：声望等级 × 1%
-        local itemDropChance = ChallengeConfig.GetExtraDropChance(repLevel)
+        local fabaoB = LootSystem.CreateFabaoEquipment(templateId, tier, nil)
+        choices = { fabaoA, fabaoB }
+
+        -- 额外掉落判定：按显式概率表 roll
+        local extraDropChance = ChallengeConfig.GetExtraDropChance(repLevel)
         local roll = math.random()
-        if roll < itemDropChance then
-            -- 物品掉落触发：第二选项为道具
-            local itemDrop = ChallengeSystem._rollExtraDrop(repLevel)
-            choices = { fabaoA, itemDrop }
-            print("[ChallengeSystem] ItemDrop HIT: " .. (itemDrop and itemDrop.desc or "?")
-                .. " (roll=" .. string.format("%.3f", roll) .. " < " .. itemDropChance .. ")")
+        if roll < extraDropChance then
+            local extraEntry = ChallengeConfig.RollExtraDropEntry(repLevel)
+            if extraEntry then
+                local itemDrop = ChallengeSystem._buildExtraDropItem(extraEntry)
+                choices[3] = itemDrop
+                print("[ChallengeSystem] ExtraDrop HIT: " .. (itemDrop and itemDrop.desc or "?")
+                    .. " (roll=" .. string.format("%.4f", roll) .. " < " .. string.format("%.4f", extraDropChance) .. ")")
+            end
         else
-            -- 未触发：第二选项为随机法宝
-            local fabaoB = LootSystem.CreateFabaoEquipment(templateId, tier, nil)
-            choices = { fabaoA, fabaoB }
-            print("[ChallengeSystem] ItemDrop MISS: 2 random fabao (roll=" .. string.format("%.3f", roll) .. " >= " .. itemDropChance .. ")")
+            print("[ChallengeSystem] ExtraDrop MISS (roll=" .. string.format("%.4f", roll)
+                .. " >= " .. string.format("%.4f", extraDropChance) .. ")")
         end
     end
 
@@ -824,36 +844,45 @@ function ChallengeSystem._onRepMonsterDeath(factionKey, repLevel)
         .. ", firstClear=" .. tostring(isFirstClear))
 end
 
---- 随机物品掉落
----@param repLevel number 1-7
----@return table { type, consumableId, count, desc }
-function ChallengeSystem._rollExtraDrop(repLevel)
-    local types = ChallengeConfig.GetExtraDropTypes(repLevel)
-    local picked = types[math.random(1, #types)]
+--- 将 RollExtraDropEntry 的结果转换为 UI 展示用的物品对象
+---@param entry table { type, count, subId? }
+---@return table { type, consumableId?, essenceId?, count, desc, isFabao=false }
+function ChallengeSystem._buildExtraDropItem(entry)
+    local t = entry.type
+    local count = entry.count or 1
 
-    if picked == "gold_bar" then
-        local count = ChallengeConfig.GetExtraGoldBarCount(repLevel)
+    if t == "gold_bar" then
         return { type = "gold_bar", consumableId = "gold_bar", count = count, desc = "金条 ×" .. count }
 
-    elseif picked == "food" then
-        local foodId = ChallengeConfig.GetExtraFoodId(repLevel)
+    elseif t == "food" then
+        local foodId = entry.subId or "beast_meat"
         local foodName = GameConfig.CONSUMABLES[foodId] and GameConfig.CONSUMABLES[foodId].name or foodId
-        return { type = "food", consumableId = foodId, count = 1, desc = foodName .. " ×1" }
+        return { type = "food", consumableId = foodId, count = count, desc = foodName .. " ×" .. count }
 
-    elseif picked == "essence" then
-        local essenceIds = ChallengeConfig.ESSENCE_IDS
-        local essId = essenceIds[math.random(1, #essenceIds)]
+    elseif t == "essence" then
+        local essId = entry.subId or "qingyun_essence"
         local essName = GameConfig.PET_MATERIALS and GameConfig.PET_MATERIALS[essId]
             and GameConfig.PET_MATERIALS[essId].name or essId
-        return { type = "essence", essenceId = essId, count = 1, desc = essName .. " ×1" }
+        return { type = "essence", essenceId = essId, count = count, desc = essName .. " ×" .. count }
 
-    elseif picked == "cultivation_fruit" then
-        return { type = "cultivation_fruit", consumableId = "exp_pill", count = 1, desc = "修炼果 ×1" }
+    elseif t == "cultivation_fruit" then
+        return { type = "cultivation_fruit", consumableId = "exp_pill", count = count, desc = "修炼果 ×" .. count }
 
-    elseif picked == "lingyun_fruit" then
-        return { type = "lingyun_fruit", consumableId = "lingyun_fruit", count = 1, desc = "灵韵果 ×1" }
+    elseif t == "lingyun_fruit" then
+        return { type = "lingyun_fruit", consumableId = "lingyun_fruit", count = count, desc = "灵韵果 ×" .. count }
     end
 
+    -- fallback
+    return { type = "gold_bar", consumableId = "gold_bar", count = 1, desc = "金条 ×1" }
+end
+
+-- [LEGACY] 旧接口保留，供旧代码兼容
+---@deprecated 使用 _buildExtraDropItem + ChallengeConfig.RollExtraDropEntry 代替
+function ChallengeSystem._rollExtraDrop(repLevel)
+    local entry = ChallengeConfig.RollExtraDropEntry(repLevel)
+    if entry then
+        return ChallengeSystem._buildExtraDropItem(entry)
+    end
     return { type = "gold_bar", consumableId = "gold_bar", count = 1, desc = "金条 ×1" }
 end
 
@@ -949,10 +978,11 @@ function ChallengeSystem._grantExtraDrop(drop)
 end
 
 -- ============================================================================
--- 奖励发放（旧版 tiers，保留不变）
+-- 奖励发放（旧版 tiers）[LEGACY: 仅供存量玩家兼容，新功能禁止调用]
 -- ============================================================================
 
---- 发放旧版首通奖励
+-- [LEGACY: 旧版tier挑战，仅供存量玩家兼容，新功能禁止调用]
+---@deprecated 新版使用 GrantReputationChoice
 function ChallengeSystem.GrantReward(faction, tier, reward)
     local CombatSystem = require("systems.CombatSystem")
     local player = GameState.player
@@ -1021,7 +1051,8 @@ function ChallengeSystem.GrantReward(faction, tier, reward)
     end
 end
 
---- 发放旧版重复掉落
+-- [LEGACY: 旧版tier挑战，仅供存量玩家兼容，新功能禁止调用]
+---@deprecated 新版使用 GrantReputationChoice
 function ChallengeSystem.GrantRepeatDrop(repeatDrop)
     local CombatSystem = require("systems.CombatSystem")
     local LootSystem = require("systems.LootSystem")
@@ -1156,6 +1187,7 @@ function ChallengeSystem.Serialize()
         ningyuanDanCount = ChallengeSystem.ningyuanDanCount,
         ninghunDanCount = ChallengeSystem.ninghunDanCount,
         ningxiDanCount = ChallengeSystem.ningxiDanCount,
+        gangguDanCount = ChallengeSystem.gangguDanCount,
     }
 
     -- 序列化旧版 progress
@@ -1371,6 +1403,7 @@ function ChallengeSystem.Deserialize(data)
     ChallengeSystem.ningyuanDanCount = data.ningyuanDanCount or 0
     ChallengeSystem.ninghunDanCount = data.ninghunDanCount or 0
     ChallengeSystem.ningxiDanCount = data.ningxiDanCount or 0
+    ChallengeSystem.gangguDanCount = data.gangguDanCount or 0
 
     -- 旧版 progress
     if data.progress then
@@ -1422,7 +1455,8 @@ function ChallengeSystem.Deserialize(data)
         .. " ningjiaDan=" .. ChallengeSystem.ningjiaDanCount
         .. " ningyuanDan=" .. ChallengeSystem.ningyuanDanCount
         .. " ninghunDan=" .. ChallengeSystem.ninghunDanCount
-        .. " ningxiDan=" .. ChallengeSystem.ningxiDanCount)
+        .. " ningxiDan=" .. ChallengeSystem.ningxiDanCount
+        .. " gangguDan=" .. ChallengeSystem.gangguDanCount)
 end
 
 -- ============================================================================

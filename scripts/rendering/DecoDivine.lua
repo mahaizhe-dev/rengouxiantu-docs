@@ -15,6 +15,9 @@ local divineRakeImageLoaded_ = false
 local divineBaguaImage_ = nil
 local divineBaguaImageLoaded_ = false
 
+local divineZhentuImage_ = nil
+local divineZhentuImageLoaded_ = false
+
 -- ============================================================================
 -- 上宝逊金钯（虚幻态）- 图片 + 呼吸光效 + 光柱 + 旋转粒子
 -- ============================================================================
@@ -1261,6 +1264,135 @@ function M.RenderTianjiPavilion(nvg, sx, sy, ts, d, time)
         nvgFillColor(nvg, nvgRGBA(220, 200, 255, 220))
         nvgText(nvg, cx, sy + h + 4, d.label)
     end
+end
+
+-- ============================================================================
+-- 诛仙阵图（第五章神器 · 封禁仙阵 + 紫罗兰光效 + 旋转阵法粒子）
+-- ============================================================================
+function M.RenderDivineZhentu(nvg, sx, sy, ts, d, time)
+    -- 延迟加载图片
+    if not divineZhentuImageLoaded_ then
+        divineZhentuImageLoaded_ = true
+        divineZhentuImage_ = RenderUtils.GetCachedImage(nvg, "image/edited_icon_zhentu_fragment_v4_20260524110047.png")
+    end
+
+    local cx = sx + ts        -- 2x2 水平中心（左上角 x=39，中点 = screen_x(40)）
+    local gy = sy + ts        -- 视觉地面基准（对齐旧单格地面绝对位置）
+    -- 呼吸脉动（紫色调，节奏稍慢以示压迫感）
+    local breath = math.sin(time * 1.3) * 0.3 + 0.7   -- 0.4~1.0
+    local baseAlpha = math.floor(130 + breath * 90)     -- 130~220
+
+    -- ① 底部大光圈（深紫色地面承托光效）
+    local glowR = ts * 0.72 + math.sin(time * 1.8) * ts * 0.07
+    local glowPaint = nvgRadialGradient(nvg,
+        cx, gy + ts * 0.88, ts * 0.08, glowR,
+        nvgRGBA(160, 60, 220, math.floor(baseAlpha * 0.42)),
+        nvgRGBA(80, 20, 140, 0))
+    nvgBeginPath(nvg)
+    nvgEllipse(nvg, cx, gy + ts * 0.88, glowR, glowR * 0.33)
+    nvgFillPaint(nvg, glowPaint)
+    nvgFill(nvg)
+
+    -- ② 向上光柱（紫罗兰虚幻感）
+    local pillarW = ts * 0.30 + math.sin(time * 1.2) * ts * 0.04
+    local pillarH = ts * 2.4
+    local pillarPaint = nvgLinearGradient(nvg,
+        cx, gy - pillarH * 0.4, cx, gy + ts * 0.85,
+        nvgRGBA(200, 100, 255, 0),
+        nvgRGBA(150, 50, 220, math.floor(baseAlpha * 0.20)))
+    nvgBeginPath(nvg)
+    nvgRect(nvg, cx - pillarW * 0.5, gy - pillarH * 0.4, pillarW, pillarH * 0.85)
+    nvgFillPaint(nvg, pillarPaint)
+    nvgFill(nvg)
+
+    -- ③ 诛仙阵图图片（比 NPC 更大：宽 1.9ts，高 2.8ts）
+    if divineZhentuImage_ then
+        local imgW = ts * 1.9
+        local imgH = ts * 2.8
+        local imgX = cx - imgW * 0.5
+        local imgY = gy - imgH * 0.55
+        -- 半透明悬浮
+        local imgPaint = nvgImagePattern(nvg, imgX, imgY, imgW, imgH, 0, divineZhentuImage_, baseAlpha / 255.0)
+        nvgBeginPath(nvg)
+        nvgRect(nvg, imgX, imgY, imgW, imgH)
+        nvgFillPaint(nvg, imgPaint)
+        nvgFill(nvg)
+        -- 叠加紫色辉光层
+        local glowAlpha = math.floor(25 + math.sin(time * 2.5) * 18)
+        nvgBeginPath(nvg)
+        nvgRect(nvg, imgX, imgY, imgW, imgH)
+        nvgFillColor(nvg, nvgRGBA(180, 80, 255, glowAlpha))
+        nvgFill(nvg)
+    end
+
+    -- ④ 中心封印圆（阵图核心）
+    local sealR = ts * 0.18 + math.sin(time * 2.2) * ts * 0.03
+    local sealPulse = math.floor(60 + math.sin(time * 2.2) * 40)
+    local sealGlow = nvgRadialGradient(nvg,
+        cx, gy + ts * 0.65, 0, sealR * 2.5,
+        nvgRGBA(220, 140, 255, sealPulse),
+        nvgRGBA(140, 40, 200, 0))
+    nvgBeginPath(nvg)
+    nvgCircle(nvg, cx, gy + ts * 0.65, sealR * 2.5)
+    nvgFillPaint(nvg, sealGlow)
+    nvgFill(nvg)
+    nvgBeginPath(nvg)
+    nvgCircle(nvg, cx, gy + ts * 0.65, sealR)
+    nvgFillColor(nvg, nvgRGBA(230, 180, 255, math.floor(baseAlpha * 0.55)))
+    nvgFill(nvg)
+
+    -- ⑤ 旋转阵法粒子环（6 粒，两圈反向旋转，象征封禁阵法）
+    local sparkAlpha = math.floor(60 + math.sin(time * 3.0) * 38)
+    -- 内圈顺时针
+    for i = 1, 6 do
+        local angle = time * 0.65 + i * 1.0472   -- 60度间隔
+        local distX = ts * 0.52 + math.sin(time * 1.3 + i * 1.7) * ts * 0.08
+        local distY = ts * 0.34 + math.cos(time * 1.0 + i * 1.5) * ts * 0.10
+        local px = cx + math.cos(angle) * distX
+        local py = gy + ts * 0.65 + math.sin(angle) * distY
+        local pr = ts * 0.020 + math.sin(time * 4.0 + i * 1.4) * ts * 0.009
+        local pGlow = nvgRadialGradient(nvg,
+            px, py, 0, pr * 3.0,
+            nvgRGBA(200, 120, 255, sparkAlpha),
+            nvgRGBA(120, 40, 200, 0))
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, px, py, pr * 3.0)
+        nvgFillPaint(nvg, pGlow)
+        nvgFill(nvg)
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, px, py, pr)
+        nvgFillColor(nvg, nvgRGBA(240, 210, 255, math.min(255, sparkAlpha + 80)))
+        nvgFill(nvg)
+    end
+    -- 外圈逆时针
+    local sparkAlpha2 = math.floor(40 + math.sin(time * 2.6) * 28)
+    for i = 1, 4 do
+        local angle = -time * 0.45 + i * (math.pi * 2 / 4)
+        local distX = ts * 0.72 + math.sin(time * 1.1 + i * 2.0) * ts * 0.07
+        local distY = ts * 0.28 + math.cos(time * 0.9 + i * 1.8) * ts * 0.08
+        local px = cx + math.cos(angle) * distX
+        local py = gy + ts * 0.65 + math.sin(angle) * distY
+        local pr = ts * 0.016 + math.sin(time * 3.5 + i) * ts * 0.007
+        local pGlow = nvgRadialGradient(nvg,
+            px, py, 0, pr * 3.5,
+            nvgRGBA(160, 80, 240, sparkAlpha2),
+            nvgRGBA(80, 20, 160, 0))
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, px, py, pr * 3.5)
+        nvgFillPaint(nvg, pGlow)
+        nvgFill(nvg)
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, px, py, pr)
+        nvgFillColor(nvg, nvgRGBA(220, 180, 255, math.min(255, sparkAlpha2 + 80)))
+        nvgFill(nvg)
+    end
+
+    -- ⑥ 标签（固定显示，fallback = "诛仙阵图"）
+    nvgFontFace(nvg, "sans")
+    nvgFontSize(nvg, 11)
+    nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_TOP)
+    nvgFillColor(nvg, nvgRGBA(210, 160, 255, 220))
+    nvgText(nvg, cx, gy + ts * 1.05, d.label or "诛仙阵图")
 end
 
 return M

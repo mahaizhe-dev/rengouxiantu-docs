@@ -294,7 +294,12 @@ function M.HandleCompleteOpen(eventType, eventData)
             print("[XianyuanChest] Reusing pending rewards for chest=" .. chestId)
         else
             -- 首次打开：生成 3 件候选装备并持久化
-            items = LootSystem.GenerateXianyuanReward(cfg.tier, cfg.quality, cfg.attr)
+            if cfg.isSetEquip then
+                -- 第五章：套装灵器
+                items = LootSystem.GenerateXianyuanSetReward(cfg.tier, cfg.attr)
+            else
+                items = LootSystem.GenerateXianyuanReward(cfg.tier, cfg.quality, cfg.attr)
+            end
             if not items or #items < 3 then
                 SendError(connection, SaveProtocol.S2C_XianyuanChest_Reward, "装备生成失败")
                 return

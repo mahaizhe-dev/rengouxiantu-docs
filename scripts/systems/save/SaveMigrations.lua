@@ -985,6 +985,66 @@ local MIGRATIONS = {
         data.version = 24
         return data
     end,
+
+    -- v24 → v25: 修复龙魂令 skillId 悬空引用 + 刷新解封古剑 specialEffect
+    -- （两项修复合并：均未发布，v24 是线上存档最高版本）
+    [25] = function(data)
+        local EquipmentData = require("config.EquipmentData")
+
+        -- ── Part 1: 修复龙魂令 skillId 悬空引用 ──
+        -- 旧存档中 fabao_longhunling.skillId = "dragon_soul_breath"（SkillData 中不存在），
+        -- 修正为 "dragon_breath"（复用龙极令技能）
+        local fixedSkill = 0
+        local function fixSkillId(item)
+            if item and item.skillId == "dragon_soul_breath" then
+                item.skillId = "dragon_breath"
+                fixedSkill = fixedSkill + 1
+            end
+        end
+
+        -- ── Part 2: 刷新解封古剑（jiefeng_*_ch5）的 specialEffect ──
+        -- 旧存档中 specialEffect 已序列化，需替换为 EquipmentData 最新值
+        local JIEFENG_IDS = {
+            "jiefeng_zhuxian_ch5",
+            "jiefeng_xianxian_ch5",
+            "jiefeng_luxian_ch5",
+            "jiefeng_juexian_ch5",
+        }
+        local tplMap = {}
+        for _, id in ipairs(JIEFENG_IDS) do
+            local tpl = EquipmentData.SpecialEquipment[id]
+            if tpl and tpl.specialEffect then
+                tplMap[id] = tpl.specialEffect
+            end
+        end
+
+        local fixedEff = 0
+        local function refreshItem(item)
+            if not item then return end
+            fixSkillId(item)
+            if item.itemId and tplMap[item.itemId] then
+                item.specialEffect = tplMap[item.itemId]
+                fixedEff = fixedEff + 1
+            end
+        end
+
+        if data.inventory then
+            if data.inventory.equipment then
+                for _, item in pairs(data.inventory.equipment) do refreshItem(item) end
+            end
+            if data.inventory.backpack then
+                for _, item in pairs(data.inventory.backpack) do refreshItem(item) end
+            end
+        end
+        if data.warehouse and data.warehouse.items then
+            for _, item in pairs(data.warehouse.items) do refreshItem(item) end
+        end
+
+        print(string.format("[SaveSystem] v24→v25 migration: fixed %d longhunling skillId, refreshed %d jiefeng specialEffect",
+            fixedSkill, fixedEff))
+        data.version = 25
+        return data
+    end,
 }
 
 -- ============================================================================

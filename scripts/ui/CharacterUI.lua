@@ -65,7 +65,10 @@ local PILL_CONFIG = {
     {
         name = "福源果",
         icon = "🍀",
-        maxBuy = 30,
+        getMaxBuy = function()
+            local FFS = require("systems.FortuneFruitSystem")
+            return FFS.GetTotalCount()
+        end,
         bonusLabel = "福源+1",
         bonusPerPill = nil,
         bonusColor = {180, 230, 80, 255},
@@ -159,6 +162,18 @@ local PILL_CONFIG = {
             return CS.ningxiDanCount or 0
         end,
     },
+    {
+        name = "钢筋铁骨丹",
+        icon = "🦴",
+        maxBuy = 50,
+        bonusLabel = "根骨",
+        bonusPerPill = 1,
+        bonusColor = {240, 200, 80, 255},
+        getCount = function()
+            local CS = require("systems.ChallengeSystem")
+            return CS.gangguDanCount or 0
+        end,
+    },
     -- ── 第四章丹药 ──
     {
         name = "龙血丹",
@@ -227,6 +242,7 @@ end
 --- 创建丹药服食行
 local function PillRow(cfg)
     local count = cfg.getCount()
+    local maxBuy = cfg.getMaxBuy and cfg.getMaxBuy() or cfg.maxBuy
 
     local bonusText, bonusActive
     if cfg.bonusPerPill then
@@ -270,9 +286,9 @@ local function PillRow(cfg)
                 gap = 8,
                 children = {
                     UI.Label {
-                        text = count .. "/" .. cfg.maxBuy,
+                        text = count .. "/" .. maxBuy,
                         fontSize = T.fontSize.sm,
-                        fontColor = count >= cfg.maxBuy
+                        fontColor = count >= maxBuy
                             and {255, 200, 100, 255}
                             or {180, 180, 190, 220},
                     },
@@ -1012,6 +1028,57 @@ local function BuildTab2Content()
         })
     end
 
+    -- ── 第五章神器被动技能（激活后显示）──
+    local okCh5ui, ArtifactCh5ui = pcall(require, "systems.ArtifactSystem_ch5")
+    if okCh5ui and ArtifactCh5ui and ArtifactCh5ui.passiveUnlocked then
+        table.insert(children, UI.Panel { height = 6 })
+        table.insert(children, UI.Panel { height = 1, backgroundColor = {80, 85, 100, 120} })
+        table.insert(children, UI.Label {
+            text = "第五章神器被动",
+            fontSize = T.fontSize.md,
+            fontWeight = "bold",
+            fontColor = {200, 160, 255, 255},
+            textAlign = "center",
+        })
+        table.insert(children, UI.Panel {
+            flexDirection = "row",
+            alignItems = "center",
+            gap = T.spacing.sm,
+            padding = T.spacing.sm,
+            backgroundColor = {35, 20, 55, 230},
+            borderRadius = T.radius.sm,
+            borderWidth = 1,
+            borderColor = {200, 160, 255, 120},
+            children = {
+                UI.Label {
+                    text = "⚔",
+                    fontSize = T.fontSize.xl + 4,
+                    width = 40,
+                    textAlign = "center",
+                },
+                UI.Panel {
+                    flexGrow = 1,
+                    flexShrink = 1,
+                    flexBasis = 0,
+                    gap = 2,
+                    children = {
+                        UI.Label {
+                            text = ArtifactCh5ui.PASSIVE.name,
+                            fontSize = T.fontSize.md,
+                            fontWeight = "bold",
+                            fontColor = {200, 160, 255, 255},
+                        },
+                        UI.Label {
+                            text = ArtifactCh5ui.PASSIVE.desc,
+                            fontSize = T.fontSize.xs,
+                            fontColor = {200, 180, 220, 220},
+                        },
+                    },
+                },
+            },
+        })
+    end
+
     -- ── 第四章神器被动技能（激活后显示）──
     local ArtifactCh4 = require("systems.ArtifactSystem_ch4")
     if ArtifactCh4.passiveUnlocked then
@@ -1173,8 +1240,8 @@ local function BuildTab3Content()
 
     -- 福缘果（按章节统计）
     local FFS = require("systems.FortuneFruitSystem")
-    local chapterNames = { "两界村", "乌家堡", "万里黄沙", "八卦海" }
-    for ch = 1, 4 do
+    local chapterNames = { "两界村", "乌家堡", "万里黄沙", "八卦海", "太虚之殇" }
+    for ch = 1, 5 do
         local fruits = FFS.FRUITS[ch]
         if fruits then
             local collected = 0

@@ -230,6 +230,26 @@ local function CmdGiveBaguaFullKit()
     end)
 end
 
+local function CmdGiveZhentuFullKit()
+    local player = GameState.player
+    if not player then return end
+    local InventorySystem = require("systems.InventorySystem")
+    local ArtifactCh5 = require("systems.ArtifactSystem_ch5")
+    -- 发放 9 个阵图残符（每格一个）
+    for i = 1, #ArtifactCh5.FRAGMENT_IDS do
+        InventorySystem.AddConsumable(ArtifactCh5.FRAGMENT_IDS[i], 1)
+    end
+    -- 发放激活所需资源（9格 × 2000万金 + 9格 × 10000灵韵）
+    local totalGold = ArtifactCh5.ACTIVATE_GOLD_COST * ArtifactCh5.GRID_COUNT
+    local totalLY   = ArtifactCh5.ACTIVATE_LINGYUN_COST * ArtifactCh5.GRID_COUNT
+    player.gold    = player.gold    + totalGold
+    player.lingYun = player.lingYun + totalLY
+    ShowLog(
+        "诛仙阵图: 残符×9 + " .. math.floor(totalGold / 10000) .. "万金 + " .. totalLY .. "灵韵",
+        {180, 100, 255, 255}
+    )
+end
+
 local function CmdToggleInvincible()
     SendGMCommand("toggle_invincible", function()
         local player = GameState.player
@@ -508,6 +528,7 @@ local GM_CATEGORIES = {
                 end
             end },
             { label = "八卦神器全套",  action = CmdGiveBaguaFullKit },
+            { label = "诛仙阵图材料包", action = CmdGiveZhentuFullKit },
             { label = "全部初级技能书", action = function()
                 local InventorySystem = require("systems.InventorySystem")
                 local PetSkillData = require("config.PetSkillData")
@@ -622,6 +643,32 @@ local GM_CATEGORIES = {
                     ShowLog(item.name .. "(套装:" .. setName .. ") 已放入背包", {0, 220, 255, 255})
                 else
                     ShowLog("创建失败", {255, 120, 100, 255})
+                end
+            end },
+            { label = "随机T10套装×5", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                local LootSystem = require("systems.LootSystem")
+                local EquipmentData = require("config.EquipmentData")
+                local setIds = { "xuesha", "qingyun", "fengmo", "haoqi" }
+                -- 洗牌槽位，保证5件来自不同槽位
+                local slots = {}
+                for _, s in ipairs(EquipmentData.STANDARD_SLOTS) do slots[#slots + 1] = s end
+                for i = #slots, 2, -1 do
+                    local j = math.random(i)
+                    slots[i], slots[j] = slots[j], slots[i]
+                end
+                local added = 0
+                for i = 1, 5 do
+                    local setId = setIds[math.random(#setIds)]
+                    local item = LootSystem.GenerateSetEquipment(120, setId, slots[i], 10)
+                    if item and InventorySystem.AddItem(item) then
+                        added = added + 1
+                    end
+                end
+                if added > 0 then
+                    ShowLog("随机T10套装灵器 ×" .. added .. " 已放入背包", {100, 255, 220, 255})
+                else
+                    ShowLog("背包已满！", {255, 120, 100, 255})
                 end
             end },
             -- ── 铸剑地炉圣器测试 ──
@@ -785,6 +832,20 @@ local GM_CATEGORIES = {
                 local ArtifactCh4 = require("systems.ArtifactSystem_ch4")
                 ArtifactCh4.Reset()
                 ShowLog("文王八卦盘 已重置", {255, 100, 100, 255})
+            end },
+            { label = "神器5免费激活", action = function()
+                local ArtifactCh5 = require("systems.ArtifactSystem_ch5")
+                ArtifactCh5.gmBypass = not ArtifactCh5.gmBypass
+                if ArtifactCh5.gmBypass then
+                    ShowLog("诛仙阵图: 无视条件激活", {100, 255, 255, 255})
+                else
+                    ShowLog("诛仙阵图: 恢复正常", {255, 200, 100, 255})
+                end
+            end },
+            { label = "神器5重置", action = function()
+                local ArtifactCh5 = require("systems.ArtifactSystem_ch5")
+                ArtifactCh5.Reset()
+                ShowLog("诛仙阵图 已重置", {255, 100, 100, 255})
             end },
             { label = "福源果重置", action = function()
                 local FortuneFruitSystem = require("systems.FortuneFruitSystem")
@@ -1060,6 +1121,16 @@ local GM_CATEGORIES = {
                     ShowLog("快捷回城: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
                 else
                     ShowLog("快捷回城: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
+                end
+            end },
+            { label = "诛仙阵图自测", action = function()
+                package.loaded["tests.test_artifact_ch5"] = nil
+                local TestA5 = require("tests.test_artifact_ch5")
+                local passed, failed = TestA5.RunAll()
+                if failed == 0 then
+                    ShowLog("诛仙阵图: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
+                else
+                    ShowLog("诛仙阵图: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
                 end
             end },
             -- [已禁用] 解封流水线自测 / 铸剑地炉综合自测

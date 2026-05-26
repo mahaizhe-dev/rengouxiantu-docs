@@ -282,6 +282,14 @@ function InventorySystem.RecalcEquipStats()
                 end
             end
 
+            -- 圣性属性（与灵性属性相同逻辑，圣器专属）
+            if item.saintStat then
+                local ss = item.saintStat
+                if totals[ss.stat] then
+                    totals[ss.stat] = totals[ss.stat] + ss.value
+                end
+            end
+
             -- 套装计数（按原始 slot 去重，两个相同戒指只算1件）
             if item.setId then
                 local origSlot = item.slot or slotId

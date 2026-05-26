@@ -82,6 +82,12 @@ function AtlasSystem.CreateEmpty()
             bossDefeated = false,
             passiveUnlocked = false,
         },
+        -- 诛仙阵图（账号级副本，与 ArtifactSystem_ch5 同步，第五章·太虚）
+        artifact_ch5 = {
+            activatedGrids = { false, false, false, false, false, false, false, false, false },
+            bossDefeated = false,
+            passiveUnlocked = false,
+        },
     }
 end
 
@@ -842,6 +848,64 @@ function AtlasSystem.SyncArtifactTiandiToCharacter()
     print("[AtlasSystem] Artifact tiandi data synced to character")
 end
 
+--- 将 ArtifactSystem_ch5 当前数据合并到 atlas（并集）
+function AtlasSystem.MergeArtifactCh5FromCharacter()
+    local data = AtlasSystem.data
+    if not data then return end
+
+    local ok, ArtifactCh5 = pcall(require, "systems.ArtifactSystem_ch5")
+    if not ok or not ArtifactCh5 then return end
+
+    local merged = false
+    local gridCount = ArtifactCh5.GRID_COUNT or 9
+
+    for i = 1, gridCount do
+        if ArtifactCh5.activatedGrids[i] and not data.artifact_ch5.activatedGrids[i] then
+            data.artifact_ch5.activatedGrids[i] = true
+            merged = true
+        end
+    end
+    if ArtifactCh5.bossDefeated and not data.artifact_ch5.bossDefeated then
+        data.artifact_ch5.bossDefeated = true
+        merged = true
+    end
+    if ArtifactCh5.passiveUnlocked and not data.artifact_ch5.passiveUnlocked then
+        data.artifact_ch5.passiveUnlocked = true
+        merged = true
+    end
+
+    if merged then
+        print("[AtlasSystem] Artifact ch5 data merged from character")
+        AtlasSystem.SaveImmediate()
+    end
+end
+
+--- 将 atlas 第五章神器数据同步回 ArtifactSystem_ch5
+function AtlasSystem.SyncArtifactCh5ToCharacter()
+    local data = AtlasSystem.data
+    if not data then return end
+
+    local ok, ArtifactCh5 = pcall(require, "systems.ArtifactSystem_ch5")
+    if not ok or not ArtifactCh5 then return end
+
+    local gridCount = ArtifactCh5.GRID_COUNT or 9
+
+    for i = 1, gridCount do
+        if data.artifact_ch5.activatedGrids[i] then
+            ArtifactCh5.activatedGrids[i] = true
+        end
+    end
+    if data.artifact_ch5.bossDefeated then
+        ArtifactCh5.bossDefeated = true
+    end
+    if data.artifact_ch5.passiveUnlocked then
+        ArtifactCh5.passiveUnlocked = true
+    end
+
+    ArtifactCh5.RecalcAttributes()
+    print("[AtlasSystem] Artifact ch5 data synced to character")
+end
+
 --- 将 atlas 神器数据同步回 ArtifactSystem
 function AtlasSystem.SyncArtifactToCharacter()
     local data = AtlasSystem.data
@@ -912,10 +976,11 @@ function AtlasSystem.Serialize()
     local data = AtlasSystem.data
     if not data then return AtlasSystem.CreateEmpty() end
 
-    -- 同步前先从当前角色系统拉取最新数据
+    -- 同步前先从当前角色系统拉取最新数据（并集 merge）
     AtlasSystem.MergeArtifactFromCharacter()
     AtlasSystem.MergeArtifactCh4FromCharacter()
     AtlasSystem.MergeArtifactTiandiFromCharacter()
+    AtlasSystem.MergeArtifactCh5FromCharacter()
 
     -- 道印字段由 MedalConfig 数据驱动序列化
     local medals = {}
@@ -926,6 +991,12 @@ function AtlasSystem.Serialize()
             medals[key] = data.medals[key] or default
         end
     end
+
+    -- ch5: 序列化快照直接使用角色当前状态（不依赖 Merge 结果），
+    -- 但不修改 data.artifact_ch5（避免破坏 Atlas 并集语义）
+    local _src5 = require("systems.ArtifactSystem_ch5")
+    local a5Grids = {}
+    for i = 1, 9 do a5Grids[i] = _src5.activatedGrids[i] == true end
 
     return {
         version = data.version or 2,
@@ -944,6 +1015,11 @@ function AtlasSystem.Serialize()
             activatedGrids = data.artifact_tiandi.activatedGrids,
             bossDefeated = data.artifact_tiandi.bossDefeated,
             passiveUnlocked = data.artifact_tiandi.passiveUnlocked,
+        },
+        artifact_ch5 = {
+            activatedGrids = a5Grids,
+            bossDefeated = _src5.bossDefeated == true,
+            passiveUnlocked = _src5.passiveUnlocked == true,
         },
     }
 end
@@ -1019,6 +1095,18 @@ function AtlasSystem.Deserialize(rawData)
             data.artifact_tiandi.passiveUnlocked = at.passiveUnlocked == true
         end
 
+        -- 诛仙阵图（第五章神器）
+        if rawData.artifact_ch5 and type(rawData.artifact_ch5) == "table" then
+            local a5 = rawData.artifact_ch5
+            if a5.activatedGrids then
+                for i = 1, 9 do
+                    data.artifact_ch5.activatedGrids[i] = a5.activatedGrids[i] == true
+                end
+            end
+            data.artifact_ch5.bossDefeated = a5.bossDefeated == true
+            data.artifact_ch5.passiveUnlocked = a5.passiveUnlocked == true
+        end
+
         data.version = 2
     end
 
@@ -1034,6 +1122,9 @@ function AtlasSystem.Deserialize(rawData)
 
     print("[AtlasSystem] Deserialized: medals=" .. medalCount
         .. " guardian_exp=" .. (data.medals.guardian_exp or 0))
+
+    -- 反序列化后立即同步第五章神器数据到 ArtifactSystem_ch5
+    AtlasSystem.SyncArtifactCh5ToCharacter()
 end
 
 --- 加载后同步：将 atlas 数据合并到当前角色系统，检查道印
@@ -1047,6 +1138,9 @@ function AtlasSystem.PostLoadSync()
     -- 1c. 将 atlas 天帝剑痕神器数据推送到 ArtifactSystem_tiandi
     AtlasSystem.SyncArtifactTiandiToCharacter()
 
+    -- 1d. 将 atlas 第五章神器数据推送到 ArtifactSystem_ch5
+    AtlasSystem.SyncArtifactCh5ToCharacter()
+
     -- 2. 从当前角色系统拉取最新神器数据
     AtlasSystem.MergeArtifactFromCharacter()
 
@@ -1055,6 +1149,9 @@ function AtlasSystem.PostLoadSync()
 
     -- 2c. 从当前角色系统拉取最新天帝剑痕神器数据
     AtlasSystem.MergeArtifactTiandiFromCharacter()
+
+    -- 2d. 从当前角色系统拉取最新第五章神器数据
+    AtlasSystem.MergeArtifactCh5FromCharacter()
 
     -- 3. 检查所有 value_check 类道印
     AtlasSystem.CheckMedals()

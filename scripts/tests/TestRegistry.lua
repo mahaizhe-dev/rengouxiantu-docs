@@ -60,6 +60,16 @@ TestRegistry.tests = {
     },
 
     {
+        id            = "trial_tower",
+        group         = "system",
+        path          = "scripts/tests/test_trial_tower.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
         id            = "recycle_system",
         group         = "system",
         path          = "scripts/tests/test_recycle_system.lua",
@@ -551,6 +561,52 @@ TestRegistry.tests = {
         enabled       = false,
         gate          = "non_blocking",
         skip_reason   = "engine_required: server-only, needs sCloud/serverCloud async runtime",
+    },
+
+    ---------------------------------------------------------------------------
+    -- 第五章神器：诛仙阵图（ArtifactSystem_ch5）完整测试
+    -- 覆盖：激活/消耗/账号属性/仙途录同步/挑战/BOSS战/神器技能/存档
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "artifact_ch5",
+        group         = "system",
+        path          = "scripts/tests/test_artifact_ch5.lua",
+        mode          = "skip",
+        entry         = "tests.test_artifact_ch5",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "engine_required: systems.ArtifactSystem_ch5, systems.AtlasSystem, config.GameConfig, config.MonsterData",
+    },
+
+    ---------------------------------------------------------------------------
+    -- T10 制式套装掉落链路（配置验证 + 可选引擎链路）
+    -- TEST 1-5: 纯配置层（MonsterTypes_ch5/TemperUI/SaveSerializer），blocking
+    -- TEST 6-7: GenerateSetEquipment 生成验证，pcall 保护，非引擎环境自动 SKIP
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "t10_set_drop",
+        group         = "system",
+        path          = "scripts/tests/test_t10_set_drop.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
+    -- R8 声望 + T10 法宝 + 额外掉落
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "challenge_r8_extradrop",
+        group         = "system",
+        path          = "scripts/tests/test_challenge_r8_extradrop.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
     },
 }
 

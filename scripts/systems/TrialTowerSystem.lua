@@ -101,7 +101,7 @@ function TrialTowerSystem.Enter(floor, gameMap, camera)
     if realm then
         local playerRealmData = GameConfig.REALMS[player.realm]
         local playerOrder = playerRealmData and playerRealmData.order or 0
-        local requiredOrder = realmIndex  -- realmIndex 1~12 对应 order 1~12
+        local requiredOrder = realmIndex  -- realmIndex 1~22 对应 GameConfig.REALMS order
         if playerOrder < requiredOrder then
             return false, "需要境界【" .. realm.name .. "】才能挑战"
         end

@@ -95,7 +95,7 @@ local function ShowInspectPanel(chestId)
     local qColor = qualityCfg and qualityCfg.color or {200, 200, 200, 255}
 
     -- 奖励描述
-    local rewardText = "T" .. cfg.tier .. " " .. qName .. "装 3 选 1"
+    local rewardText = "T" .. cfg.tier .. " " .. qName .. (cfg.isSetEquip and "套装灵器" or "灵器装") .. " 3 选 1"
     local guaranteeText = attrName .. " +1 条"
 
     -- 当前值颜色

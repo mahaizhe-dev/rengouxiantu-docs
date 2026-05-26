@@ -746,6 +746,20 @@ function GameMap:BuildCh5Terrain()
     -- 任务2：移除 (21,34)(22,34) 阻隔，替换为桥面
     safeTile(self, 21, 34, T.CH5_BRIDGE)
     safeTile(self, 22, 34, T.CH5_BRIDGE)
+
+    -- 任务8：前营→裂山门中央通道（x=39,40，y=11~12，跨虚空间隙）
+    safeTile(self, 39, 11, T.CH5_BRIDGE)
+    safeTile(self, 40, 11, T.CH5_BRIDGE)
+    safeTile(self, 39, 12, T.CH5_BRIDGE)
+    safeTile(self, 40, 12, T.CH5_BRIDGE)
+
+    -- 任务9：裂山门神器交互区域（x=38~41, y=13~16，整块4×4可通行）
+    -- 中央2×2 (39~40, 14~15) 为神器交互地
+    for gy = 13, 16 do
+        for gx = 38, 41 do
+            safeTile(self, gx, gy, T.CH5_RUIN_BLUESTONE)
+        end
+    end
     -- 任务2：(28,31)(28,32)(28,33) 替换为白色地板
     safeTile(self, 28, 31, T.CH5_PALACE_WHITE)
     safeTile(self, 28, 32, T.CH5_PALACE_WHITE)

@@ -1,6 +1,6 @@
 -- ============================================================================
 -- XianyuanChestConfig.lua - 仙缘宝箱配置表
--- 四章各 4 个，共 16 个，对应根骨/福源/悟性/体魄四种仙缘属性
+-- 五章各 4 个，共 20 个，对应根骨/福源/悟性/体魄四种仙缘属性
 -- ============================================================================
 
 local XianyuanChestConfig = {}
@@ -36,6 +36,11 @@ XianyuanChestConfig.CHESTS = {
     xianyuan_chest_ch4_fortune      = { attr = "fortune",      req = 400, tier = 9, quality = "cyan", chapter = 4, x = 3,  y = 78 },  -- 流沙岛左下
     xianyuan_chest_ch4_wisdom       = { attr = "wisdom",       req = 400, tier = 9, quality = "cyan", chapter = 4, x = 77, y = 3  },  -- 幽渊岛右上
     xianyuan_chest_ch4_physique     = { attr = "physique",     req = 400, tier = 9, quality = "cyan", chapter = 4, x = 77, y = 78 },  -- 烈焰岛右下
+    -- 伍章 T10 cyan（门槛 600）—— 奖励为套装灵器（isSetEquip=true）
+    xianyuan_chest_ch5_fortune      = { attr = "fortune",      req = 600, tier = 10, quality = "cyan", chapter = 5, x = 21, y = 29, isSetEquip = true },
+    xianyuan_chest_ch5_wisdom       = { attr = "wisdom",       req = 600, tier = 10, quality = "cyan", chapter = 5, x = 40, y = 22, isSetEquip = true },
+    xianyuan_chest_ch5_constitution = { attr = "constitution", req = 600, tier = 10, quality = "cyan", chapter = 5, x = 58, y = 64, isSetEquip = true },
+    xianyuan_chest_ch5_physique     = { attr = "physique",     req = 600, tier = 10, quality = "cyan", chapter = 5, x = 22, y = 64, isSetEquip = true },
 }
 
 -- 属性 getter 映射（引用 Player.lua 中已有的方法名）

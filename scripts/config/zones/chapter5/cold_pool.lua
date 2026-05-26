@@ -11,7 +11,16 @@ cold_pool.regions = {
     ch5_cold_pool = { x1 = 59, y1 = 4, x2 = 76, y2 = 16, zone = "ch5_cold_pool" },
 }
 
-cold_pool.npcs = {}
+cold_pool.npcs = {
+    -- 悟道树（2×2 占地：61~62, 4~5）
+    {
+        id = "dao_tree_ch5", name = "洗剑寒池·悟道树", subtitle = "每日参悟",
+        x = 61.5, y = 4.5, icon = "🌳",
+        interactType = "dao_tree", isObject = true, zone = "ch5_cold_pool",
+        label = "悟道树",
+        dialog = "寒池岸边古木参天，剑气与寒意在此相融。静坐树下，可悟剑道中藏匿的天地至理。",
+    },
+}
 cold_pool.spawns = {
     -- 普通怪：寒池灵鹤 ×5（均匀散布）
     { type = "ch5_cold_crane",    x = 62.5, y = 7.5  },
@@ -27,6 +36,8 @@ cold_pool.spawns = {
     { type = "ch5_frost_luan",    x = 73.5, y = 6.5  },
 }
 cold_pool.decorations = {
+    -- 悟道树（2×2 占地：61~62, 4~5）
+    { type = "dao_tree", x = 61, y = 4, w = 2, h = 2, label = "悟道树" },
     -- 洗剑寒池：冰棱与寒气
     { type = "ice_shard",     x = 61, y = 6  },
     { type = "ice_shard",     x = 74, y = 7  },

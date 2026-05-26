@@ -88,6 +88,8 @@ CombatSystem.barrierSpawnTimer = 0
 CombatSystem.delayedHits = {}
 -- 神器被动冲击特效队列
 CombatSystem.rakeStrikeEffects = {}
+-- 四剑诛灭剑影特效队列
+CombatSystem.zhentuSwordEffects = {}
 -- 血怒叠层: { [monsterId] = stackCount }
 CombatSystem.bloodRageStacks = {}
 
@@ -162,8 +164,9 @@ EFFECT_HANDLERS["wind_slash"] = {
         if (eff._cooldown or 0) > 0 then return end
         if math_random() <= (eff.triggerChance or 0.20) then
             eff._cooldown = eff.cooldown or 2.0
-            local dmg = math_max(1, math_floor(player:GetTotalAtk() * (eff.damagePercent or 1.20)))
-            local actualDmg = HitResolver.NoCrit(player, monster, dmg)
+            local baseDmg = GameConfig.CalcDamage(player:GetTotalAtk(), monster.def)
+            local dmg = math_max(1, math_floor(baseDmg * (eff.damagePercent or 1.20)))
+            local actualDmg = HitResolver.Hit(player, monster, dmg, { skipCalcDamage = true, skipCrit = true, noEvent = true })
             CombatSystem.AddFloatingText(
                 monster.x, monster.y - 0.7,
                 "裂风 " .. actualDmg,
@@ -296,8 +299,9 @@ EFFECT_HANDLERS["shadow_strike"] = {
         if (eff._cooldown or 0) > 0 then return end
         if math_random() <= (eff.triggerChance or 0.50) then
             eff._cooldown = 2.0
-            local dmg = math_max(1, math_floor(player:GetTotalAtk() * (eff.damagePercent or 0.60)))
-            local actualDmg = HitResolver.NoCrit(player, monster, dmg)
+            local baseDmg = GameConfig.CalcDamage(player:GetTotalAtk(), monster.def)
+            local dmg = math_max(1, math_floor(baseDmg * (eff.damagePercent or 0.60)))
+            local actualDmg = HitResolver.Hit(player, monster, dmg, { skipCalcDamage = true, skipCrit = true, noEvent = true })
             CombatSystem.AddFloatingText(
                 monster.x, monster.y - 0.9,
                 "灭影 " .. actualDmg,
@@ -340,31 +344,57 @@ EFFECT_HANDLERS["hp_regen_percent"] = {
     end,
 }
 
--- ── 诛仙（暴击追加15%ATK伤害，可暴击，无CD，附加伤害不二次触发） ──
+-- ── 诛仙（暴击追加15%ATK伤害，可暴击，CD 1s，附加伤害不二次触发） ──
 local FT_ZHUXIAN = {200, 50, 50, 255}  -- 深红
 EFFECT_HANDLERS["zhuxian"] = {
     onHit = function(eff, player, monster, isCrit)
-        if not isCrit then return end
         if not monster.alive then return end
-        local raw = math_max(1, math_floor(player:GetTotalAtk() * (eff.damagePercent or 0.15)))
-        local actualDmg
-        if eff.canCrit then
-            -- 追加伤害走完整管线（含暴击），noEvent 避免二次触发 player_deal_damage
-            actualDmg = HitResolver.Hit(player, monster, raw, { noEvent = true })
+        if (eff._cooldown or 0) > 0 then return end
+        local baseDmg = GameConfig.CalcDamage(player:GetTotalAtk(), monster.def)
+        if eff.procChance then
+            -- ── 解封版（诛仙·圣威）：每次攻击 procChance 概率触发剑气 ──
+            if math_random() >= (eff.procChance or 0.30) then return end
+            eff._cooldown = eff.cooldown or 1.0
+            local raw = math_max(1, math_floor(baseDmg * (eff.dmgMult or 1.80)))
+            local actualDmg = HitResolver.Hit(player, monster, raw, { skipCalcDamage = true, noEvent = true })
+            CombatSystem.AddFloatingText(monster.x, monster.y - 0.9, "诛仙剑气 " .. actualDmg, FT_ZHUXIAN, 1.4)
+            print("[Combat] 诛仙剑气! " .. actualDmg)
         else
-            actualDmg = HitResolver.NoCrit(player, monster, raw)
+            -- ── 封印版：暴击时追加一次额外伤害（可暴击） ──
+            if not isCrit then return end
+            eff._cooldown = eff.cooldown or 1.0
+            local raw = math_max(1, math_floor(baseDmg * (eff.damagePercent or 0.15)))
+            local actualDmg, zhuxianCrit
+            if eff.canCrit then
+                actualDmg, zhuxianCrit = HitResolver.Hit(player, monster, raw, { skipCalcDamage = true, noEvent = true })
+            else
+                actualDmg = HitResolver.Hit(player, monster, raw, { skipCalcDamage = true, skipCrit = true, noEvent = true })
+                zhuxianCrit = false
+            end
+            if zhuxianCrit then
+                CombatSystem.AddFloatingText(monster.x, monster.y - 0.9, "诛仙暴击 " .. actualDmg, FT_CRIT_YELLOW, 1.4)
+                print("[Combat] 诛仙暴击! " .. actualDmg)
+            else
+                CombatSystem.AddFloatingText(monster.x, monster.y - 0.9, "诛仙 " .. actualDmg, FT_ZHUXIAN, 1.3)
+                print("[Combat] 诛仙! " .. actualDmg)
+            end
         end
-        CombatSystem.AddFloatingText(
-            monster.x, monster.y - 0.9,
-            "诛仙 " .. actualDmg,
-            FT_ZHUXIAN, 1.3
-        )
-        print("[Combat] 诛仙! " .. actualDmg)
+    end,
+    update = function(dt)
+        local player = GameState.player
+        if not player then return end
+        local effects = player.equipSpecialEffects
+        if not effects then return end
+        for _, eff in ipairs(effects) do
+            if eff.type == "zhuxian" and (eff._cooldown or 0) > 0 then
+                eff._cooldown = eff._cooldown - dt
+                if eff._cooldown < 0 then eff._cooldown = 0 end
+            end
+        end
     end,
 }
 
 -- ── 陷仙（HP>50%暴伤+50%；HP≤50%每秒恢复2%最大生命，互斥） ──
-local FT_XIANXIAN = {100, 180, 255, 255}  -- 冰蓝
 EFFECT_HANDLERS["xianxian"] = {
     update = function(dt)
         local player = GameState.player
@@ -376,11 +406,9 @@ EFFECT_HANDLERS["xianxian"] = {
                 local maxHp = player:GetTotalMaxHp()
                 local hpRatio = player.hp / maxHp
                 if hpRatio > (eff.highHpThreshold or 0.50) then
-                    -- 高血量状态：暴伤加成（存入实例字段，由属性系统读取）
                     eff._active = "high"
                     eff._critDmgBuff = eff.critDmgBonus or 0.50
                 else
-                    -- 低血量状态：每秒回血
                     eff._active = "low"
                     eff._critDmgBuff = 0
                     local heal = maxHp * (eff.lowHpRegenPercent or 0.02) * dt
@@ -391,13 +419,16 @@ EFFECT_HANDLERS["xianxian"] = {
     end,
 }
 
--- ── 戮仙（普攻时10%概率连击，连击走完整普攻流程可触发其他普攻特效，不触发戮仙自身） ──
+-- ── 戮仙（普攻10%概率连击，CD 1s） ──
 local FT_LUXIAN = {255, 120, 40, 255}  -- 橙红
 EFFECT_HANDLERS["luxian"] = {
     onHit = function(eff, player, monster, isCrit, isChain)
+        if not eff.procChance then return end
         if isChain then return end          -- 连击不触发戮仙自身，防止循环
         if not monster.alive then return end
-        if math_random() >= (eff.procChance or 0.10) then return end
+        if (eff._cooldown or 0) > 0 then return end
+        if math_random() >= eff.procChance then return end
+        eff._cooldown = eff.cooldown or 1.0
         -- 连击：走完整普攻判定（含暴击、装备特效，但标记 isChain=true 排除戮仙）
         local chainDmg, chainCrit = HitResolver.Hit(player, monster, player:GetTotalAtk(), { noEvent = true })
         if chainCrit then
@@ -412,6 +443,18 @@ EFFECT_HANDLERS["luxian"] = {
         -- 连击也触发 player_normal_hit 系列事件（绝仙叠层、灭影等依赖此事件）
         EventBus.Emit("player_normal_hit", player, monster)
         EventBus.Emit("player_deal_damage", player, monster)
+    end,
+    update = function(dt)
+        local player = GameState.player
+        if not player then return end
+        local effects = player.equipSpecialEffects
+        if not effects then return end
+        for _, eff in ipairs(effects) do
+            if eff.type == "luxian" and (eff._cooldown or 0) > 0 then
+                eff._cooldown = eff._cooldown - dt
+                if eff._cooldown < 0 then eff._cooldown = 0 end
+            end
+        end
     end,
 }
 
@@ -508,6 +551,7 @@ function CombatSystem.Init()
     CombatSystem.barrierSpawnTimer = 0
     CombatSystem.delayedHits = {}
     CombatSystem.rakeStrikeEffects = {}
+    CombatSystem.zhentuSwordEffects = {}
     CombatSystem.bloodRageStacks = {}
 
     -- 监听攻击事件，创建伤害数字 + 刀光
@@ -677,6 +721,38 @@ function CombatSystem.AddRakeStrikeEffect(player, sweepAngle, range, width, forw
     })
 end
 
+--- 添加四剑诛灭剑影特效
+--- 四把剑从四个斜方向飞入玩家位置，第 index 把剑对应一个方向
+---@param px number 玩家世界X
+---@param py number 玩家世界Y
+---@param index number 第几把剑（1=天剑 2=地剑 3=人剑 4=神剑）
+function CombatSystem.AddZhentuSwordEffect(px, py, index)
+    -- 四把剑从四个斜角飞入：↗↙↖↘
+    local angles = { math.pi * 0.25, math.pi * 1.25, math.pi * 0.75, math.pi * 1.75 }
+    local colors = {
+        {220, 180, 255, 240},   -- 天剑：淡紫白
+        {180, 100, 255, 240},   -- 地剑：深紫
+        {140, 200, 255, 240},   -- 人剑：青蓝
+        {255, 220, 120, 240},   -- 神剑：金黄
+    }
+    local ang = angles[index] or 0
+    local dist = 3.5  -- 起始距离（瓦片）
+    local cosA = math.cos(ang)
+    local sinA = math.sin(ang)
+    table.insert(CombatSystem.zhentuSwordEffects, {
+        -- 起始位置（从远处飞向玩家）
+        startX  = px + cosA * dist,
+        startY  = py + sinA * dist,
+        targetX = px,
+        targetY = py,
+        angle   = ang + math.pi,   -- 剑尖朝向玩家方向
+        color   = colors[index],
+        index   = index,
+        duration = 0.55,
+        elapsed  = 0,
+    })
+end
+
 --- 添加技能范围特效
 ---@param player table 玩家实体
 ---@param skillId string 技能ID
@@ -785,6 +861,7 @@ function CombatSystem.Update(dt)
     CompactTimedArray(CombatSystem.petSlashEffects, dt, "duration")
     CompactTimedArray(CombatSystem.monsterWarnings, dt, "duration")
     CompactTimedArray(CombatSystem.rakeStrikeEffects, dt, "duration")
+    CompactTimedArray(CombatSystem.zhentuSwordEffects, dt, "duration")
 
     -- 更新buff
     CombatSystem.UpdateBuffs(dt)

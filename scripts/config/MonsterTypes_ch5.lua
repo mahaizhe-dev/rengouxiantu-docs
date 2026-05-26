@@ -132,6 +132,7 @@ M.Types.ch5_pei_qianyue = {
         { chance = 0.02, type = "equipment", equipId = "wenfeng_necklace_ch5" },  -- 闻风玉坠2%（灵器）
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
+        { chance = 0.001, type = "consumable", consumableId = "zhentu_fragment_4" },  -- 阵图残符·肆0.1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -208,6 +209,7 @@ M.Types.ch5_frost_luan = {
         { chance = 0.02, type = "equipment", equipId = "hanchi_ring_ch5" },  -- 寒池灵戒2%（灵器）
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
+        { chance = 0.001, type = "consumable", consumableId = "zhentu_fragment_5" },  -- 阵图残符·伍0.1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -284,6 +286,7 @@ M.Types.ch5_han_bailian = {
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.01, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹1%（皇级）
         { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
+        { chance = 0.001, type = "consumable", consumableId = "zhentu_fragment_6" },  -- 阵图残符·陆0.1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
         -- 宠物书：防御书（特级）0.5%
         { chance = 0.005, type = "consumable", consumableId = "book_def_4" },
@@ -362,6 +365,7 @@ M.Types.ch5_shi_guanlan = {
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.01, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹1%（皇级）
         { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
+        { chance = 0.001, type = "consumable", consumableId = "zhentu_fragment_7" },  -- 阵图残符·柒0.1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
         -- 宠物书：生命书（特级）0.5%
         { chance = 0.005, type = "consumable", consumableId = "book_hp_4" },
@@ -441,6 +445,7 @@ M.Types.ch5_ning_qiwu = {
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.01, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹1%（皇级）
         { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
+        { chance = 0.001, type = "consumable", consumableId = "zhentu_fragment_8" },  -- 阵图残符·捌0.1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
         -- 宠物书：攻击书（特级）0.5%
         { chance = 0.005, type = "consumable", consumableId = "book_atk_4" },
@@ -503,6 +508,7 @@ M.Types.ch5_wen_suzhang = {
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.01, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹1%（皇级）
         { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
+        { chance = 0.001, type = "consumable", consumableId = "zhentu_fragment_9" },  -- 阵图残符·玖0.1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
         -- 宠物书：蕴灵三书特级共享1.5%（每本0.5%）
         { chance = 0.015, type = "world_drop", pool = "wen_yunling_books" },
@@ -545,6 +551,7 @@ M.Types.ch5_blood_general = {
         { chance = 0.005, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹0.5%（血屠将）
         { chance = 0.002, type = "consumable", consumableId = "immortal_essence_blood" },  -- 仙人精血0.2%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
+        { chance = 0.004, type = "set_equipment", tier = 10, setIds = {"xuesha","qingyun","fengmo","haoqi"} },  -- T10制式套装0.4%
     },
 }
 
@@ -583,9 +590,11 @@ M.Types.ch5_abyss_marshal = {
         { chance = 0.02, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹2%（血犼）
         { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
         { chance = 0.01, type = "consumable", consumableId = "immortal_essence_blood" },  -- 仙人精血1%
+        { chance = 0.001, type = "consumable", consumableId = "zhentu_fragment_3" },  -- 阵图残符·叁0.1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
         -- 宠物书：减伤+加伤特级共享1%（每本0.5%）
         { chance = 0.01, type = "world_drop", pool = "abyss_marshal_books" },
+        { chance = 0.004, type = "set_equipment", tier = 10, setIds = {"xuesha","qingyun","fengmo","haoqi"} },  -- T10制式套装0.4%
     },
 }
 
@@ -639,6 +648,7 @@ M.Types.ch5_sword_zhu = {
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
         -- 宠物书：通慧+忽视特级共享1%（每本0.5%）
         { chance = 0.01, type = "world_drop", pool = "sword_zhu_books" },
+        { chance = 0.004, type = "set_equipment", tier = 10, setIds = {"xuesha","qingyun","fengmo","haoqi"} },  -- T10制式套装0.4%
     },
 }
 
@@ -687,6 +697,7 @@ M.Types.ch5_sword_xian = {
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
         -- 宠物书：铸骨+连击特级共享1%（每本0.5%）
         { chance = 0.01, type = "world_drop", pool = "sword_xian_books" },
+        { chance = 0.004, type = "set_equipment", tier = 10, setIds = {"xuesha","qingyun","fengmo","haoqi"} },  -- T10制式套装0.4%
     },
 }
 
@@ -735,6 +746,7 @@ M.Types.ch5_sword_lu = {
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
         -- 宠物书：淬体+攻速特级共享1%（每本0.5%）
         { chance = 0.01, type = "world_drop", pool = "sword_lu_books" },
+        { chance = 0.004, type = "set_equipment", tier = 10, setIds = {"xuesha","qingyun","fengmo","haoqi"} },  -- T10制式套装0.4%
     },
 }
 
@@ -783,6 +795,7 @@ M.Types.ch5_sword_jue = {
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
         -- 宠物书：赐福+吸血特级共享1%（每本0.5%）
         { chance = 0.01, type = "world_drop", pool = "sword_jue_books" },
+        { chance = 0.004, type = "set_equipment", tier = 10, setIds = {"xuesha","qingyun","fengmo","haoqi"} },  -- T10制式套装0.4%
     },
 }
 
@@ -827,9 +840,11 @@ M.Types.ch5_marshal_shugu = {
         { chance = 0.02, type = "consumable", consumableId = "dujie_dan" },
         { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
         { chance = 0.01, type = "consumable", consumableId = "immortal_essence_blood" },
+        { chance = 0.001, type = "consumable", consumableId = "zhentu_fragment_1" },  -- 阵图残符·壹0.1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
         -- 宠物书：暴击+暴伤特级共享1%（每本0.5%），随机掉1本
         { chance = 0.01, type = "world_drop", pool = "shugu_books" },
+        { chance = 0.004, type = "set_equipment", tier = 10, setIds = {"xuesha","qingyun","fengmo","haoqi"} },  -- T10制式套装0.4%
     },
 }
 
@@ -868,10 +883,58 @@ M.Types.ch5_marshal_liesoul = {
         { chance = 0.02, type = "consumable", consumableId = "dujie_dan" },
         { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
         { chance = 0.01, type = "consumable", consumableId = "immortal_essence_blood" },
+        { chance = 0.001, type = "consumable", consumableId = "zhentu_fragment_2" },  -- 阵图残符·贰0.1%
         { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
         -- 宠物书：闪避+恢复特级共享1%（每本0.5%），随机掉1本
         { chance = 0.01, type = "world_drop", pool = "liesoul_books" },
+        { chance = 0.004, type = "set_equipment", tier = 10, setIds = {"xuesha","qingyun","fengmo","haoqi"} },  -- T10制式套装0.4%
     },
+}
+
+-- ============================================================================
+-- 诛仙阵图神器BOSS（由 ArtifactSystem_ch5 召唤，竞技场独立副本）
+-- ============================================================================
+M.Types.artifact_sikong_xuanyin = {
+    name = "太虚宗主·司空玄胤",
+    icon = "🗡",
+    portrait = "Textures/monster_taixu_zongzhu.png",
+    zone = "artifact_arena",
+    category = "saint_boss",
+    race = "cultivator",
+    level = 120,
+    realm = "dujie_1",          -- 渡劫初期
+    hp = 5271950,
+    atk = 2958,
+    def = 2347,
+    bodyColor = {120, 60, 180, 255},
+    clawColor = {180, 80, 255},
+    skillTextColor = {200, 100, 255, 255},
+    warningColorOverride = {120, 60, 180, 120},
+    phases = 3,
+    -- 一阶段基础技能池（100%~70%）：一字诛线/寒镜回锋/熔环外推/禁疗血雾/连式·诛线
+    skills = {
+        "ch5_zhentu_sword_line",
+        "ch5_zhentu_mirror_blade",
+        "ch5_zhentu_fire_ring",
+        "ch5_zhentu_blood_mist",
+        "ch5_zhentu_chain_slash",
+    },
+    phaseConfig = {
+        -- 第二阶段：70%触发，血池灌体转阶，新增吸血锁链/十字绝路/四式归宗
+        { threshold = 0.7, atkMult = 1.35, speedMult = 1.2,
+          announce = "血池翻涌，宗主入魂！",
+          triggerSkill = "ch5_zhentu_blood_surge",
+          addSkills = { "ch5_zhentu_drain_chain", "ch5_zhentu_cross_slash", "ch5_zhentu_four_combo" } },
+        -- 第三阶段：40%触发，入魔归宗转阶，新增八荒焚路/绝命蚀界/万剑归宗
+        { threshold = 0.4, atkMult = 2.0, speedMult = 1.6, intervalMult = 0.6,
+          announce = "太虚无极，万法归宗！天地同灭！",
+          triggerSkill = "ch5_zhentu_demonic_surge",
+          addSkills = { "ch5_zhentu_eight_burn", "ch5_zhentu_dread_zone", "ch5_zhentu_ultimate" },
+          removeSkills = { "ch5_zhentu_mirror_blade", "ch5_zhentu_fire_ring", "ch5_zhentu_chain_slash" } },
+    },
+    dropTable = {},             -- 神器BOSS不掉落普通物品，由 ArtifactSystem_ch5 处理
+    isArtifactBoss = true,
+    berserkBuff = { atkSpeedMult = 1.5, speedMult = 1.5, cdrMult = 0.5 },
 }
 
 end

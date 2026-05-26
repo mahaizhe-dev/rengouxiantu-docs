@@ -1236,7 +1236,7 @@ M.Types.challenge_luqingyun_t8 = {
     berserkBuff = { atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 },
 }
 
--- ===================== 挑战副本：血煞盟·沈墨（新声望体系 R1-R7） =====================
+-- ===================== 挑战副本：血煞盟·沈墨（新声望体系 R1-R8） =====================
 -- 新体系所有 BOSS 均为 emperor_boss，与旧 t1-t8 共存（旧存档向后兼容）
 
 -- 声望等级1: T3 筑基初期（单阶段，仅基础技能）
@@ -1444,8 +1444,39 @@ M.Types.challenge_shenmo_r7 = {
     berserkBuff = { atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 },
 }
 
+-- 声望等级8: T10 渡劫初期（3阶段，圣者Boss，血印强化）
+M.Types.challenge_shenmo_r8 = {
+    name = "沈墨",
+    icon = "🗡️",
+    portrait = "Textures/npc_xuesha_spy.png",
+    zone = "challenge_arena",
+    category = "saint_boss",
+    race = "human",
+    level = 120,
+    realm = "dujie_1",
+    bodyColor = {255, 0, 0, 255},
+    clawColor = {220, 20, 20},
+    skillTextColor = {255, 60, 40, 255},
+    warningColorOverride = {200, 20, 20, 140},
+    phases = 3,
+    skills = { "line_charge", "whirlwind", "cross_smash" },
+    phaseConfig = {
+        { threshold = 0.6, speedMult = 1.4, intervalMult = 0.6,
+          announce = "血海...翻涌吧！",
+          triggerSkill = "shenmo_blood_flood",
+          addSkill = "shenmo_shadow_clone" },
+        { threshold = 0.25, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
+          announce = "以我之血，染尽苍穹！",
+          triggerSkill = "shenmo_blood_flood" },
+    },
+    dropTable = {},
+    isChallenge = true,
+    bloodMark = { damagePercent = 0.03 },
+    berserkBuff = { atkSpeedMult = 1.4, speedMult = 1.4, cdrMult = 0.6 },
+}
+
 -- ═══════════════════════════════════════════════════════════════════
--- 浩气宗声望 BOSS：陆青云 R1-R7
+-- 浩气宗声望 BOSS：陆青云 R1-R8
 -- 核心机制：正气结界（barrierZone）—— 周期性生成屏障区域
 -- ═══════════════════════════════════════════════════════════════════
 
@@ -1654,8 +1685,39 @@ M.Types.challenge_luqingyun_r7 = {
     berserkBuff = { atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 },
 }
 
+-- 声望等级8: T10 渡劫初期（3阶段，圣者Boss，结界强化）
+M.Types.challenge_luqingyun_r8 = {
+    name = "陆青云",
+    icon = "⚔️",
+    portrait = "Textures/npc_haoqi_envoy.png",
+    zone = "challenge_arena",
+    category = "saint_boss",
+    race = "human",
+    level = 120,
+    realm = "dujie_1",
+    bodyColor = {30, 70, 200, 255},
+    clawColor = {240, 200, 50},
+    skillTextColor = {255, 230, 80, 255},
+    warningColorOverride = {40, 120, 240, 140},
+    phases = 3,
+    skills = { "shield_bash", "rect_sweep", "ground_pound" },
+    phaseConfig = {
+        { threshold = 0.6, speedMult = 1.4, intervalMult = 0.6,
+          announce = "剑阵...起！",
+          triggerSkill = "luqingyun_sword_array",
+          addSkill = "luqingyun_prison" },
+        { threshold = 0.25, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
+          announce = "浩然正气，天地无极！",
+          triggerSkill = "luqingyun_sword_array" },
+    },
+    dropTable = {},
+    isChallenge = true,
+    barrierZone = { interval = 12, maxCount = 5, damagePercent = 0.50, radius = 0.9 },
+    berserkBuff = { atkSpeedMult = 1.4, speedMult = 1.4, cdrMult = 0.6 },
+}
+
 -- ═══════════════════════════════════════════════════════════════════
--- 青云门声望 BOSS：云裳 R1-R7
+-- 青云门声望 BOSS：云裳 R1-R8
 -- 核心机制：玉甲回响（jadeShield）—— 周期性激活护盾，反弹伤害+减伤
 -- 玩家需要在护盾期间停止攻击，等护盾结束后加大输出
 -- ═══════════════════════════════════════════════════════════════════
@@ -1865,8 +1927,39 @@ M.Types.challenge_yunshang_r7 = {
     berserkBuff = { atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 },
 }
 
+-- 声望等级8: T10 渡劫初期（3阶段，圣者Boss，玉甲强化）
+M.Types.challenge_yunshang_r8 = {
+    name = "云裳",
+    icon = "🌿",
+    portrait = "Textures/npc_qingyun_envoy.png",
+    zone = "challenge_arena",
+    category = "saint_boss",
+    race = "human",
+    level = 120,
+    realm = "dujie_1",
+    bodyColor = {30, 180, 80, 255},
+    clawColor = {60, 220, 100},
+    skillTextColor = {80, 255, 120, 255},
+    warningColorOverride = {40, 200, 80, 140},
+    phases = 3,
+    skills = { "jade_palm", "spirit_needle", "cloud_drift" },
+    phaseConfig = {
+        { threshold = 0.6, speedMult = 1.4, intervalMult = 0.6,
+          announce = "你的攻势...还不够格！",
+          triggerSkill = "yunshang_jade_storm",
+          addSkill = "yunshang_root_armor" },
+        { threshold = 0.25, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
+          announce = "青云之道，岂容亵渎！",
+          triggerSkill = "yunshang_jade_storm" },
+    },
+    dropTable = {},
+    isChallenge = true,
+    jadeShield = { interval = 10, duration = 6.0, reflectPercent = 0.60, dmgReduction = 0.80 },
+    berserkBuff = { atkSpeedMult = 1.4, speedMult = 1.4, cdrMult = 0.6 },
+}
+
 -- ═══════════════════════════════════════════════════════════════════
--- 封魔殿声望 BOSS：凌战 R1-R7（封魔殿少帅，年轻一代）
+-- 封魔殿声望 BOSS：凌战 R1-R8（封魔殿少帅，年轻一代）
 -- 核心机制：封魔印（sealMark）—— 周期性叠加印记，满层爆发伤害
 --   每隔 stackInterval 秒自动叠1层封魔印
 --   达到 maxStacks 层时触发"封印爆发"，造成 burstDamagePercent × 玩家最大HP 的伤害
@@ -2076,6 +2169,37 @@ M.Types.challenge_liwuji_r7 = {
     isChallenge = true,
     sealMark = { stackInterval = 2.0, maxStacks = 5, burstDamagePercent = 0.25, clearPerHit = 1 },
     berserkBuff = { atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 },
+}
+
+-- 声望等级8: T10 渡劫初期（3阶段，圣者Boss，封印强化）
+M.Types.challenge_liwuji_r8 = {
+    name = "凌战",
+    icon = "🔮",
+    portrait = "Textures/npc_fengmo_envoy.png",
+    zone = "challenge_arena",
+    category = "saint_boss",
+    race = "human",
+    level = 120,
+    realm = "dujie_1",
+    bodyColor = {140, 40, 200, 255},
+    clawColor = {200, 60, 240},
+    skillTextColor = {220, 100, 255, 255},
+    warningColorOverride = {160, 40, 200, 140},
+    phases = 3,
+    skills = { "line_charge", "whirlwind", "cross_smash" },
+    phaseConfig = {
+        { threshold = 0.6, speedMult = 1.4, intervalMult = 0.6,
+          announce = "封魔之力...觉醒！",
+          triggerSkill = "liwuji_seal_burst",
+          addSkill = "liwuji_void_pull" },
+        { threshold = 0.25, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
+          announce = "万魔臣服，封印永镇！",
+          triggerSkill = "liwuji_seal_burst" },
+    },
+    dropTable = {},
+    isChallenge = true,
+    sealMark = { stackInterval = 1.5, maxStacks = 6, burstDamagePercent = 0.30, clearPerHit = 1 },
+    berserkBuff = { atkSpeedMult = 1.4, speedMult = 1.4, cdrMult = 0.6 },
 }
 
 end

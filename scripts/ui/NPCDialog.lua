@@ -24,6 +24,8 @@ local SealDemonUI_ = nil
 local ArtifactUI_ = nil
 local ArtifactUI_ch4_ = nil
 local ArtifactUI_tiandi_ = nil
+local ArtifactUI_ch5_ = nil
+local AtlasUI_ = nil
 local DaoTreeUI_ = nil
 local TrialTowerUI_ = nil
 local TrialOfferingUI_ = nil
@@ -99,6 +101,16 @@ end
 local function GetArtifactUI_tiandi()
     if not ArtifactUI_tiandi_ then ArtifactUI_tiandi_ = require("ui.ArtifactUI_tiandi") end
     return ArtifactUI_tiandi_
+end
+
+local function GetArtifactUI_ch5()
+    if not ArtifactUI_ch5_ then ArtifactUI_ch5_ = require("ui.ArtifactUI_ch5") end
+    return ArtifactUI_ch5_
+end
+
+local function GetAtlasUI()
+    if not AtlasUI_ then AtlasUI_ = require("ui.AtlasUI") end
+    return AtlasUI_
 end
 
 local function GetDaoTreeUI()
@@ -305,6 +317,8 @@ function NPCDialog.Create(parentOverlay)
     GetArtifactUI().Create(parentOverlay)
     GetArtifactUI_ch4().Create(parentOverlay)
     GetArtifactUI_tiandi().Create(parentOverlay)
+    GetArtifactUI_ch5().Create(parentOverlay)
+    GetAtlasUI().Create(parentOverlay)
     GetDaoTreeUI().Create(parentOverlay)
     GetTrialTowerUI().Create(parentOverlay)
     GetPrisonTowerUI().Create(parentOverlay)
@@ -741,6 +755,7 @@ local INTERACT_HANDLERS = {
     event_exchange    = function(npc)  GetEventExchangeUI().Show(npc) end,
     xianshi_note      = function(_npc) GetXianshiRankUI().Show() end,
     divine_tiandi     = function(_npc) GetArtifactUI_tiandi().Show() end,
+    divine_zhentu     = function(_npc) GetArtifactUI_ch5().Show() end,
     mysterious_merchant = function(npc)
         local ArtifactSystem = require("systems.ArtifactSystem")
         local hasFragment9 = ArtifactSystem.GetFragmentCount(9) > 0
@@ -819,6 +834,8 @@ function NPCDialog.Hide()
     if ArtifactUI_ then ArtifactUI_.Hide() end
     if ArtifactUI_ch4_ then ArtifactUI_ch4_.Hide() end
     if ArtifactUI_tiandi_ then ArtifactUI_tiandi_.Hide() end
+    if ArtifactUI_ch5_ then ArtifactUI_ch5_.Hide() end
+    if AtlasUI_ then AtlasUI_.Hide() end
     if DaoTreeUI_ then DaoTreeUI_.Hide() end
     if SeaPillarUI_ then SeaPillarUI_.Hide() end
     if TrialTowerUI_ then TrialTowerUI_.Hide() end
@@ -846,6 +863,8 @@ function NPCDialog.Destroy()
     if ArtifactUI_ and ArtifactUI_.Destroy then ArtifactUI_.Destroy() end
     if ArtifactUI_ch4_ and ArtifactUI_ch4_.Destroy then ArtifactUI_ch4_.Destroy() end
     if ArtifactUI_tiandi_ and ArtifactUI_tiandi_.Destroy then ArtifactUI_tiandi_.Destroy() end
+    if ArtifactUI_ch5_ and ArtifactUI_ch5_.Destroy then ArtifactUI_ch5_.Destroy() end
+    if AtlasUI_ and AtlasUI_.Destroy then AtlasUI_.Destroy() end
     if DaoTreeUI_ and DaoTreeUI_.Destroy then DaoTreeUI_.Destroy() end
     if TrialTowerUI_ and TrialTowerUI_.Destroy then TrialTowerUI_.Destroy() end
     if PrisonTowerUI_ and PrisonTowerUI_.Destroy then PrisonTowerUI_.Destroy() end
@@ -897,6 +916,8 @@ function NPCDialog.IsVisible()
     if ArtifactUI_ and ArtifactUI_.IsVisible() then return true end
     if ArtifactUI_ch4_ and ArtifactUI_ch4_.IsVisible() then return true end
     if ArtifactUI_tiandi_ and ArtifactUI_tiandi_.IsVisible() then return true end
+    if ArtifactUI_ch5_ and ArtifactUI_ch5_.IsVisible() then return true end
+    if AtlasUI_ and AtlasUI_.IsVisible() then return true end
     if DaoTreeUI_ and DaoTreeUI_.IsVisible() then return true end
     if SeaPillarUI_ and SeaPillarUI_.IsVisible() then return true end
     if WarehouseUI_ and WarehouseUI_.IsVisible() then return true end

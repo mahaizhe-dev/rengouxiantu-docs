@@ -47,32 +47,54 @@ TrialTowerConfig.REALMS = {
     [16] = { id = "heti_1",    name = "合体初期", floors = {151, 160}, reqLevel = 85, maxLevel = 100 },
     [17] = { id = "heti_2",    name = "合体中期", floors = {161, 170}, reqLevel = 90, maxLevel = 100 },
     [18] = { id = "heti_3",    name = "合体后期", floors = {171, 180}, reqLevel = 95, maxLevel = 100 },
+    -- ===== 第五章·太虚之殇（181-260层）=====
+    -- 大乘每境界跨 20 层（与 GameConfig.REALMS order 19-22 对应）
+    [19] = { id = "dacheng_1", name = "大乘初期", floors = {181, 200}, reqLevel = 100, maxLevel = 120 },
+    [20] = { id = "dacheng_2", name = "大乘中期", floors = {201, 220}, reqLevel = 105, maxLevel = 120 },
+    [21] = { id = "dacheng_3", name = "大乘后期", floors = {221, 240}, reqLevel = 110, maxLevel = 120 },
+    [22] = { id = "dacheng_4", name = "大乘巅峰", floors = {241, 260}, reqLevel = 115, maxLevel = 120 },
 }
 
 --- 根据层数获取境界信息
+--- 1-180层: 每10层一个境界 (realmIndex 1-18)
+--- 181-260层: 每20层一个境界 (realmIndex 19-22)
 ---@param floor number
 ---@return table|nil realm, number realmIndex
 function TrialTowerConfig.GetRealmByFloor(floor)
-    local realmIndex = math.ceil(floor / 10)
+    local realmIndex
+    if floor <= 180 then
+        realmIndex = math.ceil(floor / 10)
+    else
+        realmIndex = 18 + math.ceil((floor - 180) / 20)
+    end
     local realm = TrialTowerConfig.REALMS[realmIndex]
     return realm, realmIndex
 end
 
 --- 根据层数计算怪物等级
+--- 在境界的 floor 范围内线性插值 reqLevel → maxLevel
 ---@param floor number 当前层（1-based）
 ---@return number level
 function TrialTowerConfig.CalcMonsterLevel(floor)
     local realm = TrialTowerConfig.GetRealmByFloor(floor)
     if not realm then return 10 end
-    local localFloor = ((floor - 1) % 10) + 1  -- 1~10
-    return realm.reqLevel + math.floor((realm.maxLevel - realm.reqLevel) * (localFloor - 1) / 9)
+    local floorStart = realm.floors[1]
+    local floorEnd = realm.floors[2]
+    local span = floorEnd - floorStart  -- 9 或 19
+    local progress = floor - floorStart  -- 0 ~ span
+    return realm.reqLevel + math.floor((realm.maxLevel - realm.reqLevel) * progress / math.max(1, span))
 end
 
---- 层内位置 1~10
+--- 层内位置（相对于境界起始层）
+--- 1-180层: 1~10; 181-260层: 1~20
 ---@param floor number
----@return number localFloor (1-10)
+---@return number localFloor
 function TrialTowerConfig.GetLocalFloor(floor)
-    return ((floor - 1) % 10) + 1
+    if floor <= 180 then
+        return ((floor - 1) % 10) + 1
+    else
+        return ((floor - 181) % 20) + 1
+    end
 end
 
 -- ============================================================================
@@ -80,17 +102,19 @@ end
 -- ============================================================================
 
 --- 计算某层的首通奖励
---- 灵韵 = realmIndex * 2 + floor(localFloor / 3) + 1
---- 金条 = max(1, round((realmIndex * 500 + localFloor * 100) / 500))
+--- 使用 rewardTier（每10层一档，1-26）保持奖励线性递增
+--- 灵韵 = rewardTier * 2 + floor(localFloor10 / 3) + 1
+--- 金条 = max(1, round((rewardTier * 500 + localFloor10 * 100) / 500))
 ---@param floor number
 ---@return number lingYun, number goldBar
 function TrialTowerConfig.CalcFirstClearReward(floor)
-    local _, realmIndex = TrialTowerConfig.GetRealmByFloor(floor)
-    if not realmIndex then return 0, 0 end
-    local localFloor = TrialTowerConfig.GetLocalFloor(floor)
+    if floor < 1 or floor > TrialTowerConfig.MAX_FLOOR then return 0, 0 end
+    -- 奖励档位：始终按每10层递增（与每日档位一致）
+    local rewardTier = math.ceil(floor / 10)
+    local localFloor10 = ((floor - 1) % 10) + 1  -- 1~10
 
-    local lingYun = realmIndex * 2 + math.floor(localFloor / 3) + 1
-    local goldBar = math.max(1, math.floor((realmIndex * 500 + localFloor * 100) / 500 + 0.5))
+    local lingYun = rewardTier * 2 + math.floor(localFloor10 / 3) + 1
+    local goldBar = math.max(1, math.floor((rewardTier * 500 + localFloor10 * 100) / 500 + 0.5))
 
     return lingYun, goldBar
 end
@@ -99,11 +123,11 @@ end
 -- 每日奖励（= 第10层首通 × 2，按档位领取）
 -- ============================================================================
 
-TrialTowerConfig.MAX_DAILY_TIER = 18  -- 最高18档（对应180层）
+TrialTowerConfig.MAX_DAILY_TIER = 26  -- 最高26档（对应260层）
 
 --- 计算某个档位的每日奖励
---- 档位tier对应realmIndex=tier，取第10层首通值×2
----@param tier number 档位（1-18）
+--- 档位tier = floor(最高通关层/10)，取该档第10层首通值×2
+---@param tier number 档位（1-26）
 ---@return number dailyLingYun, number dailyGoldBar
 function TrialTowerConfig.CalcDailyRewardByTier(tier)
     if tier <= 0 or tier > TrialTowerConfig.MAX_DAILY_TIER then
@@ -159,6 +183,7 @@ local function GenerateFloorBlock(cfg)
     local e2 = cfg.elites[2] or e1   -- 第二种精英，默认同第一种
     local b1 = cfg.bosses[1]
     local b2 = cfg.bosses[2] or b1   -- 第二种BOSS，默认同第一种
+    local b3 = cfg.bosses[3]         -- 第三种BOSS（可选，用于三BOSS关卡）
     local bossName = cfg.bossName
 
     local floors = {}
@@ -184,9 +209,15 @@ local function GenerateFloorBlock(cfg)
                     { id = e1, count = 2 }, { id = e2, count = 2 },
                 } }
         else
-            -- BOSS层：2只BOSS（双种各1）
-            floors[floor] = { level = level, comp = "2B",
-                monsters = { { id = b1, count = 1 }, { id = b2, count = 1 } },
+            -- BOSS层：2~3只BOSS
+            local bossMonsters = { { id = b1, count = 1 }, { id = b2, count = 1 } }
+            local bossComp = "2B"
+            if b3 then
+                table.insert(bossMonsters, { id = b3, count = 1 })
+                bossComp = "3B"
+            end
+            floors[floor] = { level = level, comp = bossComp,
+                monsters = bossMonsters,
                 isBoss = true, bossGroundSpike = true,
                 bossName = bossName }
         end
@@ -347,9 +378,75 @@ local FLOOR_THEMES = {
       elites  = { "xun_elite", "kun_elite" },
       bosses  = { "dragon_ice", "dragon_fire" },
       bossName = "封霜应龙+焚天蜃龙（地刺）" },
+
+    -- ===== 第五章·太虚之殇（181-260层）=====
+
+    -- ── 大乘初期前（181-190层）· 裂山问剑 ──
+    -- 小怪：同门残魂  精英：论剑残影  BOSS：护山石傀(王级) + 问剑长老裴千岳(皇级)
+    { baseFloor = 181,
+      normals = { "ch5_sword_ghost" },
+      elites  = { "ch5_sword_shadow" },
+      bosses  = { "ch5_stone_guardian", "ch5_pei_qianyue" },
+      bossName = "护山石傀+问剑长老（地刺）" },
+
+    -- ── 大乘初期后（191-200层）· 寒池铸炉 ──
+    -- 小怪：寒池灵鹤+炉渣火傀  精英：裂冰玄鼋+炼炉兵傀  BOSS：洗剑霜鸾+铸剑长老韩百炼
+    { baseFloor = 191,
+      normals = { "ch5_cold_crane", "ch5_slag_puppet" },
+      elites  = { "ch5_ice_turtle", "ch5_forge_soldier" },
+      bosses  = { "ch5_frost_luan", "ch5_han_bailian" },
+      bossName = "洗剑霜鸾+铸剑长老（地刺）" },
+
+    -- ── 大乘中期前（201-210层）· 碑林悟剑 ──
+    -- 小怪：剑痕石俑  精英：守碑幻影  BOSS：守碑长老石观澜×2（皇级）
+    { baseFloor = 201,
+      normals = { "ch5_stele_golem" },
+      elites  = { "ch5_stele_phantom" },
+      bosses  = { "ch5_shi_guanlan" },
+      bossName = "守碑长老·石观澜×2（地刺）" },
+
+    -- ── 大乘中期后（211-220层）· 别院藏经 ──
+    -- 小怪：别院怨魂+禁页书妖  精英：夜巡剑侍+裂渊屠血将  BOSS：别院院主宁栖梧+藏经阁主温素章
+    { baseFloor = 211,
+      normals = { "ch5_court_wraith", "ch5_book_demon" },
+      elites  = { "ch5_night_guard", "ch5_blood_general" },
+      bosses  = { "ch5_ning_qiwu", "ch5_wen_suzhang" },
+      bossName = "别院院主+藏经阁主（地刺）" },
+
+    -- ── 大乘后期前（221-230层）· 镇魔前哨 ──
+    -- 小怪：禁页书妖  精英：裂渊屠血将  BOSS：裂渊屠血将(王级)+镇渊魔帅噬渊血犼(皇级)
+    { baseFloor = 221,
+      normals = { "ch5_book_demon" },
+      elites  = { "ch5_blood_general" },
+      bosses  = { "ch5_blood_general", "ch5_abyss_marshal" },
+      bossName = "裂渊屠血将+镇渊魔帅（地刺）" },
+
+    -- ── 大乘后期后（231-240层）· 魔帅巡狩 ──
+    -- 小怪：禁页书妖  精英：裂渊屠血将  BOSS：魔帅噬骨+魔帅裂魂（皇级×2）
+    { baseFloor = 231,
+      normals = { "ch5_book_demon" },
+      elites  = { "ch5_blood_general" },
+      bosses  = { "ch5_marshal_shugu", "ch5_marshal_liesoul" },
+      bossName = "魔帅·噬骨+魔帅·裂魂（地刺）" },
+
+    -- ── 大乘巅峰前（241-250层）· 剑宫外阵 ──
+    -- 小怪：禁页书妖  精英：裂渊屠血将  BOSS：镇渊魔帅(皇级)+剑宫执旗剑朱(圣级)
+    { baseFloor = 241,
+      normals = { "ch5_book_demon" },
+      elites  = { "ch5_blood_general" },
+      bosses  = { "ch5_abyss_marshal", "ch5_sword_zhu" },
+      bossName = "镇渊魔帅+剑宫执旗·剑朱（地刺）" },
+
+    -- ── 大乘巅峰后（251-260层）· 四剑封台 ──
+    -- 小怪：禁页书妖  精英：裂渊屠血将  BOSS：剑鲜+剑鹿+剑绝（圣级×3）
+    { baseFloor = 251,
+      normals = { "ch5_book_demon" },
+      elites  = { "ch5_blood_general" },
+      bosses  = { "ch5_sword_xian", "ch5_sword_lu", "ch5_sword_jue" },
+      bossName = "四剑封台·三圣（地刺）" },
 }
 
--- 自动生成180层配置
+-- 自动生成260层配置
 TrialTowerConfig.FLOOR_MONSTERS = {}
 for _, theme in ipairs(FLOOR_THEMES) do
     local block = GenerateFloorBlock(theme)
@@ -384,12 +481,21 @@ function TrialTowerConfig.CalcCirclePositions(arenaSize, count, radius, angleOff
     return positions
 end
 
---- 计算BOSS对称布局的生成位置
+--- 计算BOSS对称布局的生成位置（支持2~3只BOSS）
 ---@param arenaSize number
----@return table positions { {x, y}, {x, y} }
-function TrialTowerConfig.CalcBossPositions(arenaSize)
+---@param count number|nil BOSS数量，默认2
+---@return table positions { {x, y}, ... }
+function TrialTowerConfig.CalcBossPositions(arenaSize, count)
     local cx = arenaSize / 2 + 1
     local cy = arenaSize / 2 + 1
+    local n = count or 2
+    if n >= 3 then
+        return {
+            { x = cx - 2.5, y = cy - 3.0 },  -- 左BOSS
+            { x = cx + 2.5, y = cy - 3.0 },  -- 右BOSS
+            { x = cx,       y = cy - 1.0 },  -- 中BOSS（稍后方）
+        }
+    end
     return {
         { x = cx - 1.5, y = cy - 3.0 },  -- 左BOSS
         { x = cx + 1.5, y = cy - 3.0 },  -- 右BOSS

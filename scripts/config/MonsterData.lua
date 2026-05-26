@@ -3023,6 +3023,302 @@ MonsterData.Skills = {
         warningRange = 8.0,
         warningColor = {200, 40, 200, 160},
     },
+
+    -- ===================== 太虚宗主·司空玄胤（诛仙阵图神器BOSS） =====================
+
+    --- P1常规：诛仙剑雨（4方向追踪剑柱 + 弱减速）
+    ch5_zhentu_sword_rain = {
+        id = "ch5_zhentu_sword_rain",
+        name = "诛仙剑雨",
+        cooldown = 6,
+        damageMult = 1.8,
+        castTime = 0.5,
+        burstCount = 4,
+        burstInterval = 0.35,
+        burstTrack = true,
+        effect = "slow",
+        effectDuration = 1.5,
+        effectValue = 0.25,
+        warningShape = "circle",
+        warningRange = 1.8,
+        warningColor = {100, 60, 200, 120},
+    },
+
+    --- P1常规：太虚裂斩（十字+斜十字双重十字，短硬直）
+    ch5_zhentu_void_slash = {
+        id = "ch5_zhentu_void_slash",
+        name = "太虚裂斩",
+        cooldown = 7,
+        damageMult = 2.6,
+        castTime = 0.8,
+        effect = "slow",
+        effectDuration = 2.0,
+        effectValue = 0.35,
+        warningShape = "cross",
+        warningRange = 5.5,
+        warningCrossWidth = 0.8,
+        warningRotation = 45,
+        warningColor = {120, 50, 220, 120},
+    },
+
+    --- P2触发：阵法封锁（大圆 + 禁闭效果，过场一次性）
+    ch5_zhentu_formation_lock = {
+        id = "ch5_zhentu_formation_lock",
+        name = "阵法封锁",
+        cooldown = 999,
+        damageMult = 2.0,
+        castTime = 1.2,
+        effect = "slow",
+        effectDuration = 4.0,
+        effectValue = 0.55,
+        warningShape = "circle",
+        warningRange = 6.0,
+        warningColor = {80, 40, 200, 140},
+    },
+
+    --- P2核心：虚空崩塌（3连追踪圆 + 减速叠加）
+    ch5_zhentu_collapse = {
+        id = "ch5_zhentu_collapse",
+        name = "虚空崩塌",
+        cooldown = 999,
+        damageMult = 2.5,
+        castTime = 1.5,
+        burstCount = 3,
+        burstInterval = 0.6,
+        burstTrack = true,
+        effect = "slow",
+        effectDuration = 3.5,
+        effectValue = 0.5,
+        warningShape = "circle",
+        warningRange = 3.0,
+        warningColor = {100, 50, 220, 150},
+    },
+
+    --- P3触发：四剑诛灭（field，全场剑阵 + 安全角落，一次性终极）
+    ch5_zhentu_annihilation = {
+        id = "ch5_zhentu_annihilation",
+        name = "四剑诛灭",
+        cooldown = 999,
+        damageMult = 0,
+        damagePercent = 0.5,
+        isFieldSkill = true,
+        safeZoneCount = 4,
+        safeZoneRadius = 0.6,
+        castTime = 2.5,
+        warningShape = "circle",
+        warningRange = 9.0,
+        warningColor = {80, 30, 200, 180},
+    },
+
+    --- P1：一字诛线（向正前方超长直线剑气，低延迟高伤害）
+    ch5_zhentu_sword_line = {
+        id = "ch5_zhentu_sword_line",
+        name = "一字诛线",
+        cooldown = 5,
+        damageMult = 2.2,
+        castTime = 0.4,
+        warningShape = "line",
+        warningRange = 9.0,
+        warningWidth = 0.6,
+        warningColor = {120, 60, 200, 140},
+    },
+
+    --- P1：寒镜回锋（剑光折返，折返段延迟明显）
+    ch5_zhentu_mirror_blade = {
+        id = "ch5_zhentu_mirror_blade",
+        name = "寒镜回锋",
+        cooldown = 7,
+        damageMult = 1.6,
+        castTime = 0.6,
+        bounceCount = 1,
+        bounceDelay = 0.8,
+        warningShape = "line",
+        warningRange = 6.0,
+        warningWidth = 0.5,
+        warningColor = {100, 140, 200, 120},
+    },
+
+    --- P1：熔环外推（以Boss为中心外扩火环，留灼地）
+    ch5_zhentu_fire_ring = {
+        id = "ch5_zhentu_fire_ring",
+        name = "熔环外推",
+        cooldown = 8,
+        damageMult = 1.4,
+        castTime = 0.7,
+        effect = "burn",
+        effectDuration = 2.0,
+        effectValue = 0.15,
+        isExpandRing = true,
+        expandSpeed = 3.5,
+        warningShape = "ring",
+        warningRange = 5.0,
+        warningRingWidth = 0.8,
+        warningColor = {200, 80, 40, 130},
+    },
+
+    --- P1：禁疗血雾（指定区域血雾，降低治疗效果）
+    ch5_zhentu_blood_mist = {
+        id = "ch5_zhentu_blood_mist",
+        name = "禁疗血雾",
+        cooldown = 9,
+        damageMult = 0.8,
+        castTime = 0.8,
+        effect = "healReduction",
+        effectDuration = 5.0,
+        effectValue = 0.7,
+        isZoneSkill = true,
+        zoneDuration = 5.0,
+        warningShape = "circle",
+        warningRange = 2.5,
+        warningColor = {160, 40, 60, 110},
+    },
+
+    --- P1：连式·诛线（连续3次窄版一字诛线，间隔0.35秒，角度微偏）
+    ch5_zhentu_chain_slash = {
+        id = "ch5_zhentu_chain_slash",
+        name = "连式·诛线",
+        cooldown = 12,
+        damageMult = 1.5,
+        castTime = 0.3,
+        burstCount = 3,
+        burstInterval = 0.35,
+        burstAngleSpread = 12,
+        warningShape = "line",
+        warningRange = 7.0,
+        warningWidth = 0.4,
+        warningColor = {130, 60, 210, 120},
+    },
+
+    --- P2转阶段：血池灌体（宗主悬空，血池翻涌，获得满层养剑）
+    ch5_zhentu_blood_surge = {
+        id = "ch5_zhentu_blood_surge",
+        name = "血池灌体",
+        cooldown = 999,
+        damageMult = 0,
+        castTime = 1.5,
+        isPhaseSkill = true,
+        effect = "knockback",
+        effectValue = 3.0,
+        warningShape = "circle",
+        warningRange = 4.0,
+        warningColor = {160, 30, 50, 140},
+    },
+
+    --- P2：吸血锁链（血链吸血，离开范围可挣断）
+    ch5_zhentu_drain_chain = {
+        id = "ch5_zhentu_drain_chain",
+        name = "吸血锁链",
+        cooldown = 10,
+        damageMult = 1.2,
+        castTime = 0.5,
+        effect = "drain",
+        effectDuration = 3.5,
+        effectValue = 0.08,
+        isLeash = true,
+        leashBreakRange = 4.0,
+        warningShape = "line",
+        warningRange = 4.5,
+        warningWidth = 0.4,
+        warningColor = {150, 20, 50, 130},
+    },
+
+    --- P2：十字绝路（先纵后横，两次交叉斩线）
+    ch5_zhentu_cross_slash = {
+        id = "ch5_zhentu_cross_slash",
+        name = "十字绝路",
+        cooldown = 8,
+        damageMult = 2.0,
+        castTime = 0.6,
+        burstCount = 2,
+        burstInterval = 0.4,
+        warningShape = "cross",
+        warningRange = 6.0,
+        warningCrossWidth = 0.7,
+        warningColor = {120, 50, 210, 130},
+    },
+
+    --- P2：四式归宗（连续4段缩短版技能，满养剑层则强化）
+    ch5_zhentu_four_combo = {
+        id = "ch5_zhentu_four_combo",
+        name = "四式归宗",
+        cooldown = 15,
+        damageMult = 1.8,
+        castTime = 0.5,
+        burstCount = 4,
+        burstInterval = 0.3,
+        isComboSkill = true,
+        comboSkills = { "ch5_zhentu_sword_line", "ch5_zhentu_mirror_blade", "ch5_zhentu_fire_ring", "ch5_zhentu_blood_mist" },
+        warningShape = "circle",
+        warningRange = 4.0,
+        warningColor = {140, 50, 200, 140},
+    },
+
+    --- P3转阶段：入魔归宗（强制击退，血池扩大3秒，直接进归宗态）
+    ch5_zhentu_demonic_surge = {
+        id = "ch5_zhentu_demonic_surge",
+        name = "入魔归宗",
+        cooldown = 999,
+        damageMult = 0,
+        castTime = 2.0,
+        isPhaseSkill = true,
+        effect = "knockback",
+        effectValue = 5.0,
+        isFieldSkill = true,
+        zoneDuration = 3.0,
+        warningShape = "circle",
+        warningRange = 7.0,
+        warningColor = {100, 20, 180, 160},
+    },
+
+    --- P3：八荒焚路（多方向熔线，大面积灼烧带）
+    ch5_zhentu_eight_burn = {
+        id = "ch5_zhentu_eight_burn",
+        name = "八荒焚路",
+        cooldown = 11,
+        damageMult = 1.6,
+        castTime = 0.8,
+        effect = "burn",
+        effectDuration = 4.0,
+        effectValue = 0.2,
+        burstCount = 8,
+        burstAngleSpread = 360,
+        warningShape = "line",
+        warningRange = 7.0,
+        warningWidth = 0.5,
+        warningColor = {200, 70, 30, 130},
+    },
+
+    --- P3：绝命蚀界（全场血界，仅保留少量安全点）
+    ch5_zhentu_dread_zone = {
+        id = "ch5_zhentu_dread_zone",
+        name = "绝命蚀界",
+        cooldown = 18,
+        damageMult = 0,
+        damagePercent = 0.2,
+        castTime = 1.0,
+        isFieldSkill = true,
+        safeZoneCount = 3,
+        safeZoneRadius = 0.7,
+        zoneDuration = 4.0,
+        warningShape = "circle",
+        warningRange = 9.0,
+        warningColor = {90, 20, 160, 170},
+    },
+
+    --- P3终结：万剑归宗（依次四段强化技能连锁，最后补大范围竖斩）
+    ch5_zhentu_ultimate = {
+        id = "ch5_zhentu_ultimate",
+        name = "万剑归宗",
+        cooldown = 45,
+        damageMult = 2.5,
+        castTime = 1.2,
+        burstCount = 5,
+        burstInterval = 0.5,
+        isUltimate = true,
+        warningShape = "circle",
+        warningRange = 9.0,
+        warningColor = {80, 20, 200, 190},
+    },
 }
 
 -- ===================== 怪物类型定义 =====================
@@ -3084,7 +3380,7 @@ MonsterData.WORLD_DROP_POOLS = {
             { type = "consumable", consumableId = "exp_pill_superior" },      -- 上品修炼果
             { type = "consumable", consumableId = "lingyun_fruit_superior" }, -- 上品灵韵果
             { type = "consumable", consumableId = "gold_brick" },             -- 金砖
-            { type = "consumable", consumableId = "dragon_marrow" },          -- 龙髓
+            { type = "consumable", consumableId = "taixu_jianling_box" },       -- 太虚剑令盒
         },
     },
     -- 万仇/万海专用：筑基丹与修炼果共享掉落池

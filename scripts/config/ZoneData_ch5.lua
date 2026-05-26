@@ -17,6 +17,7 @@ local libraryData       = require("config.zones.chapter5.library")
 local swordPalaceData   = require("config.zones.chapter5.sword_palace")
 local demonAbyssData    = require("config.zones.chapter5.demon_abyss")
 local swordCorridorData = require("config.zones.chapter5.sword_corridor")
+local xianyuanRoomsData = require("config.zones.xianyuan_rooms_ch5")
 
 -- 所有区域模块列表（按空间从前到后排列）
 local ALL_ZONES = {
@@ -34,6 +35,8 @@ local ALL_ZONES = {
     swordPalaceData,
     demonAbyssData,
     swordCorridorData,
+    -- 仙缘藏宝室（最末尾覆盖，避免被前序步骤覆盖）
+    xianyuanRoomsData,
 }
 
 -- ============================================================================

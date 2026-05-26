@@ -419,8 +419,13 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
             descText = string.format("每秒恢复%.0f%%最大生命值%s",
                 (eff.regenPercent or 0) * 100, eff.stopWhenFull and "（血满停止）" or "")
         elseif eff.type == "zhuxian" then
-            descText = string.format("暴击时，追加一次%.0f%%攻击力的额外伤害",
-                (eff.damagePercent or 0.30) * 100)
+            if eff.procChance then
+                descText = string.format("每次攻击%.0f%%概率触发诛仙剑气，造成%.0f%%攻击额外伤害",
+                    (eff.procChance or 0.30) * 100, (eff.dmgMult or 1.80) * 100)
+            else
+                descText = string.format("暴击时，追加一次%.0f%%攻击力的额外伤害（可暴击）",
+                    (eff.damagePercent or 0.15) * 100)
+            end
         elseif eff.type == "xianxian" then
             descText = string.format("生命>%.0f%%时暴击伤害+%.0f%%；生命≤%.0f%%时每秒恢复%.0f%%最大生命",
                 (eff.highHpThreshold or 0.50) * 100, (eff.critDmgBonus or 0.50) * 100,
@@ -434,7 +439,7 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
         elseif eff.type == "def_boost" then
             descText = string.format("防御力提高%.0f%%", (eff.defPercent or 0) * 100)
         elseif eff.type == "xianyuan_lowest_boost" then
-            descText = string.format("当前总值最低的仙缘属性额外获得%d点加成", eff.bonus or 0)
+            descText = string.format("当前总值最低的仙缘属性额外获得%d点加成（唯一）", eff.bonus or 0)
         elseif eff.type == "yuanjia" then
             descText = string.format("受到伤害后，若当前生命低于50%%，获得%.0f%%减伤，持续%.0f秒（冷却%.0f秒）",
                 (eff.dmgReduce or 0) * 100, eff.duration or 4, eff.cooldown or 8)
