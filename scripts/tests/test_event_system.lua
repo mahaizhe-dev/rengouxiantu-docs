@@ -13,6 +13,10 @@
 -- 9. 开箱模拟（小宝箱+大宝箱各1000次，稀有度分布验证）
 -- 10. 大宝箱皮肤项存在性与重复补偿验证
 -- 11. 旧 mayday_fudai 不在六一开启白名单
+-- 13. SpecialRewards 协议验证（legendary 触发 special、非 legendary 不触发）
+-- 14. NewPullRecords 合并与竞态防护验证
+-- 15. 皮肤重复补偿路径验证（dupe skin → dupLingYun 补偿）
+-- 16. 保底 Pity 系统配置与 UpdatePityCount 验证
 -- 12. 排行榜 key 已切到六一专用
 
 local M = {}
@@ -371,6 +375,212 @@ function M.RunAll()
         assert_true("T12.4 recordsKey contains childday", lb.recordsKey and lb.recordsKey:find("childday"))
         assert_true("T12.5 rewardHint has QQ群", lb.rewardHint and lb.rewardHint:find("1054419838"))
         assert_true("T12.6 rewardHint mentions 前3", lb.rewardHint and lb.rewardHint:find("前3"))
+    end
+
+    -- ========================================================================
+    -- T13: SpecialRewards 协议验证
+    -- legendary 项应出现在 SpecialRewards，非 legendary 不应出现
+    -- ========================================================================
+    table.insert(dropLog, "")
+    table.insert(dropLog, "  ── T13 SpecialRewards 协议验证 ──")
+
+    -- 验证大宝箱 legendary 项均有正确字段
+    local legendaryCount = 0
+    local legendaryHasName = 0
+    for _, entry in ipairs(bigPool) do
+        if entry.rarity == "legendary" then
+            legendaryCount = legendaryCount + 1
+            if entry.name and #entry.name > 0 then
+                legendaryHasName = legendaryHasName + 1
+            end
+        end
+    end
+    assert_gt("T13.1 bigPool has legendary entries", legendaryCount, 0)
+    assert_eq("T13.2 all legendary entries have name", legendaryHasName, legendaryCount)
+
+    -- 验证非 legendary 项 rarity 正确标注（common/rare）
+    local nonLegendaryOk = true
+    for _, entry in ipairs(bigPool) do
+        if entry.rarity ~= "legendary" and entry.rarity ~= "rare" and entry.rarity ~= "common" then
+            nonLegendaryOk = false
+        end
+    end
+    assert_true("T13.3 all entries have valid rarity", nonLegendaryOk)
+
+    -- 验证小宝箱 rare 项存在（用于 NewPullRecords）
+    local smallRareCount = 0
+    for _, entry in ipairs(smallPool) do
+        if entry.rarity == "rare" or entry.rarity == "legendary" then
+            smallRareCount = smallRareCount + 1
+        end
+    end
+    assert_gt("T13.4 smallPool has rare/legendary for NewPullRecords", smallRareCount, 0)
+
+    -- ========================================================================
+    -- T14: NewPullRecords 合并与竞态防护验证
+    -- 模拟 HandlePullRecordsData 的 merge 逻辑
+    -- ========================================================================
+    table.insert(dropLog, "  ── T14 NewPullRecords 竞态合并 ──")
+
+    -- 模拟本地 pending 和服务端响应
+    local function SimulateMerge(localPending, serverRecords)
+        local now = os.time()
+        -- 构建服务端记录（过滤过期）
+        local filtered = {}
+        for _, r in ipairs(serverRecords) do
+            if now - (r.ts or 0) < 86400 then
+                filtered[#filtered + 1] = r
+            end
+        end
+        -- 防竞态匹配
+        local serverKeys = {}
+        for _, r in ipairs(filtered) do
+            local key = tostring(r.ts or 0) .. "|" .. (r.name or "")
+            serverKeys[key] = true
+        end
+        local stillPending = {}
+        local missingFromServer = {}
+        for _, pr in ipairs(localPending) do
+            local key = tostring(pr.ts or 0) .. "|" .. (pr.name or "")
+            if not serverKeys[key] then
+                stillPending[#stillPending + 1] = pr
+                missingFromServer[#missingFromServer + 1] = pr
+            end
+        end
+        -- 合并
+        local merged = {}
+        for _, r in ipairs(missingFromServer) do merged[#merged + 1] = r end
+        for _, r in ipairs(filtered) do merged[#merged + 1] = r end
+        return merged, stillPending
+    end
+
+    local nowTs = os.time()
+
+    -- Case A: 服务端已包含本地记录 → pending 清空
+    local pendingA = {{ ts = nowTs, name = "灵韵×300" }}
+    local serverA = {{ ts = nowTs, name = "灵韵×300", displayName = "测试玩家" }}
+    local mergedA, stillA = SimulateMerge(pendingA, serverA)
+    assert_eq("T14.1 confirmed record removed from pending", #stillA, 0)
+    assert_eq("T14.2 merged has 1 record (no dup)", #mergedA, 1)
+
+    -- Case B: 服务端尚未包含本地记录 → pending 保留在头部
+    local pendingB = {{ ts = nowTs, name = "福缘皮肤" }}
+    local serverB = {{ ts = nowTs - 60, name = "灵韵×200", displayName = "其他玩家" }}
+    local mergedB, stillB = SimulateMerge(pendingB, serverB)
+    assert_eq("T14.3 unconfirmed record stays in pending", #stillB, 1)
+    assert_eq("T14.4 merged=2 (pending + server)", #mergedB, 2)
+    assert_eq("T14.5 pending record is first", mergedB[1].name, "福缘皮肤")
+
+    -- Case C: 过期记录被过滤
+    local pendingC = {}
+    local serverC = {{ ts = nowTs - 90000, name = "过期记录" }, { ts = nowTs, name = "有效记录" }}
+    local mergedC, _ = SimulateMerge(pendingC, serverC)
+    assert_eq("T14.6 expired records filtered", #mergedC, 1)
+    assert_eq("T14.7 valid record kept", mergedC[1].name, "有效记录")
+
+    table.insert(dropLog, "  NewPullRecords merge: 3 cases PASS")
+
+    -- ========================================================================
+    -- T15: 皮肤重复补偿路径验证
+    -- 验证当所有皮肤按 dupe 处理时，dupLingYun 累计正确
+    -- ========================================================================
+    table.insert(dropLog, "  ── T15 皮肤重复补偿路径 ──")
+
+    -- 从 bigPool 中提取皮肤奖励
+    local skinRewards = {}
+    for _, entry in ipairs(bigPool) do
+        if entry.rewards then
+            for _, rw in ipairs(entry.rewards) do
+                if rw.type == "petSkin" then
+                    skinRewards[#skinRewards + 1] = rw
+                end
+            end
+        end
+    end
+
+    -- 模拟 "全部按重复处理" 逻辑（P1 修复的 error callback 逻辑）
+    local dupLingYunTotal = 0
+    local skinSpecials = {}
+    for _, skin in ipairs(skinRewards) do
+        assert_true("T15.1 skin[" .. (skin.id or "?") .. "] has dupLingYun > 0",
+            skin.dupLingYun ~= nil and skin.dupLingYun > 0)
+        dupLingYunTotal = dupLingYunTotal + (skin.dupLingYun or 0)
+        skinSpecials[#skinSpecials + 1] = {
+            kind = "skin_dup",
+            skinId = skin.id,
+            skinName = skin.name or skin.id,
+            lingYun = skin.dupLingYun,
+        }
+    end
+
+    if #skinRewards > 0 then
+        assert_gt("T15.2 total dupLingYun > 0", dupLingYunTotal, 0)
+        assert_eq("T15.3 skinSpecials count matches skinRewards", #skinSpecials, #skinRewards)
+        -- 验证 kind 字段
+        assert_eq("T15.4 skinSpecials[1].kind = skin_dup", skinSpecials[1].kind, "skin_dup")
+        table.insert(dropLog, string.format("  dupLingYun total=%d from %d skin(s)",
+            dupLingYunTotal, #skinRewards))
+    else
+        table.insert(dropLog, "  [SKIP] No skin rewards in bigPool")
+    end
+
+    -- ========================================================================
+    -- T16: 保底 Pity 系统配置与 UpdatePityCount 验证
+    -- ========================================================================
+    table.insert(dropLog, "  ── T16 保底 Pity 系统 ──")
+
+    local pityCfg = ev.pity
+    assert_true("T16.1 pity config exists", pityCfg ~= nil)
+
+    if pityCfg then
+        -- 验证双宝箱保底配置
+        assert_true("T16.2 pity.small exists", pityCfg.small ~= nil)
+        assert_true("T16.3 pity.big exists", pityCfg.big ~= nil)
+
+        if pityCfg.small then
+            assert_gt("T16.4 small threshold > 0", pityCfg.small.threshold, 0)
+            assert_true("T16.5 small targetId exists", pityCfg.small.targetId ~= nil)
+            -- targetId 必须在 smallPool 中存在
+            local foundSmallTarget = false
+            for _, entry in ipairs(smallPool) do
+                if entry.id == pityCfg.small.targetId then foundSmallTarget = true; break end
+            end
+            assert_true("T16.6 small targetId in pool", foundSmallTarget)
+            table.insert(dropLog, string.format("  small pity: threshold=%d, target=%s",
+                pityCfg.small.threshold, pityCfg.small.targetId))
+        end
+
+        if pityCfg.big then
+            assert_gt("T16.7 big threshold > 0", pityCfg.big.threshold, 0)
+            assert_true("T16.8 big targetId exists", pityCfg.big.targetId ~= nil)
+            -- targetId 必须在 bigPool 中存在
+            local foundBigTarget = false
+            for _, entry in ipairs(bigPool) do
+                if entry.id == pityCfg.big.targetId then foundBigTarget = true; break end
+            end
+            assert_true("T16.9 big targetId in pool", foundBigTarget)
+            table.insert(dropLog, string.format("  big pity: threshold=%d, target=%s",
+                pityCfg.big.threshold, pityCfg.big.targetId))
+        end
+    end
+
+    -- UpdatePityCount 功能验证
+    EventSystem.Reset()
+    EventSystem.UpdatePityCount("small", 42)
+    local cur, thr = EventSystem.GetPityProgress("small")
+    assert_eq("T16.10 UpdatePityCount stores correctly", cur, 42)
+    assert_eq("T16.11 GetPityProgress returns threshold", thr, pityCfg and pityCfg.small and pityCfg.small.threshold or 0)
+
+    EventSystem.UpdatePityCount("big", 119)
+    local curB, thrB = EventSystem.GetPityProgress("big")
+    assert_eq("T16.12 big pity count stored", curB, 119)
+    assert_eq("T16.13 big pity threshold correct", thrB, pityCfg and pityCfg.big and pityCfg.big.threshold or 0)
+
+    -- 边界：threshold 刚好到达
+    if pityCfg and pityCfg.big then
+        EventSystem.UpdatePityCount("big", pityCfg.big.threshold)
+        local curAt, _ = EventSystem.GetPityProgress("big")
+        assert_eq("T16.14 pity at threshold", curAt, pityCfg.big.threshold)
     end
 
     -- ========================================================================

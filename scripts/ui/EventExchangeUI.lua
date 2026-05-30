@@ -62,6 +62,7 @@ local selfRank_ = nil
 local selfScore_ = 0
 local rankTotal_ = 0
 local pullRecords_ = {}
+local localPendingRecords_ = {}  -- NewPullRecords 本地暂存，防竞态覆盖
 local fudaiResults_ = {}
 
 -- 防重复请求
@@ -1425,6 +1426,8 @@ function EventExchangeUI.HandleFudaiResult(eventType, eventData)
                 rec.displayName = myCharName
                 rec.charName = myCharName
                 table.insert(pullRecords_, 1, rec)  -- 新记录插到头部
+                -- 同时暂存到 pending 列表，防止后到的拉取响应覆盖
+                localPendingRecords_[#localPendingRecords_ + 1] = rec
             end
             -- 保留最多50条
             while #pullRecords_ > 50 do
@@ -1481,11 +1484,47 @@ function EventExchangeUI.HandlePullRecordsData(eventType, eventData)
     local records = cjson.decode(recordsJson) or {}
 
     local now = os.time()
-    pullRecords_ = {}
+    -- 构建服务端记录（过滤过期）
+    local serverRecords = {}
     for _, r in ipairs(records) do
         if now - (r.ts or 0) < 86400 then
-            table.insert(pullRecords_, r)
+            serverRecords[#serverRecords + 1] = r
         end
+    end
+
+    -- 防竞态：检查 localPendingRecords_ 中哪些尚未出现在服务端响应中
+    -- 用 ts + name 组合做匹配键
+    local serverKeys = {}
+    for _, r in ipairs(serverRecords) do
+        local key = tostring(r.ts or 0) .. "|" .. (r.name or "")
+        serverKeys[key] = true
+    end
+
+    local stillPending = {}
+    local missingFromServer = {}
+    for _, pr in ipairs(localPendingRecords_) do
+        local key = tostring(pr.ts or 0) .. "|" .. (pr.name or "")
+        if serverKeys[key] then
+            -- 已被服务端确认，无需保留
+        else
+            -- 服务端尚未包含，需保留在头部
+            stillPending[#stillPending + 1] = pr
+            missingFromServer[#missingFromServer + 1] = pr
+        end
+    end
+    localPendingRecords_ = stillPending
+
+    -- 合并：本地未确认记录在前，服务端记录在后
+    pullRecords_ = {}
+    for _, r in ipairs(missingFromServer) do
+        pullRecords_[#pullRecords_ + 1] = r
+    end
+    for _, r in ipairs(serverRecords) do
+        pullRecords_[#pullRecords_ + 1] = r
+    end
+    -- 限制总量
+    while #pullRecords_ > 50 do
+        table.remove(pullRecords_)
     end
 
     if visible_ and activeTab_ == "fudai" then

@@ -413,11 +413,11 @@ TestRegistry.tests = {
         id            = "event_system",
         group         = "system",
         path          = "scripts/tests/test_event_system.lua",
-        mode          = "skip",
+        mode          = "non_blocking",
         entry         = "tests.test_event_system",
-        enabled       = false,
+        enabled       = true,
         gate          = "non_blocking",
-        skip_reason   = "engine_required: config.EventConfig, systems.EventSystem, systems.LootSystem",
+        note          = "GM命令'活动自测'触发; 依赖: config.EventConfig, systems.EventSystem, systems.LootSystem",
     },
 
     {

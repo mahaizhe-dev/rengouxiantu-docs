@@ -669,28 +669,70 @@ function M.HandleOpenFudai(eventType, eventData)
                             ProcessAfterSkinCheck(unlockedSkinId, dupLingYunTotal, combined)
                         end,
                         error = function()
-                            -- 读取失败 → 保守处理：仍然尝试解锁第一个皮肤
-                            local unlockedSkinId = skinRewards[1].id
-                            local dupLingYunTotal = 0
-                            local skinSpecials = {}
-                            skinSpecials[#skinSpecials + 1] = {
-                                kind = "skin_new",
-                                skinId = skinRewards[1].id,
-                                skinName = skinRewards[1].name or skinRewards[1].id,
-                            }
-                            for i = 2, #skinRewards do
-                                dupLingYunTotal = dupLingYunTotal + skinRewards[i].dupLingYun
-                                skinSpecials[#skinSpecials + 1] = {
-                                    kind = "skin_dup",
-                                    skinId = skinRewards[i].id,
-                                    skinName = skinRewards[i].name or skinRewards[i].id,
-                                    lingYun = skinRewards[i].dupLingYun,
-                                }
-                            end
-                            local combined = {}
-                            for _, s in ipairs(skinSpecials) do combined[#combined + 1] = s end
-                            for _, b in ipairs(baseSpecialRewards) do combined[#combined + 1] = b end
-                            ProcessAfterSkinCheck(unlockedSkinId, dupLingYunTotal, combined)
+                            -- 读取失败 → 重试（最多2次），仍失败则兜底：
+                            -- 按新皮肤解锁处理（幂等写入无害），不发 dupLingYun（防止多发）
+                            print("[EventHandler] WARN: account_cosmetics read failed, retrying...")
+                            serverCloud:BatchGet(userId)
+                                :Key("account_cosmetics")
+                                :Fetch({
+                                    ok = function(cosResult)
+                                        -- 重试成功，正常判断逻辑
+                                        local cosmetics = cosResult["account_cosmetics"] or {}
+                                        local petApps = cosmetics.petAppearances or {}
+                                        local unlockedSkinId = nil
+                                        local dupLingYunTotal = 0
+                                        local skinSpecials = {}
+                                        for _, skin in ipairs(skinRewards) do
+                                            if petApps[skin.id] and petApps[skin.id].unlocked then
+                                                dupLingYunTotal = dupLingYunTotal + skin.dupLingYun
+                                                skinSpecials[#skinSpecials + 1] = {
+                                                    kind = "skin_dup",
+                                                    skinId = skin.id,
+                                                    skinName = skin.name or skin.id,
+                                                    lingYun = skin.dupLingYun,
+                                                }
+                                            else
+                                                if not unlockedSkinId then
+                                                    unlockedSkinId = skin.id
+                                                    skinSpecials[#skinSpecials + 1] = {
+                                                        kind = "skin_new",
+                                                        skinId = skin.id,
+                                                        skinName = skin.name or skin.id,
+                                                    }
+                                                else
+                                                    dupLingYunTotal = dupLingYunTotal + skin.dupLingYun
+                                                    skinSpecials[#skinSpecials + 1] = {
+                                                        kind = "skin_dup",
+                                                        skinId = skin.id,
+                                                        skinName = skin.name or skin.id,
+                                                        lingYun = skin.dupLingYun,
+                                                    }
+                                                end
+                                            end
+                                        end
+                                        local combined = {}
+                                        for _, s in ipairs(skinSpecials) do combined[#combined + 1] = s end
+                                        for _, b in ipairs(baseSpecialRewards) do combined[#combined + 1] = b end
+                                        ProcessAfterSkinCheck(unlockedSkinId, dupLingYunTotal, combined)
+                                    end,
+                                    error = function()
+                                        -- 两次都失败 → 兜底：按新皮肤解锁（幂等），不发 dupLingYun（不多发）
+                                        print("[EventHandler] ERR: account_cosmetics retry failed, fallback to unlock-only")
+                                        local unlockedSkinId = skinRewards[1].id
+                                        local skinSpecials = {
+                                            {
+                                                kind = "skin_new",
+                                                skinId = skinRewards[1].id,
+                                                skinName = skinRewards[1].name or skinRewards[1].id,
+                                            }
+                                        }
+                                        -- 同轮多次皮肤：第一个解锁，后续不发补偿也不解锁（防多发）
+                                        local combined = {}
+                                        for _, s in ipairs(skinSpecials) do combined[#combined + 1] = s end
+                                        for _, b in ipairs(baseSpecialRewards) do combined[#combined + 1] = b end
+                                        ProcessAfterSkinCheck(unlockedSkinId, 0, combined)
+                                    end,
+                                })
                         end,
                     })
             else

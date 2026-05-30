@@ -795,7 +795,12 @@ function QuestSystem.ForceUnseal(gameMap, zoneId)
     sealStates_[zoneId] = true
 
     -- 只在封印所属章节修改瓦片，防止跨章节写入产生白色瓦片
-    local sealChapter = tonumber(zoneId:match("_ch(%d+)_")) or 5
+    local sealChapter = tonumber(zoneId:match("_ch(%d+)"))
+    if not sealChapter and sealData.questChain then
+        local chain = QuestData.ZONE_QUESTS[sealData.questChain]
+        sealChapter = chain and chain.chapter or 1
+    end
+    sealChapter = sealChapter or 1
     if gameMap and GameState.currentChapter == sealChapter then
         for _, tile in ipairs(sealData.sealTiles) do
             gameMap:SetTile(tile.x, tile.y, sealData.originalTile or ActiveZoneData.Get().TILE.GRASS)
@@ -816,7 +821,12 @@ function QuestSystem.RemoveSealTiles(gameMap, zoneId)
     if not sealData then return end
 
     -- 只在封印所属章节修改瓦片，防止跨章节写入产生白色瓦片
-    local sealChapter = tonumber(zoneId:match("_ch(%d+)_")) or 5
+    local sealChapter = tonumber(zoneId:match("_ch(%d+)"))
+    if not sealChapter and sealData.questChain then
+        local chain = QuestData.ZONE_QUESTS[sealData.questChain]
+        sealChapter = chain and chain.chapter or 1
+    end
+    sealChapter = sealChapter or 1
     if GameState.currentChapter ~= sealChapter then
         print("[QuestSystem] Seal tiles skip (ch" .. GameState.currentChapter .. "≠ch" .. sealChapter .. "): " .. zoneId)
         return

@@ -97,11 +97,7 @@ qingyun.decorations = {
     -- ========== 传送法阵（商业街中段核心，双层环绕装饰） ==========
     -- 传送阵本体（摆正到整数格）
     { type = "teleport_array", x = 40, y = 60, color = {220, 190, 100, 255} },
-    -- 内圈：四角香炉（紧贴传送阵对角线）
-    { type = "incense_burner", x = 39, y = 59 },
-    { type = "incense_burner", x = 41, y = 59 },
-    { type = "incense_burner", x = 39, y = 61 },
-    { type = "incense_burner", x = 41, y = 61 },
+    -- 内圈：四角香炉已移除
     -- 外圈：四方向灯笼（与商业街灯笼列对齐，形成过渡）
     { type = "lantern", x = 38, y = 60 },
     { type = "lantern", x = 42, y = 60 },
