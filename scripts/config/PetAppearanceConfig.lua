@@ -118,7 +118,6 @@ PetAppearanceConfig.premium = {
         texture     = "Textures/pet_skin_fuyuan.png",
         sourceType  = "activity",
         bonus       = { fortune = 10 },
-        hidden      = true,  -- 暂未开放
     },
     {
         id          = "pet_premium_wuxing",

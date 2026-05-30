@@ -413,7 +413,7 @@ function InventoryUI.Create(parentOverlay)
         justifyContent = "center",
         alignItems = "center",
         visible = false,
-        zIndex = 100,
+        zIndex = 120,
         children = {
             -- 可滚动内容区
             UI.ScrollView {

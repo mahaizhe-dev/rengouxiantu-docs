@@ -1468,6 +1468,9 @@ function HandleUpdate(eventType, eventData)
     XianyuanChestSystem.Update(dt)
     XianyuanChestUI.Update(dt)
 
+    -- 封魔任务状态更新（超时/距离检测等）
+    SealDemonSystem.Update(dt)
+
     -- 更新战斗系统（浮动伤害文字等）
     CombatSystem.Update(dt)
 

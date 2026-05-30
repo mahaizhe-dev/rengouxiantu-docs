@@ -43,7 +43,7 @@ function CharacterSelectScreen.Create(uiRoot, onStart)
         justifyContent = "flex-end",
         alignItems = "center",
         -- 全屏插画背景
-        backgroundImage = "image/edited_login_cover_ch4_v4_20260329054251.png",
+        backgroundImage = "image/login_bg_ch5_taixu_v2.png",
         backgroundFit = "cover",
         backgroundPosition = "center top",
         visible = false,
@@ -112,9 +112,9 @@ function CharacterSelectScreen.Create(uiRoot, onStart)
                             },
                             -- 章节副标题
                             UI.Label {
-                                text = "第四章 · 八卦海",
+                                text = "第五章 · 太虚之殇",
                                 fontSize = T.fontSize.md,
-                                fontColor = {180, 200, 220, 200},
+                                fontColor = {220, 235, 255, 240},
                                 letterSpacing = 2,
                                 marginTop = 2,
                                 textShadow = { offsetX = 0, offsetY = 1, blur = 6, color = {0, 0, 0, 200} },

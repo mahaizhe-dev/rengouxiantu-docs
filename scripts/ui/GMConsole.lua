@@ -949,18 +949,45 @@ local GM_CATEGORIES = {
         name = "活动",
         color = {255, 100, 100, 255},
         commands = {
-            { label = "四字各+20", action = function()
+            { label = "小宝箱+50", action = function()
                 local InventorySystem = require("systems.InventorySystem")
-                local items = {"mayday_wu", "mayday_yi", "mayday_kuai", "mayday_le"}
-                for _, id in ipairs(items) do
-                    InventorySystem.AddConsumable(id, 20)
-                end
-                ShowLog("五一信物各+20（五/一/快/乐）", {255, 200, 100, 255})
+                local SaveSystem = require("systems.SaveSystem")
+                InventorySystem.AddConsumable("childday_rattle", 50)
+                ShowLog("童趣拨浪鼓+50, 正在同步...", {255, 200, 100, 255})
+                SaveSystem.Save(function(ok)
+                    if ok then
+                        ShowLog("同步完成！可以开箱了", {100, 255, 100, 255})
+                    else
+                        ShowLog("同步失败，请稍后重试", {255, 100, 100, 255})
+                    end
+                end)
             end },
-            { label = "福袋+100", action = function()
+            { label = "大宝箱+20", action = function()
                 local InventorySystem = require("systems.InventorySystem")
-                InventorySystem.AddConsumable("mayday_fudai", 100)
-                ShowLog("天庭福袋 +100", {255, 200, 100, 255})
+                local SaveSystem = require("systems.SaveSystem")
+                InventorySystem.AddConsumable("childday_pinwheel", 20)
+                ShowLog("七彩风车+20, 正在同步...", {255, 200, 100, 255})
+                SaveSystem.Save(function(ok)
+                    if ok then
+                        ShowLog("同步完成！可以开箱了", {100, 255, 100, 255})
+                    else
+                        ShowLog("同步失败，请稍后重试", {255, 100, 100, 255})
+                    end
+                end)
+            end },
+            { label = "双箱各+99", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                local SaveSystem = require("systems.SaveSystem")
+                InventorySystem.AddConsumable("childday_rattle", 99)
+                InventorySystem.AddConsumable("childday_pinwheel", 99)
+                ShowLog("双箱各+99, 正在同步...", {255, 200, 100, 255})
+                SaveSystem.Save(function(ok)
+                    if ok then
+                        ShowLog("同步完成！可以开箱了", {100, 255, 100, 255})
+                    else
+                        ShowLog("同步失败，请稍后重试", {255, 100, 100, 255})
+                    end
+                end)
             end },
             { label = "活动自测", action = function()
                 local TestEvent = require("tests.test_event_system")

@@ -34,6 +34,10 @@ WineData.EFFECT_TYPE = {
     WISDOM = "wisdom",              -- 悟性
     PHYSIQUE = "physique",          -- 体魄
     FORTUNE = "fortune",            -- 福缘
+    CRIT_DMG_PCT = "crit_dmg_pct",  -- 暴击伤害百分比加成
+    KNOCKBACK_IMMUNE = "knockback_immune", -- 击退免疫
+    HEAL_PER_SEC_PCT_BONUS = "heal_per_sec_pct_bonus", -- 每秒恢复额外加成
+    CRIT_RATE = "crit_rate",        -- 暴击率加成
 }
 
 --- 获取来源类型
@@ -43,7 +47,7 @@ WineData.SOURCE_TYPE = {
 }
 
 --- 美酒总数
-WineData.TOTAL_COUNT = 8
+WineData.TOTAL_COUNT = 12
 
 --- 酒槽上限
 WineData.MAX_SLOTS = 3
@@ -222,6 +226,88 @@ WineData.WINES = {
         lady_dialogue = "蚀骨螭龙之涎，积福聚运。藏入葫芦，福缘深厚。",
         vfx_color = "golden",
         brief = "福缘+25",
+    },
+
+    -- ==================== 第五章 ====================
+    {
+        wine_id = "zhu_feng",
+        name = "诛仙酿",
+        chapter = 5,
+        flavor_text = "诛仙剑气凝于酒中，饮之锋芒毕露，一击制敌。",
+        effect = {
+            category = "on_drink",
+            type = "crit_dmg_pct",
+            value = 0.30,
+        },
+        obtain = {
+            source_type = "kill",
+            source_id = "ch5_sword_zhu",
+            drop_rate = 0.005,
+        },
+        obtain_hint = "掉落：诛仙剑",
+        lady_dialogue = "诛仙剑气入酒……饮诛仙酿时，一剑之威，暴烈十倍。",
+        vfx_color = "blood_red",
+        brief = "饮用时暴击伤害+30%",
+    },
+    {
+        wine_id = "xian_zhen",
+        name = "陷仙酒",
+        chapter = 5,
+        flavor_text = "陷仙剑意化为寒流，酒气过处，身如磐石不可撼。",
+        effect = {
+            category = "on_cooldown",
+            type = "knockback_immune",
+            value = 1,
+        },
+        obtain = {
+            source_type = "kill",
+            source_id = "ch5_sword_xian",
+            drop_rate = 0.005,
+        },
+        obtain_hint = "掉落：陷仙剑",
+        lady_dialogue = "陷仙剑意凝酒……饮陷仙酒后，CD期间寒气护体，任凭击退也纹丝不动。",
+        vfx_color = "frost_white",
+        brief = "CD期间免疫击退",
+    },
+    {
+        wine_id = "lu_yan",
+        name = "戮仙饮",
+        chapter = 5,
+        flavor_text = "戮仙剑焰反哺生机，酒中暗藏不灭之火，疗伤更胜寻常。",
+        effect = {
+            category = "enhance_drink",
+            type = "heal_per_sec_pct_bonus",
+            value = 0.02,
+        },
+        obtain = {
+            source_type = "kill",
+            source_id = "ch5_sword_lu",
+            drop_rate = 0.005,
+        },
+        obtain_hint = "掉落：戮仙剑",
+        lady_dialogue = "戮仙之焰化为生息……戮仙饮入葫芦，每秒恢复更多，续航大增。",
+        vfx_color = "flame_green",
+        brief = "酒水每秒恢复+2%（4%→6%）",
+    },
+    {
+        wine_id = "jue_feng",
+        name = "绝仙醴",
+        chapter = 5,
+        flavor_text = "绝仙剑锋蕴于玄酿，常伴左右则锋刃愈利，暴击如影随形。",
+        effect = {
+            category = "passive",
+            type = "crit_rate",
+            value = 0.08,
+        },
+        obtain = {
+            source_type = "kill",
+            source_id = "ch5_sword_jue",
+            drop_rate = 0.005,
+        },
+        obtain_hint = "掉落：绝仙剑",
+        lady_dialogue = "绝仙剑锋入酿……绝仙醴藏入葫芦，暴击如影相随，防不胜防。",
+        vfx_color = "void_purple",
+        brief = "暴击率+8%",
     },
 }
 

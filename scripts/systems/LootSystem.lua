@@ -1354,6 +1354,7 @@ end
 
 --- 为已有的掉落结果追加活动道具掉落
 --- 在 GenerateDrops 之后调用，独立于常规掉落
+--- 支持两类独立判定：普通开启物(chapter+category) + 稀有开启物(monster.realm)
 ---@param dropResult table GenerateDrops 的返回值
 ---@param monster table 怪物数据
 function LootSystem.RollEventDrops(dropResult, monster)
@@ -1362,14 +1363,33 @@ function LootSystem.RollEventDrops(dropResult, monster)
 
     local event = EventConfig.ACTIVE_EVENT
     local chapterId = GameState.currentChapter or 1
-    local rates = LootSystem.GetEventDropRates(event, monster, chapterId)
-    if not rates then return end
-
-    -- 对每个活动道具独立判定
     if not dropResult.consumables then dropResult.consumables = {} end
-    for itemId, chance in pairs(rates) do
-        if Utils.Roll(chance) then
-            dropResult.consumables[itemId] = (dropResult.consumables[itemId] or 0) + 1
+
+    -- ═══ 第一段：普通开启物（章节 + category / monsterOverrides）═══
+    local rates = LootSystem.GetEventDropRates(event, monster, chapterId)
+    if rates then
+        for itemId, chance in pairs(rates) do
+            if Utils.Roll(chance) then
+                dropResult.consumables[itemId] = (dropResult.consumables[itemId] or 0) + 1
+            end
+        end
+    end
+
+    -- ═══ 第二段：稀有开启物（monster.realm 阶梯掉落）═══
+    -- 优先级：monsterOverrides > realmDropRates
+    -- 若 monsterOverrides 已匹配（包含稀有物品），则跳过 realm 分支避免双重判定
+    if event.monsterOverrides and event.monsterOverrides[monster.typeId] then
+        -- monsterOverrides 已在第一段处理（包含稀有物），此处不再重复
+        return
+    end
+    if event.realmDropRates and monster.realm then
+        local realmRates = event.realmDropRates[monster.realm]
+        if realmRates then
+            for itemId, chance in pairs(realmRates) do
+                if Utils.Roll(chance) then
+                    dropResult.consumables[itemId] = (dropResult.consumables[itemId] or 0) + 1
+                end
+            end
         end
     end
 end

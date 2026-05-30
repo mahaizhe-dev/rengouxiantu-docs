@@ -384,13 +384,13 @@ function Player:GetTotalMaxHp()
     return self._cachedTotalMaxHp
 end
 
---- 获取总暴击率（基础5% + 装备加成）
+--- 获取总暴击率（基础5% + 装备加成 + 美酒加成）
 ---@return number
 function Player:GetTotalCritRate()
-    return 0.05 + (self.equipCritRate or 0) + (self.titleCritRate or 0) + (self.collectionCritRate or 0)
+    return 0.05 + (self.equipCritRate or 0) + (self.titleCritRate or 0) + (self.collectionCritRate or 0) + (self.wineCritRate or 0)
 end
 
---- 获取总暴击伤害倍率（基础1.5 + 装备加成）
+--- 获取总暴击伤害倍率（基础1.5 + 装备加成 + 美酒临时Buff）
 ---@return number
 function Player:GetTotalCritDmg()
     local base = 1.5 + (self.equipCritDmg or 0)
@@ -402,6 +402,9 @@ function Player:GetTotalCritDmg()
             end
         end
     end
+    -- 美酒临时暴伤Buff（诛锋烈酿）
+    local CombatSystem = require("systems.CombatSystem")
+    base = base + CombatSystem.GetBuffCritDmgPercent()
     return base
 end
 
@@ -703,6 +706,14 @@ function Player:Update(dt, gameMap)
         self.ccImmuneTimer = self.ccImmuneTimer - dt
         if self.ccImmuneTimer <= 0 then
             self.ccImmuneTimer = 0
+        end
+    end
+
+    -- 击退免疫计时（陷阵寒酿）
+    if (self.knockbackImmuneTimer or 0) > 0 then
+        self.knockbackImmuneTimer = self.knockbackImmuneTimer - dt
+        if self.knockbackImmuneTimer <= 0 then
+            self.knockbackImmuneTimer = 0
         end
     end
 
@@ -1167,6 +1178,19 @@ function Player:ApplySlow(duration, movePercent, atkPercent)
     self.slowAtkPercent = atkPercent or 0.3
 end
 
+--- 施加击退免疫（仅免疫击退，不免疫击晕）
+---@param duration number 持续时间（秒）
+function Player:ApplyKnockbackImmune(duration)
+    self.knockbackImmuneTimer = math.max(self.knockbackImmuneTimer or 0, duration)
+    print("[Player] Knockback immune for " .. duration .. "s")
+end
+
+--- 移除击退免疫
+function Player:RemoveKnockbackImmune()
+    self.knockbackImmuneTimer = 0
+    print("[Player] Knockback immune removed")
+end
+
 --- 施加击退
 ---@param fromX number 来源X坐标
 ---@param fromY number 来源Y坐标
@@ -1175,6 +1199,10 @@ end
 function Player:ApplyKnockback(fromX, fromY, distance, gameMap)
     if self.ccImmuneTimer > 0 then
         print("[Player] CC immune - knockback blocked")
+        return
+    end
+    if (self.knockbackImmuneTimer or 0) > 0 then
+        print("[Player] Knockback immune - knockback blocked")
         return
     end
     local dx = self.x - fromX

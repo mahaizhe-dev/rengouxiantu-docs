@@ -5,7 +5,7 @@
 local GameConfig = {}
 
 -- GM 调试开关（发布正式版前改为 false）
-GameConfig.GM_ENABLED = false
+GameConfig.GM_ENABLED = true
 GameConfig.GM_SHOW_COORDS = false  -- GM：鼠标悬停显示瓦片坐标
 
 -- 多人副本功能总开关（Kill Switch）
@@ -15,7 +15,7 @@ GameConfig.DUNGEON_ENABLED = false
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
 GameConfig.CODE_VERSION = 6
-GameConfig.DISPLAY_VERSION = "v1.11.5"
+GameConfig.DISPLAY_VERSION = "v1.11.6"
 
 -- 地图设置
 GameConfig.TILE_SIZE = 128         -- 每个瓦片的逻辑像素大小（基准值，不要直接用于渲染）
@@ -683,8 +683,9 @@ GameConfig.ELITE_OR_BOSS = {
     ["saint_boss"] = true,
 }
 
--- ═══ 活动限定道具（五一世界掉落活动 v3.4）═══
+-- ═══ 活动限定道具（六一世界掉落活动 v3.5）═══
 GameConfig.EVENT_ITEMS = {
+    -- ── 旧五一物品（已结束，仅保留可出售） ──
     mayday_wu = {
         name = "五", icon = "🎏",
         image = "Textures/event/mayday_wu.png",
@@ -719,6 +720,21 @@ GameConfig.EVENT_ITEMS = {
         sellPrice = 1000, quality = "orange",
         desc = "活动已结束，可以出售换金币。",
         category = "event", eventId = "mayday_2026",
+    },
+    -- ── 六一活动物品（当期） ──
+    childday_rattle = {
+        name = "童趣拨浪鼓", icon = "🥁",
+        image = "Textures/event/childday_rattle.png",
+        sellPrice = 1000, quality = "purple",
+        desc = "开启小宝箱，获得随机奖励。集齐可兑换限定皮肤！",
+        category = "event", eventId = "childrensday_2026",
+    },
+    childday_pinwheel = {
+        name = "流光风车", icon = "🎡",
+        image = "Textures/event/childday_pinwheel.png",
+        sellPrice = 1000, quality = "orange",
+        desc = "开启大宝箱，获得丰厚奖励。稀有掉落，不可错过！",
+        category = "event", eventId = "childrensday_2026",
     },
 }
 

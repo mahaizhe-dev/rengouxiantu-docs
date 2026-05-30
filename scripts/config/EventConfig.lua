@@ -1,8 +1,8 @@
 -- ============================================================================
 -- EventConfig.lua — 通用活动掉落框架配置
 --
--- 职责：定义当前激活的活动（道具/掉率/兑换/福袋/黑市/排行榜）
--- 设计文档：docs/设计文档/五一世界掉落活动.md v3.4
+-- 职责：定义当前激活的活动（道具/掉率/奖池/排行榜）
+-- 设计文档：docs/六一世界掉落活动（代码执行文档）.md v1.2
 --
 -- 换活动时：替换 ACTIVE_EVENT 配置块即可
 -- ============================================================================
@@ -13,158 +13,144 @@ local EventConfig = {}
 -- 当前激活的活动（同一时间只有一个活动）
 -- ═══════════════════════════════════════
 EventConfig.ACTIVE_EVENT = {
-    eventId = "mayday_2026",
-    enabled = false,
-    name = "五一快乐",
-    npcName = "天官降福",
-    npcSubtitle = "五一活动兑换",
+    eventId = "childrensday_2026",
+    enabled = true,
+    name = "六一童趣",
+    npcName = "天官赐福",
+    npcSubtitle = "六一活动宝箱",
 
     -- ═══ 活动道具 ID 列表（用于 LootSystem 掉落判定）═══
     items = {
-        "mayday_wu", "mayday_yi", "mayday_kuai", "mayday_le", "mayday_fudai",
+        "childday_rattle", "childday_pinwheel",
     },
 
-    -- ═══ 掉率配置 [chapterId][category] = { itemId = chance } ═══
+    -- ═══ 双宝箱开启物定义 ═══
+    openBoxes = {
+        small = {
+            itemId = "childday_rattle",
+            score = 1,
+            poolKey = "smallBoxPool",
+        },
+        big = {
+            itemId = "childday_pinwheel",
+            score = 10,
+            poolKey = "bigBoxPool",
+        },
+    },
+
+    -- ═══ 普通开启物（拨浪鼓）掉率：[chapterId][category] ═══
     dropRates = {
         [1] = { -- 初章·两界村
-            boss      = { mayday_wu=0.005, mayday_yi=0.005, mayday_kuai=0.005, mayday_le=0.005, mayday_fudai=0.005 },
-            king_boss = { mayday_wu=0.01,  mayday_yi=0.01,  mayday_kuai=0.01,  mayday_le=0.01,  mayday_fudai=0.01  },
+            boss      = { childday_rattle = 0.005 },
+            king_boss = { childday_rattle = 0.01 },
         },
         [2] = { -- 贰章·乌家堡
-            boss      = { mayday_wu=0.01, mayday_yi=0.01, mayday_kuai=0.01, mayday_le=0.01, mayday_fudai=0.01 },
-            king_boss = { mayday_wu=0.02, mayday_yi=0.02, mayday_kuai=0.02, mayday_le=0.02, mayday_fudai=0.02 },
+            boss      = { childday_rattle = 0.01 },
+            king_boss = { childday_rattle = 0.02 },
         },
         [3] = { -- 叁章·万里黄沙
-            boss         = { mayday_wu=0.02, mayday_yi=0.02, mayday_kuai=0.02, mayday_le=0.02, mayday_fudai=0.02 },
-            emperor_boss = { mayday_wu=0.03, mayday_yi=0.03, mayday_kuai=0.03, mayday_le=0.03, mayday_fudai=0.03 },
+            boss         = { childday_rattle = 0.02 },
+            emperor_boss = { childday_rattle = 0.03 },
         },
         [4] = { -- 肆章·八卦海
-            boss         = { mayday_wu=0.03, mayday_yi=0.03, mayday_kuai=0.03, mayday_le=0.03, mayday_fudai=0.03 },
-            emperor_boss = { mayday_wu=0.03, mayday_yi=0.03, mayday_kuai=0.03, mayday_le=0.03, mayday_fudai=0.03 },
+            boss         = { childday_rattle = 0.03 },
+            emperor_boss = { childday_rattle = 0.04 },
         },
-        [101] = { -- 中洲
-            king_boss = { mayday_wu=0.03, mayday_yi=0.03, mayday_kuai=0.03, mayday_le=0.03, mayday_fudai=0.03 },
+        [5] = { -- 伍章·中洲
+            boss       = { childday_rattle = 0.04 },
+            saint_boss = { childday_rattle = 0.05 },
         },
     },
 
-    -- ═══ 四龙特殊掉率覆盖（通过怪物 typeId 匹配）═══
+    -- ═══ 稀有开启物（风车）掉率：按怪物境界 monster.realm ═══
+    realmDropRates = {
+        yuanying_1 = { childday_pinwheel = 0.001 },  -- 0.1%
+        huashen_1  = { childday_pinwheel = 0.002 },  -- 0.2%
+        heti_1     = { childday_pinwheel = 0.003 },  -- 0.3%
+        dacheng_1  = { childday_pinwheel = 0.004 },  -- 0.4%
+        dujie_1    = { childday_pinwheel = 0.005 },  -- 0.5%
+        dujie_2    = { childday_pinwheel = 0.005 },  -- 0.5%
+        dujie_3    = { childday_pinwheel = 0.005 },  -- 0.5%
+        dujie_4    = { childday_pinwheel = 0.005 },  -- 0.5%
+    },
+
+    -- ═══ 四仙剑特殊覆盖（优先于 realmDropRates）═══
     monsterOverrides = {
-        dragon_ice   = { mayday_wu=0.05, mayday_yi=0.05, mayday_kuai=0.05, mayday_le=0.05, mayday_fudai=0.05 },
-        dragon_abyss = { mayday_wu=0.05, mayday_yi=0.05, mayday_kuai=0.05, mayday_le=0.05, mayday_fudai=0.05 },
-        dragon_fire  = { mayday_wu=0.05, mayday_yi=0.05, mayday_kuai=0.05, mayday_le=0.05, mayday_fudai=0.05 },
-        dragon_sand  = { mayday_wu=0.05, mayday_yi=0.05, mayday_kuai=0.05, mayday_le=0.05, mayday_fudai=0.05 },
+        ch5_sword_zhu  = { childday_pinwheel = 0.01 },  -- 1%
+        ch5_sword_xian = { childday_pinwheel = 0.01 },  -- 1%
+        ch5_sword_lu   = { childday_pinwheel = 0.01 },  -- 1%
+        ch5_sword_jue  = { childday_pinwheel = 0.01 },  -- 1%
     },
 
-    -- ═══ 兑换商品表 ═══
-    exchanges = {
-        -- A 组：四字齐全（限购 1 次）
-        {
-            id = "mayday_ex_a1",
-            name = "五一快乐大礼",
-            desc = "集齐四字各五个，天官赐万灵",
-            cost = { mayday_wu = 5, mayday_yi = 5, mayday_kuai = 5, mayday_le = 5 },
-            reward = { type = "lingYun", count = 10000 },
-            limit = 1,
-        },
-        -- B 组：1+1 组合兑换（各限购 10 次）
-        {
-            id = "mayday_ex_b1",
-            name = "五一福报",
-            desc = "五一二字各一个，得灵韵福报",
-            cost = { mayday_wu = 1, mayday_yi = 1 },
-            reward = { type = "lingYun", count = 500 },
-            limit = 10,
-        },
-        {
-            id = "mayday_ex_b2",
-            name = "快乐福报",
-            desc = "快乐二字各一个，得灵韵福报",
-            cost = { mayday_kuai = 1, mayday_le = 1 },
-            reward = { type = "lingYun", count = 500 },
-            limit = 10,
-        },
-        -- C 组：单字换福袋（不限量）
-        {
-            id = "mayday_ex_c1", name = "「五」换福袋",
-            cost = { mayday_wu = 1 },
-            reward = { type = "consumable", id = "mayday_fudai", count = 1 },
-            limit = -1,
-        },
-        {
-            id = "mayday_ex_c2", name = "「一」换福袋",
-            cost = { mayday_yi = 1 },
-            reward = { type = "consumable", id = "mayday_fudai", count = 1 },
-            limit = -1,
-        },
-        {
-            id = "mayday_ex_c3", name = "「快」换福袋",
-            cost = { mayday_kuai = 1 },
-            reward = { type = "consumable", id = "mayday_fudai", count = 1 },
-            limit = -1,
-        },
-        {
-            id = "mayday_ex_c4", name = "「乐」换福袋",
-            cost = { mayday_le = 1 },
-            reward = { type = "consumable", id = "mayday_fudai", count = 1 },
-            limit = -1,
-        },
-    },
+    -- ═══ 兑换商品表（六一不启用兑换）═══
+    exchanges = {},
 
-    -- ═══ 福袋奖励池（总权重 1000）═══
-    fudaiPool = {
-        -- 一般奖励（common）· 85%
-        { id = "fudai_exp_1",  name = "500经验",   weight = 130, rarity = "common",
-          rewards = { { type = "exp", count = 500 } } },
-        { id = "fudai_exp_2",  name = "1500经验",  weight = 80,  rarity = "common",
-          rewards = { { type = "exp", count = 1500 } } },
-        { id = "fudai_exp_3",  name = "2500经验",  weight = 35,  rarity = "common",
-          rewards = { { type = "exp", count = 2500 } } },
-        { id = "fudai_food_1", name = "肉骨头×3",  weight = 120, rarity = "common",
-          rewards = { { type = "consumable", id = "meat_bone", count = 3 } } },
-        { id = "fudai_food_2", name = "灵肉×2",    weight = 95,  rarity = "common",
-          rewards = { { type = "consumable", id = "spirit_meat", count = 2 } } },
-        { id = "fudai_food_3", name = "灵兽肉×2",  weight = 65,  rarity = "common",
-          rewards = { { type = "consumable", id = "beast_meat", count = 2 } } },
-        { id = "fudai_food_4", name = "仙骨×1",    weight = 40,  rarity = "common",
+    -- ═══ 小宝箱奖池（总权重 1000，E=20.4灵韵）═══
+    smallBoxPool = {
+        { id = "small_bone_15", name = "肉骨头×15",     weight = 150, rarity = "common",
+          rewards = { { type = "consumable", id = "meat_bone", count = 15 } } },
+        { id = "small_meat_5",  name = "灵肉×5",        weight = 150, rarity = "common",
+          rewards = { { type = "consumable", id = "spirit_meat", count = 5 } } },
+        { id = "small_bone_im", name = "仙骨×1",        weight = 150, rarity = "common",
           rewards = { { type = "consumable", id = "immortal_bone", count = 1 } } },
-        { id = "fudai_item_1", name = "金条×1",    weight = 25,  rarity = "common",
-          rewards = { { type = "consumable", id = "gold_bar", count = 1 } } },
-        { id = "fudai_gold_1", name = "金币×100",   weight = 130, rarity = "common",
-          rewards = { { type = "gold", count = 100 } } },
-        { id = "fudai_gold_2", name = "金币×300",   weight = 85,  rarity = "common",
-          rewards = { { type = "gold", count = 300 } } },
-        { id = "fudai_gold_3", name = "金币×500",   weight = 45,  rarity = "common",
-          rewards = { { type = "gold", count = 500 } } },
-
-        -- 稀有奖励（rare）· 14.5%
-        { id = "fudai_rare_1", name = "妖兽精华×1", weight = 50, rarity = "rare",
-          rewards = { { type = "consumable", id = "demon_essence", count = 1 } } },
-        { id = "fudai_rare_2", name = "修炼果×1",   weight = 40, rarity = "rare",
+        { id = "small_ly_20",   name = "灵韵×20",       weight = 100, rarity = "common",
+          rewards = { { type = "lingYun", count = 20 } } },
+        { id = "small_bar_10",  name = "金条×10",       weight = 100, rarity = "common",
+          rewards = { { type = "consumable", id = "gold_bar", count = 10 } } },
+        { id = "small_pill_1",  name = "修炼果×1",      weight = 100, rarity = "common",
           rewards = { { type = "consumable", id = "exp_pill", count = 1 } } },
-        { id = "fudai_rare_3", name = "灵韵果×1",   weight = 30, rarity = "rare",
+        { id = "small_ly_25",   name = "灵韵×25",       weight = 90,  rarity = "common",
+          rewards = { { type = "lingYun", count = 25 } } },
+        { id = "small_ly_30",   name = "灵韵×30",       weight = 50,  rarity = "rare",
+          rewards = { { type = "lingYun", count = 30 } } },
+        { id = "small_bar_15",  name = "金条×15",       weight = 50,  rarity = "rare",
+          rewards = { { type = "consumable", id = "gold_bar", count = 15 } } },
+        { id = "small_ly_fruit",name = "灵韵果×1",      weight = 40,  rarity = "rare",
           rewards = { { type = "consumable", id = "lingyun_fruit", count = 1 } } },
-        { id = "fudai_rare_4", name = "龙髓×1",     weight = 25, rarity = "rare",
+        { id = "small_upgrade", name = "流光风车×1",    weight = 20,  rarity = "legendary",
+          rewards = { { type = "consumable", id = "childday_pinwheel", count = 1 } } },
+    },
+
+    -- ═══ 大宝箱奖池（总权重 1000，E=206.1灵韵）═══
+    bigBoxPool = {
+        { id = "big_ly_100",    name = "灵韵×100",      weight = 130, rarity = "common",
+          rewards = { { type = "lingYun", count = 100 } } },
+        { id = "big_gold_50k",  name = "金币×50000",    weight = 130, rarity = "common",
+          rewards = { { type = "gold", count = 50000 } } },
+        { id = "big_marrow",    name = "龙髓×1",        weight = 120, rarity = "common",
           rewards = { { type = "consumable", id = "dragon_marrow", count = 1 } } },
-
-        -- 最稀有（legendary）· 0.5%
-        { id = "fudai_legend", name = "金砖×1", weight = 5, rarity = "legendary",
+        { id = "big_ly_200",    name = "灵韵×200",      weight = 100, rarity = "common",
+          rewards = { { type = "lingYun", count = 200 } } },
+        { id = "big_brick",     name = "金砖×1",        weight = 100, rarity = "rare",
           rewards = { { type = "consumable", id = "gold_brick", count = 1 } } },
+        { id = "big_exp_pill",  name = "上品修炼果×1",  weight = 100, rarity = "rare",
+          rewards = { { type = "consumable", id = "premium_exp_pill", count = 1 } } },
+        { id = "big_essence_5", name = "妖兽精华×5",    weight = 100, rarity = "common",
+          rewards = { { type = "consumable", id = "demon_essence", count = 5 } } },
+        { id = "big_ly_300",    name = "灵韵×300",      weight = 90,  rarity = "rare",
+          rewards = { { type = "lingYun", count = 300 } } },
+        { id = "big_ly_400",    name = "灵韵×400",      weight = 70,  rarity = "legendary",
+          rewards = { { type = "lingYun", count = 400 } } },
+        { id = "big_ly_fruit",  name = "上品灵韵果×1",  weight = 50,  rarity = "rare",
+          rewards = { { type = "consumable", id = "premium_lingyun_fruit", count = 1 } } },
+        { id = "big_skin",      name = "福缘皮肤",      weight = 10,  rarity = "legendary",
+          rewards = { { type = "petSkin", id = "pet_premium_fuyuan", dupLingYun = 10000 } } },
     },
 
-    -- ═══ 黑市商品（仅四字可交易，福袋不可交易）═══
+    -- ═══ 黑市商品（六一活动物品均可交易）═══
     blackMarketItems = {
-        mayday_wu   = { name = "五", buy_price = 3, sell_price = 6, category = "event", boss = "各章节BOSS" },
-        mayday_yi   = { name = "一", buy_price = 3, sell_price = 6, category = "event", boss = "各章节BOSS" },
-        mayday_kuai = { name = "快", buy_price = 3, sell_price = 6, category = "event", boss = "各章节BOSS" },
-        mayday_le   = { name = "乐", buy_price = 3, sell_price = 6, category = "event", boss = "各章节BOSS" },
+        childday_rattle   = { name = "童趣拨浪鼓", buy_price = 3, sell_price = 6, category = "event", boss = "各章节BOSS" },
+        childday_pinwheel = { name = "流光风车",   buy_price = 8, sell_price = 15, category = "event", boss = "高境界BOSS/小宝箱" },
     },
 
-    -- ═══ 排行榜配置 ═══
+    -- ═══ 排行榜配置（积分榜）═══
     leaderboard = {
-        rankKey = "evt_fudai_opened",
+        rankKey = "evt_childday_score",
+        infoKey = "evt_childday_info",
+        recordsKey = "evt_childday_records",
         displayCount = 10,
         rewardTopN = 3,
-        rewardHint = "活动结束后，排名前3的玩家将在交流群(QQ群: 1054419838)获得小额现金红包奖励！",
+        rewardHint = "活动结束后，积分榜前3的玩家将在交流群(QQ群: 1054419838)获得小额现金红包奖励！",
     },
 }
 

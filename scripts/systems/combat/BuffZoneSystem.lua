@@ -26,7 +26,7 @@ local _expiredBuf = {}
 
 --- 添加buff
 ---@param buffId string buff唯一标识
----@param data table { duration, tickInterval, healPercent, atkPercent, defPercent, wisdomFlat, fortuneFlat, constitutionFlat, physiqueFlat, name, color }
+---@param data table { duration, tickInterval, healPercent, atkPercent, defPercent, critDmgPercent, wisdomFlat, fortuneFlat, constitutionFlat, physiqueFlat, name, color }
 function CS.AddBuff(buffId, data)
     CS.activeBuffs[buffId] = {
         id = buffId,
@@ -37,6 +37,7 @@ function CS.AddBuff(buffId, data)
         healPercent = data.healPercent or 0,
         atkPercent = data.atkPercent or 0,
         defPercent = data.defPercent or 0,
+        critDmgPercent = data.critDmgPercent or 0,
         -- 四维属性固定值加成（悟性/福缘/根骨/体魄）
         wisdomFlat = data.wisdomFlat or 0,
         fortuneFlat = data.fortuneFlat or 0,
@@ -86,6 +87,16 @@ function CS.GetBuffDefPercent()
     local total = 0
     for _, buff in pairs(CS.activeBuffs) do
         total = total + (buff.defPercent or 0)
+    end
+    return total
+end
+
+--- 获取所有活跃buff的暴击伤害百分比加成之和
+---@return number
+function CS.GetBuffCritDmgPercent()
+    local total = 0
+    for _, buff in pairs(CS.activeBuffs) do
+        total = total + (buff.critDmgPercent or 0)
     end
     return total
 end

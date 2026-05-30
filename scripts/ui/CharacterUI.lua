@@ -80,7 +80,7 @@ local PILL_CONFIG = {
     {
         name = "悟道树",
         icon = "🌳",
-        maxBuy = 50,
+        maxBuy = 100,
         bonusLabel = "悟性+1",
         bonusPerPill = nil,
         bonusColor = {120, 220, 160, 255},
@@ -92,7 +92,7 @@ local PILL_CONFIG = {
     {
         name = "体魄丹",
         icon = "🔮",
-        maxBuy = 50,
+        maxBuy = 100,
         bonusLabel = "体魄+1",
         bonusPerPill = nil,
         bonusColor = {220, 50, 50, 255},

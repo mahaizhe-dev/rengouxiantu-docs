@@ -146,6 +146,7 @@ function WineSystem.RecalcWineStats()
     if not player then return end
 
     local con, wis, fort, phy = 0, 0, 0, 0
+    local critRate = 0
 
     for i = 1, WineData.MAX_SLOTS do
         local wineId = player.wineSlots[i]
@@ -162,6 +163,8 @@ function WineSystem.RecalcWineStats()
                     fort = fort + val
                 elseif etype == "physique" then
                     phy = phy + val
+                elseif etype == "crit_rate" then
+                    critRate = critRate + val
                 end
             end
         end
@@ -171,6 +174,7 @@ function WineSystem.RecalcWineStats()
     player.wineWisdom = wis
     player.wineFortune = fort
     player.winePhysique = phy
+    player.wineCritRate = critRate
 end
 
 --- 获取葫芦技能的实际饮用持续时间（基础10 + 漠商醇3）
@@ -194,6 +198,29 @@ function WineSystem.GetDrinkDuration()
     end
 
     return baseDuration + bonus
+end
+
+--- 获取葫芦技能每秒恢复百分比（基础0.04 + 戮炎生息酿0.02）
+---@return number 每秒恢复最大生命的百分比（如 0.04 表示 4%）
+function WineSystem.GetDrinkHealPerSecPercent()
+    local player = GameState.player
+    if not player then return 0.04 end
+
+    local base = 0.04
+    local bonus = 0
+
+    for i = 1, WineData.MAX_SLOTS do
+        local wineId = player.wineSlots[i]
+        if wineId then
+            local wineDef = WineData.BY_ID[wineId]
+            if wineDef and wineDef.effect.category == "enhance_drink"
+               and wineDef.effect.type == "heal_per_sec_pct_bonus" then
+                bonus = bonus + wineDef.effect.value
+            end
+        end
+    end
+
+    return base + bonus
 end
 
 -- ============================================================================
@@ -247,6 +274,17 @@ function WineSystem.OnGourdSkillCast(duration)
                         )
                         print("[WineSystem] 乌泉酿触发: 回复" .. healAmount .. "HP")
                     end
+
+                elseif etype == "crit_dmg_pct" then
+                    -- 诛锋烈酿：饮用期间暴击伤害+30%
+                    CombatSystem.AddBuff("wine_" .. wineId, {
+                        name = wineDef.name,
+                        duration = duration,
+                        tickInterval = 999,
+                        critDmgPercent = val,
+                        color = {220, 50, 50, 255},
+                    })
+                    print("[WineSystem] 诛锋烈酿触发: 暴伤+" .. (val * 100) .. "% 持续" .. duration .. "s")
                 end
             end
         end
@@ -281,6 +319,11 @@ function WineSystem.OnGourdSkillCooldown()
                         color = {200, 180, 100, 255},
                     })
                     print("[WineSystem] 沙煞酒触发: CD期间防御+" .. (val * 100) .. "%")
+
+                elseif etype == "knockback_immune" then
+                    -- 陷阵寒酿：CD期间免疫击退（不免疫击晕）
+                    player:ApplyKnockbackImmune(30)  -- 30秒CD，实际由技能就绪时移除
+                    print("[WineSystem] 陷阵寒酿触发: CD期间免疫击退")
                 end
             end
         end
@@ -299,7 +342,14 @@ function WineSystem.OnGourdSkillReady()
         if wineId then
             local wineDef = WineData.BY_ID[wineId]
             if wineDef and wineDef.effect.category == "on_cooldown" then
-                CombatSystem.RemoveBuff("wine_" .. wineId)
+                local etype = wineDef.effect.type
+                if etype == "knockback_immune" then
+                    -- 陷阵寒酿：移除击退免疫
+                    player:RemoveKnockbackImmune()
+                    print("[WineSystem] 陷阵寒酿击退免疫移除")
+                else
+                    CombatSystem.RemoveBuff("wine_" .. wineId)
+                end
                 print("[WineSystem] 冷却型效果移除: " .. wineDef.name)
             end
         end
@@ -380,8 +430,9 @@ function WineSystem.GetEquippedEffectSummary()
         end
     end
 
-    -- 计算治愈总回复
-    local baseHealPct = 0.04 * drinkDuration * 100  -- 每秒4% × 持续时间
+    -- 计算治愈总回复（动态读取每秒恢复百分比）
+    local healPerSec = WineSystem.GetDrinkHealPerSecPercent()
+    local baseHealPct = healPerSec * drinkDuration * 100  -- 每秒X% × 持续时间
     -- 加上乌泉酿瞬回
     local instantPct = 0
     for i = 1, WineData.MAX_SLOTS do

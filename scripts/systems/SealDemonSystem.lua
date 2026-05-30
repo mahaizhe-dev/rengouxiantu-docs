@@ -213,8 +213,8 @@ function SealDemonSystem.AcceptQuest(questId)
         return false, "任务不可接受（当前状态: " .. tostring(state) .. "）"
     end
 
-    if SealDemonSystem.HasActiveQuest() then
-        return false, "已有进行中的一次性封魔任务"
+    if SealDemonSystem.HasActiveTask() then
+        return false, "已有进行中的封魔任务"
     end
 
     if _isThrottled(SealDemonSystem._acceptingAt) then
@@ -247,8 +247,8 @@ function SealDemonSystem.AcceptDaily(chapter)
         return false, "今日日常封魔已完成"
     end
 
-    if SealDemonSystem.HasActiveDaily() then
-        return false, "已有进行中的日常封魔任务"
+    if SealDemonSystem.HasActiveTask() then
+        return false, "已有进行中的封魔任务"
     end
 
     if not SealDemonSystem.IsChapterCompleted(chapter) then
@@ -560,24 +560,30 @@ function SealDemonSystem.HandleAcceptResult(eventType, eventData)
             end
         end
 
-        -- 推断 dailyChapter：从 bossLevel 和配置反查
-        for ch = 1, 4 do
-            local daily = SealDemonConfig.DAILY[ch]
-            if daily then
+        -- 优先使用服务端回包中的 chapter 字段
+        if eventData["chapter"] then
+            dailyChapter = eventData["chapter"]:GetInt()
+        end
+
+        -- 若服务端未带 chapter，从配置反查
+        if dailyChapter == 0 then
+            for ch = 1, #SealDemonConfig.DAILY + 10 do
+                local daily = SealDemonConfig.DAILY[ch]
+                if not daily then break end
                 for _, bp in ipairs(daily.bossPool) do
                     if bp.sourceBoss == bossId and bp.level == bossLevel then
                         dailyChapter = ch
                         break
                     end
                 end
+                if dailyChapter > 0 then break end
             end
-            if dailyChapter > 0 then break end
         end
-        -- 兜底：如果反查失败，根据 bossLevel 粗略判断
+
+        -- 兜底：反查仍失败时取最高已解锁章节
         if dailyChapter == 0 then
-            if bossLevel <= 20 then dailyChapter = 1
-            elseif bossLevel <= 40 then dailyChapter = 2
-            else dailyChapter = 3 end
+            dailyChapter = SealDemonSystem.GetHighestUnlockedDailyChapter() or 1
+            print("[SealDemonSystem] WARN: daily chapter fallback to " .. dailyChapter)
         end
 
         local demonData = SealDemonSystem.CreateDemonBoss(bossId, {
@@ -613,9 +619,9 @@ function SealDemonSystem.HandleAcceptResult(eventType, eventData)
         end
 
         local demonData = SealDemonSystem.CreateDemonBoss(bossId, {
-            overrideLevel = questDef.level,
-            overrideCategory = questDef.category,
-            overrideRealm = questDef.realm,
+            overrideLevel = questDef.overrideLevel,
+            overrideCategory = questDef.overrideCategory,
+            overrideRealm = questDef.overrideRealm,
         })
         if demonData then
             local monster = Monster.New(demonData, spawnX, spawnY)

@@ -631,6 +631,14 @@ function SkillSystem.CastBuffSkill(skill, player)
     local duration = skill.buffDuration or 30
     local healPercent = skill.buffHealPercent or 0
 
+    -- 动态每秒恢复百分比（戮炎生息酿可增加）
+    if healPercent > 0 then
+        local ok2, WineSystem2 = pcall(require, "systems.WineSystem")
+        if ok2 and WineSystem2 and WineSystem2.GetDrinkHealPerSecPercent then
+            healPercent = WineSystem2.GetDrinkHealPerSecPercent()
+        end
+    end
+
     -- 通用 duration 回调（数据驱动，替代 skill.id 硬编码）
     if skill.getDuration then
         local ok, result = pcall(skill.getDuration, skill, player)

@@ -38,7 +38,7 @@ local function GetAllTiers()
     for i = 1, TrialTowerConfig.MAX_DAILY_TIER do
         local floorReq = i * 10
         local lingYun, goldBar = TrialTowerConfig.CalcDailyRewardByTier(i)
-        local realmInfo = TrialTowerConfig.REALMS[i]
+        local realmInfo = TrialTowerConfig.GetRealmByFloor(floorReq)
         local realmName = realmInfo and realmInfo.name or ("第" .. floorReq .. "层")
         table.insert(tiers, {
             tier = i,
@@ -100,7 +100,7 @@ local function BuildOfferingPanel(npc)
     if not unlocked then
         statusText = "当前试炼进度：第 " .. highestFloor .. " 层\n通关第 10 层后解锁每日供奉"
     else
-        local realmInfo = TrialTowerConfig.REALMS[tier]
+        local realmInfo = TrialTowerConfig.GetRealmByFloor(highestFloor)
         local realmName = realmInfo and realmInfo.name or ("第" .. tier .. "档")
         statusText = "当前试炼进度：第 " .. highestFloor .. " 层\n"
             .. "供奉档位：" .. realmName .. "（第" .. tier .. "档）\n"

@@ -97,27 +97,26 @@ function M.HandleSealDemonAccept(eventType, eventData)
                     end
                 end
 
-                -- Quota 检查：每日1次（三章共享，按角色隔离）
+                -- Quota 检查：每日1次（所有章节共享，按角色隔离）
                 serverCloud.quota:Add(userId, "seal_demon_daily_s" .. slot, 1, 1, "day", {
                     ok = function()
                         -- 随机选择 BOSS
                         local pool = daily.bossPool
                         local chosen = pool[math.random(1, #pool)]
 
-                        -- 检查低阶警告
+                        -- 检查低阶警告（动态遍历所有章节）
                         local highestCh = 0
-                        for ch = 1, 4 do
+                        for ch = 1, 99 do
                             local dCfg = SealDemonConfig.DAILY[ch]
-                            if dCfg then
-                                local allDone = true
-                                for _, rid in ipairs(dCfg.requiredQuests) do
-                                    if sealDemon.quests[rid] ~= "completed" then
-                                        allDone = false
-                                        break
-                                    end
+                            if not dCfg then break end
+                            local allDone = true
+                            for _, rid in ipairs(dCfg.requiredQuests) do
+                                if sealDemon.quests[rid] ~= "completed" then
+                                    allDone = false
+                                    break
                                 end
-                                if allDone then highestCh = ch end
                             end
+                            if allDone then highestCh = ch end
                         end
 
                         sealDemonActive_[connKey] = {
@@ -133,6 +132,7 @@ function M.HandleSealDemonAccept(eventType, eventData)
                         data["bossRealm"] = Variant(chosen.realm)
                         data["spawnX"] = Variant(chosen.spawnX)
                         data["spawnY"] = Variant(chosen.spawnY)
+                        data["chapter"] = Variant(dailyChapter)
                         if dailyChapter < highestCh then
                             data["warning"] = Variant("low_tier")
                         end

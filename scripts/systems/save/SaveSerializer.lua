@@ -534,6 +534,7 @@ function SaveSerializer.DeserializeInventory(data)
                     else
                         local cfgData = GameConfig.PET_FOOD[itemData.consumableId]
                             or GameConfig.PET_MATERIALS[itemData.consumableId]
+                            or GameConfig.EVENT_ITEMS[itemData.consumableId]
                         if cfgData then
                             itemData.icon = cfgData.icon
                             itemData.name = cfgData.name

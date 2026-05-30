@@ -30,7 +30,7 @@ local TAB_ACTIVE_COLOR = {255, 220, 140, 255}
 local TAB_INACTIVE_BG = {40, 40, 50, 180}
 local TAB_INACTIVE_COLOR = {160, 160, 170, 200}
 
-local CHAPTER_NAMES = { "第一章", "第二章", "第三章", "第四章" }
+local CHAPTER_NAMES = { "第一章", "第二章", "第三章", "第四章", "第五章" }
 
 -- 葫芦品质 → 贴图路径映射
 local GOURD_QUALITY_ICONS = {
@@ -226,7 +226,7 @@ local function BuildTab1Content()
 
     -- 技能描述
     local drinkDuration = WineSystem.GetDrinkDuration()
-    local healPerSec = 4.0
+    local healPerSec = WineSystem.GetDrinkHealPerSecPercent() * 100  -- 转为百分比显示
     local totalPct = healPerSec * drinkDuration
     local skillDesc = string.format("持续%d秒，每秒恢复%.1f%%最大生命(共%.0f%%)", drinkDuration, healPerSec, totalPct)
 
@@ -356,7 +356,7 @@ local function BuildTab2Content()
 
     -- 按章节分组
     local chapterWines = WineData.GetWinesByChapter()
-    for ch = 1, 4 do
+    for ch = 1, #CHAPTER_NAMES do
         local wines = chapterWines[ch]
         if not wines then goto nextChapter end
 

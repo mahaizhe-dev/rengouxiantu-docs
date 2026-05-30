@@ -491,6 +491,8 @@ local function BuildItemCard(itemId)
     local nameText = cfg.name
     if cfg.isBoss then
         nameText = "★ " .. nameText
+    elseif cfg.eventHighlight then
+        nameText = "🎪 " .. nameText
     end
 
     -- 库存条比例
@@ -500,8 +502,8 @@ local function BuildItemCard(itemId)
         width = "48%",
         backgroundColor = C.cardBg,
         borderRadius = T.radius.md,
-        borderWidth = cfg.isBoss and 2 or 1,
-        borderColor = cfg.isBoss and C.bossGlow or C.cardBorder,
+        borderWidth = (cfg.isBoss or cfg.eventHighlight) and 2 or 1,
+        borderColor = (cfg.isBoss or cfg.eventHighlight) and C.bossGlow or C.cardBorder,
         padding = T.spacing.sm,
         gap = 4,
         alignItems = "center",
@@ -533,7 +535,7 @@ local function BuildItemCard(itemId)
             UI.Label {
                 text = nameText,
                 fontSize = T.fontSize.sm, fontWeight = "bold",
-                fontColor = cfg.isBoss and C.bossGlow or C.titleGold,
+                fontColor = (cfg.isBoss or cfg.eventHighlight) and C.bossGlow or C.titleGold,
                 textAlign = "center",
                 pointerEvents = "none",
             },

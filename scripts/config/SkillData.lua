@@ -451,6 +451,9 @@ SkillData.Skills = {
                 duration = WineSystem.GetDrinkDuration()
             end
             local healPerSec = skill.buffHealPercent or 0.04
+            if ok and WineSystem and WineSystem.GetDrinkHealPerSecPercent then
+                healPerSec = WineSystem.GetDrinkHealPerSecPercent()
+            end
             local totalPct = healPerSec * 100 * duration
             return string.format("%d秒内每秒恢复%.1f%%最大生命(共%.0f%%)", duration, healPerSec * 100, totalPct)
         end,

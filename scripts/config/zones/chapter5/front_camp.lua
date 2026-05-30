@@ -51,11 +51,12 @@ front_camp.npcs = {
     },
     -- ── 封魔使（右侧） ──
     {
-        id = "seal_master_ch5", name = "封魔使·玄剑", subtitle = "暂未开放",
+        id = "seal_master_ch5", name = "封魔使·玄剑", subtitle = "封魔任务",
         x = 45, y = 6, icon = "🔮",
         portrait = "Textures/npc_exorcist.png",
+        interactType = "seal_demon", chapter = 5,
         zone = "ch5_front_camp",
-        dialog = "太虚遗址残魂被魔气侵蚀，已非昔日宗门弟子。吾乃封魔谷使者玄剑，专司净化魔魂。此地封魔阵尚在布置中，封魔任务暂未开放，请稍后再来。",
+        dialog = "太虚遗址残魂被魔气侵蚀，已非昔日宗门弟子。吾乃封魔谷使者玄剑，专司净化魔魂。若你足够强大，便来领取封魔令吧。",
     },
     -- ── 百宝箱（右侧） ──
     {

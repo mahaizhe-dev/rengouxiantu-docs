@@ -981,13 +981,25 @@ function Minimap.Create(parentOverlay)
 
     parentOverlay:AddChild(miniContainer)
 
-    -- 全局地图 Widget
+    -- 全局地图 Widget — 使用显式像素尺寸避免 Yoga aspectRatio 在手机端计算异常
+    local screenW = graphics:GetWidth() / graphics:GetDPR()
+    local screenH = graphics:GetHeight() / graphics:GetDPR()
+    local cardPadding = T.spacing.sm or 8
+    local cardGap = T.spacing.sm or 8
+    local titleBarH = 36   -- 标题栏大约高度
+    local legendH = 30     -- 图例栏大约高度
+    -- 卡片宽度：屏幕 94% 但不超过 500
+    local cardW = math.min(screenW * 0.94, 500)
+    -- 地图可用的最大正方形边长：卡片内宽度 vs 卡片内可用高度（去掉标题、图例、padding、gap）
+    local innerW = cardW - cardPadding * 2
+    local maxCardH = screenH * 0.88  -- 留一点余量
+    local innerMaxH = maxCardH - cardPadding * 2 - titleBarH - legendH - cardGap * 3
+    local mapSize = math.floor(math.min(innerW, innerMaxH))
+    if mapSize < 100 then mapSize = 100 end  -- 安全下限
+
     fullMapWidget_ = FullMapWidget {
         width = "100%",
         height = "100%",
-        flexGrow = 1,
-        flexShrink = 1,
-        flexBasis = 0,
     }
 
     -- 全局地图面板
@@ -1003,21 +1015,21 @@ function Minimap.Create(parentOverlay)
         onClick = function(self) end,  -- 防止触摸事件穿透到下方场景
         children = {
             UI.Panel {
-                width = "94%",
-                maxWidth = 500,
-                maxHeight = "90%",
+                width = cardW,
+                flexDirection = "column",
                 backgroundColor = {22, 26, 38, 240},
                 borderRadius = T.radius.lg,
                 borderWidth = 1,
                 borderColor = {180, 170, 140, 150},
-                padding = T.spacing.sm,
-                gap = T.spacing.sm,
+                padding = cardPadding,
+                gap = cardGap,
                 children = {
                     -- 标题栏
                     UI.Panel {
                         flexDirection = "row",
                         justifyContent = "space-between",
                         alignItems = "center",
+                        height = titleBarH,
                         children = {
                             UI.Label {
                                 text = "🗺️ 世界地图",
@@ -1035,11 +1047,11 @@ function Minimap.Create(parentOverlay)
                             },
                         },
                     },
-                    -- 地图区域（正方形）
+                    -- 地图区域（显式正方形尺寸）
                     UI.Panel {
-                        width = "100%",
-                        aspectRatio = 1,
-                        flexShrink = 1,
+                        width = mapSize,
+                        height = mapSize,
+                        alignSelf = "center",
                         overflow = "hidden",
                         borderRadius = T.radius.sm,
                         children = {

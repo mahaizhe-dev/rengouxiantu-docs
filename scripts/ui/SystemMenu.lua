@@ -118,8 +118,9 @@ end
 
 --- 构建单个怪物的掉落摘要文本
 ---@param monster table
+---@param typeId? string 怪物typeId（用于查询美酒掉落）
 ---@return string
-local function BuildDropSummary(monster)
+local function BuildDropSummary(monster, typeId)
     if not monster.dropTable then return "无" end
     local parts = {}
     local hasRandomEquip = false
@@ -318,7 +319,7 @@ local function BuildDropSummary(monster)
     end
 
     -- 美酒掉落：查询该怪物是否掉落美酒
-    local wineDrops = WineData.GetWinesBySource(monster.typeId)
+    local wineDrops = typeId and WineData.GetWinesBySource(typeId) or {}
     if #wineDrops > 0 then
         local player = GameState.player
         for _, wine in ipairs(wineDrops) do
@@ -410,7 +411,7 @@ local function BuildBestiaryContent(chapterIndex)
                 end
 
                 -- 掉落摘要
-                local dropText = BuildDropSummary(m)
+                local dropText = BuildDropSummary(m, entry.id)
 
                 table.insert(children, UI.Panel {
                     width = "100%",

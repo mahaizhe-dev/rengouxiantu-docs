@@ -33,12 +33,8 @@ function LoginScreen.Create(uiRoot, onStart)
         zIndex = 1000,
         justifyContent = "center",
         alignItems = "center",
-        backgroundGradient = {
-            type = "linear",
-            direction = "to-bottom",
-            from = {15, 20, 40, 255},
-            to = {8, 10, 22, 255},
-        },
+        backgroundImage = "image/login_bg_ch5_taixu.png",
+        backgroundFit = "cover",
         visible = false,
         children = {
             -- 主内容区
@@ -58,6 +54,12 @@ function LoginScreen.Create(uiRoot, onStart)
                         fontSize = T.fontSize.hero + 8,
                         fontWeight = "bold",
                         fontColor = {255, 230, 180, 255},
+                    },
+                    -- 章节标题
+                    UI.Label {
+                        text = "第五章 · 太虚之殇",
+                        fontSize = T.fontSize.md,
+                        fontColor = {180, 180, 200, 220},
                     },
                     -- 副标题
                     UI.Label {

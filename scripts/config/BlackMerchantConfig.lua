@@ -228,10 +228,14 @@ BMConfig.ITEMS = {
     shihun_essence     = ItemFromGame("shihun_essence",     { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 8 }),
     lingxi_essence     = ItemFromGame("lingxi_essence",     { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 9 }),
     dragon_blood_herb  = ItemFromGame("dragon_blood_herb",  { buy_price = 5,  sell_price = 10, category = "herb", max_stock = 10, sort_order = 10 }),
-    ganggu_essence     = ItemFromGame("ganggu_essence",     { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 5,  sort_order = 11 }),
+    ganggu_essence     = ItemFromGame("ganggu_essence",     { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 10, sort_order = 11 }),
     -- Ch5 圣器材料（炼制太虚剑丹/狱甲丹/圣器的必需材料，高价值稀有草药）
-    sword_intent_crystal   = ItemFromGame("sword_intent_crystal",   { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 5, sort_order = 12 }),
-    abyss_seal_shard       = ItemFromGame("abyss_seal_shard",       { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 5, sort_order = 13 }),
+    sword_intent_crystal   = ItemFromGame("sword_intent_crystal",   { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 10, sort_order = 12 }),
+    abyss_seal_shard       = ItemFromGame("abyss_seal_shard",       { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 10, sort_order = 13 }),
+
+    -- === 六一活动道具（限时，金框标识） ===
+    childday_rattle   = ItemFromGame("childday_rattle",   { buy_price = 1, sell_price = 2,  category = "consumable_mat", max_stock = 10, sort_order = -2, eventHighlight = true }),
+    childday_pinwheel = ItemFromGame("childday_pinwheel", { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 10, sort_order = -1, eventHighlight = true }),
 
     -- === 消耗品（龙神材料、仙人精血、金砖、令牌盒） ===
     dragon_scale_ice   = ItemFromGame("dragon_scale_ice",   { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 5, sort_order = 1 }),
@@ -325,27 +329,27 @@ BMConfig.ITEMS = {
     book_physique_owner_3     = BookItemFromData("book_physique_owner_3",     { buy_price = 5,  sell_price = 10, category = "skill_book_high", max_stock = 5, sort_order = 19 }),
     book_fortune_owner_3      = BookItemFromData("book_fortune_owner_3",      { buy_price = 5,  sell_price = 10, category = "skill_book_high", max_stock = 5, sort_order = 20 }),
 
-    -- === 特级技能书（红色品质，sellPrice=8000金，收10售20仙石，限购3） ===
-    book_atk_4       = BookItemFromData("book_atk_4",       { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 1  }),
-    book_hp_4        = BookItemFromData("book_hp_4",        { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 2  }),
-    book_def_4       = BookItemFromData("book_def_4",       { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 3  }),
-    book_evade_4     = BookItemFromData("book_evade_4",     { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 4  }),
-    book_regen_4     = BookItemFromData("book_regen_4",     { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 5  }),
-    book_crit_4      = BookItemFromData("book_crit_4",      { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 6  }),
-    book_atkSpd_4    = BookItemFromData("book_atkSpd_4",    { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 7  }),
-    book_critDmg_4   = BookItemFromData("book_critDmg_4",   { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 8  }),
-    book_doubleHit_4 = BookItemFromData("book_doubleHit_4", { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 9  }),
-    book_lifeSteal_4 = BookItemFromData("book_lifeSteal_4", { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 10 }),
-    book_hpPerLv_4   = BookItemFromData("book_hpPerLv_4",   { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 11 }),
-    book_dmgReduce_4 = BookItemFromData("book_dmgReduce_4", { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 12 }),
-    book_defPerLv_4  = BookItemFromData("book_defPerLv_4",  { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 13 }),
-    book_ignoreDef_4 = BookItemFromData("book_ignoreDef_4", { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 14 }),
-    book_atkPerLv_4  = BookItemFromData("book_atkPerLv_4",  { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 15 }),
-    book_bonusDmg_4  = BookItemFromData("book_bonusDmg_4",  { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 16 }),
-    book_wisdom_owner_4       = BookItemFromData("book_wisdom_owner_4",       { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 17 }),
-    book_constitution_owner_4 = BookItemFromData("book_constitution_owner_4", { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 18 }),
-    book_physique_owner_4     = BookItemFromData("book_physique_owner_4",     { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 19 }),
-    book_fortune_owner_4      = BookItemFromData("book_fortune_owner_4",      { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 3, sort_order = 20 }),
+    -- === 特级技能书（红色品质，sellPrice=8000金，收10售20仙石，限购5） ===
+    book_atk_4       = BookItemFromData("book_atk_4",       { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 1  }),
+    book_hp_4        = BookItemFromData("book_hp_4",        { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 2  }),
+    book_def_4       = BookItemFromData("book_def_4",       { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 3  }),
+    book_evade_4     = BookItemFromData("book_evade_4",     { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 4  }),
+    book_regen_4     = BookItemFromData("book_regen_4",     { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 5  }),
+    book_crit_4      = BookItemFromData("book_crit_4",      { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 6  }),
+    book_atkSpd_4    = BookItemFromData("book_atkSpd_4",    { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 7  }),
+    book_critDmg_4   = BookItemFromData("book_critDmg_4",   { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 8  }),
+    book_doubleHit_4 = BookItemFromData("book_doubleHit_4", { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 9  }),
+    book_lifeSteal_4 = BookItemFromData("book_lifeSteal_4", { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 10 }),
+    book_hpPerLv_4   = BookItemFromData("book_hpPerLv_4",   { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 11 }),
+    book_dmgReduce_4 = BookItemFromData("book_dmgReduce_4", { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 12 }),
+    book_defPerLv_4  = BookItemFromData("book_defPerLv_4",  { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 13 }),
+    book_ignoreDef_4 = BookItemFromData("book_ignoreDef_4", { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 14 }),
+    book_atkPerLv_4  = BookItemFromData("book_atkPerLv_4",  { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 15 }),
+    book_bonusDmg_4  = BookItemFromData("book_bonusDmg_4",  { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 16 }),
+    book_wisdom_owner_4       = BookItemFromData("book_wisdom_owner_4",       { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 17 }),
+    book_constitution_owner_4 = BookItemFromData("book_constitution_owner_4", { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 18 }),
+    book_physique_owner_4     = BookItemFromData("book_physique_owner_4",     { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 19 }),
+    book_fortune_owner_4      = BookItemFromData("book_fortune_owner_4",      { buy_price = 10, sell_price = 20, category = "skill_book_special", max_stock = 5, sort_order = 20 }),
 }
 
 -- ============================================================================
