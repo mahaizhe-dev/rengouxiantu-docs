@@ -1342,19 +1342,22 @@ end
 ---@param chapterId number 当前章节 ID
 ---@return table|nil { [itemId] = dropChance }
 function LootSystem.GetEventDropRates(event, monster, chapterId)
-    -- 优先级1：怪物 ID 覆盖（四龙等特殊 BOSS）
-    if event.monsterOverrides and event.monsterOverrides[monster.typeId] then
-        return event.monsterOverrides[monster.typeId]
-    end
-    -- 优先级2：章节 + 阶级
+    -- 返回章节 + 怪物阶级对应的普通掉落率（拨浪鼓等）
     local chapterRates = event.dropRates[chapterId]
     if not chapterRates then return nil end
     return chapterRates[monster.category]
 end
 
+--- BOSS 类别判定（boss / king_boss / emperor_boss / saint_boss）
+local BOSS_CATEGORIES = {
+    boss = true, king_boss = true, emperor_boss = true, saint_boss = true,
+}
+
 --- 为已有的掉落结果追加活动道具掉落
 --- 在 GenerateDrops 之后调用，独立于常规掉落
---- 支持两类独立判定：普通开启物(chapter+category) + 稀有开启物(monster.realm)
+--- 两段独立判定：
+---   第一段：普通开启物（章节 + category），所有怪都走
+---   第二段：稀有开启物，仅 BOSS 生效（monsterOverrides 优先 > realmDropRates）
 ---@param dropResult table GenerateDrops 的返回值
 ---@param monster table 怪物数据
 function LootSystem.RollEventDrops(dropResult, monster)
@@ -1365,7 +1368,8 @@ function LootSystem.RollEventDrops(dropResult, monster)
     local chapterId = GameState.currentChapter or 1
     if not dropResult.consumables then dropResult.consumables = {} end
 
-    -- ═══ 第一段：普通开启物（章节 + category / monsterOverrides）═══
+    -- ═══ 第一段：普通开启物（章节 + category）═══
+    -- 所有怪物（包括四仙剑）都走这段，掉拨浪鼓
     local rates = LootSystem.GetEventDropRates(event, monster, chapterId)
     if rates then
         for itemId, chance in pairs(rates) do
@@ -1375,13 +1379,23 @@ function LootSystem.RollEventDrops(dropResult, monster)
         end
     end
 
-    -- ═══ 第二段：稀有开启物（monster.realm 阶梯掉落）═══
-    -- 优先级：monsterOverrides > realmDropRates
-    -- 若 monsterOverrides 已匹配（包含稀有物品），则跳过 realm 分支避免双重判定
-    if event.monsterOverrides and event.monsterOverrides[monster.typeId] then
-        -- monsterOverrides 已在第一段处理（包含稀有物），此处不再重复
-        return
+    -- ═══ 第二段：稀有开启物（仅 BOSS 生效）═══
+    -- 优先级：monsterOverrides（按 typeId 精确匹配）> realmDropRates（按境界阶梯）
+    if not BOSS_CATEGORIES[monster.category] then
+        return  -- 非 BOSS 不参与稀有掉落
     end
+
+    if event.monsterOverrides and event.monsterOverrides[monster.typeId] then
+        -- 四仙剑等特殊 BOSS：使用专属稀有概率
+        local overrideRates = event.monsterOverrides[monster.typeId]
+        for itemId, chance in pairs(overrideRates) do
+            if Utils.Roll(chance) then
+                dropResult.consumables[itemId] = (dropResult.consumables[itemId] or 0) + 1
+            end
+        end
+        return  -- override 和 realmDropRates 互斥，不双重判定
+    end
+
     if event.realmDropRates and monster.realm then
         local realmRates = event.realmDropRates[monster.realm]
         if realmRates then

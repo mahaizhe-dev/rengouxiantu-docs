@@ -394,7 +394,7 @@ function M.HandleOpenFudai(eventType, eventData)
                     elseif r.type == "petSkin" then
                         skinRewards[#skinRewards + 1] = {
                             id = r.id,
-                            dupLingYun = r.dupLingYun or 10000,
+                            dupLingYun = r.dupLingYun or 5000,
                         }
                     end
                 end

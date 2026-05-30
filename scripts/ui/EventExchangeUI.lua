@@ -125,7 +125,7 @@ local function ShowSkinUnlockPopup(skinId, isDuplicate)
     local titleText = isDuplicate and "再次获得皮肤" or "恭喜获得稀有皮肤！"
     local titleColor = isDuplicate and {200, 200, 210, 255} or {255, 215, 0, 255}
     local subtitleText = isDuplicate
-        and "已拥有该皮肤，本次获得转化为 200 灵石奖励"
+        and "已拥有该皮肤，本次获得转化为 5000 灵韵奖励"
         or "已永久解锁，可在宠物外观中切换"
 
     -- 构建弹窗
@@ -622,7 +622,7 @@ local function BuildFudaiContent()
                 fontColor = {140, 180, 220, 200},
             },
             UI.Label {
-                text = "流光风车：击败高境界BOSS掉落（元婴及以上，四仙剑1%）",
+                text = "流光风车：击败高境界BOSS掉落（元婴及以上，最高四仙剑1%）",
                 fontSize = T.fontSize.xs,
                 fontColor = {220, 180, 100, 200},
             },
@@ -1045,7 +1045,7 @@ function EventExchangeUI.Show(npc)
         justifyContent = "center",
         alignItems = "center",
         backgroundColor = {0, 0, 0, 120},
-        zIndex = 100,
+        zIndex = 115,
         visible = true,
         onClick = function(self)
             EventExchangeUI.Hide()

@@ -726,7 +726,7 @@ GameConfig.EVENT_ITEMS = {
         name = "童趣拨浪鼓", icon = "🥁",
         image = "Textures/event/childday_rattle.png",
         sellPrice = 1000, quality = "purple",
-        desc = "开启小宝箱，获得随机奖励。集齐可兑换限定皮肤！",
+        desc = "开启小宝箱，获得随机奖励。击败各章节BOSS掉落。",
         category = "event", eventId = "childrensday_2026",
     },
     childday_pinwheel = {
