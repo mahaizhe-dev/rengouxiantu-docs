@@ -143,10 +143,11 @@ EventConfig.ACTIVE_EVENT = {
         big   = { threshold = 120, targetId = "big_skin" },       -- 大宝箱120次保底：福缘皮肤
     },
 
-    -- ═══ 黑市商品（六一活动物品均可交易）═══
+    -- ═══ 黑市商品（仅供参考，实际价格以 BlackMerchantConfig.lua 为准）═══
+    -- ⚠️ 当前无代码读取此表，如需修改黑市价格请改 BlackMerchantConfig.lua
     blackMarketItems = {
-        childday_rattle   = { name = "童趣拨浪鼓", buy_price = 3, sell_price = 6, category = "event", boss = "各章节BOSS" },
-        childday_pinwheel = { name = "流光风车",   buy_price = 8, sell_price = 15, category = "event", boss = "高境界BOSS/小宝箱" },
+        childday_rattle   = { name = "童趣拨浪鼓", buy_price = 1, sell_price = 2,  category = "event", boss = "各章节BOSS" },
+        childday_pinwheel = { name = "流光风车",   buy_price = 6, sell_price = 12, category = "event", boss = "高境界BOSS/小宝箱" },
     },
 
     -- ═══ 排行榜配置（积分榜）═══

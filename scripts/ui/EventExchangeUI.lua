@@ -78,8 +78,14 @@ local statusKeepUntil_ = 0
 -- 奖池弹窗状态
 local showPoolPopup_ = nil  -- nil / "small" / "big"
 
--- 皮肤弹窗
+-- 皮肤/大奖弹窗
 local skinPopup_ = nil
+local popupQueue_ = {}  -- 弹窗队列: array of {kind, ...}
+
+-- ============================================================================
+-- 弹窗队列驱动
+-- ============================================================================
+local ShowNextSpecialPopup  -- forward declaration
 
 -- ============================================================================
 -- 皮肤获得恭喜弹窗
@@ -162,8 +168,9 @@ local function ShowSkinUnlockPopup(skinId, isDuplicate)
                         backgroundColor = {255, 215, 0, 60},
                     },
                     -- 皮肤造型图
-                    UI.Image {
-                        src = skinCfg.texture,
+                    UI.Panel {
+                        backgroundImage = skinCfg.texture,
+                        backgroundFit = "contain",
                         width = 160, height = 160,
                         borderRadius = T.radius.md,
                         backgroundColor = {40, 42, 55, 200},
@@ -205,6 +212,7 @@ local function ShowSkinUnlockPopup(skinId, isDuplicate)
                                 parentOverlay_:RemoveChild(skinPopup_)
                                 skinPopup_ = nil
                             end
+                            ShowNextSpecialPopup()
                         end,
                     },
                 },
@@ -289,6 +297,7 @@ local function ShowLegendaryItemPopup(itemName)
                                 parentOverlay_:RemoveChild(skinPopup_)
                                 skinPopup_ = nil
                             end
+                            ShowNextSpecialPopup()
                         end,
                     },
                 },
@@ -298,6 +307,25 @@ local function ShowLegendaryItemPopup(itemName)
 
     parentOverlay_:AddChild(skinPopup_)
     print("[EventExchangeUI] ShowLegendaryItemPopup: " .. itemName)
+end
+
+-- ============================================================================
+-- 弹窗队列驱动实现
+-- ============================================================================
+
+--- 从 popupQueue_ 弹出下一项并展示对应弹窗
+ShowNextSpecialPopup = function()
+    if #popupQueue_ == 0 then return end
+    local entry = table.remove(popupQueue_, 1)
+    if entry.kind == "skin_new" then
+        local PetSkinSystem = require("systems.PetSkinSystem")
+        PetSkinSystem.UnlockPremiumSkin(entry.skinId)
+        ShowSkinUnlockPopup(entry.skinId, false)
+    elseif entry.kind == "skin_dup" then
+        ShowSkinUnlockPopup(entry.skinId, true)
+    elseif entry.kind == "legendary_item" then
+        ShowLegendaryItemPopup(entry.name or entry.rewardId or "传说物品")
+    end
 end
 
 -- ============================================================================
@@ -1339,36 +1367,68 @@ function EventExchangeUI.HandleFudaiResult(eventType, eventData)
             end
         end
 
-        -- 皮肤解锁
-        local skinField = eventData["UnlockedSkinId"]
-        local unlockedSkinId = skinField and skinField:GetString() or ""
-        if unlockedSkinId and #unlockedSkinId > 0 then
-            -- 检测是否已拥有（重复获得）
-            local isDuplicate = false
-            local cosmetics = GameState.accountCosmetics or {}
-            if cosmetics.petAppearances and cosmetics.petAppearances[unlockedSkinId] then
-                isDuplicate = true
-            end
-            local PetSkinSystem = require("systems.PetSkinSystem")
-            PetSkinSystem.UnlockPremiumSkin(unlockedSkinId)
-            SetStatus("恭喜获得稀有皮肤！", 5)
-            -- 弹窗展示
-            ShowSkinUnlockPopup(unlockedSkinId, isDuplicate)
-        else
-            -- 检测是否开出流光风车（传说物品弹窗）
-            local legendaryItem = nil
-            for _, r in ipairs(fudaiResults_) do
-                if r.id == "small_upgrade" then
-                    legendaryItem = r.name
-                    break
+        -- ════ SpecialRewards 弹窗队列（服务端显式回传大奖列表）════
+        local specialRewardsJson = eventData["SpecialRewards"] and eventData["SpecialRewards"]:GetString() or "[]"
+        local specialRewards = cjson.decode(specialRewardsJson) or {}
+
+        -- 兼容旧协议：若 SpecialRewards 为空，则使用旧字段 fallback
+        if #specialRewards == 0 then
+            local skinField = eventData["UnlockedSkinId"]
+            local unlockedSkinId = skinField and skinField:GetString() or ""
+            if unlockedSkinId and #unlockedSkinId > 0 then
+                local isDup = false
+                local cosmetics = GameState.accountCosmetics or {}
+                if cosmetics.petAppearances and cosmetics.petAppearances[unlockedSkinId] then
+                    isDup = true
+                end
+                specialRewards[#specialRewards + 1] = {
+                    kind = isDup and "skin_dup" or "skin_new",
+                    skinId = unlockedSkinId,
+                    skinName = unlockedSkinId,
+                    lingYun = isDup and 5000 or nil,
+                }
+            else
+                for _, r in ipairs(fudaiResults_) do
+                    if r.id == "small_upgrade" then
+                        specialRewards[#specialRewards + 1] = {
+                            kind = "legendary_item",
+                            name = r.name,
+                            rewardId = r.id,
+                        }
+                        break
+                    end
                 end
             end
-            if legendaryItem then
-                SetStatus("恭喜获得传说物品！", 5)
-                ShowLegendaryItemPopup(legendaryItem)
-            else
-                local count = #fudaiResults_
-                SetStatus("开启 " .. count .. " 个宝箱！", 4)
+        end
+
+        -- 填充弹窗队列并依次展示
+        popupQueue_ = {}
+        for _, sr in ipairs(specialRewards) do
+            popupQueue_[#popupQueue_ + 1] = sr
+        end
+        if #popupQueue_ > 0 then
+            SetStatus("恭喜获得大奖！", 5)
+            ShowNextSpecialPopup()
+        else
+            local count = #fudaiResults_
+            SetStatus("开启 " .. count .. " 个宝箱！", 4)
+        end
+
+        -- ════ NewPullRecords 即时合并到本地记录 ════
+        local newRecordsJson = eventData["NewPullRecords"] and eventData["NewPullRecords"]:GetString() or "[]"
+        local newRecords = cjson.decode(newRecordsJson) or {}
+        if #newRecords > 0 then
+            -- 客户端用自己已知的角色名覆盖（服务端异步获取 slots_index 可能来不及）
+            local SaveState = require("systems.save.SaveState")
+            local myCharName = SaveState._cachedCharName or "修仙者"
+            for _, rec in ipairs(newRecords) do
+                rec.displayName = myCharName
+                rec.charName = myCharName
+                table.insert(pullRecords_, 1, rec)  -- 新记录插到头部
+            end
+            -- 保留最多50条
+            while #pullRecords_ > 50 do
+                table.remove(pullRecords_)
             end
         end
 

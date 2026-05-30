@@ -103,7 +103,7 @@ SaveProtocol.S2C_BlackMerchantExchangeResult = "S2C_BMExchangeResult" -- 兑换�
 SaveProtocol.S2C_BlackMerchantHistory        = "S2C_BMHistory"        -- 交易记录列表
 -- 五一世界掉落活动
 SaveProtocol.S2C_EventExchangeResult  = "S2C_EvtExResult"      -- 兑换结果
-SaveProtocol.S2C_EventOpenFudaiResult = "S2C_EvtFudaiResult"   -- 福袋奖励结果
+SaveProtocol.S2C_EventOpenFudaiResult = "S2C_EvtFudaiResult"   -- 福袋奖励结果 (+SpecialRewards JSON, +NewPullRecords JSON)
 SaveProtocol.S2C_EventRankListData    = "S2C_EvtRankData"      -- 排行榜数据
 SaveProtocol.S2C_EventPullRecordsData = "S2C_EvtPullData"      -- 全服抽取记录列表
 -- 仙缘宝箱

@@ -433,6 +433,8 @@ function M.HandleOpenFudai(eventType, eventData)
                     elseif r.type == "petSkin" then
                         skinRewards[#skinRewards + 1] = {
                             id = r.id,
+                            name = entry.name,
+                            rollEntryId = entry.id,  -- 外层条目ID，用于去重
                             dupLingYun = r.dupLingYun or 5000,
                         }
                     end
@@ -445,10 +447,43 @@ function M.HandleOpenFudai(eventType, eventData)
             evtAllData[eventId] = evtData
             saveData.event_data = evtAllData
 
+            -- ════ 组装 NewPullRecords（rare/legendary 立即回传客户端）════
+            -- charName 在后面 slots_index 回调中才确定，此处用占位
+            local newPullRecords = {}
+            for _, r in ipairs(rollResults) do
+                if r.rarity == "rare" or r.rarity == "legendary" then
+                    newPullRecords[#newPullRecords + 1] = {
+                        name = r.name,
+                        rarity = r.rarity,
+                        boxType = boxType,
+                        ts = os.time(),
+                    }
+                end
+            end
+
+            -- ════ 组装 SpecialRewards（非皮肤类传说物品）════
+            local baseSpecialRewards = {}
+            for _, r in ipairs(rollResults) do
+                if r.rarity == "legendary" and r.id ~= nil then
+                    -- 检查是否属于皮肤奖励（用 rollEntryId 匹配外层条目ID）
+                    local isSkinReward = false
+                    for _, skin in ipairs(skinRewards) do
+                        if skin.rollEntryId == r.id then isSkinReward = true; break end
+                    end
+                    if not isSkinReward then
+                        baseSpecialRewards[#baseSpecialRewards + 1] = {
+                            kind = "legendary_item",
+                            rewardId = r.id,
+                            name = r.name,
+                        }
+                    end
+                end
+            end
+
             -- ================================================================
             -- 皮肤奖励处理：需要先读 account_cosmetics 判断是否已拥有
             -- ================================================================
-            local function ProcessAfterSkinCheck(unlockedSkinId, dupLingYunTotal)
+            local function ProcessAfterSkinCheck(unlockedSkinId, dupLingYunTotal, specialRewards)
                 -- 扣宝箱道具（BM-S4A: 必须检查返回值，防止锁定物品导致扣除不足仍发奖）
                 local removeRemaining = RemoveFromBackpack(backpack, targetItemId, actualCount)
                 if removeRemaining > 0 then
@@ -558,6 +593,14 @@ function M.HandleOpenFudai(eventType, eventData)
                         -- 保底进度（当前计数/阈值）
                         reply["PityCount"] = Variant(pityCount)
                         reply["PityThreshold"] = Variant(pityThreshold)
+                        -- 大奖弹窗列表 + 全服记录即时回传
+                        reply["SpecialRewards"] = Variant(cjson.encode(specialRewards))
+                        -- NewPullRecords: 补充 displayName
+                        local masked = MaskPlayerName(fallbackName)
+                        for _, rec in ipairs(newPullRecords) do
+                            rec.displayName = masked
+                        end
+                        reply["NewPullRecords"] = Variant(cjson.encode(newPullRecords))
                         Session.SafeSend(connection, SaveProtocol.S2C_EventOpenFudaiResult, reply)
 
                         releaseLocks()
@@ -585,37 +628,74 @@ function M.HandleOpenFudai(eventType, eventData)
                             local petApps = cosmetics.petAppearances or {}
                             local unlockedSkinId = nil
                             local dupLingYunTotal = 0
+                            local skinSpecials = {}
 
                             for _, skin in ipairs(skinRewards) do
                                 if petApps[skin.id] and petApps[skin.id].unlocked then
                                     -- 已拥有 → 补偿灵韵
                                     dupLingYunTotal = dupLingYunTotal + skin.dupLingYun
+                                    skinSpecials[#skinSpecials + 1] = {
+                                        kind = "skin_dup",
+                                        skinId = skin.id,
+                                        skinName = skin.name or skin.id,
+                                        lingYun = skin.dupLingYun,
+                                    }
                                 else
                                     -- 未拥有 → 解锁（多次抽到同一皮肤，第一次解锁，后续补偿）
                                     if not unlockedSkinId then
                                         unlockedSkinId = skin.id
+                                        skinSpecials[#skinSpecials + 1] = {
+                                            kind = "skin_new",
+                                            skinId = skin.id,
+                                            skinName = skin.name or skin.id,
+                                        }
                                     else
                                         -- 同一轮抽到多次相同皮肤，第二次起按重复补偿
                                         dupLingYunTotal = dupLingYunTotal + skin.dupLingYun
+                                        skinSpecials[#skinSpecials + 1] = {
+                                            kind = "skin_dup",
+                                            skinId = skin.id,
+                                            skinName = skin.name or skin.id,
+                                            lingYun = skin.dupLingYun,
+                                        }
                                     end
                                 end
                             end
 
-                            ProcessAfterSkinCheck(unlockedSkinId, dupLingYunTotal)
+                            -- 合并: 皮肤弹窗优先 + 非皮肤传说物品
+                            local combined = {}
+                            for _, s in ipairs(skinSpecials) do combined[#combined + 1] = s end
+                            for _, b in ipairs(baseSpecialRewards) do combined[#combined + 1] = b end
+                            ProcessAfterSkinCheck(unlockedSkinId, dupLingYunTotal, combined)
                         end,
                         error = function()
                             -- 读取失败 → 保守处理：仍然尝试解锁第一个皮肤
                             local unlockedSkinId = skinRewards[1].id
                             local dupLingYunTotal = 0
+                            local skinSpecials = {}
+                            skinSpecials[#skinSpecials + 1] = {
+                                kind = "skin_new",
+                                skinId = skinRewards[1].id,
+                                skinName = skinRewards[1].name or skinRewards[1].id,
+                            }
                             for i = 2, #skinRewards do
                                 dupLingYunTotal = dupLingYunTotal + skinRewards[i].dupLingYun
+                                skinSpecials[#skinSpecials + 1] = {
+                                    kind = "skin_dup",
+                                    skinId = skinRewards[i].id,
+                                    skinName = skinRewards[i].name or skinRewards[i].id,
+                                    lingYun = skinRewards[i].dupLingYun,
+                                }
                             end
-                            ProcessAfterSkinCheck(unlockedSkinId, dupLingYunTotal)
+                            local combined = {}
+                            for _, s in ipairs(skinSpecials) do combined[#combined + 1] = s end
+                            for _, b in ipairs(baseSpecialRewards) do combined[#combined + 1] = b end
+                            ProcessAfterSkinCheck(unlockedSkinId, dupLingYunTotal, combined)
                         end,
                     })
             else
-                -- 无皮肤奖励，直接走正常流程
-                ProcessAfterSkinCheck(nil, 0)
+                -- 无皮肤奖励，直接走正常流程（仅传非皮肤传说物品）
+                ProcessAfterSkinCheck(nil, 0, baseSpecialRewards)
             end
         end,
         error = function()
