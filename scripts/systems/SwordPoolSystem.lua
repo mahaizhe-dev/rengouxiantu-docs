@@ -79,7 +79,7 @@ function SwordPoolSystem.CanUnlock(swordId)
     local state = SwordPoolSystem.swords[swordId]
     if not state then return false, "未知仙剑" end
     if state.unlocked then return false, "已解锁" end
-    local count = InventorySystem.CountConsumable(SwordPoolConfig.CURRENCY_ID)
+    local count = InventorySystem.CountUnlockedConsumable(SwordPoolConfig.CURRENCY_ID)
     if count < SwordPoolConfig.UNLOCK_COST then
         return false, SwordPoolConfig.CURRENCY_NAME .. "不足（需要" .. SwordPoolConfig.UNLOCK_COST .. "，当前" .. count .. "）"
     end
@@ -98,7 +98,7 @@ function SwordPoolSystem.CanUpgrade(swordId)
     local nextLevel = state.level + 1
     local cost = SwordPoolConfig.GetUpgradeCost(nextLevel)
     if not cost then return false, "配置错误" end
-    local count = InventorySystem.CountConsumable(SwordPoolConfig.CURRENCY_ID)
+    local count = InventorySystem.CountUnlockedConsumable(SwordPoolConfig.CURRENCY_ID)
     if count < cost then
         return false, SwordPoolConfig.CURRENCY_NAME .. "不足（需要" .. cost .. "，当前" .. count .. "）"
     end
@@ -117,7 +117,8 @@ function SwordPoolSystem.Unlock(swordId)
     local canUnlock, reason = SwordPoolSystem.CanUnlock(swordId)
     if not canUnlock then return false, reason end
 
-    InventorySystem.ConsumeConsumable(SwordPoolConfig.CURRENCY_ID, SwordPoolConfig.UNLOCK_COST)
+    local ok = InventorySystem.ConsumeConsumable(SwordPoolConfig.CURRENCY_ID, SwordPoolConfig.UNLOCK_COST)
+    if not ok then return false, "剑令扣除失败（可能被锁定）" end
     SwordPoolSystem.swords[swordId].unlocked = true
     SwordPoolSystem.swords[swordId].level = 0
 
@@ -147,7 +148,8 @@ function SwordPoolSystem.Upgrade(swordId)
     local nextLevel = state.level + 1
     local cost = SwordPoolConfig.GetUpgradeCost(nextLevel)
 
-    InventorySystem.ConsumeConsumable(SwordPoolConfig.CURRENCY_ID, cost)
+    local ok = InventorySystem.ConsumeConsumable(SwordPoolConfig.CURRENCY_ID, cost)
+    if not ok then return false, "剑令扣除失败（可能被锁定）" end
     state.level = nextLevel
 
     -- 应用属性加成

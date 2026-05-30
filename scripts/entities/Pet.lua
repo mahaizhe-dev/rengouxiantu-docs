@@ -387,7 +387,7 @@ function Pet:CanBreakthrough()
     local InventorySystem = require("systems.InventorySystem")
     local pillId = req.pillId or "spirit_pill"
     local pillNeed = req.pillCount or 0
-    local pillCount = InventorySystem.CountConsumable(pillId)
+    local pillCount = InventorySystem.CountUnlockedConsumable(pillId)
     local matData = GameConfig.PET_MATERIALS[pillId]
     local pillName = matData and matData.name or "灵兽丹"
     if pillCount < pillNeed then
@@ -413,7 +413,11 @@ function Pet:Breakthrough()
 
     -- 扣除对应阶级灵兽丹
     local InventorySystem = require("systems.InventorySystem")
-    InventorySystem.ConsumeConsumable(req.pillId or "spirit_pill", req.pillCount or 0)
+    local ok = InventorySystem.ConsumeConsumable(req.pillId or "spirit_pill", req.pillCount or 0)
+    if not ok then
+        self.owner.lingYun = self.owner.lingYun + req.lingYun
+        return false, "灵兽丹扣除失败（可能被锁定）"
+    end
 
     -- 升阶
     local oldTier = self.tier

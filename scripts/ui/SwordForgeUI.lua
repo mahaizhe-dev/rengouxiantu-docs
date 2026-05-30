@@ -678,7 +678,7 @@ function SwordForgeUI.DoForgeSword(recipeId)
 
         -- 检查普通材料
         for _, mat in ipairs(recipe.materials or {}) do
-            if InventorySystem.CountConsumable(mat.id) < mat.count then
+            if InventorySystem.CountUnlockedConsumable(mat.id) < mat.count then
                 local matDef = GameConfig.PET_MATERIALS[mat.id]
                 resultLabel_:SetText("材料不足：" .. (matDef and matDef.name or mat.id))
                 resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
@@ -690,7 +690,12 @@ function SwordForgeUI.DoForgeSword(recipeId)
         player:SpendGold(recipe.gold)
         if fromBag2Slot then manager:SetInventoryItem(fromBag2Slot, nil) end
         for _, mat in ipairs(recipe.materials or {}) do
-            InventorySystem.ConsumeConsumable(mat.id, mat.count)
+            local ok = InventorySystem.ConsumeConsumable(mat.id, mat.count)
+            if not ok then
+                resultLabel_:SetText("材料扣除失败（可能被锁定）")
+                resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+                return
+            end
         end
 
         -- 生成目标装备数据（以当前封印剑为来源）
@@ -797,7 +802,7 @@ function SwordForgeUI.DoForgeSword(recipeId)
 
     -- 检查普通材料
     for _, mat in ipairs(recipe.materials or {}) do
-        if InventorySystem.CountConsumable(mat.id) < mat.count then
+        if InventorySystem.CountUnlockedConsumable(mat.id) < mat.count then
             local matDef = GameConfig.PET_MATERIALS[mat.id]
             resultLabel_:SetText("材料不足：" .. (matDef and matDef.name or mat.id))
             resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
@@ -820,7 +825,12 @@ function SwordForgeUI.DoForgeSword(recipeId)
     if fromBagSlot  then manager:SetInventoryItem(fromBagSlot, nil)  end
 
     for _, mat in ipairs(recipe.materials or {}) do
-        InventorySystem.ConsumeConsumable(mat.id, mat.count)
+        local ok = InventorySystem.ConsumeConsumable(mat.id, mat.count)
+        if not ok then
+            resultLabel_:SetText("材料扣除失败（可能被锁定）")
+            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+            return
+        end
     end
 
     -- ---- 生成产出 ----
@@ -989,7 +999,7 @@ local function BuildRecipeContent(recipeId)
     -- ── 普通材料 ─────────────────────────────────────────────────────────────
     if recipe.materials then
         for _, mat in ipairs(recipe.materials) do
-            local have = InventorySystem.CountConsumable(mat.id)
+            local have = InventorySystem.CountUnlockedConsumable(mat.id)
             if have < mat.count then canForge = false end
             table.insert(materialRows, BuildMaterialRow(mat.id, mat.count, have))
         end

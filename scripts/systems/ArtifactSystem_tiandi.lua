@@ -94,7 +94,7 @@ function ArtifactTiandi.CanActivate(index)
     if not player then return false, "无玩家" end
 
     local fragmentId = ArtifactTiandi.FRAGMENT_IDS[index]
-    if InventorySystem.CountConsumable(fragmentId) <= 0 then
+    if InventorySystem.CountUnlockedConsumable(fragmentId) <= 0 then
         return false, "缺少天帝剑痕碎片·" .. ArtifactTiandi.GRID_NAMES[index]
     end
     if (player.gold or 0) < ArtifactTiandi.ACTIVATE_GOLD_COST then
@@ -120,7 +120,10 @@ function ArtifactTiandi.ActivateGrid(index)
     local fragmentId = ArtifactTiandi.FRAGMENT_IDS[index]
     local gridName   = ArtifactTiandi.GRID_NAMES[index]
 
-    InventorySystem.ConsumeConsumable(fragmentId, 1)
+    local consumeOk = InventorySystem.ConsumeConsumable(fragmentId, 1)
+    if not consumeOk then
+        return false, "碎片扣除失败（可能被锁定）"
+    end
     player.gold    = player.gold    - ArtifactTiandi.ACTIVATE_GOLD_COST
     player.lingYun = player.lingYun - ArtifactTiandi.ACTIVATE_LINGYUN_COST
 

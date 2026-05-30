@@ -130,7 +130,7 @@ function ArtifactCh4.GetFragmentCount(fragmentIndex)
     local fragmentId = ArtifactCh4.FRAGMENT_IDS[fragmentIndex]
     if not fragmentId then return 0 end
     local InventorySystem = require("systems.InventorySystem")
-    return InventorySystem.CountConsumable(fragmentId)
+    return InventorySystem.CountUnlockedConsumable(fragmentId)
 end
 
 --- 获取所有碎片的持有状态
@@ -209,7 +209,10 @@ function ArtifactCh4.Activate(index)
         -- 消耗碎片
         local InventorySystem = require("systems.InventorySystem")
         local fragmentId = ArtifactCh4.FRAGMENT_IDS[index]
-        InventorySystem.ConsumeConsumable(fragmentId, 1)
+        local ok = InventorySystem.ConsumeConsumable(fragmentId, 1)
+        if not ok then
+            return false, "碎片扣除失败（可能被锁定）"
+        end
 
         -- 扣除金币和灵韵
         player.gold = player.gold - ArtifactCh4.ACTIVATE_GOLD_COST

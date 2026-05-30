@@ -338,13 +338,14 @@ function ChallengeSystem.UnlockReputation(factionKey, repLevel)
     local tokenId = repCfg.tokenId
     local tokenName = GameConfig.CONSUMABLES[tokenId] and GameConfig.CONSUMABLES[tokenId].name or tokenId
     local InventorySystem = require("systems.InventorySystem")
-    local tokenCount = InventorySystem.CountConsumable(tokenId)
+    local tokenCount = InventorySystem.CountUnlockedConsumable(tokenId)
     if tokenCount < repCfg.unlockCost then
         return false, tokenName .. "不足（需要 " .. repCfg.unlockCost .. "，当前 " .. tokenCount .. "）"
     end
 
     -- 扣除令牌
-    InventorySystem.ConsumeConsumable(tokenId, repCfg.unlockCost)
+    local ok = InventorySystem.ConsumeConsumable(tokenId, repCfg.unlockCost)
+    if not ok then return false, "令牌扣除失败（可能被锁定）" end
 
     -- 标记解锁
     progress.unlocked = true
@@ -389,13 +390,14 @@ function ChallengeSystem.Unlock(faction, tier)
     local tokenId = tierCfg.tokenId or "wubao_token"
     local tokenName = GameConfig.CONSUMABLES[tokenId] and GameConfig.CONSUMABLES[tokenId].name or tokenId
     local InventorySystem = require("systems.InventorySystem")
-    local tokenCount = InventorySystem.CountConsumable(tokenId)
+    local tokenCount = InventorySystem.CountUnlockedConsumable(tokenId)
     if tokenCount < tierCfg.unlockCost then
         return false, tokenName .. "不足（需要 " .. tierCfg.unlockCost .. "，当前 " .. tokenCount .. "）"
     end
 
     -- 扣除令牌
-    InventorySystem.ConsumeConsumable(tokenId, tierCfg.unlockCost)
+    local ok = InventorySystem.ConsumeConsumable(tokenId, tierCfg.unlockCost)
+    if not ok then return false, "令牌扣除失败（可能被锁定）" end
     progress.unlocked = true
 
     print("[ChallengeSystem] Unlocked: " .. faction .. " T" .. tier
@@ -439,13 +441,14 @@ function ChallengeSystem.EnterReputation(factionKey, repLevel, gameMap, camera)
     local tokenId = repCfg.tokenId
     local tokenName = GameConfig.CONSUMABLES[tokenId] and GameConfig.CONSUMABLES[tokenId].name or tokenId
     local InventorySystem = require("systems.InventorySystem")
-    local tokenCount = InventorySystem.CountConsumable(tokenId)
+    local tokenCount = InventorySystem.CountUnlockedConsumable(tokenId)
     if tokenCount < ChallengeConfig.ATTEMPT_COST then
         return false, tokenName .. "不足（需要 " .. ChallengeConfig.ATTEMPT_COST .. "，当前 " .. tokenCount .. "）"
     end
 
     -- 扣除入场费并立即存档（防止中途退出/重启后令牌回档）
-    InventorySystem.ConsumeConsumable(tokenId, ChallengeConfig.ATTEMPT_COST)
+    local ok = InventorySystem.ConsumeConsumable(tokenId, ChallengeConfig.ATTEMPT_COST)
+    if not ok then return false, "令牌扣除失败（可能被锁定）" end
     EventBus.Emit("save_request")
 
     -- 创建竞技场（复用 _createArena）
@@ -502,13 +505,14 @@ function ChallengeSystem.Enter(faction, tier, gameMap, camera)
     local tokenId = tierCfg.tokenId or "wubao_token"
     local tokenName = GameConfig.CONSUMABLES[tokenId] and GameConfig.CONSUMABLES[tokenId].name or tokenId
     local InventorySystem = require("systems.InventorySystem")
-    local tokenCount = InventorySystem.CountConsumable(tokenId)
+    local tokenCount = InventorySystem.CountUnlockedConsumable(tokenId)
     if tokenCount < ChallengeConfig.ATTEMPT_COST then
         return false, tokenName .. "不足（需要 " .. ChallengeConfig.ATTEMPT_COST .. "，当前 " .. tokenCount .. "）"
     end
 
     -- 扣除入场费并立即存档（防止中途退出/重启后令牌回档）
-    InventorySystem.ConsumeConsumable(tokenId, ChallengeConfig.ATTEMPT_COST)
+    local ok = InventorySystem.ConsumeConsumable(tokenId, ChallengeConfig.ATTEMPT_COST)
+    if not ok then return false, "令牌扣除失败（可能被锁定）" end
     EventBus.Emit("save_request")
 
     -- 创建竞技场
@@ -1111,7 +1115,7 @@ function ChallengeSystem.BrewPill(pillId)
 
     -- 检查精华（从背包读取）
     local InventorySystem = require("systems.InventorySystem")
-    local essCount = InventorySystem.CountConsumable(cfg.essenceId) or 0
+    local essCount = InventorySystem.CountUnlockedConsumable(cfg.essenceId) or 0
     if essCount < 1 then
         return false, cfg.essenceName .. "不足（需要 1，当前 " .. essCount .. "）"
     end
@@ -1122,7 +1126,8 @@ function ChallengeSystem.BrewPill(pillId)
     end
 
     -- 扣除材料
-    InventorySystem.ConsumeConsumable(cfg.essenceId, 1)
+    local ok = InventorySystem.ConsumeConsumable(cfg.essenceId, 1)
+    if not ok then return false, cfg.essenceName .. "扣除失败（可能被锁定）" end
     player.lingYun = player.lingYun - cfg.lingYunCost
     EventBus.Emit("player_lingyun_change", player.lingYun)
 

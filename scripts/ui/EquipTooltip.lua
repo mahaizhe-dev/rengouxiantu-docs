@@ -816,7 +816,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
                     if _isEventItem then
                         -- 事件物品：全部出售，走配置表读价格
                         local cId = item.consumableId
-                        local total = InventorySystem.CountConsumable(cId)
+                        local total = InventorySystem.CountUnlockedConsumable(cId)
                         local ok, msg = InventorySystem.UseBatchConsumable(cId, total)
                         EventBus.Emit("show_toast", ok and msg or (msg or "出售失败"))
                     else

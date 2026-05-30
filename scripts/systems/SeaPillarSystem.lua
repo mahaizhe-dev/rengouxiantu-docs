@@ -78,7 +78,7 @@ function SeaPillarSystem.CanRepair(pillarId)
     local state = SeaPillarSystem.pillars[pillarId]
     if not state then return false, "未知海神柱" end
     if state.repaired then return false, "已修复" end
-    local count = InventorySystem.CountConsumable("taixu_token")
+    local count = InventorySystem.CountUnlockedConsumable("taixu_token")
     if count < SeaPillarConfig.REPAIR_COST then
         return false, "太虚令不足（需要" .. SeaPillarConfig.REPAIR_COST .. "，当前" .. count .. "）"
     end
@@ -97,7 +97,7 @@ function SeaPillarSystem.CanUpgrade(pillarId)
     local nextLevel = state.level + 1
     local cost = SeaPillarConfig.GetUpgradeCost(nextLevel)
     if not cost then return false, "配置错误" end
-    local count = InventorySystem.CountConsumable("taixu_token")
+    local count = InventorySystem.CountUnlockedConsumable("taixu_token")
     if count < cost then
         return false, "太虚令不足（需要" .. cost .. "，当前" .. count .. "）"
     end
@@ -116,7 +116,8 @@ function SeaPillarSystem.Repair(pillarId)
     local canRepair, reason = SeaPillarSystem.CanRepair(pillarId)
     if not canRepair then return false, reason end
 
-    InventorySystem.ConsumeConsumable("taixu_token", SeaPillarConfig.REPAIR_COST)
+    local ok = InventorySystem.ConsumeConsumable("taixu_token", SeaPillarConfig.REPAIR_COST)
+    if not ok then return false, "太虚令扣除失败（可能被锁定）" end
     SeaPillarSystem.pillars[pillarId].repaired = true
     SeaPillarSystem.pillars[pillarId].level = 0
 
@@ -139,7 +140,8 @@ function SeaPillarSystem.Upgrade(pillarId)
     local nextLevel = state.level + 1
     local cost = SeaPillarConfig.GetUpgradeCost(nextLevel)
 
-    InventorySystem.ConsumeConsumable("taixu_token", cost)
+    local ok = InventorySystem.ConsumeConsumable("taixu_token", cost)
+    if not ok then return false, "太虚令扣除失败（可能被锁定）" end
     state.level = nextLevel
 
     -- 应用属性加成

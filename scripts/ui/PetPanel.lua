@@ -1474,7 +1474,8 @@ function PetPanel.ShowLearnPopup(slotIndex)
         onClick = function(self)
             if not selectedBook_ then return end
             local book = selectedBook_
-            InventorySystem.ConsumeConsumable(book.consumableId, 1)
+            local ok = InventorySystem.ConsumeConsumable(book.consumableId, 1)
+            if not ok then return end
             pet.skills[slotIndex] = { id = book.skillId, tier = 1 }
             pet:RecalcStats()
 
@@ -1859,7 +1860,7 @@ function PetPanel.DoUpgradePathA(slotIndex, skill)
 
     local statKey = string.gsub(skill.id, "_basic", "")
     local bookId = "book_" .. statKey .. "_" .. nextTier
-    local bookCount = InventorySystem.CountConsumable(bookId)
+    local bookCount = InventorySystem.CountUnlockedConsumable(bookId)
 
     if bookCount < cost.pathA.bookCount then
         local bookData = PetSkillData.SKILL_BOOKS[bookId]
@@ -1872,7 +1873,8 @@ function PetPanel.DoUpgradePathA(slotIndex, skill)
     end
 
     -- 消耗技能书
-    InventorySystem.ConsumeConsumable(bookId, cost.pathA.bookCount)
+    local ok = InventorySystem.ConsumeConsumable(bookId, cost.pathA.bookCount)
+    if not ok then return end
 
     -- 随机判定
     local roll = math.random()
@@ -1912,7 +1914,7 @@ function PetPanel.DoUpgradePathB(slotIndex, skill)
 
     local statKey = string.gsub(skill.id, "_basic", "")
     local bookId = "book_" .. statKey .. "_" .. nextTier
-    local bookCount = InventorySystem.CountConsumable(bookId)
+    local bookCount = InventorySystem.CountUnlockedConsumable(bookId)
     local playerLingYun = pet.owner and pet.owner.lingYun or 0
 
     if bookCount < cost.pathB.bookCount then
@@ -1937,7 +1939,8 @@ function PetPanel.DoUpgradePathB(slotIndex, skill)
     end
 
     -- 消耗资源
-    InventorySystem.ConsumeConsumable(bookId, cost.pathB.bookCount)
+    local ok = InventorySystem.ConsumeConsumable(bookId, cost.pathB.bookCount)
+    if not ok then return end
     pet.owner.lingYun = pet.owner.lingYun - cost.pathB.lingYun
 
     -- 必定成功

@@ -377,7 +377,7 @@ local function BuildLongjiContent()
     local materialsOk = true
 
     -- 太虚令
-    local taixuHave = InventorySystem.CountConsumable("taixu_token")
+    local taixuHave = InventorySystem.CountUnlockedConsumable("taixu_token")
     local taixuNeed = cost.taixu_token
     local taixuOk = taixuHave >= taixuNeed
     if not taixuOk then materialsOk = false end
@@ -398,7 +398,7 @@ local function BuildLongjiContent()
         local matDef = GameConfig.PET_MATERIALS[mat.id]
         local matName = matDef and matDef.name or mat.id
         local matIcon = matDef and matDef.icon or "❓"
-        local have = InventorySystem.CountConsumable(mat.id)
+        local have = InventorySystem.CountUnlockedConsumable(mat.id)
         local enough = have >= mat.count
         if not enough then materialsOk = false end
         table.insert(materialRows, UI.Panel {
@@ -509,7 +509,7 @@ local function BuildLingqiContent()
         local matDef = GameConfig.PET_MATERIALS[mat.id]
         local matName = matDef and matDef.name or mat.id
         local matIcon = matDef and matDef.icon or "❓"
-        local have = InventorySystem.CountConsumable(mat.id)
+        local have = InventorySystem.CountUnlockedConsumable(mat.id)
         local enough = have >= mat.count
         if not enough then materialsOk = false end
         table.insert(materialRows, UI.Panel {
@@ -660,7 +660,7 @@ local function BuildContent()
         local matDef = GameConfig.PET_MATERIALS[mat.id]
         local matName = matDef and matDef.name or mat.id
         local matIcon = matDef and matDef.icon or "❓"
-        local have = InventorySystem.CountConsumable(mat.id)
+        local have = InventorySystem.CountUnlockedConsumable(mat.id)
         local enough = have >= mat.count
         if not enough then materialsOk = false end
 
@@ -1116,7 +1116,7 @@ function DragonForgeUI.DoForge()
 
     -- 检查材料
     for _, mat in ipairs(cost.materials) do
-        if InventorySystem.CountConsumable(mat.id) < mat.count then
+        if InventorySystem.CountUnlockedConsumable(mat.id) < mat.count then
             local matDef = GameConfig.PET_MATERIALS[mat.id]
             resultLabel_:SetText("材料不足：" .. (matDef and matDef.name or mat.id))
             resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
@@ -1136,7 +1136,12 @@ function DragonForgeUI.DoForge()
 
     -- 扣除材料
     for _, mat in ipairs(cost.materials) do
-        InventorySystem.ConsumeConsumable(mat.id, mat.count)
+        local ok = InventorySystem.ConsumeConsumable(mat.id, mat.count)
+        if not ok then
+            resultLabel_:SetText("材料扣除失败（可能被锁定）")
+            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+            return
+        end
     end
 
     -- 获取圣器模板
@@ -1433,7 +1438,7 @@ function DragonForgeUI.DoForgeLongji()
     end
 
     -- 检查太虚令
-    if InventorySystem.CountConsumable("taixu_token") < cost.taixu_token then
+    if InventorySystem.CountUnlockedConsumable("taixu_token") < cost.taixu_token then
         resultLabel_:SetText("太虚令不足！需要" .. cost.taixu_token .. "枚")
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         return
@@ -1441,7 +1446,7 @@ function DragonForgeUI.DoForgeLongji()
 
     -- 检查材料
     for _, mat in ipairs(cost.materials) do
-        if InventorySystem.CountConsumable(mat.id) < mat.count then
+        if InventorySystem.CountUnlockedConsumable(mat.id) < mat.count then
             local matDef = GameConfig.PET_MATERIALS[mat.id]
             resultLabel_:SetText("材料不足：" .. (matDef and matDef.name or mat.id))
             resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
@@ -1450,11 +1455,21 @@ function DragonForgeUI.DoForgeLongji()
     end
 
     -- 扣除太虚令
-    InventorySystem.ConsumeConsumable("taixu_token", cost.taixu_token)
+    local ok_taixu = InventorySystem.ConsumeConsumable("taixu_token", cost.taixu_token)
+    if not ok_taixu then
+        resultLabel_:SetText("太虚令扣除失败（可能被锁定）")
+        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        return
+    end
 
     -- 扣除材料
     for _, mat in ipairs(cost.materials) do
-        InventorySystem.ConsumeConsumable(mat.id, mat.count)
+        local ok = InventorySystem.ConsumeConsumable(mat.id, mat.count)
+        if not ok then
+            resultLabel_:SetText("材料扣除失败（可能被锁定）")
+            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+            return
+        end
     end
 
     -- 创建龙极令法宝
@@ -1519,7 +1534,7 @@ function DragonForgeUI.DoForgeLingqi()
 
     -- 检查材料
     for _, mat in ipairs(cost.materials) do
-        if InventorySystem.CountConsumable(mat.id) < mat.count then
+        if InventorySystem.CountUnlockedConsumable(mat.id) < mat.count then
             local matDef = GameConfig.PET_MATERIALS[mat.id]
             resultLabel_:SetText("材料不足：" .. (matDef and matDef.name or mat.id))
             resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
@@ -1532,7 +1547,12 @@ function DragonForgeUI.DoForgeLingqi()
 
     -- 扣除材料
     for _, mat in ipairs(cost.materials) do
-        InventorySystem.ConsumeConsumable(mat.id, mat.count)
+        local ok = InventorySystem.ConsumeConsumable(mat.id, mat.count)
+        if not ok then
+            resultLabel_:SetText("材料扣除失败（可能被锁定）")
+            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+            return
+        end
     end
 
     -- 生成灵器：30% 套装 / 70% 普通

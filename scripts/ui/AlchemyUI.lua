@@ -1108,7 +1108,7 @@ function AlchemyUI.DoCraftSnake()
         return
     end
     local matName = GetMaterialName(SNAKE_PILL.material)
-    if InventorySystem.CountConsumable(SNAKE_PILL.material) < 1 then
+    if InventorySystem.CountUnlockedConsumable(SNAKE_PILL.material) < 1 then
         resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
@@ -1118,10 +1118,11 @@ function AlchemyUI.DoCraftSnake()
     SendBuyPill("snake", function()
         if snakePillCount_ >= SNAKE_PILL.maxBuy then return end
         if player.lingYun < SNAKE_PILL.cost then return end
-        if InventorySystem.CountConsumable(SNAKE_PILL.material) < 1 then return end
+        if InventorySystem.CountUnlockedConsumable(SNAKE_PILL.material) < 1 then return end
 
         player.lingYun = player.lingYun - SNAKE_PILL.cost
-        InventorySystem.ConsumeConsumable(SNAKE_PILL.material, 1)
+        local ok = InventorySystem.ConsumeConsumable(SNAKE_PILL.material, 1)
+        if not ok then player.lingYun = player.lingYun + SNAKE_PILL.cost; return end
         snakePillCount_ = snakePillCount_ + 1
         if player.pillCounts then player.pillCounts.snake = snakePillCount_ end
         player.atk = player.atk + SNAKE_PILL.atkBonus
@@ -1152,7 +1153,7 @@ function AlchemyUI.DoCraftDiamond()
         return
     end
     local matName = GetMaterialName(DIAMOND_PILL.material)
-    if InventorySystem.CountConsumable(DIAMOND_PILL.material) < 1 then
+    if InventorySystem.CountUnlockedConsumable(DIAMOND_PILL.material) < 1 then
         resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
@@ -1162,10 +1163,11 @@ function AlchemyUI.DoCraftDiamond()
     SendBuyPill("diamond", function()
         if diamondPillCount_ >= DIAMOND_PILL.maxBuy then return end
         if player.lingYun < DIAMOND_PILL.cost then return end
-        if InventorySystem.CountConsumable(DIAMOND_PILL.material) < 1 then return end
+        if InventorySystem.CountUnlockedConsumable(DIAMOND_PILL.material) < 1 then return end
 
         player.lingYun = player.lingYun - DIAMOND_PILL.cost
-        InventorySystem.ConsumeConsumable(DIAMOND_PILL.material, 1)
+        local ok = InventorySystem.ConsumeConsumable(DIAMOND_PILL.material, 1)
+        if not ok then player.lingYun = player.lingYun + DIAMOND_PILL.cost; return end
         diamondPillCount_ = diamondPillCount_ + 1
         if player.pillCounts then player.pillCounts.diamond = diamondPillCount_ end
         player.def = player.def + DIAMOND_PILL.defBonus
@@ -1262,7 +1264,7 @@ function AlchemyUI.DoCraftTempering()
         return
     end
     local matName = GetMaterialName(TEMPERING_PILL.material)
-    if InventorySystem.CountConsumable(TEMPERING_PILL.material) < 1 then
+    if InventorySystem.CountUnlockedConsumable(TEMPERING_PILL.material) < 1 then
         resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
@@ -1272,10 +1274,11 @@ function AlchemyUI.DoCraftTempering()
     SendBuyPill("tempering", function()
         if temperingPillEaten_ >= TEMPERING_PILL.maxEat then return end
         if player.lingYun < TEMPERING_PILL.cost then return end
-        if InventorySystem.CountConsumable(TEMPERING_PILL.material) < 1 then return end
+        if InventorySystem.CountUnlockedConsumable(TEMPERING_PILL.material) < 1 then return end
 
         player.lingYun = player.lingYun - TEMPERING_PILL.cost
-        InventorySystem.ConsumeConsumable(TEMPERING_PILL.material, 1)
+        local ok = InventorySystem.ConsumeConsumable(TEMPERING_PILL.material, 1)
+        if not ok then player.lingYun = player.lingYun + TEMPERING_PILL.cost; return end
         temperingPillEaten_ = temperingPillEaten_ + 1
         if player.pillCounts then player.pillCounts.tempering = temperingPillEaten_ end
         player.pillConstitution = (player.pillConstitution or 0) + TEMPERING_PILL.constitutionBonus
@@ -1463,7 +1466,7 @@ function AlchemyUI.DoCraftChallengePill(pillId)
         -- 二次校验（防止授权期间状态变化）
         local used2 = ChallengeSystem[cfg.countField] or 0
         if used2 >= cfg.maxUse then return end
-        if (InventorySystem.CountConsumable(cfg.essenceId) or 0) < 1 then return end
+        if (InventorySystem.CountUnlockedConsumable(cfg.essenceId) or 0) < 1 then return end
         if (GameState.player and GameState.player.lingYun or 0) < cfg.lingYunCost then return end
 
         -- 委托 ChallengeSystem 执行（扣材料 + 加属性 + 存档）
@@ -1503,7 +1506,7 @@ function AlchemyUI.DoCraftTiger()
         return
     end
     local matName = GetMaterialName(TIGER_PILL.material)
-    if InventorySystem.CountConsumable(TIGER_PILL.material) < 1 then
+    if InventorySystem.CountUnlockedConsumable(TIGER_PILL.material) < 1 then
         resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
@@ -1515,10 +1518,11 @@ function AlchemyUI.DoCraftTiger()
         -- 二次校验（防止授权期间状态变化）
         if tigerPillCount_ >= TIGER_PILL.maxBuy then return end
         if player.lingYun < TIGER_PILL.cost then return end
-        if InventorySystem.CountConsumable(TIGER_PILL.material) < 1 then return end
+        if InventorySystem.CountUnlockedConsumable(TIGER_PILL.material) < 1 then return end
 
         player.lingYun = player.lingYun - TIGER_PILL.cost
-        InventorySystem.ConsumeConsumable(TIGER_PILL.material, 1)
+        local ok = InventorySystem.ConsumeConsumable(TIGER_PILL.material, 1)
+        if not ok then player.lingYun = player.lingYun + TIGER_PILL.cost; return end
         tigerPillCount_ = tigerPillCount_ + 1
         if player.pillCounts then player.pillCounts.tiger = tigerPillCount_ end
         player.maxHp = player.maxHp + TIGER_PILL.hpBonus
@@ -1551,7 +1555,7 @@ function AlchemyUI.DoCraftDragonBlood()
         return
     end
     local matName = GetMaterialName(DRAGON_BLOOD_PILL.material)
-    if InventorySystem.CountConsumable(DRAGON_BLOOD_PILL.material) < 1 then
+    if InventorySystem.CountUnlockedConsumable(DRAGON_BLOOD_PILL.material) < 1 then
         resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
@@ -1563,10 +1567,11 @@ function AlchemyUI.DoCraftDragonBlood()
         -- 二次校验（防止授权期间状态变化）
         if dragonBloodPillCount_ >= DRAGON_BLOOD_PILL.maxBuy then return end
         if player.lingYun < DRAGON_BLOOD_PILL.cost then return end
-        if InventorySystem.CountConsumable(DRAGON_BLOOD_PILL.material) < 1 then return end
+        if InventorySystem.CountUnlockedConsumable(DRAGON_BLOOD_PILL.material) < 1 then return end
 
         player.lingYun = player.lingYun - DRAGON_BLOOD_PILL.cost
-        InventorySystem.ConsumeConsumable(DRAGON_BLOOD_PILL.material, 1)
+        local ok = InventorySystem.ConsumeConsumable(DRAGON_BLOOD_PILL.material, 1)
+        if not ok then player.lingYun = player.lingYun + DRAGON_BLOOD_PILL.cost; return end
         dragonBloodPillCount_ = dragonBloodPillCount_ + 1
         if player.pillCounts then player.pillCounts.dragon_blood = dragonBloodPillCount_ end
         player.maxHp = player.maxHp + DRAGON_BLOOD_PILL.hpBonus
@@ -1599,7 +1604,7 @@ function AlchemyUI.DoCraftSwordIntent()
         return
     end
     local matName = GetMaterialName(SWORD_INTENT_PILL.material)
-    if InventorySystem.CountConsumable(SWORD_INTENT_PILL.material) < 1 then
+    if InventorySystem.CountUnlockedConsumable(SWORD_INTENT_PILL.material) < 1 then
         resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
@@ -1611,10 +1616,11 @@ function AlchemyUI.DoCraftSwordIntent()
         -- 二次校验（防止授权期间状态变化）
         if swordIntentPillCount_ >= SWORD_INTENT_PILL.maxBuy then return end
         if player.lingYun < SWORD_INTENT_PILL.cost then return end
-        if InventorySystem.CountConsumable(SWORD_INTENT_PILL.material) < 1 then return end
+        if InventorySystem.CountUnlockedConsumable(SWORD_INTENT_PILL.material) < 1 then return end
 
         player.lingYun = player.lingYun - SWORD_INTENT_PILL.cost
-        InventorySystem.ConsumeConsumable(SWORD_INTENT_PILL.material, 1)
+        local ok = InventorySystem.ConsumeConsumable(SWORD_INTENT_PILL.material, 1)
+        if not ok then player.lingYun = player.lingYun + SWORD_INTENT_PILL.cost; return end
         swordIntentPillCount_ = swordIntentPillCount_ + 1
         if player.pillCounts then player.pillCounts.sword_intent = swordIntentPillCount_ end
         player.atk = player.atk + SWORD_INTENT_PILL.atkBonus
@@ -1646,7 +1652,7 @@ function AlchemyUI.DoCraftAbyssSeal()
         return
     end
     local matName = GetMaterialName(ABYSS_SEAL_PILL.material)
-    if InventorySystem.CountConsumable(ABYSS_SEAL_PILL.material) < 1 then
+    if InventorySystem.CountUnlockedConsumable(ABYSS_SEAL_PILL.material) < 1 then
         resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
@@ -1658,10 +1664,11 @@ function AlchemyUI.DoCraftAbyssSeal()
         -- 二次校验（防止授权期间状态变化）
         if abyssSealPillCount_ >= ABYSS_SEAL_PILL.maxBuy then return end
         if player.lingYun < ABYSS_SEAL_PILL.cost then return end
-        if InventorySystem.CountConsumable(ABYSS_SEAL_PILL.material) < 1 then return end
+        if InventorySystem.CountUnlockedConsumable(ABYSS_SEAL_PILL.material) < 1 then return end
 
         player.lingYun = player.lingYun - ABYSS_SEAL_PILL.cost
-        InventorySystem.ConsumeConsumable(ABYSS_SEAL_PILL.material, 1)
+        local ok = InventorySystem.ConsumeConsumable(ABYSS_SEAL_PILL.material, 1)
+        if not ok then player.lingYun = player.lingYun + ABYSS_SEAL_PILL.cost; return end
         abyssSealPillCount_ = abyssSealPillCount_ + 1
         if player.pillCounts then player.pillCounts.abyss_seal = abyssSealPillCount_ end
         player.def = player.def + ABYSS_SEAL_PILL.defBonus

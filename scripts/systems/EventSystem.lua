@@ -41,6 +41,34 @@ function M.SetExchangedCount(exchangeId, count)
     exchangedData_[exchangeId] = count
 end
 
+--- 获取保底进度（客户端 UI 展示用）
+--- 从 _lastLoadedEventData 中读取服务端写入的 pity 计数
+---@param boxType string "small"|"big"
+---@return integer current 当前计数
+---@return integer threshold 保底阈值（0 表示无保底）
+function M.GetPityProgress(boxType)
+    local eventId = EventConfig.GetEventId()
+    if not eventId or not _lastLoadedEventData then return 0, 0 end
+    local evData = _lastLoadedEventData[eventId]
+    if not evData or not evData.pity then return 0, 0 end
+    local current = evData.pity[boxType] or 0
+    local pityCfg = EventConfig.ACTIVE_EVENT.pity
+    local threshold = (pityCfg and pityCfg[boxType]) and pityCfg[boxType].threshold or 0
+    return current, threshold
+end
+
+--- 更新保底计数（收到 S2C 开箱结果后更新本地缓存）
+---@param boxType string "small"|"big"
+---@param count integer 当前计数
+function M.UpdatePityCount(boxType, count)
+    local eventId = EventConfig.GetEventId()
+    if not eventId then return end
+    _lastLoadedEventData = _lastLoadedEventData or {}
+    _lastLoadedEventData[eventId] = _lastLoadedEventData[eventId] or {}
+    _lastLoadedEventData[eventId].pity = _lastLoadedEventData[eventId].pity or {}
+    _lastLoadedEventData[eventId].pity[boxType] = count
+end
+
 --- 重置状态（切换角色 / 退出登录时调用）
 function M.Reset()
     exchangedData_ = {}

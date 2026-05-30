@@ -67,11 +67,11 @@ EventConfig.ACTIVE_EVENT = {
         yuanying_1 = { childday_pinwheel = 0.001 },  -- 0.1%
         huashen_1  = { childday_pinwheel = 0.002 },  -- 0.2%
         heti_1     = { childday_pinwheel = 0.003 },  -- 0.3%
-        dacheng_1  = { childday_pinwheel = 0.004 },  -- 0.4%
-        dujie_1    = { childday_pinwheel = 0.005 },  -- 0.5%
-        dujie_2    = { childday_pinwheel = 0.005 },  -- 0.5%
-        dujie_3    = { childday_pinwheel = 0.005 },  -- 0.5%
-        dujie_4    = { childday_pinwheel = 0.005 },  -- 0.5%
+        dacheng_1  = { childday_pinwheel = 0.005 },  -- 0.5%
+        dujie_1    = { childday_pinwheel = 0.007 },  -- 0.7%
+        dujie_2    = { childday_pinwheel = 0.007 },  -- 0.7%
+        dujie_3    = { childday_pinwheel = 0.007 },  -- 0.7%
+        dujie_4    = { childday_pinwheel = 0.007 },  -- 0.7%
     },
 
     -- ═══ 四仙剑特殊覆盖（优先于 realmDropRates）═══
@@ -135,6 +135,12 @@ EventConfig.ACTIVE_EVENT = {
           rewards = { { type = "consumable", id = "lingyun_fruit_superior", count = 1 } } },
         { id = "big_skin",      name = "福缘皮肤",      weight = 10,  rarity = "legendary",
           rewards = { { type = "petSkin", id = "pet_premium_fuyuan", dupLingYun = 5000 } } },
+    },
+
+    -- ═══ 保底机制（按箱型独立计数，命中后重置）═══
+    pity = {
+        small = { threshold = 60,  targetId = "small_upgrade" },  -- 小宝箱60次保底：流光风车×1
+        big   = { threshold = 120, targetId = "big_skin" },       -- 大宝箱120次保底：福缘皮肤
     },
 
     -- ═══ 黑市商品（六一活动物品均可交易）═══

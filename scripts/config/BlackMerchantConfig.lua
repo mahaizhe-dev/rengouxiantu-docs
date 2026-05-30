@@ -233,9 +233,9 @@ BMConfig.ITEMS = {
     sword_intent_crystal   = ItemFromGame("sword_intent_crystal",   { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 10, sort_order = 12 }),
     abyss_seal_shard       = ItemFromGame("abyss_seal_shard",       { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 10, sort_order = 13 }),
 
-    -- === 六一活动道具（限时，金框标识） ===
+    -- === 六一活动道具 ===
     childday_rattle   = ItemFromGame("childday_rattle",   { buy_price = 1, sell_price = 2,  category = "consumable_mat", max_stock = 10, sort_order = -2, eventHighlight = true }),
-    childday_pinwheel = ItemFromGame("childday_pinwheel", { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 10, sort_order = -1, eventHighlight = true }),
+    childday_pinwheel = ItemFromGame("childday_pinwheel", { buy_price = 6, sell_price = 12, category = "consumable_mat", max_stock = 10, sort_order = -1, eventHighlight = true }),
 
     -- === 消耗品（龙神材料、仙人精血、金砖、令牌盒） ===
     dragon_scale_ice   = ItemFromGame("dragon_scale_ice",   { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 5, sort_order = 1 }),

@@ -71,7 +71,7 @@ function ProgressionSystem.CanBreakthrough(targetRealm)
         -- 练气丹消耗（练气阶段）
         if cost.qiPill then
             local InventorySystem = require("systems.InventorySystem")
-            local pillCount = InventorySystem.CountConsumable("qi_pill")
+            local pillCount = InventorySystem.CountUnlockedConsumable("qi_pill")
             if pillCount < cost.qiPill then
                 return false, "练气丹不足 (需要 " .. cost.qiPill .. ", 当前 " .. pillCount .. ")"
             end
@@ -79,7 +79,7 @@ function ProgressionSystem.CanBreakthrough(targetRealm)
         -- 筑基丹消耗（筑基阶段）
         if cost.zhujiPill then
             local InventorySystem = require("systems.InventorySystem")
-            local pillCount = InventorySystem.CountConsumable("zhuji_pill")
+            local pillCount = InventorySystem.CountUnlockedConsumable("zhuji_pill")
             if pillCount < cost.zhujiPill then
                 return false, "筑基丹不足 (需要 " .. cost.zhujiPill .. ", 当前 " .. pillCount .. ")"
             end
@@ -87,7 +87,7 @@ function ProgressionSystem.CanBreakthrough(targetRealm)
         -- 金丹沙消耗（金丹阶段）
         if cost.jindanSand then
             local InventorySystem = require("systems.InventorySystem")
-            local sandCount = InventorySystem.CountConsumable("jindan_sand")
+            local sandCount = InventorySystem.CountUnlockedConsumable("jindan_sand")
             if sandCount < cost.jindanSand then
                 return false, "金丹沙不足 (需要 " .. cost.jindanSand .. ", 当前 " .. sandCount .. ")"
             end
@@ -95,7 +95,7 @@ function ProgressionSystem.CanBreakthrough(targetRealm)
         -- 元婴果消耗（元婴阶段）
         if cost.yuanyingFruit then
             local InventorySystem = require("systems.InventorySystem")
-            local fruitCount = InventorySystem.CountConsumable("yuanying_fruit")
+            local fruitCount = InventorySystem.CountUnlockedConsumable("yuanying_fruit")
             if fruitCount < cost.yuanyingFruit then
                 return false, "元婴果不足 (需要 " .. cost.yuanyingFruit .. ", 当前 " .. fruitCount .. ")"
             end
@@ -103,7 +103,7 @@ function ProgressionSystem.CanBreakthrough(targetRealm)
         -- 九转金丹消耗（化神·合体阶段）
         if cost.jiuzhuanJindan then
             local InventorySystem = require("systems.InventorySystem")
-            local jdCount = InventorySystem.CountConsumable("jiuzhuan_jindan")
+            local jdCount = InventorySystem.CountUnlockedConsumable("jiuzhuan_jindan")
             if jdCount < cost.jiuzhuanJindan then
                 return false, "九转金丹不足 (需要 " .. cost.jiuzhuanJindan .. ", 当前 " .. jdCount .. ")"
             end
@@ -111,7 +111,7 @@ function ProgressionSystem.CanBreakthrough(targetRealm)
         -- 渡劫丹消耗（大乘阶段）
         if cost.dujieDan then
             local InventorySystem = require("systems.InventorySystem")
-            local djCount = InventorySystem.CountConsumable("dujie_dan")
+            local djCount = InventorySystem.CountUnlockedConsumable("dujie_dan")
             if djCount < cost.dujieDan then
                 return false, "渡劫丹不足 (需要 " .. cost.dujieDan .. ", 当前 " .. djCount .. ")"
             end
@@ -119,7 +119,7 @@ function ProgressionSystem.CanBreakthrough(targetRealm)
         -- 仙丹消耗（谪仙阶段）
         if cost.xianDan then
             local InventorySystem = require("systems.InventorySystem")
-            local xdCount = InventorySystem.CountConsumable("xian_dan")
+            local xdCount = InventorySystem.CountUnlockedConsumable("xian_dan")
             if xdCount < cost.xianDan then
                 return false, "仙丹不足 (需要 " .. cost.xianDan .. ", 当前 " .. xdCount .. ")"
             end
@@ -151,33 +151,34 @@ function ProgressionSystem.Breakthrough(targetRealm)
     -- 扣除资源
     local cost = targetData.cost
     if cost then
+        local InventorySystem = require("systems.InventorySystem")
         if cost.qiPill then
-            local InventorySystem = require("systems.InventorySystem")
-            InventorySystem.ConsumeConsumable("qi_pill", cost.qiPill)
+            local ok = InventorySystem.ConsumeConsumable("qi_pill", cost.qiPill)
+            if not ok then return false, "练气丹扣除失败（可能被锁定）" end
         end
         if cost.zhujiPill then
-            local InventorySystem = require("systems.InventorySystem")
-            InventorySystem.ConsumeConsumable("zhuji_pill", cost.zhujiPill)
+            local ok = InventorySystem.ConsumeConsumable("zhuji_pill", cost.zhujiPill)
+            if not ok then return false, "筑基丹扣除失败（可能被锁定）" end
         end
         if cost.jindanSand then
-            local InventorySystem = require("systems.InventorySystem")
-            InventorySystem.ConsumeConsumable("jindan_sand", cost.jindanSand)
+            local ok = InventorySystem.ConsumeConsumable("jindan_sand", cost.jindanSand)
+            if not ok then return false, "金丹沙扣除失败（可能被锁定）" end
         end
         if cost.yuanyingFruit then
-            local InventorySystem = require("systems.InventorySystem")
-            InventorySystem.ConsumeConsumable("yuanying_fruit", cost.yuanyingFruit)
+            local ok = InventorySystem.ConsumeConsumable("yuanying_fruit", cost.yuanyingFruit)
+            if not ok then return false, "元婴果扣除失败（可能被锁定）" end
         end
         if cost.jiuzhuanJindan then
-            local InventorySystem = require("systems.InventorySystem")
-            InventorySystem.ConsumeConsumable("jiuzhuan_jindan", cost.jiuzhuanJindan)
+            local ok = InventorySystem.ConsumeConsumable("jiuzhuan_jindan", cost.jiuzhuanJindan)
+            if not ok then return false, "九转金丹扣除失败（可能被锁定）" end
         end
         if cost.dujieDan then
-            local InventorySystem = require("systems.InventorySystem")
-            InventorySystem.ConsumeConsumable("dujie_dan", cost.dujieDan)
+            local ok = InventorySystem.ConsumeConsumable("dujie_dan", cost.dujieDan)
+            if not ok then return false, "渡劫丹扣除失败（可能被锁定）" end
         end
         if cost.xianDan then
-            local InventorySystem = require("systems.InventorySystem")
-            InventorySystem.ConsumeConsumable("xian_dan", cost.xianDan)
+            local ok = InventorySystem.ConsumeConsumable("xian_dan", cost.xianDan)
+            if not ok then return false, "仙丹扣除失败（可能被锁定）" end
         end
         if cost.lingYun then
             player.lingYun = player.lingYun - cost.lingYun

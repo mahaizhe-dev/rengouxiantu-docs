@@ -337,9 +337,9 @@ function M.HandleOpenFudai(eventType, eventData)
             local saveData = scores[saveKey] or {}
             local backpack = saveData.backpack or {}
 
-            -- 服务端校验背包物品数量
+            -- 服务端校验背包物品数量（BM-S4A: 只统计未锁定堆叠，防止锁定物品通过校验后扣除失败）
             local targetItemId = boxCfg.itemId
-            local heldCount = CountBackpackItem(backpack, targetItemId)
+            local heldCount = BackpackUtils.CountUnlockedItem(backpack, targetItemId)
 
             if heldCount <= 0 then
                 releaseLocks()
@@ -370,6 +370,29 @@ function M.HandleOpenFudai(eventType, eventData)
                 return
             end
 
+            -- ════ 保底计数器读取 ════
+            local eventId = event.eventId
+            local evtAllData = saveData.event_data or {}
+            local evtData = evtAllData[eventId] or {}
+            local pityCounters = evtData.pity or {}
+            local pityCount = pityCounters[boxType] or 0
+
+            -- 保底配置
+            local pityCfg = event.pity and event.pity[boxType]
+            local pityThreshold = pityCfg and pityCfg.threshold or 0
+            local pityTargetId = pityCfg and pityCfg.targetId
+
+            -- 从奖池查找保底目标条目（用于强制替换）
+            local pityEntry = nil
+            if pityTargetId then
+                for _, item in ipairs(pool) do
+                    if item.id == pityTargetId then
+                        pityEntry = item
+                        break
+                    end
+                end
+            end
+
             -- 服务端执行 N 次独立抽取
             local rollResults = {}
             local totalRewards = { exp = 0, gold = 0, lingYun = 0, consumables = {} }
@@ -377,6 +400,22 @@ function M.HandleOpenFudai(eventType, eventData)
 
             for i = 1, actualCount do
                 local entry = EventSystem.RollFudaiReward(pool)
+
+                -- 保底逻辑
+                if pityEntry and pityThreshold > 0 then
+                    pityCount = pityCount + 1
+                    if entry.id == pityTargetId then
+                        -- 自然命中保底目标，重置计数器
+                        pityCount = 0
+                    elseif pityCount >= pityThreshold then
+                        -- 达到保底阈值，强制替换为保底物品
+                        entry = pityEntry
+                        pityCount = 0
+                        print("[EventHandler] PITY triggered: box=" .. boxType
+                            .. " threshold=" .. pityThreshold .. " user=" .. tostring(userId))
+                    end
+                end
+
                 rollResults[#rollResults + 1] = {
                     id = entry.id, name = entry.name, rarity = entry.rarity,
                 }
@@ -400,12 +439,27 @@ function M.HandleOpenFudai(eventType, eventData)
                 end
             end
 
+            -- ════ 保底计数器写回 event_data ════
+            pityCounters[boxType] = pityCount
+            evtData.pity = pityCounters
+            evtAllData[eventId] = evtData
+            saveData.event_data = evtAllData
+
             -- ================================================================
             -- 皮肤奖励处理：需要先读 account_cosmetics 判断是否已拥有
             -- ================================================================
             local function ProcessAfterSkinCheck(unlockedSkinId, dupLingYunTotal)
-                -- 扣宝箱道具 + 发奖励
-                RemoveFromBackpack(backpack, targetItemId, actualCount)
+                -- 扣宝箱道具（BM-S4A: 必须检查返回值，防止锁定物品导致扣除不足仍发奖）
+                local removeRemaining = RemoveFromBackpack(backpack, targetItemId, actualCount)
+                if removeRemaining > 0 then
+                    -- 扣除失败（锁定物品导致实际可扣数量不足）→ 拒绝本次开启
+                    releaseLocks()
+                    SendError(connection, SaveProtocol.S2C_EventOpenFudaiResult,
+                        "道具被锁定中，无法开启")
+                    print("[EventHandler] OpenBox BLOCKED: item locked, remaining=" .. removeRemaining
+                        .. " user=" .. tostring(userId))
+                    return
+                end
 
                 saveData.player = saveData.player or {}
                 saveData.player.exp = (saveData.player.exp or 0) + totalRewards.exp
@@ -501,6 +555,9 @@ function M.HandleOpenFudai(eventType, eventData)
                         if unlockedSkinId then
                             reply["UnlockedSkinId"] = Variant(unlockedSkinId)
                         end
+                        -- 保底进度（当前计数/阈值）
+                        reply["PityCount"] = Variant(pityCount)
+                        reply["PityThreshold"] = Variant(pityThreshold)
                         Session.SafeSend(connection, SaveProtocol.S2C_EventOpenFudaiResult, reply)
 
                         releaseLocks()

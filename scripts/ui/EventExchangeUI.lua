@@ -348,7 +348,8 @@ end
 -- ============================================================================
 
 local function GetItemCount(consumableId)
-    return InventorySystem.CountConsumable(consumableId)
+    -- BM-S4A: 只统计未锁定道具，与服务端校验一致
+    return InventorySystem.CountUnlockedConsumable(consumableId)
 end
 
 local FormatTimeAgo = FormatUtils.TimeAgo
@@ -455,6 +456,50 @@ local function BuildBoxSection(boxType)
         },
     })
 
+    -- 大奖概率提示
+    do
+        local jackpotName, jackpotProb
+        if pool then
+            local totalWeight = 0
+            for _, entry in ipairs(pool) do totalWeight = totalWeight + entry.weight end
+            for _, entry in ipairs(pool) do
+                if entry.rarity == "legendary" then
+                    jackpotName = entry.name
+                    jackpotProb = string.format("%.1f%%", entry.weight / totalWeight * 100)
+                    break
+                end
+            end
+        end
+        if jackpotName then
+            table.insert(children, UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                justifyContent = "center",
+                alignItems = "center",
+                gap = T.spacing.xs,
+                children = {
+                    UI.Label {
+                        text = "★ 大奖:",
+                        fontSize = T.fontSize.xs,
+                        fontWeight = "bold",
+                        fontColor = {255, 215, 0, 255},
+                    },
+                    UI.Label {
+                        text = jackpotName,
+                        fontSize = T.fontSize.xs,
+                        fontWeight = "bold",
+                        fontColor = {255, 180, 50, 255},
+                    },
+                    UI.Label {
+                        text = "(" .. jackpotProb .. ")",
+                        fontSize = T.fontSize.xs,
+                        fontColor = {200, 160, 80, 200},
+                    },
+                },
+            })
+        end
+    end
+
     -- 开启按钮行
     table.insert(children, UI.Panel {
         width = "100%",
@@ -518,6 +563,22 @@ local function BuildBoxSection(boxType)
             },
         },
     })
+
+    -- 保底进度提示
+    local pityCurrent, pityThreshold = EventSystem.GetPityProgress(boxType)
+    if pityThreshold > 0 then
+        local pityTargetName = isSmall and "流光风车" or "福缘皮肤"
+        local remaining = pityThreshold - pityCurrent
+        local pityText = string.format("保底进度: %d/%d（还差%d次必出%s）",
+            pityCurrent, pityThreshold, remaining, pityTargetName)
+        table.insert(children, UI.Label {
+            text = pityText,
+            fontSize = T.fontSize.xs,
+            fontColor = {255, 200, 80, 200},
+            width = "100%",
+            textAlign = "center",
+        })
+    end
 
     -- 查看奖池按钮
     if pool then
@@ -622,7 +683,7 @@ local function BuildFudaiContent()
                 fontColor = {140, 180, 220, 200},
             },
             UI.Label {
-                text = "流光风车：击败高境界BOSS掉落（元婴及以上，最高四仙剑1%）",
+                text = "流光风车：击败元婴及以上BOSS掉落（最高掉落四仙剑1%）",
                 fontSize = T.fontSize.xs,
                 fontColor = {220, 180, 100, 200},
             },
@@ -1309,6 +1370,14 @@ function EventExchangeUI.HandleFudaiResult(eventType, eventData)
                 local count = #fudaiResults_
                 SetStatus("开启 " .. count .. " 个宝箱！", 4)
             end
+        end
+
+        -- 保底进度更新
+        local pityCountField = eventData["PityCount"]
+        local pityThresholdField = eventData["PityThreshold"]
+        if pityCountField and pityThresholdField then
+            local pityCount = pityCountField:GetInt()
+            EventSystem.UpdatePityCount(boxType, pityCount)
         end
 
         local SavePersistence = require("systems.save.SavePersistence")
