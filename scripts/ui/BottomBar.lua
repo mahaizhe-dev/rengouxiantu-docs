@@ -271,7 +271,7 @@ function BottomBar.Create(parentOverlay, callbacks)
         id = "bottomBar",
         position = "absolute",
         bottom = 0, left = 0, right = 0,
-        zIndex = 110,
+        zIndex = 1,
         alignItems = "center",
         paddingBottom = T.spacing.sm,
         pointerEvents = "box-none",
