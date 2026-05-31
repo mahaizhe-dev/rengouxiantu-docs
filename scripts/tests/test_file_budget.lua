@@ -123,19 +123,28 @@ local function countLines(filepath)
 end
 
 --- 递归扫描目录下的 .lua 文件
----@param dir string 绝对路径
----@return string[] files 文件绝对路径列表
+--- 兼容 lupa 环境（io.popen 不可用），使用 os.execute + 临时文件
+---@param dir string 目录路径（相对或绝对）
+---@return string[] files 文件路径列表
 local function scanLuaFiles(dir)
     local files = {}
-    -- 使用 ls -R 或 find 命令
-    local handle = io.popen('find "' .. dir .. '" -name "*.lua" -type f 2>/dev/null')
-    if not handle then return files end
-    for line in handle:lines() do
-        if line and #line > 0 then
-            files[#files + 1] = line
+    local tmpfile = os.tmpname()
+    -- 使用 find 列出所有 .lua 文件，结果写入临时文件
+    local cmd = string.format(
+        'find "%s" -name "*.lua" -type f > "%s" 2>/dev/null',
+        dir, tmpfile
+    )
+    os.execute(cmd)
+    local f = io.open(tmpfile, "r")
+    if f then
+        for line in f:lines() do
+            if line and #line > 0 then
+                files[#files + 1] = line
+            end
         end
+        f:close()
     end
-    handle:close()
+    os.remove(tmpfile)
     return files
 end
 
@@ -150,19 +159,9 @@ end
 -- 主逻辑
 -- ---------------------------------------------------------------------------
 
--- 确定 scripts/ 绝对路径
-local scriptsDir
-do
-    -- 尝试从 __FILE__ 或固定路径推断
-    local handle = io.popen("cd /workspace/scripts && pwd 2>/dev/null")
-    if handle then
-        scriptsDir = handle:read("*l")
-        handle:close()
-    end
-    if not scriptsDir or #scriptsDir == 0 then
-        scriptsDir = "/workspace/scripts"
-    end
-end
+-- scripts/ 目录路径（相对于项目根 cwd）
+-- run_all.lua / _run_via_lupa.py 执行时 cwd 保证为项目根
+local scriptsDir = "scripts"
 
 local results = {}  -- {relPath, lines, status, limit}
 
@@ -172,7 +171,8 @@ for _, subdir in ipairs(SCAN_DIRS) do
 
     for _, filepath in ipairs(files) do
         -- 计算相对路径（相对于 scripts/）
-        local relPath = filepath:sub(#scriptsDir + 2)  -- +2 去掉开头的 /
+        -- filepath 形如 "scripts/config/xxx.lua"，去掉 "scripts/" 前缀
+        local relPath = filepath:sub(#scriptsDir + 2)
 
         -- 跳过测试文件本身
         if relPath:find("^tests/") then goto continue end

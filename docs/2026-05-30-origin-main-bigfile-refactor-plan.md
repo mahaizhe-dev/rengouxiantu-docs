@@ -1203,7 +1203,7 @@ Step 0 → Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6 → Ste
 | 脏工作树处理 | `git stash` 暂存（"pre-refactor: 六一活动/事件/兑换UI等未提交改动"） |
 | 分支创建 | `refactor/bigfile-split` from `origin/main` |
 | 基线 HEAD | `65d1ea5` |
-| 全量测试 | lupa 跑通，全部 PASS |
+| 全量测试 | lupa 跑通，21 suite PASS / 3 suite 基线已有失败（非本次引入） |
 | 文档更新 | §0.1 风险评估、§0.2 脏工作树、§4.3 存档安全、§9 上线策略、§11 分阶段计划 |
 
 **提交**: 无（纯准备工作）
@@ -1214,17 +1214,17 @@ Step 0 → Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6 → Ste
 
 | 项目 | 结果 |
 |------|------|
-| 新增文件 | `scripts/tests/test_file_budget.lua` (174 行) |
+| 新增文件 | `scripts/tests/test_file_budget.lua` (306 行) |
 | 注册入口 | `TestRegistry.lua` 新增 `file_budget` 条目，group=infra, gate=blocking |
 | 预算规则 | 代码文件 ≤600 target / ≤900 alert；数据文件 ≤900 target / ≤1400 alert |
-| EXEMPTIONS | 39 个文件采用 ratchet 策略（当前行数 + ~50 缓冲） |
+| EXEMPTIONS | 42 个文件采用 ratchet 策略（当前行数 + ~50 缓冲） |
 | 扫描目录 | config, rendering, ui, systems |
 | 验证结果 | 239 文件扫描，0 FAIL，21 WARNING — **PASS** |
 | LSP 诊断 | 0 errors, 0 warnings |
 | 提交 | `25778f1` — `test(infra): add file length budget gate` |
 
-**验证方法**: sandbox 无 lua CLI，使用 Python 等价脚本复现完整预算逻辑验证；LSP `textDocument/diagnostic` 确认无语法错误。
+**验证方法**: `python3 scripts/tests/_run_via_lupa.py` 完整 lupa 环境执行通过；LSP `textDocument/diagnostic` 确认无语法错误。
 
 **注意事项**:
-- `io.popen` 在 lupa sandbox 中不可用，该测试需在标准 lua CLI 或引擎环境中执行
+- S1.1 补丁已移除 `io.popen` 依赖，改用 `os.execute` + 临时文件，lupa 环境可直接运行
 - EXEMPTIONS 表作为 ratchet 上限，后续拆分完成后应逐步降低或移除
