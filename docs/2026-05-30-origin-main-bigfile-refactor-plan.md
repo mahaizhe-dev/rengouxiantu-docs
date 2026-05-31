@@ -955,8 +955,8 @@ return EquipmentData
 ### 执行总览
 
 ```
-Step 0 → Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6 → Step 7 → Step 8 → Step 9 → Step 10 → Step 11
-准备     门禁     配置(低)  配置(高)  渲染     系统(低)  系统(高)  UI(低)   UI(高)   全量测试  发布准备  灰度发布
+Step 0 → Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6 → Step 7 → Step 8 → Step 9 → Step 10 → Step 11 → Step 12
+准备     门禁     配置(低)  配置(高)  渲染     系统(低)  系统(高)  UI一梯队  第二梯队  门禁扩围  存档回归  发布准备  灰度发布
 ```
 
 ---
@@ -1201,11 +1201,11 @@ return M
 
 | 子任务 | 范围 | 状态 | commit |
 |------|------|--------|---------|
-| `Step 6.0` | gate hygiene | ✅ 已完成 | `c5b7857` (随 InventorySystem 一并清理) + `3bb65e3`/`77a1dfe`/`c894a5a` 后续清理 |
-| `Step 6A` | Skill 域 | ✅ 已完成 | `3bb65e3` — facade 443 行 + 5 子模块 |
-| `Step 6B` | Loot 域 | ✅ 已完成 | `77a1dfe` — facade 54 行 + 4 子模块 |
+| `Step 6.0` | gate hygiene | ✅ 已完成 | `c894a5a` — 移除已毕业 EXEMPTIONS，门禁 296/296 PASS |
+| `Step 6A` | Skill 域 | ✅ 已完成 | `b11fac0` — facade 443 行 + 5 子模块 |
+| `Step 6B` | Loot 域 | ✅ 已完成 | `e250fc9` — facade 54 行 + 4 子模块 |
 | `Step 6C` | Inventory 域 | ✅ 已完成 | `c5b7857` — facade 361 行 + 3 子模块 |
-| `Step 6D` | Challenge 域 | ✅ 已完成 | `c894a5a` — facade 428 行 + 4 子模块 |
+| `Step 6D` | Challenge 域 | ✅ 已完成 | `ad0a25f` — facade 428 行 + 4 子模块 |
 
 #### Step 6.0: Gate Hygiene
 
@@ -1302,46 +1302,39 @@ return M
 
 ---
 
-### Step 7: 核心玩法垂直切片收口（Challenge / Pet）
+### Step 7: UI 一梯队主拆分（Challenge / Pet / Alchemy）
 
-**目标**: 不再把 `ChallengeUI` 视为纯 UI 文件。`Step 7` 改为处理真正跨 `systems + ui` 的强耦合业务域。
+**目标**: `Step 6` 已完成核心 systems facade 化，后续主战场转到 `ui/`。这一阶段不再拆 `ChallengeSystem` 本体，而是优先处理仍然超大的 UI 一梯队文件。
 
 | 子任务 | 范围 | 拆分原因 |
 |------|------|---------|
-| `Step 7A` | Challenge 域：`ChallengeSystem.lua` + `ChallengeUI.lua` + `AlchemyUI.lua` 中阵营丹药片段 | `NEW_PILL_CONFIG` / `BrewPill()` 被 `AlchemyUI` 直接消费；`ChallengeUI` 同时混合 reputation / legacy / victory 流程 |
+| `Step 7A` | Challenge UI 面：`ChallengeUI.lua` + `AlchemyUI.lua` 中阵营丹药片段 | `ChallengeSystem` 已拆完，但 `ChallengeUI` 仍混合 reputation / legacy / victory；`AlchemyUI` 直接消费 `NEW_PILL_CONFIG` / `BrewPill()` |
 | `Step 7B` | Pet 域：`PetPanel.lua` | Tab 边界清晰，但与 `InventorySystem` / `CombatSystem` / `PetSkinSystem` 强交互 |
-| `Step 7C` | Skill UI 兼容层：`BottomBar.lua` + `CharacterUI.lua`（仅在 Step 6A 必要时触达） | 两者直接读取 `SkillSystem` 状态表，优先做兼容，不主动扩拆 |
+| `Step 7C` | UI 第二波候选预分拣：`BlackMerchantUI.lua`、`CharacterUI.lua`、`DragonForgeUI.lua`、`EventExchangeUI.lua`、`SystemMenu.lua` | 这些文件已经进入一梯队或高位第二梯队，需要在 Step 8 前先确定优先级和切割边界 |
 
-#### Step 7A: Challenge 域
+#### Step 7A: Challenge UI 面
 
 **目标文件**:
-- `systems/ChallengeSystem.lua`（1529 行）
 - `ui/ChallengeUI.lua`（2119 行）
 - `ui/AlchemyUI.lua` 中阵营丹药片段（`NEW_PILL_CONFIG` / `BrewPill` 依赖区）
 
 **代码事实**:
-- `ChallengeSystem.lua` 同时承载 state、reputation、legacy tiers、arena、rewards、brew、serialize/deserialize
+- `ChallengeSystem.lua` 已在 `Step 6D` 拆为 facade + 4 子模块，本阶段应复用它，不再重复拆 systems 本体
 - `ChallengeUI.lua` 在 `Show()` 中旧路径存在 `do return end` 后残留大段 legacy 逻辑，说明它不是“单纯 tab UI”，而是混合时代代码
-- `AlchemyUI.lua` 直接使用 `ChallengeSystem.NEW_PILL_CONFIG` 和 `ChallengeSystem.BrewPill`
+- `AlchemyUI.lua` 直接使用 `ChallengeSystem.NEW_PILL_CONFIG` 和 `ChallengeSystem.BrewPill`，因此阵营丹药片段必须一起收口
 
 **建议拆分**:
-- `challenge/state.lua`
-- `challenge/progress_reputation.lua`
-- `challenge/legacy_tiers.lua`
-- `challenge/arena.lua`
-- `challenge/rewards.lua`
-- `challenge/brew.lua`
-- `challenge/serde.lua`
 - `ui/challenge/entry.lua`
 - `ui/challenge/reputation.lua`
 - `ui/challenge/legacy.lua`
 - `ui/challenge/victory.lua`
 - `ui/challenge/tips.lua`
+- `ui/alchemy/faction_pills.lua` 或同级独立片段模块（只抽离阵营丹药，不顺手重做整个 `AlchemyUI`）
 
 **专项验收**:
 - `ChallengeUI.Show()` 的 reputation / legacy / victory 三条路径分别给出验证
 - `AlchemyUI` 中阵营丹药片段给出回归证据
-- `ChallengeSystem.Serialize/Deserialize` 不得回退
+- 明确说明是否触达 `ChallengeSystem` facade；如果有兼容性修正，必须列出调用点和原因
 
 #### Step 7B: Pet 域
 
@@ -1366,11 +1359,55 @@ return M
 
 ---
 
-### Step 8: 第二梯队治理 + 门禁扩围
+### Step 8: 第二梯队治理（UI / rendering / config / systems tail）
 
-**目标**: 在核心系统与垂直切片稳定后，把当前未纳入 blocking 的真实大文件正式拉进治理范围。
+**目标**: 在 `Step 7` 清掉 UI 一梯队后，把仍在 blocking 范围内、但尚未进入主阶段的一批大文件正式纳入拆分队列，包括 remaining systems second-tier。
 
-#### Step 8A: SCAN_DIRS 扩展
+#### Step 8A: UI 第二波
+
+**优先文件**:
+- `ui/BlackMerchantUI.lua`
+- `ui/CharacterUI.lua`
+- `ui/DragonForgeUI.lua`
+- `ui/EventExchangeUI.lua`
+- `ui/SystemMenu.lua`
+
+**处理要求**:
+- 先按功能区块切分，不主动改视觉或交互
+- 每个 UI facade 继续保留原 `Show/Hide/Toggle/Refresh` 等入口
+- 验收报告里必须分别列出触达的系统调用方（如 `LootSystem`、`InventorySystem`、`SkillSystem`）
+
+#### Step 8B: rendering / config 第二梯队
+
+**优先文件**:
+- `rendering/DecoDivine.lua`（1398）
+- `rendering/entities/monsters.lua`（1007）
+- `rendering/effects/skills_b.lua`（906）
+- `config/MonsterTypes_ch4.lua`（1050）
+- `config/MonsterTypes_ch3_Reputation.lua`（975）
+- `config/MonsterTypes_ch5.lua`（940）
+- `systems/AtlasSystem.lua`（1215）
+- `systems/CombatSystem.lua`（1025）
+- `systems/QuestSystem.lua`（959）
+- `systems/save/SaveMigrations.lua`（1111）
+
+**处理方式**:
+- 超过 `CODE_ALERT` / `DATA_ALERT` 的文件优先拆分
+- 仅高于 target 的文件可先保留 ratchet cap，后续再收口
+- 渲染子模块优先按功能簇拆，不为了“行数漂亮”打散过度
+
+**验收条件**:
+- blocking 范围内的已知第二梯队文件有明确处理结果：`已拆 / 保留 ratchet / 延后并说明原因`
+- `test_file_budget.lua` 的 EXEMPTIONS 与当前实际代码一致
+- 门禁持续绿灯
+
+**提交**: `refactor(stage2): split remaining ui/rendering/config second-tier files`
+
+---
+
+### Step 9: 门禁扩围（network / entities / world / main.lua）
+
+**目标**: 在当前 blocking 范围基本稳定后，把项目里真正未覆盖的大文件纳入预算体系。
 
 **当前 blocking 覆盖**: `config/`, `rendering/`, `ui/`, `systems/`
 
@@ -1386,58 +1423,28 @@ return M
 | `scripts/entities/Player.lua` | 1244 | 玩家实体逻辑 |
 | `scripts/world/mapgen/Chapter3.lua` | 1005 | 地图生成逻辑 |
 
-**扩展策略**（非阻断式）:
+**扩围策略**（非阻断式起步）:
 
 1. **Phase 1**: 新目录以 **warning-only** 模式加入 SCAN_DIRS
    ```lua
-   -- test_file_budget.lua 扩展
    local SCAN_DIRS_BLOCKING = { "config", "rendering", "ui", "systems" }
-   local SCAN_DIRS_WARNING = { "network", "entities", "world" }  -- 新增：仅警告
-   local SCAN_ROOT_FILES = { "scripts/main.lua" }                -- 新增：根目录入口文件
+   local SCAN_DIRS_WARNING = { "network", "entities", "world" }
+   local SCAN_ROOT_FILES = { "scripts/main.lua" }
    ```
 
 2. **Phase 2**: 为超标文件设定 EXEMPTIONS（ratchet 模式，只降不升）
-   ```lua
-   EXEMPTIONS["network/DungeonHandler.lua"] = { code = 1815 }
-   EXEMPTIONS["network/BlackMerchantHandler.lua"] = { code = 1455 }
-   EXEMPTIONS["network/DungeonClient.lua"] = { code = 1175 }
-   EXEMPTIONS["entities/Monster.lua"] = { code = 1415 }
-   EXEMPTIONS["entities/Player.lua"] = { code = 1295 }
-   EXEMPTIONS["world/mapgen/Chapter3.lua"] = { code = 1055 }
-   EXEMPTIONS["scripts/main.lua"] = { code = 1805 }
-   ```
-
 3. **Phase 3**: 稳定后将 warning-only 升级为 blocking
 
-#### Step 8B: 第二梯队文件分拣
-
-**对象**: 门禁扩围后新发现的超标文件，以及当前 blocking 范围内仍未进入核心切片的第二梯队文件。
-
-**优先关注**:
-- `rendering/DecoDivine.lua`（1398）
-- `config/MonsterTypes_ch4.lua`（1050）
-- `config/MonsterTypes_ch3_Reputation.lua`（975）
-- `ui/AlchemyUI.lua`（1891，去掉阵营丹药片段后再决定是否继续拆）
-- `ui/BlackMerchantUI.lua`、`ui/CharacterUI.lua`、`ui/DragonForgeUI.lua`、`ui/SystemMenu.lua`、`ui/EventExchangeUI.lua`
-
-**处理方式**:
-- 超过 `CODE_ALERT` 的文件 → 排入后续迭代拆分计划
-- 超过 `CODE_TARGET` 但低于 `CODE_ALERT` 的文件 → 设置 EXEMPTIONS cap，待后续版本收敛
-- 低于 `CODE_TARGET` 的文件 → 自然合规，无需处理
-
-**风险**: 低（非阻断式，不影响现有 CI）
-
 **验收条件**:
-- `test_file_budget.lua` 的 SCAN_DIRS 覆盖全项目
-- 所有已知超标文件有明确的 EXEMPTIONS 或拆分计划
-- 门禁绿灯（含新增 warning）
-- 第二梯队拆分计划文档化
+- 新增扫描范围后仍给出可复算的门禁原始输出
+- 所有已知超标文件有 cap 或拆分计划
+- 报告中明确区分 `blocking` 与 `warning-only` 目录
 
 **提交**: `chore(infra): expand budget gate coverage to full project`
 
 ---
 
-### Step 9: 存档关键链路最终回归
+### Step 10: 存档关键链路最终回归
 
 **目标**: 在所有拆分完成后，做一次完整的存档 round-trip 回归测试。
 
@@ -1458,7 +1465,7 @@ return M
 
 ---
 
-### Step 10: 发布准备
+### Step 11: 发布准备
 
 **目标**: 确认拆分后的代码可正常构建和发布。
 
@@ -1476,7 +1483,7 @@ return M
 
 ---
 
-### Step 11: 灰度发布
+### Step 12: 灰度发布
 
 **目标**: 分阶段发布拆分后的版本。
 
@@ -1500,11 +1507,12 @@ return M
 | Step 3 | ✅ 已完成 | 中-高 | `EquipmentData` facade 化 |
 | Step 4 | ✅ 已完成 | 中-高 | `config` 一梯队收口（MonsterData 二级拆分 + MonsterTypes_ch3 × 3 + Special） |
 | Step 5 | ✅ 已完成 | 中 | 渲染线主拆分（3 文件，按体积排序） |
-| Step 6 | 进行中 | 中-高 | 核心系统拆分：4 系统代码已拆分（工作树），仅 Inventory 已 commit；EXEMPTIONS/gate/smoke 待收口 |
-| Step 7 | 待执行 | 高 | 核心玩法垂直切片（Challenge / Pet） |
-| Step 8 | 待执行 | 中 | 第二梯队治理 + 门禁扩围 |
-| Step 9 | 待执行 | 高 | 存档关键链路最终回归 |
-| Step 10-11 | 待执行 | 低 | 发布准备 + 灰度 |
+| Step 6 | ✅ 已完成 | 中-高 | 核心系统拆分：Skill / Loot / Challenge / Inventory facade 化 + gate hygiene 已收口 |
+| Step 7 | 待执行 | 高 | UI 一梯队主拆分：ChallengeUI / AlchemyUI（阵营丹药片段）/ PetPanel |
+| Step 8 | 待执行 | 中 | 第二梯队治理：UI / rendering / config / systems tail |
+| Step 9 | 待执行 | 中 | 门禁扩围：network / entities / world / main.lua |
+| Step 10 | 待执行 | 高 | 存档关键链路最终回归 |
+| Step 11-12 | 待执行 | 低 | 发布准备 + 灰度 |
 
 **建议**:
 - 不要再按“systems 一包 / ui 一包”推进。后续顺序改为：`Step 6A Skill` → `Step 7A Challenge 垂直切片` → `Step 6B Loot` → `Step 7B Pet` → `Step 8`
@@ -1714,33 +1722,24 @@ return M
 
 ---
 
-### 计划卫生备忘（Step 5 / Step 6 连续复审后）
+### 阶段状态校正（Step 6 完成后）
 
-**结论**:
-- Step 5 可以视为完成，但它暴露了“LSP 通过 != 运行时安全”的验证缺口
-- Step 6 当前只完成了 `InventorySystem` 子任务，旧文档里“Step 6 已完成”的口径已失效
-- 后续不再按“systems 一包 / ui 一包”推进，而改按业务域推进
+**当前有效结论**:
+- Step 5 已完成，但后续阶段必须继续保留 runtime smoke，不能只看 LSP / 门禁绿灯
+- Step 6 已完成，systems 一梯队（Skill / Loot / Challenge / Inventory）已全部 facade 化并完成 gate hygiene
+- 后续重心从 `systems` 转移到 `ui`，再处理 remaining second-tier 与门禁扩围
 
-**具体行动项**:
+**后续执行顺序**:
+1. `Step 7A`: `ChallengeUI.lua` + `AlchemyUI.lua` 阵营丹药片段
+2. `Step 7B`: `PetPanel.lua`
+3. `Step 8`: UI / rendering / config / systems tail 第二梯队治理
+4. `Step 9`: 门禁扩围到 `network / entities / world / scripts/main.lua`
+5. `Step 10`: 存档关键链路最终回归
 
-1. **清理旧豁免（EXEMPTIONS ratchet-down）**:
-   - 已毕业但仍残留在门禁里的文件：`MonsterData.lua`、`EquipmentData_Special.lua`、`MonsterTypes_ch3.lua`、`EffectRenderer.lua`、`TileRenderer.lua`、`EntityRenderer.lua`、`InventorySystem.lua`
-   - 继续保留 ratchet：`skills_b.lua`、`entities/monsters.lua`、`DecoDivine.lua`
-
-2. **执行顺序修正**:
-   - `Step 6A`: Skill 域
-   - `Step 7A`: Challenge 垂直切片（`ChallengeSystem + ChallengeUI + AlchemyUI` 阵营丹药片段）
-   - `Step 6B`: Loot 域
-   - `Step 7B`: Pet 域
-   - `Step 8`: 第二梯队治理 + 门禁扩围
-
-3. **每步补 runtime smoke**:
-   - 仅有 LSP / lupa 绿灯不足以背书运行时兼容
-   - 每个拆分步骤完成后至少验证一次“加载到核心入口不报错”
-
-4. **文档状态禁止抢跑**:
-   - 未提供原始 Git / 门禁 / 测试证据前，不得把阶段写成 ✅ 已完成
-   - 若仅完成子任务，应按 `Step 6A/6B/6C` 记录，而不是直接把总阶段关掉
+**执行约束**:
+- 每一步都补 runtime smoke
+- 门禁豁免必须与当前代码体量同步
+- 阶段状态必须以后续验收报告里的 Git / 门禁 / 测试证据为准
 
 ---
 
@@ -1903,9 +1902,9 @@ EXIT: SUCCESS
 | 文件 | 当前行数 | 豁免上限 | 所属 Step |
 |------|---------|---------|-----------|
 | `systems/AtlasSystem.lua` | 1215 | 1265 | Step 8 |
-| `systems/CombatSystem.lua` | 1025 | 1075 | Step 9 |
-| `systems/QuestSystem.lua` | 959 | 1010 | Step 10 |
-| `systems/save/SaveMigrations.lua` | 1111 | 1165 | Step 11 |
+| `systems/CombatSystem.lua` | 1025 | 1075 | Step 8 |
+| `systems/QuestSystem.lua` | 959 | 1010 | Step 8 |
+| `systems/save/SaveMigrations.lua` | 1111 | 1165 | Step 10 |
 
 **UI 兼容性验证结果**:
 - SkillSystem: BottomBar.lua (7个方法/字段) + CharacterUI.lua (3个方法/字段) → 全部通过 facade 正常导出 ✅
@@ -1921,7 +1920,39 @@ EXIT: SUCCESS
 
 Step 6 全部 4 个子任务（6A Skill / 6B Loot / 6C Inventory / 6D Challenge）+ 门禁清理 (6.0) 已完成并推送至远端。所有子模块 < 900 行，facade 对外接口不变，UI 调用方零改动，门禁 296/296 PASS。
 
-**下一步**: 继续执行 Step 7（rendering/ 子模块 ratchet 或 ui/ 大文件拆分，视优先级而定）。
+**下一步**: 继续执行 Step 7（优先 `ChallengeUI.lua` + `AlchemyUI.lua` 阵营丹药片段，其后为 `PetPanel.lua`）。
+
+---
+
+### Step 6 后遗症修复：渲染黑屏问题（2026-05-31 热修复）
+
+**玩家症状**: 地图移动时偶发黑屏，有时自愈有时不能。
+
+**根因分析**:
+
+拆分重构后，渲染子模块存在以下缺陷叠加导致黑屏：
+
+1. `rendering/entities/monsters.lua` 调用 `M.RenderChainSeal()`，但该函数定义在 `chests.lua` 中，拆分后引用断裂 → `attempt to call a nil value`
+2. 错误从 `RenderMonster()` 一路冒泡到 `WorldRenderer:Render()`，**绕过了结尾的 `nvgRestore(nvg)`**
+3. NVG save/restore 栈失衡 → scissor region 为空 → 后续所有帧黑屏
+4. 当触发错误的怪物离开视野后，错误停止抛出，`nvgBeginFrame` 在帧开头重置状态 → "自愈"
+
+**发现的全部缺陷（按优先级）**:
+
+| 优先级 | 文件 | 问题 | 修复 |
+|--------|------|------|------|
+| P0 | `WorldRenderer.lua` | 无顶层错误保护，任一子渲染器报错都会跳过 `nvgRestore` | 用 `pcall` 包裹渲染管线，确保 `nvgRestore` 始终执行 |
+| P0 | `entities/monsters.lua:294` | `M.RenderChainSeal` 为 nil（定义在 chests.lua，拆分后引用断裂） | `require("rendering.entities.chests")` 并赋值 |
+| P0 | `entities/monsters.lua:39` | `m.hurtFlashTimer` 无 nil 保护，远程怪物代理可能无此字段 | `(m.hurtFlashTimer or 0)` |
+| P0 | `entities/pet.lua:18` | 同上，`pet.hurtFlashTimer` 无 nil 保护 | `(pet.hurtFlashTimer or 0)` |
+| P1 | `DecorationRenderers.lua` | `assert()` 构建派发表，缺函数时第一帧崩溃 | 改为 `log + 跳过` |
+
+**教训 & 规范补充**:
+
+1. **拆分后必须做跨模块引用检查** — 不能只验证"facade 对外接口不变"，还要验证子模块之间的横向引用
+2. **渲染管线必须有 pcall 兜底** — NVG save/restore 是栈式状态机，任何中间报错都会导致状态泄漏
+3. **所有渲染路径中的字段访问必须 nil 保护** — 多人游戏中，远程实体/代理对象可能缺少本地构造函数初始化的字段
+4. **热路径禁止 `assert()`** — 使用 log + 降级策略，避免单个缺失函数导致整帧崩溃
 
 ---
 
