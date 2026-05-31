@@ -608,6 +608,20 @@ TestRegistry.tests = {
         gate          = "blocking",
         skip_reason   = nil,
     },
+
+    ---------------------------------------------------------------------------
+    -- INFRA: 文件长度预算门禁（bigfile-refactor §3）
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "file_budget",
+        group         = "infra",
+        path          = "scripts/tests/test_file_budget.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
 }
 
 --- 返回所有测试条目
