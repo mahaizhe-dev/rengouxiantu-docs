@@ -1171,7 +1171,7 @@ return M
 
 ---
 
-### Step 5: 渲染线主拆分
+### Step 5: 渲染线主拆分 ✅
 
 **目标**: 拆分 `rendering/` 目录的三个巨型文件。
 
@@ -1355,9 +1355,9 @@ return M
 | Step 0-1 | ✅ 已完成 | 简单 | 环境准备 + 文件长度门禁 |
 | Step 2 | ✅ 已完成 | 低 | `GameConfig` / `SkillData` 自然收敛验证 |
 | Step 3 | ✅ 已完成 | 中-高 | `EquipmentData` facade 化 |
-| Step 4 | 🔜 待执行 | 中-高 | `config` 一梯队收口（MonsterData 二级拆分 + MonsterTypes_ch3 × 3 + Special） |
-| Step 5 | 待执行 | 中 | 渲染线主拆分（3 文件，按体积排序） |
-| Step 6 | 待执行 | 中-高 | 业务系统主拆分（4 文件） |
+| Step 4 | ✅ 已完成 | 中-高 | `config` 一梯队收口（MonsterData 二级拆分 + MonsterTypes_ch3 × 3 + Special） |
+| Step 5 | ✅ 已完成 | 中 | 渲染线主拆分（3 文件，按体积排序） |
+| Step 6 | 🔜 待执行 | 中-高 | 业务系统主拆分（4 文件） |
 | Step 7 | 待执行 | 中 | UI 一梯队拆分（2 文件） |
 | Step 8 | 待执行 | 低-中 | 门禁扩围（非阻断式扩展 + 第二梯队分拣） |
 | Step 9 | 待执行 | 高 | 存档关键链路最终回归 |
@@ -1493,3 +1493,103 @@ return M
 - `bm_s3_sell_guard` — 4/20 assertion failures
 
 **提交**: `refactor(config): Step 3 — split EquipmentData into facade + 3 sub-modules`
+
+---
+
+### Step 5 执行日志 — 2026-05-31
+
+> Step 4 执行日志见 `docs/2026-05-31-step4-completion-report.md`（commit `df1016d`）
+
+**目标**: 拆分 `rendering/` 目录的三个巨型文件（EffectRenderer 3561行 / TileRenderer 3301行 / EntityRenderer 3298行）
+
+**实际拆分结果**:
+
+| 文件 | 拆分前 | 拆分后 | 角色 |
+|------|--------|--------|------|
+| `rendering/EffectRenderer.lua` (facade) | 3561 | 206 | 统一入口 + 子模块聚合 |
+| `rendering/TileRenderer.lua` (facade) | 3301 | 270 | 统一入口 + registry |
+| `rendering/EntityRenderer.lua` (facade) | 3298 | 24 | 纯 re-export |
+| `rendering/effects/assets.lua` | — | 93 | 图片缓存和资源加载 |
+| `rendering/effects/basic_attacks.lua` | — | 292 | 基础攻击效果 |
+| `rendering/effects/skills_a.lua` | — | 769 | 技能效果 A (6 技能) |
+| `rendering/effects/skills_b.lua` | — | 906 | 技能效果 B (9 技能) |
+| `rendering/effects/zones.lua` | — | 418 | 区域效果 |
+| `rendering/effects/auras.lua` | — | 702 | buff/光环/真图剑 |
+| `rendering/effects/formations.lua` | — | 268 | 剑阵效果 |
+| `rendering/effects/shared.lua` | — | 17 | 公共依赖导出 |
+| `rendering/tiles/shared.lua` | — | 120 | 公共 noise/flat helpers |
+| `rendering/tiles/town.lua` | — | 183 | 城镇 tile |
+| `rendering/tiles/ch2_terrain.lua` | — | 186 | 第二章地形 |
+| `rendering/tiles/ch3_desert.lua` | — | 276 | 第三章沙海 |
+| `rendering/tiles/ch3_celestial.lua` | — | 348 | 第三章仙域 |
+| `rendering/tiles/ch3_void.lua` | — | 224 | 第三章虚空 |
+| `rendering/tiles/yaochi.lua` | — | 539 | 瑶池 |
+| `rendering/tiles/ch5_ground.lua` | — | 823 | 第五章地面 |
+| `rendering/tiles/ch5_structures.lua` | — | 502 | 第五章建筑/交互 |
+| `rendering/entities/shared.lua` | — | 106 | 公共依赖导出 |
+| `rendering/entities/player.lua` | — | 892 | 玩家渲染 |
+| `rendering/entities/monsters.lua` | — | 1007 | 怪物渲染 |
+| `rendering/entities/npcs.lua` | — | 244 | NPC 渲染 |
+| `rendering/entities/pet.lua` | — | 88 | 宠物渲染 |
+| `rendering/entities/loot.lua` | — | 575 | 掉落物渲染 |
+| `rendering/entities/chests.lua` | — | 398 | 宝箱/奇缘渲染 |
+
+**拆分策略**:
+- **facade 合并子模块**: 每个 Renderer 退化为纯 facade，`require` 子模块并合并到宿主表
+- **shared.lua 依赖导出**: 每个子目录建立 `shared.lua` 导出公共依赖，子模块通过 `local X = shared.X` 解构
+- **子模块模式**: 独立工具模块（`local M = {}; ... return M`）
+
+**EXEMPTIONS 变化**:
+- 毕业: `rendering/EffectRenderer.lua` (cap=3600→实际 206)、`rendering/TileRenderer.lua` (cap=3350→实际 270)、`rendering/EntityRenderer.lua` (cap=3350→实际 24)
+- 保留（ratchet）: `rendering/effects/skills_b.lua` (cap=950, 实际 906)、`rendering/entities/monsters.lua` (cap=1050, 实际 1007)
+- 总数: 41 → 38 + 2 新增 = 40 条
+
+**Hotfix 记录**:
+- `3756a70` fix(Step5): 修复 6 个子模块的语法和 LSP 错误
+  - `skills_b.lua`: for 循环缺失 body + end（split 时截断）
+  - `loot.lua`: 缺少 MonsterData import + 孤儿注释
+  - `monsters.lua`: 缺少 getRealmColorGroup import
+  - `npcs.lua`: 缺少 DecorationRenderers import + `"\!"` 非法转义
+  - `pet.lua`: 缺少 GameConfig/RenderUtils import
+  - `player.lua`: 缺少 getHpColor import
+- `e967b81` fix(Step5): yaochi.lua 错误引用 `require("ui.UITheme")` → `require("config.UITheme")`
+
+**验收**:
+- `rendering/` 目录最大文件: `entities/monsters.lua` 1007 行（EXEMPTIONS cap=1050）✅
+- 门禁: LSP 0 diagnostics ✅
+- 运行时: 两轮 hotfix 后 TapTap Maker 加载通过 ✅
+
+**教训**:
+- LSP 只能捕获语法错误和 undefined-global 警告，无法发现 wrong `require` path（仅运行时暴露）
+- 后续步骤应增加 runtime smoke verification（至少加载到 Start() 不报错）
+
+**提交**:
+- `5177392` — `docs(report): Step 5 completion report - rendering/ Phase 3 split done`
+- `3756a70` — `fix(Step5): resolve syntax and LSP errors in split sub-modules`
+- `e967b81` — `fix(Step5): correct UITheme require path in tiles/yaochi.lua`
+
+---
+
+### 计划卫生备忘（Step 5 完成后评估）
+
+**结论**: Step 5 可以视为完成。后续继续执行，不需要推翻计划。需要补的不是方向，而是"计划卫生"。
+
+**具体行动项**:
+
+1. **清理旧豁免（EXEMPTIONS ratchet-down）**:
+   - 3 个 facade 文件已毕业（EffectRenderer/TileRenderer/EntityRenderer）
+   - `skills_b.lua` (906→cap 950) 和 `monsters.lua` (1007→cap 1050) 保留为 ratchet，后续只降不升
+   - 后续每个 Step 完成时，检查是否有更多文件可以毕业
+
+2. **第二梯队补充（Step 8 门禁扩围时正式纳入）**:
+   - `rendering/DecoDivine.lua` (1398 行) — 当前已有 EXEMPTIONS cap=1450，待专项拆分
+   - `network/`、`entities/`、`world/`、`main.lua` — Step 8 以 warning-only 模式加入 SCAN_DIRS
+
+3. **保持执行顺序不变**:
+   - Step 6: systems/ 主拆分（SkillSystem 2123 / LootSystem 1668 / ChallengeSystem 1529 / InventorySystem 1386）
+   - Step 7: ui/ 一梯队拆分（PetPanel 2175 / ChallengeUI 2119）
+   - Step 8: 门禁扩围 + 第二梯队分拣
+
+4. **后续步骤增加 runtime smoke 验证**:
+   - Step 5 暴露了"LSP 通过但运行时 require 路径错误"的 gap
+   - 建议: 每个拆分步骤完成后，至少执行一次 build + 加载验证，而非仅依赖 LSP
