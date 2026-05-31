@@ -1228,3 +1228,36 @@ Step 0 → Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6 → Ste
 **注意事项**:
 - S1.1 补丁已移除 `io.popen` 依赖，改用 `os.execute` + 临时文件，lupa 环境可直接运行
 - EXEMPTIONS 表作为 ratchet 上限，后续拆分完成后应逐步降低或移除
+
+---
+
+### Step 2: 配置模块拆分（低风险） ✅
+
+**结论**: 目标文件已在迭代开发中自然收敛至预算内，**无需结构性拆分**。
+
+| 文件 | 计划行数 | 实际行数 | DATA_TARGET | 状态 |
+|------|---------|---------|-------------|------|
+| `config/GameConfig.lua` | 2341 | **755** | 900 | ✅ 已达标 |
+| `config/SkillData.lua` | 1677 | **713** | 900 | ✅ 已达标 |
+| `config/MonsterTypes.lua` | — | facade | — | ✅ 已拆分 (ch1-ch5) |
+
+**执行动作**:
+
+| 动作 | 详情 |
+|------|------|
+| 文件尺寸验证 | `wc -l` 确认 GameConfig=755, SkillData=713，均 < DATA_TARGET(900) |
+| EXEMPTIONS 毕业 | 移除 `config/GameConfig.lua` 条目（原 cap=810，实际 755 已在 target 内） |
+| EXEMPTIONS 变化 | 42 → 41 条 |
+| 全量测试 | 21 PASS / 5 FAIL（全为基线已有失败，与变更前完全一致） |
+| 基线对照 | `git stash` 还原后重跑测试，5 FAIL 列表 & 失败数完全相同 |
+
+**基线已有失败（非本次引入）**:
+- `smoke_fail` — 预期失败的烟雾测试
+- `smoke_crash` — 预期崩溃的烟雾测试
+- `trial_tower` — 78/1480 assertion failures
+- `save_dto_contract` — 2/68 assertion failures
+- `bm_s3_sell_guard` — 4/20 assertion failures
+
+**根因分析**: 计划编写时（2026-05-30）文件行数基于当时快照。此后多轮功能迭代（六一活动/事件配置/兑换UI 等提交）对 GameConfig 和 SkillData 做了数据精简和结构优化，行数自然下降至预算内。
+
+**提交**: `refactor(config): Step 2 — graduate GameConfig from EXEMPTIONS`

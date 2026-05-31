@@ -61,7 +61,7 @@ local EXEMPTIONS = {
     -- 第二梯队：超警戒线，不在本轮范围，后续迭代处理
     -- ═══════════════════════════════════════════════════════════════════════
     -- config/
-    ["config/GameConfig.lua"]          = 810,   -- 当前 755（数据文件，仅超目标线不超警戒线，但因 stash 版本更大预留）
+    -- [已毕业] config/GameConfig.lua — 755 行，已在 DATA_TARGET(900) 内，Step 2 移除
     ["config/MonsterTypes_ch5.lua"]    = 1000,  -- 当前 940
 
     -- rendering/
