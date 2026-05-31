@@ -1214,6 +1214,23 @@ return M
 
 **提交**: `refactor(systems): split SkillSystem + LootSystem + ChallengeSystem + InventorySystem`
 
+**完成报告** (2026-05-31):
+
+| 文件 | 原行数 | Facade 行数 | 子模块数 | 最大子模块 |
+|------|--------|------------|---------|-----------|
+| SkillSystem.lua | 2123 | 443 | 5 | casting_a (640) |
+| LootSystem.lua | 1668 | 54 | 4 | generation (766) |
+| ChallengeSystem.lua | 1529 | 428 | 4 | arena (441) |
+| InventorySystem.lua | 1386 | 361 | 3 | consumables (554) |
+
+拆分模式:
+- SkillSystem → `skill/{shared,bar,casting_a,casting_b,passives}.lua`
+- LootSystem → `loot/{shared,generation,pickup,rewards}.lua`
+- ChallengeSystem → `challenge/{shared,arena,persistence,rewards}.lua`
+- InventorySystem → `inventory/{equip_stats,consumables,batch_use}.lua`
+
+Gate: 全部 facade + 子模块 < 900 行 ✅ | 构建通过 ✅
+
 ---
 
 ### Step 7: UI 一梯队拆分
@@ -1357,7 +1374,7 @@ return M
 | Step 3 | ✅ 已完成 | 中-高 | `EquipmentData` facade 化 |
 | Step 4 | ✅ 已完成 | 中-高 | `config` 一梯队收口（MonsterData 二级拆分 + MonsterTypes_ch3 × 3 + Special） |
 | Step 5 | ✅ 已完成 | 中 | 渲染线主拆分（3 文件，按体积排序） |
-| Step 6 | 🔜 待执行 | 中-高 | 业务系统主拆分（4 文件） |
+| Step 6 | ✅ 已完成 | 中-高 | 业务系统主拆分（4 文件） |
 | Step 7 | 待执行 | 中 | UI 一梯队拆分（2 文件） |
 | Step 8 | 待执行 | 低-中 | 门禁扩围（非阻断式扩展 + 第二梯队分拣） |
 | Step 9 | 待执行 | 高 | 存档关键链路最终回归 |
