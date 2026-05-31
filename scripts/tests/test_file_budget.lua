@@ -50,7 +50,8 @@ local EXEMPTIONS = {
     -- 第一梯队：本轮重构目标文件（Step 2-7）
     -- ═══════════════════════════════════════════════════════════════════════
     ["config/MonsterData.lua"]         = 3750,  -- 当前 3698
-    ["config/EquipmentData.lua"]       = 3500,  -- 当前 3449
+    -- [已毕业] config/EquipmentData.lua — 252 行 facade，已在 DATA_TARGET(900) 内，Step 3 拆分
+    ["config/EquipmentData_Special.lua"] = 2050,  -- 当前 2012（纯数据表，后续按章节再拆）
     ["config/MonsterTypes_ch3.lua"]    = 2250,  -- 当前 2205
     ["rendering/EffectRenderer.lua"]   = 3600,  -- 当前 3561
     ["rendering/TileRenderer.lua"]     = 3350,  -- 当前 3301

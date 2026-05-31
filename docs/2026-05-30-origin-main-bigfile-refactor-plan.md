@@ -1261,3 +1261,44 @@ Step 0 → Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6 → Ste
 **根因分析**: 计划编写时（2026-05-30）文件行数基于当时快照。此后多轮功能迭代（六一活动/事件配置/兑换UI 等提交）对 GameConfig 和 SkillData 做了数据精简和结构优化，行数自然下降至预算内。
 
 **提交**: `refactor(config): Step 2 — graduate GameConfig from EXEMPTIONS`
+
+---
+
+### Step 3 执行日志 — 2026-05-31
+
+**目标**: 拆分存档强依赖的 `EquipmentData.lua`（3449 行 → facade + 3 子模块）
+
+**实际拆分结果**:
+
+| 文件 | 行数 | 角色 |
+|------|------|------|
+| `config/EquipmentData.lua` (facade) | 252 | 核心常量 (SLOTS/MAIN_STAT/TIER_*) + require 子模块 |
+| `config/EquipmentData_Special.lua` | 2012 | SpecialEquipment 纯数据表 |
+| `config/EquipmentData_Collection.lua` | 665 | Collection 图录数据表 |
+| `config/EquipmentData_Forge.lua` | 535 | SetBonuses + 所有锻造/法宝配方 |
+
+**拆分策略**:
+- **facade 模式**: facade 保留核心常量（SLOTS 等存档关键字段）立即可用，满足 `SaveMigrations` 和 `SaveSerializer` 的加载顺序约束
+- **Special/Collection**: 返回纯 table，由 facade 赋值
+- **Forge**: 因 `LINGQI_FORGE_SLOTS = EquipmentData.STANDARD_SLOTS` 自引用，采用闭包模式 `return function(EquipmentData) ... end`，由 facade 传入自身
+
+**EXEMPTIONS 变化**:
+- 移除: `config/EquipmentData.lua = 3500`（facade 252 行，已在 DATA_TARGET 内，毕业）
+- 新增: `config/EquipmentData_Special.lua = 2050`（纯数据表，后续可按章节再拆）
+- 总数: 41 → 41 条（一进一出）
+
+| 动作 | 详情 |
+|------|------|
+| 文件尺寸验证 | facade=252, Special=2012, Collection=665, Forge=535 |
+| file_budget 测试 | 242/242 PASS，所有文件在预算范围内 |
+| 全量测试 | 21 PASS / 5 FAIL（与基线完全一致，无回归） |
+| 存档相关测试 | `migration_state_policy` 55/55 ✅, `save_optimization` 81/81 ✅, `save_system_net_state_machine` 34/34 ✅ |
+
+**基线已有失败（非本次引入，与 Step 2 相同）**:
+- `smoke_fail` — 预期失败的烟雾测试
+- `smoke_crash` — 预期崩溃的烟雾测试
+- `trial_tower` — 78/1480 assertion failures
+- `save_dto_contract` — 2/68 assertion failures
+- `bm_s3_sell_guard` — 4/20 assertion failures
+
+**提交**: `refactor(config): Step 3 — split EquipmentData into facade + 3 sub-modules`
