@@ -15,7 +15,7 @@ function M.RenderPet(nvg, l, camera)
     local sx, sy = RenderUtils.WorldToLocal(pet.x, pet.y, camera, l)
     local ts = camera:GetTileSize()
 
-    local flash = pet.hurtFlashTimer > 0 and math.floor(pet.hurtFlashTimer * 20) % 2 == 0
+    local flash = (pet.hurtFlashTimer or 0) > 0 and math.floor((pet.hurtFlashTimer or 0) * 20) % 2 == 0
 
     -- 狗的视觉大小：高阶级更大；高级皮肤固定 1.3
     local appearanceId = pet.appearance and pet.appearance.selectedId or nil

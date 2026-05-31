@@ -13,7 +13,13 @@ local getLvBadgeColorGroup = shared.getLvBadgeColorGroup
 local getRealmColorGroup = shared.getRealmColorGroup
 local getHpColor = shared.getHpColor
 
+local chests = require("rendering.entities.chests")
+
 local M = {}
+
+-- 从 chests 模块借用锁链封印渲染（怪物/宝箱共用）
+M.RenderChainSeal = chests.RenderChainSeal
+
 function M.RenderMonsters(nvg, l, camera)
     local monsters = GameState.monsters
     for i = 1, #monsters do
@@ -30,7 +36,7 @@ function M.RenderMonster(nvg, l, camera, m)
     local size = m.bodySize
     local time = GameState.gameTime or 0
 
-    local flash = m.hurtFlashTimer > 0 and math.floor(m.hurtFlashTimer * 20) % 2 == 0
+    local flash = (m.hurtFlashTimer or 0) > 0 and math.floor((m.hurtFlashTimer or 0) * 20) % 2 == 0
 
     local radius = ts * (MONSTER_RADIUS_SCALE[m.category] or 0.5)
     local cx = sx

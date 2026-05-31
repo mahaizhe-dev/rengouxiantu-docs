@@ -68,62 +68,68 @@ function WorldRenderer:Render(nvg)
     nvgSave(nvg)
     nvgIntersectScissor(nvg, l.x, l.y, l.w, l.h)
 
-    -- 绘制地图瓦片
-    self:RenderTiles(nvg, l)
+    local ok, err = pcall(function()
+        -- 绘制地图瓦片
+        self:RenderTiles(nvg, l)
 
-    -- 绘制副本地板（在瓦片之上，覆盖空白区域）
-    if DungeonRenderer then DungeonRenderer.RenderDungeonFloor(nvg, l, camera) end
+        -- 绘制副本地板（在瓦片之上，覆盖空白区域）
+        if DungeonRenderer then DungeonRenderer.RenderDungeonFloor(nvg, l, camera) end
 
-    -- 绘制封印光幕特效（在瓦片之上、装饰物之下）
-    self:RenderSealBarriers(nvg, l)
+        -- 绘制封印光幕特效（在瓦片之上、装饰物之下）
+        self:RenderSealBarriers(nvg, l)
 
-    -- 绘制主城围墙出入口标记
-    DecorationRenderers.RenderTownGates(nvg, l, camera)
+        -- 绘制主城围墙出入口标记
+        DecorationRenderers.RenderTownGates(nvg, l, camera)
 
-    -- 绘制装饰物
-    DecorationRenderers.RenderDecorations(nvg, l, camera)
+        -- 绘制装饰物
+        DecorationRenderers.RenderDecorations(nvg, l, camera)
 
-    -- 绘制福源果（地面交互物）
-    EntityRenderer.RenderFortuneFruits(nvg, l, camera)
+        -- 绘制福源果（地面交互物）
+        EntityRenderer.RenderFortuneFruits(nvg, l, camera)
 
-    -- 绘制仙缘宝箱（地面交互物）
-    EntityRenderer.RenderXianyuanChests(nvg, l, camera)
+        -- 绘制仙缘宝箱（地面交互物）
+        EntityRenderer.RenderXianyuanChests(nvg, l, camera)
 
-    -- 绘制 NPC
-    EntityRenderer.RenderNPCs(nvg, l, camera)
+        -- 绘制 NPC
+        EntityRenderer.RenderNPCs(nvg, l, camera)
 
-    -- 绘制掉落物
-    EntityRenderer.RenderLootDrops(nvg, l, camera)
+        -- 绘制掉落物
+        EntityRenderer.RenderLootDrops(nvg, l, camera)
 
-    -- 绘制怪物
-    EntityRenderer.RenderMonsters(nvg, l, camera)
+        -- 绘制怪物
+        EntityRenderer.RenderMonsters(nvg, l, camera)
 
-    -- 副本 BOSS 已是 GameState.monsters 中的本地 Monster 实体，由 RenderMonsters 统一绘制
+        -- 副本 BOSS 已是 GameState.monsters 中的本地 Monster 实体，由 RenderMonsters 统一绘制
 
-    -- 绘制副本远程玩家（在 BOSS 之上、本地玩家之下）
-    if DungeonRenderer then DungeonRenderer.RenderRemotePlayers(nvg, l, camera) end
+        -- 绘制副本远程玩家（在 BOSS 之上、本地玩家之下）
+        if DungeonRenderer then DungeonRenderer.RenderRemotePlayers(nvg, l, camera) end
 
-    -- 绘制宠物
-    EntityRenderer.RenderPet(nvg, l, camera)
+        -- 绘制宠物
+        EntityRenderer.RenderPet(nvg, l, camera)
 
-    -- 绘制玩家
-    EntityRenderer.RenderPlayer(nvg, l, camera)
+        -- 绘制玩家
+        EntityRenderer.RenderPlayer(nvg, l, camera)
 
-    -- 绘制怪物血条（在实体上方）
-    EntityRenderer.RenderMonsterHealthBars(nvg, l, camera)
+        -- 绘制怪物血条（在实体上方）
+        EntityRenderer.RenderMonsterHealthBars(nvg, l, camera)
 
-    -- 绘制战斗特效（浮动伤害数字）
-    EffectRenderer.Render(nvg, l, camera)
+        -- 绘制战斗特效（浮动伤害数字）
+        EffectRenderer.Render(nvg, l, camera)
 
-    -- 处理灵韵拾取粒子队列（世界坐标→屏幕坐标）
-    LingYunFx.ProcessPending(camera, l)
+        -- 处理灵韵拾取粒子队列（世界坐标→屏幕坐标）
+        LingYunFx.ProcessPending(camera, l)
 
-    -- GM：鼠标悬停显示瓦片坐标
-    if GameConfig.GM_SHOW_COORDS then
-        self:RenderHoverCoord(nvg, l)
+        -- GM：鼠标悬停显示瓦片坐标
+        if GameConfig.GM_SHOW_COORDS then
+            self:RenderHoverCoord(nvg, l)
+        end
+    end)
+
+    nvgRestore(nvg)  -- 无论渲染是否报错，必须恢复 NVG 状态
+
+    if not ok then
+        print("[WorldRenderer] render error: " .. tostring(err))
     end
-
-    nvgRestore(nvg)
 end
 
 --- 世界坐标转渲染坐标（保留供外部直接调用兼容）

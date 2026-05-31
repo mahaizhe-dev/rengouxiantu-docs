@@ -154,10 +154,13 @@ local function initDecorationRenderFN()
     for _, key in ipairs(DECORATION_RENDER_KEYS) do
         local methodName = DECORATION_RENDER_METHOD[key]
         local fn = M[methodName]
-        assert(fn, string.format(
-            "[DecorationRenderers] dispatch 断言失败: type=%q → method=%q 未找到! 检查子模块是否导出该函数。",
-            key, methodName))
-        DECORATION_RENDER_FN[key] = fn
+        if fn then
+            DECORATION_RENDER_FN[key] = fn
+        else
+            log:Write(LOG_WARNING, string.format(
+                "[DecorationRenderers] dispatch 警告: type=%q → method=%q 未找到，跳过该装饰类型",
+                key, methodName))
+        end
     end
     log:Write(LOG_INFO, string.format(
         "[DecorationRenderers] dispatch 初始化完成: %d 个类型已绑定", #DECORATION_RENDER_KEYS))
