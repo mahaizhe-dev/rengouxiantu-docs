@@ -148,16 +148,19 @@ end
 -- 辅助：全服抽取记录（稀有/传说写入 serverCloud.list）
 -- ============================================================================
 
-local function WritePullRecords(charName, rollResults, recordsKey, boxType)
+local function WritePullRecords(charName, rollResults, recordsKey, boxType, recordKeyPrefix)
     local masked = MaskPlayerName(charName)
+    local seq = 0
     for _, r in ipairs(rollResults) do
         if r.rarity == "rare" or r.rarity == "legendary" then
+            seq = seq + 1
             serverCloud.list:Add(SYSTEM_UID, recordsKey, {
+                recordKey = recordKeyPrefix and (recordKeyPrefix .. seq) or nil,
                 displayName = masked,
                 name = r.name,
                 rarity = r.rarity,
                 boxType = boxType or r.boxType,
-                ts = os.time(),
+                ts = r.ts or os.time(),
             })
         end
     end
@@ -448,15 +451,20 @@ function M.HandleOpenFudai(eventType, eventData)
             saveData.event_data = evtAllData
 
             -- ════ 组装 NewPullRecords（rare/legendary 立即回传客户端）════
-            -- charName 在后面 slots_index 回调中才确定，此处用占位
+            -- 生成稳定 recordKey 前缀，避免同秒多抽记录重复
+            local recordTs = os.time()
+            local recordKeyPrefix = userId .. "_" .. recordTs .. "_"
+            local recordSeq = 0
             local newPullRecords = {}
             for _, r in ipairs(rollResults) do
                 if r.rarity == "rare" or r.rarity == "legendary" then
+                    recordSeq = recordSeq + 1
                     newPullRecords[#newPullRecords + 1] = {
+                        recordKey = recordKeyPrefix .. recordSeq,
                         name = r.name,
                         rarity = r.rarity,
                         boxType = boxType,
-                        ts = os.time(),
+                        ts = recordTs,
                     }
                 end
             end
@@ -540,11 +548,11 @@ function M.HandleOpenFudai(eventType, eventData)
                                         and slotMeta.name or fallbackName
 
                                     WriteRankInfo(userId, infoKey, charName, classId)
-                                    WritePullRecords(charName, rollResults, recordsKey, boxType)
+                                    WritePullRecords(charName, rollResults, recordsKey, boxType, recordKeyPrefix)
                                 end,
                                 error = function()
                                     WriteRankInfo(userId, infoKey, fallbackName, classId)
-                                    WritePullRecords(fallbackName, rollResults, recordsKey, boxType)
+                                    WritePullRecords(fallbackName, rollResults, recordsKey, boxType, recordKeyPrefix)
                                 end,
                             })
 

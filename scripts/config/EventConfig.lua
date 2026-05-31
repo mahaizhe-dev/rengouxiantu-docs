@@ -41,37 +41,54 @@ EventConfig.ACTIVE_EVENT = {
     -- ═══ 普通开启物（拨浪鼓）掉率：[chapterId][category] ═══
     dropRates = {
         [1] = { -- 初章·两界村
-            boss      = { childday_rattle = 0.005 },
-            king_boss = { childday_rattle = 0.01 },
+            boss      = { childday_rattle = 0.01 },
+            king_boss = { childday_rattle = 0.015 },
         },
         [2] = { -- 贰章·乌家堡
-            boss      = { childday_rattle = 0.01 },
+            boss      = { childday_rattle = 0.015 },
             king_boss = { childday_rattle = 0.02 },
         },
         [3] = { -- 叁章·万里黄沙
             boss         = { childday_rattle = 0.02 },
-            emperor_boss = { childday_rattle = 0.03 },
+            king_boss    = { childday_rattle = 0.03 },
+            emperor_boss = { childday_rattle = 0.04 },
         },
         [4] = { -- 肆章·八卦海
             boss         = { childday_rattle = 0.03 },
-            emperor_boss = { childday_rattle = 0.04 },
+            king_boss    = { childday_rattle = 0.04 },
+            emperor_boss = { childday_rattle = 0.05 },
         },
         [5] = { -- 伍章·中洲
-            boss       = { childday_rattle = 0.04 },
-            saint_boss = { childday_rattle = 0.05 },
+            king_boss    = { childday_rattle = 0.04 },
+            emperor_boss = { childday_rattle = 0.05 },
+            saint_boss   = { childday_rattle = 0.06 },
         },
     },
 
     -- ═══ 稀有开启物（风车）掉率：按怪物境界 monster.realm ═══
     realmDropRates = {
-        yuanying_1 = { childday_pinwheel = 0.001 },  -- 0.1%
-        huashen_1  = { childday_pinwheel = 0.002 },  -- 0.2%
-        heti_1     = { childday_pinwheel = 0.003 },  -- 0.3%
-        dacheng_1  = { childday_pinwheel = 0.005 },  -- 0.5%
-        dujie_1    = { childday_pinwheel = 0.007 },  -- 0.7%
-        dujie_2    = { childday_pinwheel = 0.007 },  -- 0.7%
-        dujie_3    = { childday_pinwheel = 0.007 },  -- 0.7%
-        dujie_4    = { childday_pinwheel = 0.007 },  -- 0.7%
+        -- 元婴 0.2%
+        yuanying_1 = { childday_pinwheel = 0.002 },
+        yuanying_2 = { childday_pinwheel = 0.002 },
+        yuanying_3 = { childday_pinwheel = 0.002 },
+        -- 化神 0.3%
+        huashen_1  = { childday_pinwheel = 0.003 },
+        huashen_2  = { childday_pinwheel = 0.003 },
+        huashen_3  = { childday_pinwheel = 0.003 },
+        -- 合体 0.4%
+        heti_1     = { childday_pinwheel = 0.004 },
+        heti_2     = { childday_pinwheel = 0.004 },
+        heti_3     = { childday_pinwheel = 0.004 },
+        -- 大乘 0.6%
+        dacheng_1  = { childday_pinwheel = 0.006 },
+        dacheng_2  = { childday_pinwheel = 0.006 },
+        dacheng_3  = { childday_pinwheel = 0.006 },
+        dacheng_4  = { childday_pinwheel = 0.006 },
+        -- 谪仙 0.8%
+        dujie_1    = { childday_pinwheel = 0.008 },
+        dujie_2    = { childday_pinwheel = 0.008 },
+        dujie_3    = { childday_pinwheel = 0.008 },
+        dujie_4    = { childday_pinwheel = 0.008 },
     },
 
     -- ═══ 四仙剑特殊覆盖（优先于 realmDropRates）═══

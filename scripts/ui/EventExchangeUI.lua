@@ -1493,17 +1493,17 @@ function EventExchangeUI.HandlePullRecordsData(eventType, eventData)
     end
 
     -- 防竞态：检查 localPendingRecords_ 中哪些尚未出现在服务端响应中
-    -- 用 ts + name 组合做匹配键
+    -- 优先用 recordKey 做唯一匹配，回退 ts|name
     local serverKeys = {}
     for _, r in ipairs(serverRecords) do
-        local key = tostring(r.ts or 0) .. "|" .. (r.name or "")
+        local key = r.recordKey or (tostring(r.ts or 0) .. "|" .. (r.name or ""))
         serverKeys[key] = true
     end
 
     local stillPending = {}
     local missingFromServer = {}
     for _, pr in ipairs(localPendingRecords_) do
-        local key = tostring(pr.ts or 0) .. "|" .. (pr.name or "")
+        local key = pr.recordKey or (tostring(pr.ts or 0) .. "|" .. (pr.name or ""))
         if serverKeys[key] then
             -- 已被服务端确认，无需保留
         else
