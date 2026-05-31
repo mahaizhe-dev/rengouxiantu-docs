@@ -1040,157 +1040,336 @@ Step 0 → Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6 → Ste
 
 **提交**: `refactor(config): split EquipmentData (save-critical)`
 
+
 ---
 
-### Step 4: 渲染模块拆分
+### Step 4 起的重排说明（基于 2026-05-31 审计修订）
 
-**目标**: 拆分渲染层大文件
+> **修订依据**: `docs/2026-05-31-plan-audit-report.md`（commit `0ced457`）
 
-| 文件 | 风险 | 拆分策略 |
+**从 `23b756c` 开始，后续步骤不再按最初的 Step 4-8 原样执行。**
+
+原因如下：
+
+- `Step 2` 的 `GameConfig.lua`、`SkillData.lua` 已自然收敛到预算内，不再是拆分主目标。
+- `Step 3` 已完成 `EquipmentData.lua -> facade + 3 子模块`，但 `EquipmentData_Special.lua` 仍有 `2012` 行，`config` 线并未结束。
+- 审计发现 `MonsterData.lua` 的 **Skills 块占 85%（3139/3698 行）**，需要二级按章节拆分。
+- 审计发现 `MonsterTypes_ch3.lua` 按照功能/区域聚合修正为 **3 子文件**（非最初的 4 子文件）。
+- 当前真正的一梯队文件是：
+  - `config/MonsterData.lua` `3698`
+  - `rendering/EffectRenderer.lua` `3561`
+  - `rendering/TileRenderer.lua` `3301`
+  - `rendering/EntityRenderer.lua` `3298`
+  - `config/MonsterTypes_ch3.lua` `2205`
+  - `ui/PetPanel.lua` `2175`
+  - `systems/SkillSystem.lua` `2123`
+  - `ui/ChallengeUI.lua` `2119`
+  - `config/EquipmentData_Special.lua` `2012`
+- 当前门禁只覆盖 `config/rendering/ui/systems`，尚未正式纳入 `network/entities/world/main.lua/server_main.lua`。后续步骤必须先完成当前范围的一梯队，再决定门禁扩围（Step 8）。
+
+---
+
+### Step 4: 配置线收口（Step 3 后的第一优先级）
+
+**目标**: 完成 `config` 目录的一梯队收口。MonsterData 需**二级拆分**（先按模块拆为子文件，Skills 子文件再按章节拆为孙文件），同时把 `EquipmentData_Special` 的体积迁移彻底做完。
+
+#### Step 4A: MonsterData 二级拆分
+
+**策略**: 按数据模块拆为一级子文件；Skills 模块因体量 3139 行（85%）再按章节拆为二级子文件。
+
+| 一级子文件 | 行数 | 是否需要二级拆分 |
+|-----------|------|-----------------|
+| `MonsterData_Skills.lua`（聚合入口） | ~50 | ✅ → 5-6 个章节文件 |
+| `MonsterData_WorldDrop.lua` | ~362 | ❌ |
+| `MonsterData_Stats.lua`（HP/ATK 等） | ~150 | ❌ |
+
+**Skills 二级子文件（按章节）**:
+
+| 二级子文件 | 预估行数 | 内容 |
+|-----------|---------|------|
+| `MonsterData_Skills_Common.lua` | ~322 | 通用技能定义 |
+| `MonsterData_Skills_ch3.lua` | ~713 | 第三章怪物技能 |
+| `MonsterData_Skills_ch4.lua` | ~498 | 第四章怪物技能 |
+| `MonsterData_Skills_ch5.lua` | ~1214 | 第五章怪物技能 |
+| `MonsterData_Skills_Artifact.lua` | ~298 | 法器/秘境 boss 技能 |
+| `MonsterData_Skills_WorldDrop.lua` (可选) | ~94 | 世界掉落相关技能 |
+
+**聚合模式**: `MonsterData.lua` 退化为纯 require 入口：
+```lua
+-- MonsterData.lua（拆分后）
+local M = {}
+require("config/MonsterData_Skills")(M)
+require("config/MonsterData_WorldDrop")(M)
+require("config/MonsterData_Stats")(M)
+return M
+```
+
+**子模块模式**: 各子文件使用闭包注册模式：
+```lua
+-- MonsterData_Skills.lua（一级聚合）
+return function(M)
+    require("config/MonsterData_Skills_Common")(M)
+    require("config/MonsterData_Skills_ch3")(M)
+    require("config/MonsterData_Skills_ch4")(M)
+    require("config/MonsterData_Skills_ch5")(M)
+    require("config/MonsterData_Skills_Artifact")(M)
+end
+```
+
+**风险**: 中-高（require 路径需正确、存档引用点需逐一验证）
+
+#### Step 4B: MonsterTypes_ch3 → 3 子文件
+
+**策略**: 按功能/区域聚合拆为 3 子文件（审计修正，非最初的 4 子文件）。
+
+| 子文件 | 预估行数 | 内容 |
+|--------|---------|------|
+| `MonsterTypes_ch3_Challenge.lua` | ~452 | 挑战本 T1-T8 合并 |
+| `MonsterTypes_ch3_Desert.lua` | ~779 | 九堡 + 猪二哥系列 |
+| `MonsterTypes_ch3_Reputation.lua` | ~967 | R1-R8 + artifact_boss（~7 条合入） |
+
+**聚合模式**: 同 Step 3 的 `EquipmentData` facade 模式：
+```lua
+-- MonsterTypes_ch3.lua（拆分后）
+local M = {}
+require("config/MonsterTypes_ch3_Challenge")(M)
+require("config/MonsterTypes_ch3_Desert")(M)
+require("config/MonsterTypes_ch3_Reputation")(M)
+return M
+```
+
+**风险**: 中（结构简单，但条目数多需仔细切割）
+
+#### Step 4C: EquipmentData_Special 继续拆分
+
+**当前**: 2012 行，超过 `DATA_ALERT=1400`。
+
+**策略**: 按装备大类拆为 2-3 子文件（具体切割点待分析文件结构后确定）。
+
+**风险**: 低-中（Step 3 已验证 EquipmentData facade 模式可行）
+
+**验收条件**:
+- `config/` 下不再有超过 `DATA_ALERT(1400)` 的文件
+- `MonsterData.lua` 退化为纯聚合入口（<100 行）
+- 所有新子文件行数 < DATA_TARGET(900) 为佳，最多不超过 DATA_ALERT(1400)
+- 门禁绿灯
+- 游戏加载 + 战斗系统功能不变
+
+**提交**: `refactor(config): two-level split MonsterData + MonsterTypes_ch3 + EquipmentData_Special`
+
+---
+
+### Step 5: 渲染线主拆分
+
+**目标**: 拆分 `rendering/` 目录的三个巨型文件。
+
+| 文件 | 行数 | 拆分策略 |
 |------|------|---------|
-| `EffectRenderer.lua` (1845行) | 🟡 中 | 按特效类型拆分（参考现有 DecorationRenderers 模式） |
-| `MapRenderer.lua` (1600行) | 🟡 中 | 按地图层/区域拆分 |
+| `EffectRenderer.lua` | 3561 | 按特效类型（战斗/UI/环境/粒子） |
+| `TileRenderer.lua` | 3301 | 按渲染层（地面/墙壁/装饰/动态） |
+| `EntityRenderer.lua` | 3298 | 按实体类型（角色/怪物/NPC/宠物） |
 
-**验证**:
-- 视觉表现无变化（需人工对比截图）
-- 全量测试通过
+**通用策略**: 每个 Renderer 保留为 facade（<200行），内部按类型拆为 3-5 个子模块。
 
-**提交**: `refactor(rendering): split EffectRenderer and MapRenderer`
+**风险**: 中（渲染代码相互调用较多，需要理清依赖图）
+
+**验收条件**:
+- `rendering/` 下不再有超过 `CODE_ALERT(900)` 的文件
+- 渲染效果视觉回归正常
+- 门禁绿灯
+
+**提交**: `refactor(rendering): split EffectRenderer + TileRenderer + EntityRenderer`
 
 ---
 
-### Step 5: 系统模块拆分（低风险）
+### Step 6: 业务系统主拆分
 
-**目标**: 拆分独立性高的系统模块
+**目标**: 拆分 `systems/` 目录的大文件。
 
-| 文件 | 风险 | 拆分策略 |
+| 文件 | 行数 | 拆分策略 |
 |------|------|---------|
-| `SkillSystem.lua` (1823行) | 🟢 低 | 按技能阶段拆分（释放/命中/结算） |
-| `CombatSystem.lua` (如 >1000行) | 🟢 低 | 按战斗阶段拆分 |
+| `SkillSystem.lua` | 2123 | 按职能（释放/判定/CD/Buff） |
+| `LootSystem.lua` | 1668 | 按阶段（掉落表/拾取/背包写入） |
+| `ChallengeSystem.lua` | 1529 | 按功能（关卡定义/进度/奖励/排行） |
+| `InventorySystem.lua` | 1386 | 按模块（格子管理/排序/堆叠/分解） |
 
-**验证**:
-- 战斗测试全部通过
-- 技能释放/命中/结算逻辑不变
+**风险**: 中-高（SkillSystem 与战斗核心耦合深，LootSystem 关联存档）
 
-**提交**: `refactor(systems): split SkillSystem`
+**验收条件**:
+- `systems/` 下不再有超过 `CODE_ALERT(900)` 的文件
+- 所有系统功能回归正常
+- 门禁绿灯
+
+**提交**: `refactor(systems): split SkillSystem + LootSystem + ChallengeSystem + InventorySystem`
 
 ---
 
-### Step 6: 系统模块拆分（高风险）🔴
+### Step 7: UI 一梯队拆分
 
-**目标**: 拆分与存档/网络有交互的系统模块
+**目标**: 拆分 `ui/` 目录仍超标的文件。
 
-| 文件 | 风险 | 拆分策略 |
+| 文件 | 行数 | 拆分策略 |
 |------|------|---------|
-| `SaveMigrations.lua` (45KB) | 🔴 高 | 按版本号段拆分（v1-v10 / v11-v20 / ...） |
-| `SaveSerializer.lua` (28KB) | 🟡 中 | 按序列化对象类型拆分 |
+| `PetPanel.lua` | 2175 | 按 Tab（属性/技能/外观/升级） |
+| `ChallengeUI.lua` | 2119 | 按界面（关卡列表/战斗/结算/商店） |
 
-**关键约束**:
-1. 迁移链必须保持顺序完整（v1 → v2 → ... → vN）
-2. 每个子模块 `return function(M)` 注册迁移函数到父表
-3. facade 按版本号顺序 require 所有子模块
+**风险**: 中（UI 代码依赖状态管理，需确保跨 Tab 数据同步）
 
-**验证**:
-- `test_save_dto_contract.lua` 通过
-- `test_migration_state_policy.lua` 通过
-- 从最旧版本存档跑完整迁移链到最新版本
-- round-trip 测试通过
+**验收条件**:
+- `ui/` 下不再有超过 `CODE_ALERT(900)` 的文件
+- UI 交互功能回归正常
+- 门禁绿灯
 
-**提交**: `refactor(systems): split SaveMigrations and SaveSerializer (save-critical)`
+**提交**: `refactor(ui): split PetPanel + ChallengeUI`
 
 ---
 
-### Step 7: UI 模块拆分（低风险）
+### Step 8: 门禁扩围（SCAN_DIRS 扩展 + 第二梯队治理）
 
-**目标**: 拆分独立 UI 面板
+**目标**: 将门禁覆盖范围从当前 4 个目录扩展到全项目，正式纳入第二梯队文件。
 
-| 文件 | 风险 | 拆分策略 |
-|------|------|---------|
-| `PetPanel.lua` (1500+行) | 🟢 低 | 按子面板/Tab 拆分 |
-| `ChallengeUI.lua` (1500+行) | 🟢 低 | 按挑战类型拆分 |
+#### Step 8A: SCAN_DIRS 扩展
 
-**验证**:
-- UI 面板正常打开/关闭
-- 交互逻辑不变
+**当前覆盖**: `config/`, `rendering/`, `ui/`, `systems/`
 
-**提交**: `refactor(ui): split PetPanel and ChallengeUI`
+**待新增覆盖**:
+
+| 目录/文件 | 当前最大文件 | 行数 | 类型 |
+|-----------|-------------|------|------|
+| `network/` | `NetworkManager.lua` | ~1200 | CODE |
+| `entities/` | `Player.lua` | ~1800 | CODE |
+| `world/` | `WorldManager.lua` | ~1500 | CODE |
+| 根目录 | `main.lua` | ~900 | CODE |
+| 根目录 | `server_main.lua` | ~700 | CODE |
+
+**扩展策略**（非阻断式）:
+
+1. **Phase 1**: 新目录以 **warning-only** 模式加入 SCAN_DIRS
+   ```lua
+   -- test_file_budget.lua 扩展
+   local SCAN_DIRS_BLOCKING = { "config", "rendering", "ui", "systems" }
+   local SCAN_DIRS_WARNING = { "network", "entities", "world" }  -- 新增：仅警告
+   local SCAN_ROOT_FILES = { "main.lua", "server_main.lua" }     -- 新增：根目录文件
+   ```
+
+2. **Phase 2**: 为超标文件设定 EXEMPTIONS（ratchet 模式，只降不升）
+   ```lua
+   EXEMPTIONS["network/NetworkManager.lua"] = { code = 1200 }
+   EXEMPTIONS["entities/Player.lua"] = { code = 1800 }
+   EXEMPTIONS["world/WorldManager.lua"] = { code = 1500 }
+   ```
+
+3. **Phase 3**: 稳定后将 warning-only 升级为 blocking
+
+#### Step 8B: 第二梯队文件分拣
+
+**对象**: 门禁扩围后新发现的超标文件。
+
+**处理方式**:
+- 超过 `CODE_ALERT` 的文件 → 排入后续迭代拆分计划
+- 超过 `CODE_TARGET` 但低于 `CODE_ALERT` 的文件 → 设置 EXEMPTIONS cap，待后续版本收敛
+- 低于 `CODE_TARGET` 的文件 → 自然合规，无需处理
+
+**风险**: 低（非阻断式，不影响现有 CI）
+
+**验收条件**:
+- `test_file_budget.lua` 的 SCAN_DIRS 覆盖全项目
+- 所有已知超标文件有明确的 EXEMPTIONS 或拆分计划
+- 门禁绿灯（含新增 warning）
+- 第二梯队拆分计划文档化
+
+**提交**: `chore(infra): expand budget gate coverage to full project`
 
 ---
 
-### Step 8: UI 模块拆分（中风险）
+### Step 9: 存档关键链路最终回归
 
-**目标**: 拆分有复杂状态的 UI 模块
+**目标**: 在所有拆分完成后，做一次完整的存档 round-trip 回归测试。
 
-| 文件 | 风险 | 拆分策略 |
-|------|------|---------|
-| 其他超预算 UI 文件 | 🟡 中 | 按具体情况决定 |
+**范围**:
+- SaveSystem / SaveState / SaveKeys / SaveLoader / SaveMigrations / SavePersistence / SaveRecovery / SaveSerializer / SaveSlots
+- 新旧存档兼容性
+- 云存档同步
 
-**验证**:
-- 全量测试通过
-- UI 交互人工验证
+**风险**: 高（任何拆分可能无意中破坏存档引用路径）
 
-**提交**: `refactor(ui): split remaining oversized UI modules`
+**验收条件**:
+- 旧存档可正常加载（向后兼容）
+- 新存档可正常保存和读取
+- 云存档同步无异常
+- 存档迁移脚本正确执行
 
----
-
-### Step 9: 全量回归测试
-
-**目标**: 确认重构完整性
-
-| 任务 | 详情 |
-|------|------|
-| 跑全量测试 | `python3 scripts/tests/_run_via_lupa.py` |
-| 文件预算门禁 | 所有文件 ≤ 预算上限 |
-| 存档完整性 | 旧存档 → 新代码加载 → 保存 → 重新加载 → 字段不丢失 |
-| require 路径兼容 | 所有 facade 导出表 = 旧版导出表（自动 diff） |
-| network handler 兼容 | 25 个 handler 的 require 路径可解析 |
-
-**提交**: 无（仅验证）
+**提交**: `test(save): full save chain regression after all splits`
 
 ---
 
 ### Step 10: 发布准备
 
-**目标**: 打 tag、准备回滚版本
+**目标**: 确认拆分后的代码可正常构建和发布。
 
-| 任务 | 详情 |
-|------|------|
-| 更新版本号 | 主版本 +1 |
-| 打 tag | `git tag v2.0.0-rc1` |
-| 保留回滚构建 | 重构前最后一版的完整构建产物单独存储 |
-| 更新发布文档 | changelog 标注"结构性重构，无玩法变更" |
+**范围**:
+- 构建产物完整性检查
+- 热更新兼容性验证
+- 性能基准对比（加载时间、内存占用）
 
-**提交**: `chore: bump version to 2.0.0-rc1`
+**验收条件**:
+- 构建成功，产物大小在合理范围内
+- 热更新路径正常
+- 性能无明显回退（±5%）
+
+**提交**: `chore(release): pre-release validation after refactor`
 
 ---
 
 ### Step 11: 灰度发布
 
-**目标**: 安全上线
+**目标**: 分阶段发布拆分后的版本。
 
-| 阶段 | 范围 | 观察指标 | 回退条件 |
-|------|------|---------|---------|
-| 内测 | 开发团队 | 存档加载成功率 100% | 任何存档异常 |
-| 灰度 20% | 随机 20% 用户 | 存档丢失率 < 0.1% | 丢失率 > 0.1% |
-| 全量 | 100% 用户 | 同上 | 同上 |
+**范围**:
+- 内部测试 → 小范围灰度 → 全量发布
+- 监控关键指标（崩溃率、存档异常率、加载时间）
 
-每阶段至少观察 24h 无异常后进入下一阶段。
+**验收条件**:
+- 灰度期间无 P0/P1 级别问题
+- 关键指标无异常波动
+- 用户反馈无结构性问题
 
 ---
 
-### 执行节奏建议
+### 执行节奏建议（按 2026-05-31 审计修订重排）
 
-| 步骤 | 复杂度 | 预估工作量 |
-|------|--------|-----------|
-| Step 0-1 | 简单 | 基础设施搭建 |
-| Step 2 | 中等 | 低风险配置拆分 |
-| Step 3 | **高** | EquipmentData 是全方案最难点 |
-| Step 4 | 中等 | 渲染层拆分 |
-| Step 5-6 | 中-高 | 系统层拆分 |
-| Step 7-8 | 中等 | UI 层拆分 |
-| Step 9-11 | 简单 | 验证 + 发布 |
+| 步骤 | 状态 | 复杂度 | 说明 |
+|------|------|--------|------|
+| Step 0-1 | ✅ 已完成 | 简单 | 环境准备 + 文件长度门禁 |
+| Step 2 | ✅ 已完成 | 低 | `GameConfig` / `SkillData` 自然收敛验证 |
+| Step 3 | ✅ 已完成 | 中-高 | `EquipmentData` facade 化 |
+| Step 4 | 🔜 待执行 | 中-高 | `config` 一梯队收口（MonsterData 二级拆分 + MonsterTypes_ch3 × 3 + Special） |
+| Step 5 | 待执行 | 中 | 渲染线主拆分（3 文件，按体积排序） |
+| Step 6 | 待执行 | 中-高 | 业务系统主拆分（4 文件） |
+| Step 7 | 待执行 | 中 | UI 一梯队拆分（2 文件） |
+| Step 8 | 待执行 | 低-中 | 门禁扩围（非阻断式扩展 + 第二梯队分拣） |
+| Step 9 | 待执行 | 高 | 存档关键链路最终回归 |
+| Step 10-11 | 待执行 | 低 | 发布准备 + 灰度 |
 
-**建议**: Step 3（EquipmentData）作为整个重构的"试金石"——如果这步能干净完成且存档测试全过，后续步骤的风险将大幅降低。如果这步遇到困难，应暂停评估是否需要调整拆分方案。
+**建议**:
+- 不要跳过 Step 4 直接拆渲染或 UI。当前 `config` 线仍有 `MonsterData`、`MonsterTypes_ch3`、`EquipmentData_Special` 三个大头未收口。
+- Step 8 的门禁扩围采用非阻断式策略，不会破坏现有 CI，可以与 Step 5-7 并行推进。
+- 任何阶段如果验收报告不能给出原始证据，直接视为该阶段未完成。
+
+---
+
+### 通用验收报告要求（每个 Step 完成后必须提供）
+
+1. `wc -l` 原始输出（拆分前后对比）
+2. 门禁测试绿灯截图或日志
+3. `git diff --stat` 变更统计
+4. 影响模块列表（哪些 require 路径变更）
+5. 存档兼容性验证（如涉及存档相关文件）
+6. 游戏功能回归确认（加载→核心玩法→存档）
+7. 性能对比（如涉及热路径）
+8. 新增 EXEMPTIONS 说明（如有）
+9. 后续步骤依赖更新（如有）
+10. PR 描述模板填写
 
 ---
 
