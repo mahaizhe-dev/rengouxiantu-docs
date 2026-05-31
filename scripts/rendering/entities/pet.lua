@@ -1,6 +1,8 @@
 -- entities/pet.lua - 宠物渲染
 local shared = require("rendering.entities.shared")
+local GameConfig = shared.GameConfig
 local GameState = shared.GameState
+local RenderUtils = shared.RenderUtils
 local PetAppearanceConfig = shared.PetAppearanceConfig
 local PET_TIER_TEXTURES = shared.PET_TIER_TEXTURES
 

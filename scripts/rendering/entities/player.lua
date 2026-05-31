@@ -9,6 +9,7 @@ local TitleSystem = shared.TitleSystem
 local CombatSystem = shared.CombatSystem
 local PetAppearanceConfig = shared.PetAppearanceConfig
 local getRealmColorGroup = shared.getRealmColorGroup
+local getHpColor = shared.getHpColor
 
 local M = {}
 function M.RenderPlayer(nvg, l, camera)

@@ -885,6 +885,10 @@ local function renderSoulBurst(nvg, se, sx, sy, progress, c, alpha, expand, base
         nvgMoveTo(nvg, lx1, ly1)
         nvgLineTo(nvg, lx2, ly2)
         nvgStrokeColor(nvg, nvgRGBA(180, 100, 255, math.floor((150 - j * 20) * alpha)))
+        nvgStrokeWidth(nvg, 2.0)
+        nvgStroke(nvg)
+    end
+end
 
 -- 导出部分注册表
 M.registry = {

@@ -5,6 +5,7 @@ local GameState = shared.GameState
 local T = shared.T
 local RenderUtils = shared.RenderUtils
 local IconUtils = shared.IconUtils
+local DecorationRenderers = shared.DecorationRenderers
 
 local M = {}
 
@@ -74,7 +75,7 @@ function M.RenderNPCs(nvg, l, camera)
                         nvgFontSize(nvg, 20)
                         nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
                         nvgFillColor(nvg, nvgRGBA(60, 30, 0, 255))
-                        nvgText(nvg, indicatorX, indicatorY, "\!", nil)
+                        nvgText(nvg, indicatorX, indicatorY, "!", nil)
                         nvgBeginPath(nvg)
                         nvgCircle(nvg, indicatorX, indicatorY, indicatorR + 4)
                         nvgStrokeColor(nvg, nvgRGBA(255, 220, 80, math.floor(120 * pulse)))
@@ -110,7 +111,7 @@ function M.RenderNPCs(nvg, l, camera)
                         nvgFontSize(nvg, 20)
                         nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
                         nvgFillColor(nvg, nvgRGBA(60, 30, 0, 255))
-                        nvgText(nvg, indicatorX, indicatorY, "\!", nil)
+                        nvgText(nvg, indicatorX, indicatorY, "!", nil)
                         -- 外发光环
                         nvgBeginPath(nvg)
                         nvgCircle(nvg, indicatorX, indicatorY, indicatorR + 4)
@@ -226,7 +227,7 @@ function M.RenderNPCs(nvg, l, camera)
                     nvgFontSize(nvg, 20)
                     nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
                     nvgFillColor(nvg, nvgRGBA(60, 30, 0, 255))
-                    nvgText(nvg, indicatorX, indicatorY, "\!", nil)
+                    nvgText(nvg, indicatorX, indicatorY, "!", nil)
                     nvgBeginPath(nvg)
                     nvgCircle(nvg, indicatorX, indicatorY, indicatorR + 4)
                     nvgStrokeColor(nvg, nvgRGBA(255, 220, 80, math.floor(120 * pulse)))

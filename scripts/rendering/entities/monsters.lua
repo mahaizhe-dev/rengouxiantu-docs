@@ -10,6 +10,7 @@ local MONSTER_RADIUS_SCALE = shared.MONSTER_RADIUS_SCALE
 local MONSTER_NAME_COLORS = shared.MONSTER_NAME_COLORS
 local MONSTER_NAME_COLOR_DEFAULT = shared.MONSTER_NAME_COLOR_DEFAULT
 local getLvBadgeColorGroup = shared.getLvBadgeColorGroup
+local getRealmColorGroup = shared.getRealmColorGroup
 local getHpColor = shared.getHpColor
 
 local M = {}

@@ -5,6 +5,7 @@ local GameState = shared.GameState
 local T = shared.T
 local RenderUtils = shared.RenderUtils
 local IconUtils = shared.IconUtils
+local MonsterData = shared.MonsterData
 local _balloons = shared._balloons
 
 local M = {}
@@ -570,24 +571,5 @@ function M.RenderFortuneFruits(nvg, l, camera)
         end
     end
 end
-
--- ═══════════════════════════════════════════════════════
--- 试炼塔·锁链封印效果 (青云试炼特色)
--- 在驻守BOSS头像上绘制交叉铁链，表示BOSS被封印原地
--- 链环沿链条方向匀速滑动（履带效果），半透明不遮挡本体
--- ═══════════════════════════════════════════════════════
-
----绘制一条履带式滑动锁链
----@param nvg any
----@param x1 number 起点X
----@param y1 number 起点Y
----@param x2 number 终点X
----@param y2 number 终点Y
----@param linkCount number 链环数量
----@param linkW number 链环宽度（沿链方向）
----@param linkH number 链环高度（垂直于链方向）
----@param time number 动画时间
----@param speed number 滑动速度（t/秒）
----@param alpha number 整体透明度(0~255)
 
 return M
