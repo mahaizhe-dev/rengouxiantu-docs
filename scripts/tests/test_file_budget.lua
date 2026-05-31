@@ -53,9 +53,11 @@ local EXEMPTIONS = {
     -- [已毕业] config/EquipmentData.lua — 252 行 facade，已在 DATA_TARGET(900) 内，Step 3 拆分
     ["config/EquipmentData_Special.lua"] = 2050,  -- 当前 2012（纯数据表，后续按章节再拆）
     ["config/MonsterTypes_ch3.lua"]    = 2250,  -- 当前 2205
-    ["rendering/EffectRenderer.lua"]   = 3600,  -- 当前 3561
-    ["rendering/TileRenderer.lua"]     = 3350,  -- 当前 3301
-    ["rendering/EntityRenderer.lua"]   = 3350,  -- 当前 3298
+    ["rendering/EffectRenderer.lua"]   = 3600,  -- 当前 206 (facade)
+    ["rendering/TileRenderer.lua"]     = 3350,  -- 当前 270 (facade)
+    ["rendering/EntityRenderer.lua"]   = 3350,  -- 当前 24 (facade)
+    ["rendering/effects/skills_b.lua"] = 950,   -- 当前 902（9个技能渲染器，单函数不可再拆）
+    ["rendering/entities/monsters.lua"]= 1050,  -- 当前 1006（4个怪物渲染函数，紧耦合不可拆）
     ["ui/PetPanel.lua"]                = 2225,  -- 当前 2175
 
     -- ═══════════════════════════════════════════════════════════════════════

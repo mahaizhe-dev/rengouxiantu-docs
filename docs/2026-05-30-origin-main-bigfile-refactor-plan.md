@@ -1157,6 +1157,18 @@ return M
 
 **提交**: `refactor(config): two-level split MonsterData + MonsterTypes_ch3 + EquipmentData_Special`
 
+**✅ 执行记录 (2026-05-31)**:
+- Step 4A: MonsterData.lua 3698→97 行（纯聚合入口），拆出 8 子文件（Skills 按章节 5 文件 + WorldDrop + Stats + Skills 聚合）
+  - 提交: `17d8893 refactor(Step4A): split MonsterData.lua Skills+WorldDrop into 8 sub-modules`
+- Step 4B: MonsterTypes_ch3.lua 2205→11 行，拆出 3 子文件（Challenge 459 / Desert 788 / Reputation 975）
+  - 提交: `659c46d refactor(Step4B): split MonsterTypes_ch3.lua into 3 sub-modules`
+- Step 4C: EquipmentData_Special.lua 2012→20 行，拆出 3 子文件（ch1to3 682 / ch4 610 / ch5 729）
+  - 提交: `0a645a4 refactor(Step4C): split EquipmentData_Special.lua into 3 sub-modules`
+- 验收: config/ 最大文件 MonsterTypes_ch4.lua 1050 行 < DATA_ALERT(1400) ✅
+- 门禁: LSP 0 diagnostics ✅
+- Key count 验证: 202 skills + 71 types + 107 equips = 全量通过 ✅
+- 详细报告: `docs/2026-05-31-step4-completion-report.md`
+
 ---
 
 ### Step 5: 渲染线主拆分
