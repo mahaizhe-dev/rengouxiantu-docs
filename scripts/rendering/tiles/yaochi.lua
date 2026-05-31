@@ -4,7 +4,7 @@
 -- ============================================================================
 local ActiveZoneData = require("config.ActiveZoneData")
 local GameState      = require("core.GameState")
-local UITheme        = require("ui.UITheme")
+local UITheme        = require("config.UITheme")
 local Shared = require("rendering.tiles.shared")
 
 local tileHash    = Shared.tileHash
