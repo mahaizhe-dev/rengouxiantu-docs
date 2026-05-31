@@ -1194,82 +1194,197 @@ return M
 
 ---
 
-### Step 6: 业务系统主拆分
+### Step 6: 核心系统拆分（代码基准重排，当前进行中）
 
-**目标**: 拆分 `systems/` 目录的大文件。
+**目标**: 不再把 `systems/` 视为一包统一收口，而是按真实耦合关系分子任务推进。  
+**最新判断（2026-05-31 代码级审查）**: 工作树中 4 个系统的 facade + 子模块代码**均已写好**，但只有 `InventorySystem` 正式提交到 git。其余 3 个系统的拆分存在于工作树但未 commit、未经门禁验证、EXEMPTIONS 未清理。`Step 6` 整体仍为进行中。
 
-| 文件 | 行数 | 拆分策略 |
-|------|------|---------|
-| `SkillSystem.lua` | 2123 | 按职能（释放/判定/CD/Buff） |
-| `LootSystem.lua` | 1668 | 按阶段（掉落表/拾取/背包写入） |
-| `ChallengeSystem.lua` | 1529 | 按功能（关卡定义/进度/奖励/排行） |
-| `InventorySystem.lua` | 1386 | 按模块（格子管理/排序/堆叠/分解） |
+| 子任务 | 范围 | 当前状态 | 代码依据（基于 2026-05-31 工作树实查） |
+|------|------|--------|---------|
+| `Step 6.0` | gate hygiene | ❌ 未执行 | `test_file_budget.lua` EXEMPTIONS 仍保留全部 4 个系统的旧豁免（SkillSystem 2175, LootSystem 1720, ChallengeSystem 1580, InventorySystem 1440），与实际 facade 行数（443/54/428/361）严重不符 |
+| `Step 6A` | Skill 域 | ⚠️ 代码已写未提交 | `SkillSystem.lua` 已改为 443 行 facade（`git status: M`），`skill/` 目录含 5 个子模块（`git status: ??`未跟踪）。未 commit，无门禁证据 |
+| `Step 6B` | Loot 域 | ⚠️ 代码已写未提交 | `LootSystem.lua` 已改为 54 行 facade（`git status: M`），`loot/` 目录含 4 个子模块（`git status: ??`未跟踪）。未 commit，无门禁证据 |
+| `Step 6C` | Inventory 域 | ✅ 已提交 | `InventorySystem.lua` 1386 → facade 361 + `inventory/{equip_stats,consumables,batch_use}.lua`。commit `c5b7857` |
+| `Step 6D` | Challenge 域 | ⚠️ 代码已写未提交 | `ChallengeSystem.lua` 已改为 428 行 facade（`git status: M`），`challenge/` 目录含 4 个子模块（`git status: ??`未跟踪）。未 commit，无门禁证据。原计划移至 Step 7，但代码已完成 |
 
-**风险**: 中-高（SkillSystem 与战斗核心耦合深，LootSystem 关联存档）
+#### Step 6.0: Gate Hygiene
+
+**目标**: 在继续拆核心系统前，先校正门禁基线，避免执行 AI 在错误豁免上继续迭代。
+
+**必须处理**:
+- 从 `EXEMPTIONS` 移除已毕业 facade：`config/MonsterData.lua`、`config/EquipmentData_Special.lua`、`config/MonsterTypes_ch3.lua`、`rendering/EffectRenderer.lua`、`rendering/TileRenderer.lua`、`rendering/EntityRenderer.lua`
+- 从 `EXEMPTIONS` 移除已毕业的 `systems/InventorySystem.lua`
+- 保留 ratchet：`rendering/effects/skills_b.lua`、`rendering/entities/monsters.lua`、`rendering/DecoDivine.lua`
 
 **验收条件**:
-- `systems/` 下不再有超过 `CODE_ALERT(900)` 的文件
-- 所有系统功能回归正常
-- 门禁绿灯
+- `test_file_budget.lua` 中的豁免与当前代码状态一致
+- 清理后门禁仍为绿灯
+- 报告中给出“移除豁免前后数量变化 + 原始门禁输出”
 
-**提交**: `refactor(systems): split SkillSystem + LootSystem + ChallengeSystem + InventorySystem`
+#### Step 6A: Skill 域
 
-**完成报告** (2026-05-31):
+**目标文件**: `systems/SkillSystem.lua`（2123 行）
 
-| 文件 | 原行数 | Facade 行数 | 子模块数 | 最大子模块 |
-|------|--------|------------|---------|-----------|
-| SkillSystem.lua | 2123 | 443 | 5 | casting_a (640) |
-| LootSystem.lua | 1668 | 54 | 4 | generation (766) |
-| ChallengeSystem.lua | 1529 | 428 | 4 | arena (441) |
-| InventorySystem.lua | 1386 | 361 | 3 | consumables (554) |
+**代码事实**:
+- 有明确的分发表入口：`TypeHandlers`
+- 有 5 组必须保留兼容可见性的状态表：`unlockedSkills`、`cooldowns`、`equippedSkills`、`skillState`、`TypeHandlers`
+- UI 直接读取上述状态：[BottomBar]、[CharacterUI]，不能只保留函数入口
 
-拆分模式:
-- SkillSystem → `skill/{shared,bar,casting_a,casting_b,passives}.lua`
-- LootSystem → `loot/{shared,generation,pickup,rewards}.lua`
-- ChallengeSystem → `challenge/{shared,arena,persistence,rewards}.lua`
-- InventorySystem → `inventory/{equip_stats,consumables,batch_use}.lua`
+**建议拆分**:
+- `skill/registry.lua`：技能类型注册
+- `skill/unlocks.lua`：解锁逻辑与初始化
+- `skill/bar.lua`：技能栏、槽位、AutoCast、CD 查询
+- `skill/casting_core.lua`：基础施法与 shape/filter
+- `skill/casting_special.lua`：地面区域、多段重击、装备技能等
+- `skill/passives_sword.lua`：御剑/剑阵链路
+- `skill/passives_charge.lua`：charge / nth_cast_trigger
+- `skill/passives_zhenyue.lua`：hp_damage / hp_heal_damage / toggle_passive / accumulate_trigger
 
-Gate: 全部 facade + 子模块 < 900 行 ✅ | 构建通过 ✅
+**关键约束**:
+- `systems.SkillSystem` 继续作为 facade 路径存在
+- facade 上必须继续暴露 `TypeHandlers`、`unlockedSkills`、`cooldowns`、`equippedSkills`、`skillState`
+- `BottomBar.lua`、`CharacterUI.lua` 的读取方式不能被悄悄破坏
+
+**专项验收**:
+- facade 路径不变：`require("systems.SkillSystem")`
+- 5 个公开状态表仍可从 facade 直接读取
+- 至少给出 `BottomBar` / `CharacterUI` 的兼容性验证
+- 若 combat/regression 仍因 `engine_required` 跳过，必须补 runtime smoke 结果
+
+#### Step 6B: Loot 域
+
+**目标文件**: `systems/LootSystem.lua`（1668 行）
+
+**代码事实**:
+- 逻辑自然分成：掉落生成、特殊/法宝装备生成、自动拾取、活动掉落、铸造生成
+- UI 和工具侧依赖很重：`BlackMerchantUI`、`DragonForgeUI`、`EquipShopUI`、`GMConsole`、`SwordForgeUI`
+
+**建议拆分**:
+- `loot/generation.lua`：`GenerateDrops` / `GenerateRandomEquipment` / tier-quality 逻辑
+- `loot/special_items.lua`：`CreateSpecialEquipment` / `CreateFabaoEquipment` / 圣器与解封古剑
+- `loot/pickup.lua`：`AutoPickup` / `PetPickup` / timer
+- `loot/event_drops.lua`：活动掉落与额外掉落
+- `loot/forge.lua`：灵器/套装灵器打造
+
+**关键约束**:
+- facade 路径不变：`require("systems.LootSystem")`
+- 现有 UI 调用点的方法名保持不变
+- 拆分报告必须列出受影响 UI 文件，不接受“无需改动”但不举证
+
+**专项验收**:
+- `CreateSpecialEquipment` / `CreateFabaoEquipment` / `ForgeRandomLingqi` / `ForgeRandomSetLingqi` 等旧 API 仍可直连
+- `BlackMerchantUI`、`DragonForgeUI`、`GMConsole` 至少完成一次 smoke 验证
+
+#### Step 6C: Inventory 域（已完成，待收口）
+
+**当前远端状态**:
+
+| 文件 | 拆分前 | 拆分后 | 状态 |
+|------|--------|--------|------|
+| `InventorySystem.lua` | 1386 | 361 | facade |
+| `inventory/equip_stats.lua` | — | 313 | ✅ |
+| `inventory/consumables.lua` | — | 554 | ✅ |
+| `inventory/batch_use.lua` | — | 330 | ✅ |
+
+**保留结论**:
+- 当前拆分方式正确：facade + 方法转发 + 子模块内部通过 `InventorySystem` facade 取 manager / 公共方法
+- 但这**只代表子任务完成**，不代表 `Step 6` 整体完成
+
+**收口要求**:
+- 补正式 `Step 6` 验收报告时，必须给出 `InventorySystem` 的原始测试输出和门禁变化
+- `InventorySystem.lua` 对应旧豁免必须移除
+
+**Step 6 总体验收条件（修订后）**:
+- `SkillSystem.lua`、`LootSystem.lua` 完成拆分并验收
+- `InventorySystem.lua` 旧豁免已清理
+- `Step 7` 将承担 `Challenge` 域跨层收口，因此 `ChallengeSystem` 不再作为 `Step 6 完成` 的前置
+- 没有原始 Git / 门禁 / 测试证据时，`Step 6` 一律视为进行中
 
 ---
 
-### Step 7: UI 一梯队拆分
+### Step 7: 核心玩法垂直切片收口（Challenge / Pet）
 
-**目标**: 拆分 `ui/` 目录仍超标的文件。
+**目标**: 不再把 `ChallengeUI` 视为纯 UI 文件。`Step 7` 改为处理真正跨 `systems + ui` 的强耦合业务域。
 
-| 文件 | 行数 | 拆分策略 |
+| 子任务 | 范围 | 拆分原因 |
 |------|------|---------|
-| `PetPanel.lua` | 2175 | 按 Tab（属性/技能/外观/升级） |
-| `ChallengeUI.lua` | 2119 | 按界面（关卡列表/战斗/结算/商店） |
+| `Step 7A` | Challenge 域：`ChallengeSystem.lua` + `ChallengeUI.lua` + `AlchemyUI.lua` 中阵营丹药片段 | `NEW_PILL_CONFIG` / `BrewPill()` 被 `AlchemyUI` 直接消费；`ChallengeUI` 同时混合 reputation / legacy / victory 流程 |
+| `Step 7B` | Pet 域：`PetPanel.lua` | Tab 边界清晰，但与 `InventorySystem` / `CombatSystem` / `PetSkinSystem` 强交互 |
+| `Step 7C` | Skill UI 兼容层：`BottomBar.lua` + `CharacterUI.lua`（仅在 Step 6A 必要时触达） | 两者直接读取 `SkillSystem` 状态表，优先做兼容，不主动扩拆 |
 
-**风险**: 中（UI 代码依赖状态管理，需确保跨 Tab 数据同步）
+#### Step 7A: Challenge 域
 
-**验收条件**:
-- `ui/` 下不再有超过 `CODE_ALERT(900)` 的文件
-- UI 交互功能回归正常
-- 门禁绿灯
+**目标文件**:
+- `systems/ChallengeSystem.lua`（1529 行）
+- `ui/ChallengeUI.lua`（2119 行）
+- `ui/AlchemyUI.lua` 中阵营丹药片段（`NEW_PILL_CONFIG` / `BrewPill` 依赖区）
 
-**提交**: `refactor(ui): split PetPanel + ChallengeUI`
+**代码事实**:
+- `ChallengeSystem.lua` 同时承载 state、reputation、legacy tiers、arena、rewards、brew、serialize/deserialize
+- `ChallengeUI.lua` 在 `Show()` 中旧路径存在 `do return end` 后残留大段 legacy 逻辑，说明它不是“单纯 tab UI”，而是混合时代代码
+- `AlchemyUI.lua` 直接使用 `ChallengeSystem.NEW_PILL_CONFIG` 和 `ChallengeSystem.BrewPill`
+
+**建议拆分**:
+- `challenge/state.lua`
+- `challenge/progress_reputation.lua`
+- `challenge/legacy_tiers.lua`
+- `challenge/arena.lua`
+- `challenge/rewards.lua`
+- `challenge/brew.lua`
+- `challenge/serde.lua`
+- `ui/challenge/entry.lua`
+- `ui/challenge/reputation.lua`
+- `ui/challenge/legacy.lua`
+- `ui/challenge/victory.lua`
+- `ui/challenge/tips.lua`
+
+**专项验收**:
+- `ChallengeUI.Show()` 的 reputation / legacy / victory 三条路径分别给出验证
+- `AlchemyUI` 中阵营丹药片段给出回归证据
+- `ChallengeSystem.Serialize/Deserialize` 不得回退
+
+#### Step 7B: Pet 域
+
+**目标文件**: `ui/PetPanel.lua`（2175 行）
+
+**代码事实**:
+- 天然分成 `Info / Breakthrough / Skills / Appearance`
+- 技能弹窗链路很重：`ShowLearnPopup`、`ShowSkillActionPopup`、`DoUpgradePathA`、`DoUpgradePathB`
+- 与 `InventorySystem` 的 `CountConsumable / CountUnlockedConsumable / ConsumeConsumable / GetSkillBookList` 强依赖
+
+**建议拆分**:
+- `ui/pet/tabs_info.lua`
+- `ui/pet/tabs_breakthrough.lua`
+- `ui/pet/tabs_skills.lua`
+- `ui/pet/tabs_appearance.lua`
+- `ui/pet/popups.lua`
+- `ui/pet/actions.lua`
+
+**专项验收**:
+- 技能学习、升级 A/B、删除确认三条链路必须逐条汇报
+- 若 `InventorySystem` facade 有兼容性修正，必须在本阶段一并说明
 
 ---
 
-### Step 8: 门禁扩围（SCAN_DIRS 扩展 + 第二梯队治理）
+### Step 8: 第二梯队治理 + 门禁扩围
 
-**目标**: 将门禁覆盖范围从当前 4 个目录扩展到全项目，正式纳入第二梯队文件。
+**目标**: 在核心系统与垂直切片稳定后，把当前未纳入 blocking 的真实大文件正式拉进治理范围。
 
 #### Step 8A: SCAN_DIRS 扩展
 
-**当前覆盖**: `config/`, `rendering/`, `ui/`, `systems/`
+**当前 blocking 覆盖**: `config/`, `rendering/`, `ui/`, `systems/`
 
-**待新增覆盖**:
+**最新未覆盖大文件（代码实测）**:
 
-| 目录/文件 | 当前最大文件 | 行数 | 类型 |
-|-----------|-------------|------|------|
-| `network/` | `NetworkManager.lua` | ~1200 | CODE |
-| `entities/` | `Player.lua` | ~1800 | CODE |
-| `world/` | `WorldManager.lua` | ~1500 | CODE |
-| 根目录 | `main.lua` | ~900 | CODE |
-| 根目录 | `server_main.lua` | ~700 | CODE |
+| 路径 | 行数 | 说明 |
+|------|------|------|
+| `scripts/main.lua` | 1753 | 根入口，当前未纳入扫描 |
+| `scripts/network/DungeonHandler.lua` | 1762 | network 最大文件 |
+| `scripts/network/BlackMerchantHandler.lua` | 1404 | 黑市服务端链路 |
+| `scripts/network/DungeonClient.lua` | 1128 | 副本客户端链路 |
+| `scripts/entities/Monster.lua` | 1362 | 怪物实体逻辑 |
+| `scripts/entities/Player.lua` | 1244 | 玩家实体逻辑 |
+| `scripts/world/mapgen/Chapter3.lua` | 1005 | 地图生成逻辑 |
 
 **扩展策略**（非阻断式）:
 
@@ -1278,21 +1393,32 @@ Gate: 全部 facade + 子模块 < 900 行 ✅ | 构建通过 ✅
    -- test_file_budget.lua 扩展
    local SCAN_DIRS_BLOCKING = { "config", "rendering", "ui", "systems" }
    local SCAN_DIRS_WARNING = { "network", "entities", "world" }  -- 新增：仅警告
-   local SCAN_ROOT_FILES = { "main.lua", "server_main.lua" }     -- 新增：根目录文件
+   local SCAN_ROOT_FILES = { "scripts/main.lua" }                -- 新增：根目录入口文件
    ```
 
 2. **Phase 2**: 为超标文件设定 EXEMPTIONS（ratchet 模式，只降不升）
    ```lua
-   EXEMPTIONS["network/NetworkManager.lua"] = { code = 1200 }
-   EXEMPTIONS["entities/Player.lua"] = { code = 1800 }
-   EXEMPTIONS["world/WorldManager.lua"] = { code = 1500 }
+   EXEMPTIONS["network/DungeonHandler.lua"] = { code = 1815 }
+   EXEMPTIONS["network/BlackMerchantHandler.lua"] = { code = 1455 }
+   EXEMPTIONS["network/DungeonClient.lua"] = { code = 1175 }
+   EXEMPTIONS["entities/Monster.lua"] = { code = 1415 }
+   EXEMPTIONS["entities/Player.lua"] = { code = 1295 }
+   EXEMPTIONS["world/mapgen/Chapter3.lua"] = { code = 1055 }
+   EXEMPTIONS["scripts/main.lua"] = { code = 1805 }
    ```
 
 3. **Phase 3**: 稳定后将 warning-only 升级为 blocking
 
 #### Step 8B: 第二梯队文件分拣
 
-**对象**: 门禁扩围后新发现的超标文件。
+**对象**: 门禁扩围后新发现的超标文件，以及当前 blocking 范围内仍未进入核心切片的第二梯队文件。
+
+**优先关注**:
+- `rendering/DecoDivine.lua`（1398）
+- `config/MonsterTypes_ch4.lua`（1050）
+- `config/MonsterTypes_ch3_Reputation.lua`（975）
+- `ui/AlchemyUI.lua`（1891，去掉阵营丹药片段后再决定是否继续拆）
+- `ui/BlackMerchantUI.lua`、`ui/CharacterUI.lua`、`ui/DragonForgeUI.lua`、`ui/SystemMenu.lua`、`ui/EventExchangeUI.lua`
 
 **处理方式**:
 - 超过 `CODE_ALERT` 的文件 → 排入后续迭代拆分计划
@@ -1374,31 +1500,32 @@ Gate: 全部 facade + 子模块 < 900 行 ✅ | 构建通过 ✅
 | Step 3 | ✅ 已完成 | 中-高 | `EquipmentData` facade 化 |
 | Step 4 | ✅ 已完成 | 中-高 | `config` 一梯队收口（MonsterData 二级拆分 + MonsterTypes_ch3 × 3 + Special） |
 | Step 5 | ✅ 已完成 | 中 | 渲染线主拆分（3 文件，按体积排序） |
-| Step 6 | ✅ 已完成 | 中-高 | 业务系统主拆分（4 文件） |
-| Step 7 | 待执行 | 中 | UI 一梯队拆分（2 文件） |
-| Step 8 | 待执行 | 低-中 | 门禁扩围（非阻断式扩展 + 第二梯队分拣） |
+| Step 6 | 进行中 | 中-高 | 核心系统拆分：4 系统代码已拆分（工作树），仅 Inventory 已 commit；EXEMPTIONS/gate/smoke 待收口 |
+| Step 7 | 待执行 | 高 | 核心玩法垂直切片（Challenge / Pet） |
+| Step 8 | 待执行 | 中 | 第二梯队治理 + 门禁扩围 |
 | Step 9 | 待执行 | 高 | 存档关键链路最终回归 |
 | Step 10-11 | 待执行 | 低 | 发布准备 + 灰度 |
 
 **建议**:
-- 不要跳过 Step 4 直接拆渲染或 UI。当前 `config` 线仍有 `MonsterData`、`MonsterTypes_ch3`、`EquipmentData_Special` 三个大头未收口。
-- Step 8 的门禁扩围采用非阻断式策略，不会破坏现有 CI，可以与 Step 5-7 并行推进。
+- 不要再按“systems 一包 / ui 一包”推进。后续顺序改为：`Step 6A Skill` → `Step 7A Challenge 垂直切片` → `Step 6B Loot` → `Step 7B Pet` → `Step 8`
+- `ChallengeSystem` 不再单独塞进 `Step 6`；它和 `ChallengeUI` / `AlchemyUI` 的强耦合必须一起验收
+- `Step 8` 的门禁扩围采用 warning-only → blocking 渐进策略，避免一次性把全项目打红
 - 任何阶段如果验收报告不能给出原始证据，直接视为该阶段未完成。
 
 ---
 
-### 通用验收报告要求（每个 Step 完成后必须提供）
+### 通用验收报告要求（强制，缺一项即视为未完成）
 
-1. `wc -l` 原始输出（拆分前后对比）
-2. 门禁测试绿灯截图或日志
-3. `git diff --stat` 变更统计
-4. 影响模块列表（哪些 require 路径变更）
-5. 存档兼容性验证（如涉及存档相关文件）
-6. 游戏功能回归确认（加载→核心玩法→存档）
-7. 性能对比（如涉及热路径）
-8. 新增 EXEMPTIONS 说明（如有）
-9. 后续步骤依赖更新（如有）
-10. PR 描述模板填写
+1. **基本信息**: 阶段名、目标说明、本地分支、远端分支、基线 SHA、交付 SHA、是否已 push、远端当前 HEAD
+2. **Git 证据**: `git status --short`、`git log --oneline -5`、`git show --stat --summary <SHA>`、`git diff --stat <base>..HEAD`
+3. **目标文件表**: 每个目标文件给出“变更前行数 / 变更后行数 / 阈值 / 当前状态（达标、仍豁免、已拆分、无需拆分）”
+4. **结构拆分说明**: facade 路径、子模块路径、旧调用方是否改 `require`、对外导出函数拆前/拆后、初始化顺序是否变化
+5. **门禁变化**: `EXEMPTIONS` 变更前后数量、新增项、移除项、原始门禁输出；不能只报“0 FAIL”
+6. **测试验证**: 实际运行环境、执行命令、PASS/FAIL/SKIP 数、基线失败列表、新增失败数；无法运行时必须写原因
+7. **Runtime Smoke**: 至少一次加载或关键路径冒烟；若 `engine_required` 导致大批测试跳过，这一项不能省
+8. **文档同步**: 更新了哪些文档、改了哪些数字、文档与代码是否一致；若阶段未完成，不得提前把状态写成完成
+9. **风险与遗留**: 当前仍超预算的文件、仍依赖平台特性的脚本、下阶段阻塞点
+10. **最终结论**: 明确写 `通过 / 部分通过 / 不通过`，并说明下一步是继续执行还是先补收口
 
 ---
 
@@ -1587,26 +1714,125 @@ Gate: 全部 facade + 子模块 < 900 行 ✅ | 构建通过 ✅
 
 ---
 
-### 计划卫生备忘（Step 5 完成后评估）
+### 计划卫生备忘（Step 5 / Step 6 连续复审后）
 
-**结论**: Step 5 可以视为完成。后续继续执行，不需要推翻计划。需要补的不是方向，而是"计划卫生"。
+**结论**:
+- Step 5 可以视为完成，但它暴露了“LSP 通过 != 运行时安全”的验证缺口
+- Step 6 当前只完成了 `InventorySystem` 子任务，旧文档里“Step 6 已完成”的口径已失效
+- 后续不再按“systems 一包 / ui 一包”推进，而改按业务域推进
 
 **具体行动项**:
 
 1. **清理旧豁免（EXEMPTIONS ratchet-down）**:
-   - 3 个 facade 文件已毕业（EffectRenderer/TileRenderer/EntityRenderer）
-   - `skills_b.lua` (906→cap 950) 和 `monsters.lua` (1007→cap 1050) 保留为 ratchet，后续只降不升
-   - 后续每个 Step 完成时，检查是否有更多文件可以毕业
+   - 已毕业但仍残留在门禁里的文件：`MonsterData.lua`、`EquipmentData_Special.lua`、`MonsterTypes_ch3.lua`、`EffectRenderer.lua`、`TileRenderer.lua`、`EntityRenderer.lua`、`InventorySystem.lua`
+   - 继续保留 ratchet：`skills_b.lua`、`entities/monsters.lua`、`DecoDivine.lua`
 
-2. **第二梯队补充（Step 8 门禁扩围时正式纳入）**:
-   - `rendering/DecoDivine.lua` (1398 行) — 当前已有 EXEMPTIONS cap=1450，待专项拆分
-   - `network/`、`entities/`、`world/`、`main.lua` — Step 8 以 warning-only 模式加入 SCAN_DIRS
+2. **执行顺序修正**:
+   - `Step 6A`: Skill 域
+   - `Step 7A`: Challenge 垂直切片（`ChallengeSystem + ChallengeUI + AlchemyUI` 阵营丹药片段）
+   - `Step 6B`: Loot 域
+   - `Step 7B`: Pet 域
+   - `Step 8`: 第二梯队治理 + 门禁扩围
 
-3. **保持执行顺序不变**:
-   - Step 6: systems/ 主拆分（SkillSystem 2123 / LootSystem 1668 / ChallengeSystem 1529 / InventorySystem 1386）
-   - Step 7: ui/ 一梯队拆分（PetPanel 2175 / ChallengeUI 2119）
-   - Step 8: 门禁扩围 + 第二梯队分拣
+3. **每步补 runtime smoke**:
+   - 仅有 LSP / lupa 绿灯不足以背书运行时兼容
+   - 每个拆分步骤完成后至少验证一次“加载到核心入口不报错”
 
-4. **后续步骤增加 runtime smoke 验证**:
-   - Step 5 暴露了"LSP 通过但运行时 require 路径错误"的 gap
-   - 建议: 每个拆分步骤完成后，至少执行一次 build + 加载验证，而非仅依赖 LSP
+4. **文档状态禁止抢跑**:
+   - 未提供原始 Git / 门禁 / 测试证据前，不得把阶段写成 ✅ 已完成
+   - 若仅完成子任务，应按 `Step 6A/6B/6C` 记录，而不是直接把总阶段关掉
+
+---
+
+### Step 6 进展日志 — 2026-05-31（代码级审查修订版）
+
+> 远端 HEAD: `c5b7857`  
+> 本地工作树: 含 Skill/Loot/Challenge 未提交拆分
+
+---
+
+#### 已提交（git 可追溯）
+
+| 文件 | 拆分前 | 拆分后 | 角色 | commit |
+|------|--------|--------|------|--------|
+| `systems/InventorySystem.lua` | 1386 | 361 | facade + 委托转发 | `c5b7857` |
+| `systems/inventory/equip_stats.lua` | — | 313 | 装备属性计算 | `c5b7857` |
+| `systems/inventory/consumables.lua` | — | 554 | 消耗品 CRUD + 单次使用 | `c5b7857` |
+| `systems/inventory/batch_use.lua` | — | 330 | 批量使用 / 批量出售 | `c5b7857` |
+
+---
+
+#### 代码已写但未提交（存在于工作树，`git status` 为 M 或 ??）
+
+**Step 6A — Skill 域**:
+
+| 文件 | 行数 | git status | 角色 |
+|------|------|-----------|------|
+| `systems/SkillSystem.lua` | 443 | `M`（modified） | facade，暴露 TypeHandlers/unlockedSkills/cooldowns/equippedSkills/skillState |
+| `systems/skill/shared.lua` | 30 | `??`（untracked） | 共享常量 |
+| `systems/skill/bar.lua` | 206 | `??`（untracked） | 技能栏/槽位/CD 查询 |
+| `systems/skill/casting_a.lua` | 640 | `??`（untracked） | 基础施法 + shape/filter |
+| `systems/skill/casting_b.lua` | 410 | `??`（untracked） | 特殊施法（地面区域、多段等） |
+| `systems/skill/passives.lua` | 554 | `??`（untracked） | 被动/御剑/charge |
+
+**Step 6B — Loot 域**:
+
+| 文件 | 行数 | git status | 角色 |
+|------|------|-----------|------|
+| `systems/LootSystem.lua` | 54 | `M`（modified） | 纯委托 facade |
+| `systems/loot/shared.lua` | 118 | `??`（untracked） | 共享常量/工具 |
+| `systems/loot/generation.lua` | 766 | `??`（untracked） | 掉落生成/Tier-Quality |
+| `systems/loot/pickup.lua` | 368 | `??`（untracked） | 自动拾取/宠物拾取 |
+| `systems/loot/rewards.lua` | 354 | `??`（untracked） | 活动/锻造/特殊装备 |
+
+**Step 6D — Challenge 域**:
+
+| 文件 | 行数 | git status | 角色 |
+|------|------|-----------|------|
+| `systems/ChallengeSystem.lua` | 428 | `M`（modified） | facade |
+| `systems/challenge/shared.lua` | 45 | `??`（untracked） | 共享常量 |
+| `systems/challenge/arena.lua` | 441 | `??`（untracked） | 竞技场/战斗逻辑 |
+| `systems/challenge/rewards.lua` | 392 | `??`（untracked） | 奖励/声望/凝丹 |
+| `systems/challenge/persistence.lua` | 300 | `??`（untracked） | 存档/加载/重置 |
+
+---
+
+#### 未完成事项（阻塞 Step 6 验收）
+
+1. **EXEMPTIONS 未清理** — `test_file_budget.lua` 第 74-80 行仍为：
+   ```
+   ["systems/SkillSystem.lua"]     = 2175,  -- 注释: "当前 2123"，实际已是 443
+   ["systems/ChallengeSystem.lua"] = 1580,  -- 注释: "当前 1529"，实际已是 428
+   ["systems/InventorySystem.lua"] = 1440,  -- 注释: "当前 1386"，实际已是 361
+   ["systems/LootSystem.lua"]      = 1720,  -- 注释: "当前 1668"，实际已是 54
+   ```
+2. **Skill/Loot/Challenge 未 commit** — 无 git SHA，无法追溯
+3. **门禁测试未执行** — 拆分后未跑 `infra` group 验证
+4. **Runtime smoke 无证据** — 未验证构建通过 + 运行时无 crash
+5. **UI 兼容性未验证** — 文档要求 BottomBar/CharacterUI（Skill）和 BlackMerchantUI/DragonForgeUI（Loot）的兼容验证
+
+---
+
+#### 当前阶段判定
+
+- `Step 6C` (Inventory): ✅ **已完成并提交**
+- `Step 6A` (Skill): ⚠️ 代码完成，未提交/未验证
+- `Step 6B` (Loot): ⚠️ 代码完成，未提交/未验证
+- `Step 6D` (Challenge): ⚠️ 代码完成，未提交/未验证
+- `Step 6.0` (Gate Hygiene): ❌ 未执行
+- **`Step 6` 总阶段: ⏳ 进行中** — 代码层面拆分已全部完成，但缺少提交/门禁/测试证据
+
+---
+
+#### 收口计划（使 Step 6 可验收）
+
+1. 运行构建验证（当前工作树状态）
+2. 清理 `test_file_budget.lua` EXEMPTIONS（移除已毕业的 4 个系统豁免）
+3. 运行 gate test（`infra` group），捕获原始输出
+4. 逐子任务 commit：`Step 6A` → `Step 6B` → `Step 6D` → `Step 6.0`
+5. 产出正式 10 项验收报告
+6. Push 到远端
+
+**相关提交**:
+- `373d7a0` — `docs(plan): record Step 5 completion + plan hygiene memo`
+- `c5b7857` — `refactor(Step6D): split InventorySystem.lua into facade + 3 sub-modules`

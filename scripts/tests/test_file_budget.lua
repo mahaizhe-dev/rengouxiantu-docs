@@ -47,15 +47,15 @@ local SCAN_DIRS = {
 -- 拆分完成后从此表移除，即受普通预算约束
 local EXEMPTIONS = {
     -- ═══════════════════════════════════════════════════════════════════════
-    -- 第一梯队：本轮重构目标文件（Step 2-7）
+    -- 第一梯队：不可再拆的 ratchet（保留监控）
     -- ═══════════════════════════════════════════════════════════════════════
-    ["config/MonsterData.lua"]         = 3750,  -- 当前 3698
-    -- [已毕业] config/EquipmentData.lua — 252 行 facade，已在 DATA_TARGET(900) 内，Step 3 拆分
-    ["config/EquipmentData_Special.lua"] = 2050,  -- 当前 2012（纯数据表，后续按章节再拆）
-    ["config/MonsterTypes_ch3.lua"]    = 2250,  -- 当前 2205
-    ["rendering/EffectRenderer.lua"]   = 3600,  -- 当前 206 (facade)
-    ["rendering/TileRenderer.lua"]     = 3350,  -- 当前 270 (facade)
-    ["rendering/EntityRenderer.lua"]   = 3350,  -- 当前 24 (facade)
+    -- [已毕业] config/MonsterData.lua — 193 行 facade，Step 4 拆分
+    -- [已毕业] config/EquipmentData.lua — 252 行 facade，Step 3 拆分
+    -- [已毕业] config/EquipmentData_Special.lua — 20 行 facade，Step 4C 拆分
+    -- [已毕业] config/MonsterTypes_ch3.lua — 11 行 facade，Step 4B 拆分
+    -- [已毕业] rendering/EffectRenderer.lua — 206 行 facade，Step 5 拆分
+    -- [已毕业] rendering/TileRenderer.lua — 270 行 facade，Step 5 拆分
+    -- [已毕业] rendering/EntityRenderer.lua — 24 行 facade，Step 5 拆分
     ["rendering/effects/skills_b.lua"] = 950,   -- 当前 902（9个技能渲染器，单函数不可再拆）
     ["rendering/entities/monsters.lua"]= 1050,  -- 当前 1006（4个怪物渲染函数，紧耦合不可拆）
     ["ui/PetPanel.lua"]                = 2225,  -- 当前 2175
@@ -71,12 +71,12 @@ local EXEMPTIONS = {
     ["rendering/DecoDivine.lua"]       = 1450,  -- 当前 1398
 
     -- systems/
-    ["systems/SkillSystem.lua"]        = 2175,  -- 当前 2123
+    -- [已毕业] systems/SkillSystem.lua — 443 行 facade，Step 6A 拆分
+    -- [已毕业] systems/LootSystem.lua — 54 行 facade，Step 6B 拆分
+    -- [已毕业] systems/ChallengeSystem.lua — 428 行 facade，Step 6D 拆分
+    -- [已毕业] systems/InventorySystem.lua — 361 行 facade，Step 6C 拆分
     ["systems/AtlasSystem.lua"]        = 1265,  -- 当前 1215
-    ["systems/ChallengeSystem.lua"]    = 1580,  -- 当前 1529
     ["systems/CombatSystem.lua"]       = 1075,  -- 当前 1025
-    ["systems/InventorySystem.lua"]    = 1440,  -- 当前 1386
-    ["systems/LootSystem.lua"]         = 1720,  -- 当前 1668
     ["systems/QuestSystem.lua"]        = 1010,  -- 当前 959
     ["systems/save/SaveMigrations.lua"]= 1165,  -- 当前 1111
 
