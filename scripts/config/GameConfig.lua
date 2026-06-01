@@ -15,7 +15,7 @@ GameConfig.DUNGEON_ENABLED = false
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
 GameConfig.CODE_VERSION = 6
-GameConfig.DISPLAY_VERSION = "v1.11.7"
+GameConfig.DISPLAY_VERSION = "v1.11.8"
 
 -- 地图设置
 GameConfig.TILE_SIZE = 128         -- 每个瓦片的逻辑像素大小（基准值，不要直接用于渲染）
@@ -173,7 +173,7 @@ GameConfig.PET_MATERIALS = {
     qi_pill = { name = "练气丹", icon = "icon_qi_pill.png", sellPrice = 0, quality = "purple", desc = "以灵韵凝炼而成的修炼丹药。\n用途：突破修炼境界的必需品。\n炼制：10灵韵 → 1颗\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
     zhuji_pill = { name = "筑基丹", icon = "icon_zhuji_pill.png", sellPrice = 0, quality = "orange", desc = "极为珍稀的筑基丹药，蕴含天地灵气。\n用途：突破筑基境界的必需品。\n获取：击败乌万仇、乌万海（1%掉率）\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
     jindan_sand = { name = "金丹沙", icon = "icon_jindan_sand.png", sellPrice = 0, quality = "orange", desc = "蕴含金丹之力的灵沙，修炼突破的珍贵材料。\n用途：突破金丹境界的必需品。\n价值：1颗 = 100灵韵\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
-    yuanying_fruit = { name = "元婴果", icon = "icon_yuanying_fruit.png", sellPrice = 0, quality = "orange", desc = "蕴含元婴之力的灵果，散发金色荧光。\n用途：突破元婴境界的必需品。\n价值：1颗 = 100灵韵\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
+    yuanying_fruit = { name = "元婴果", icon = "icon_yuanying_fruit.png", sellPrice = 0, quality = "orange", desc = "蕴含元婴之力的灵果，散发金色荧光。\n用途：突破元婴境界的必需品。\n价值：1颗 = 200灵韵\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
     exp_pill = { name = "修炼果", icon = "icon_exp_pill.png", sellPrice = 0, quality = "blue", desc = "蕴含灵气的修炼灵果，吸收后可获得大量修炼经验。\n用途：使用后获得10000点经验。\n限制：每次使用1颗，经验达到境界上限时无法使用。" },
     exp_pill_superior = { name = "上品修炼果", icon = "icon_exp_pill.png", sellPrice = 0, quality = "orange", desc = "太虚宗珍藏的上品修炼灵果，蕴含磅礴灵气，吸收后可获得大量修炼经验。\n用途：使用后获得100000点经验。\n限制：每次使用1颗，经验达到境界上限时无法使用。" },
     -- 封魔系统：体魄丹（永久+1体魄，上限100）
@@ -449,51 +449,51 @@ GameConfig.REALMS = {
     jindan_2 = {
         name = "金丹中期", order = 8, isMajor = false,
         maxLevel = 55, requiredLevel = 45, attackSpeedBonus = 0.3,
-        cost = { jindanSand = 25, gold = 300000 },
+        cost = { jindanSand = 20, gold = 300000 },
         rewards = { maxHp = 83, atk = 17, def = 11, hpRegen = 1.1 },
     },
     jindan_3 = {
         name = "金丹后期", order = 9, isMajor = false,
         maxLevel = 55, requiredLevel = 50, attackSpeedBonus = 0.3,
-        cost = { jindanSand = 50, gold = 500000 },
+        cost = { jindanSand = 40, gold = 500000 },
         rewards = { maxHp = 90, atk = 18, def = 12, hpRegen = 1.2 },
     },
     -- ===== 元婴（大境界：金丹→元婴）3 小境界 =====
     yuanying_1 = {
         name = "元婴初期", order = 10, isMajor = true,
         maxLevel = 70, requiredLevel = 55, attackSpeedBonus = 0.4,
-        cost = { yuanyingFruit = 50, gold = 750000 },
+        cost = { yuanyingFruit = 25, gold = 750000 },
         rewards = { maxHp = 105, atk = 21, def = 14, hpRegen = 1.4 },
     },
     yuanying_2 = {
         name = "元婴中期", order = 11, isMajor = false,
         maxLevel = 70, requiredLevel = 60, attackSpeedBonus = 0.4,
-        cost = { yuanyingFruit = 100, gold = 1000000 },
+        cost = { yuanyingFruit = 50, gold = 1000000 },
         rewards = { maxHp = 113, atk = 23, def = 15, hpRegen = 1.5 },
     },
     yuanying_3 = {
         name = "元婴后期", order = 12, isMajor = false,
         maxLevel = 70, requiredLevel = 65, attackSpeedBonus = 0.4,
-        cost = { yuanyingFruit = 200, gold = 1500000 },
+        cost = { yuanyingFruit = 75, gold = 1500000 },
         rewards = { maxHp = 120, atk = 24, def = 16, hpRegen = 1.6 },
     },
     -- ===== 化神（大境界：元婴→化神）3 小境界 =====
     huashen_1 = {
         name = "化神初期", order = 13, isMajor = true,
         maxLevel = 85, requiredLevel = 70, attackSpeedBonus = 0.5,
-        cost = { jiuzhuanJindan = 50, gold = 2400000 },
+        cost = { jiuzhuanJindan = 30, gold = 2400000 },
         rewards = { maxHp = 135, atk = 27, def = 18, hpRegen = 1.8 },
     },
     huashen_2 = {
         name = "化神中期", order = 14, isMajor = false,
         maxLevel = 85, requiredLevel = 75, attackSpeedBonus = 0.5,
-        cost = { jiuzhuanJindan = 75, gold = 3600000 },
+        cost = { jiuzhuanJindan = 60, gold = 3600000 },
         rewards = { maxHp = 143, atk = 29, def = 19, hpRegen = 1.9 },
     },
     huashen_3 = {
         name = "化神后期", order = 15, isMajor = false,
         maxLevel = 85, requiredLevel = 80, attackSpeedBonus = 0.5,
-        cost = { jiuzhuanJindan = 100, gold = 5400000 },
+        cost = { jiuzhuanJindan = 90, gold = 5400000 },
         rewards = { maxHp = 150, atk = 30, def = 20, hpRegen = 2.0 },
     },
     -- ===== 合体（大境界：化神→合体）3 小境界 =====
@@ -506,13 +506,13 @@ GameConfig.REALMS = {
     heti_2 = {
         name = "合体中期", order = 17, isMajor = false,
         maxLevel = 100, requiredLevel = 90, attackSpeedBonus = 0.6,
-        cost = { jiuzhuanJindan = 160, gold = 10500000 },
+        cost = { jiuzhuanJindan = 150, gold = 10500000 },
         rewards = { maxHp = 173, atk = 35, def = 23, hpRegen = 2.3 },
     },
     heti_3 = {
         name = "合体后期", order = 18, isMajor = false,
         maxLevel = 100, requiredLevel = 95, attackSpeedBonus = 0.6,
-        cost = { jiuzhuanJindan = 200, gold = 15800000 },
+        cost = { jiuzhuanJindan = 180, gold = 15800000 },
         rewards = { maxHp = 180, atk = 36, def = 24, hpRegen = 2.4 },
     },
     -- ===== 大乘（大境界：合体→大乘）4 小境界 =====

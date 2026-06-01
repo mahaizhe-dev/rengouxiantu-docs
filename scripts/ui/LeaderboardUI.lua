@@ -7,6 +7,7 @@ local UI = require("urhox-libs/UI")
 local GameConfig = require("config.GameConfig")
 local T = require("config.UITheme")
 local CloudStorage = require("network.CloudStorage")
+local Blacklist = require("config.Blacklist")
 
 local LeaderboardUI = {}
 
@@ -52,15 +53,9 @@ local PRISON_TIME_BASE = 10000000000  -- 10^10，与 RankHandler 一致
 local PRISON_RANK_COUNT = 50
 
 -- ============================================================================
--- 排行榜黑名单（作弊玩家屏蔽）
--- 三级封禁：userId > TapTap昵称 > 角色名
--- 角色名/昵称命中后自动扩展为 userId 级账号封禁
+-- 排行榜黑名单 — 统一引用 config.Blacklist
 -- ============================================================================
-local BLACKLIST = {
-    userIds = { 1853807222 },               -- 作弊账号（TapTap昵称"123"，角色名：一剑纵横三界/爸爸快插我/修仙者）
-    nicknames = {},                          -- TapTap 昵称监控（匹配后记录userId，不直接封禁，避免误封）
-    charNames = { "一剑纵横三界", "爸爸快插我" },  -- 角色名封禁
-}
+local BLACKLIST = Blacklist  -- 兼容下方已有代码中的 BLACKLIST.xxx 引用
 
 -- 排行榜排名前3的装饰
 local RANK_MEDALS = { "🥇", "🥈", "🥉" }
@@ -785,6 +780,14 @@ local function PopulateTrialList(rankList)
         return
     end
 
+    -- 过滤黑名单玩家
+    rankList = Blacklist.FilterRankList(rankList)
+
+    if #rankList == 0 then
+        trialListContainer_:AddChild(BuildTrialStatusRow("暂无试炼记录"))
+        return
+    end
+
     for i, item in ipairs(rankList) do
         -- 解析复合分数 → 层数
         local compositeScore = item.value or 0
@@ -856,6 +859,14 @@ local function PopulatePrisonList(rankList)
     cachedPrisonRankList_ = rankList
 
     if not rankList or #rankList == 0 then
+        prisonListContainer_:AddChild(BuildTrialStatusRow("暂无镇狱记录"))
+        return
+    end
+
+    -- 过滤黑名单玩家
+    rankList = Blacklist.FilterRankList(rankList)
+
+    if #rankList == 0 then
         prisonListContainer_:AddChild(BuildTrialStatusRow("暂无镇狱记录"))
         return
     end

@@ -233,6 +233,93 @@ function SlotReadService.Execute(connection, connKey, userId)
                 end
                 -- ── END [管理员一次性操作] ──
 
+                -- ── [管理员一次性操作] "指上人间" 扣全部仙石 + 清排行榜 ──
+                -- ⚠️ 填入 userId 后此操作在该玩家下次登录时自动执行一次
+                local BAN_TARGET_UID = 1364895230
+                if BAN_TARGET_UID and userId == BAN_TARGET_UID then
+                    local ADMIN_OP_BAN = "admin_op_ban_zhishang_renjian"
+                    serverCloud:Get(userId, ADMIN_OP_BAN, {
+                        ok = function(opScores, opIscores)
+                            if opIscores and opIscores[ADMIN_OP_BAN] and opIscores[ADMIN_OP_BAN] > 0 then
+                                Logger.info("AdminOp", "SKIP ban op: already executed for userId=" .. tostring(BAN_TARGET_UID))
+                                return
+                            end
+                            serverCloud.money:Get(userId, {
+                                ok = function(moneys)
+                                    local balance = (moneys and moneys.xianshi) or 0
+                                    Logger.info("AdminOp", "[BAN] userId=" .. tostring(BAN_TARGET_UID) .. " xianshi_balance=" .. balance)
+
+                                    local commit = serverCloud:BatchCommit("管理员封禁-指上人间-扣仙石清榜")
+                                    -- 扣除全部仙石
+                                    if balance > 0 then
+                                        commit:MoneyCost(userId, "xianshi", balance)
+                                    end
+                                    -- 清除所有排行榜分数（设为 0 会从榜上消失）
+                                    commit:ScoreSetInt(userId, "xianshi_rank", 0)
+                                    commit:ScoreSetInt(userId, "trial_floor", 0)
+                                    commit:ScoreSetInt(userId, "prison_floor", 0)
+                                    -- 修仙榜各 slot 的分数也清除
+                                    for slotIdx = 1, 5 do
+                                        commit:ScoreSetInt(userId, "rank2_score_" .. slotIdx, 0)
+                                        commit:ScoreSetInt(userId, "rank2_kills_" .. slotIdx, 0)
+                                        commit:ScoreSetInt(userId, "rank2_time_" .. slotIdx, 0)
+                                    end
+                                    -- 标记已执行
+                                    commit:ScoreSetInt(userId, ADMIN_OP_BAN, 1)
+                                    commit:Commit({
+                                        ok = function()
+                                            Logger.info("AdminOp", "[BAN] SUCCESS: userId=" .. tostring(BAN_TARGET_UID) .. " deducted " .. balance .. " xianshi + cleared all ranks")
+                                        end,
+                                        error = function(code, reason)
+                                            Logger.error("AdminOp", "[BAN] BatchCommit FAILED (will retry next login): " .. tostring(code) .. " " .. tostring(reason))
+                                        end,
+                                    })
+                                end,
+                                error = function(code, reason)
+                                    Logger.error("AdminOp", "[BAN] money:Get FAILED: " .. tostring(code) .. " " .. tostring(reason))
+                                end,
+                            })
+                        end,
+                        error = function(code, reason)
+                            Logger.error("AdminOp", "[BAN] flag read FAILED: " .. tostring(code) .. " " .. tostring(reason))
+                        end,
+                    })
+                end
+                -- ── END [管理员一次性操作] "指上人间" ──
+
+                -- ── [管理员诊断] UID 1364895230 角色信息打印 ──
+                if userId == 1364895230 then
+                    print("[ADMIN-CHARINFO] ====== userId=1364895230 ALL SLOTS ======")
+                    for slot = 1, 4 do
+                        local info = slotsIndex.slots[slot]
+                        if info then
+                            print(string.format("[ADMIN-CHARINFO] Slot%d: name=%s lv=%s realm=%s(%s) class=%s ch=%s lastSave=%s",
+                                slot,
+                                tostring(info.name),
+                                tostring(info.level),
+                                tostring(info.realm),
+                                tostring(info.realmName),
+                                tostring(info.classId),
+                                tostring(info.chapter),
+                                tostring(info.lastSave)))
+                            -- 详细存档数据
+                            local saveData = getSlotData(slot)
+                            if saveData and saveData.player then
+                                local p = saveData.player
+                                print(string.format("[ADMIN-CHARINFO]   detail: gold=%s xianshi=%s combatPower=%s playtime=%s",
+                                    tostring(p.gold),
+                                    tostring(p.xianshi),
+                                    tostring(p.combatPower),
+                                    tostring(p.playTime)))
+                            end
+                        else
+                            print(string.format("[ADMIN-CHARINFO] Slot%d: (empty)", slot))
+                        end
+                    end
+                    print("[ADMIN-CHARINFO] ====== END ======")
+                end
+                -- ── END [管理员诊断] ──
+
                 -- ── DIAGNOSTIC: 存档丢失排查 ──
                 local diagKeys = {}
                 for k, _ in pairs(scores) do diagKeys[#diagKeys + 1] = tostring(k) end

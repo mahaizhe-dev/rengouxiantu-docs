@@ -73,7 +73,7 @@ local diamondPillCount_ = 0
 local JINDAN_SAND_COST = 100  -- 灵韵/颗
 
 -- 元婴果配置
-local YUANYING_FRUIT_COST = 100  -- 灵韵/颗
+local YUANYING_FRUIT_COST = 200  -- 灵韵/颗
 
 -- 千锤百炼丹配置
 local TEMPERING_PILL = {

@@ -28,6 +28,7 @@ local RedeemHandler = require("network.RedeemHandler")
 local BlackMerchantHandler = require("network.BlackMerchantHandler")
 local XianyuanChestHandler = require("network.XianyuanChestHandler")
 local SkinShopHandler = require("network.SkinShopHandler")
+local Blacklist = require("config.Blacklist")
 -- §R3: 主存档链路服务壳（等价拆分第一阶段）
 local SlotReadService   = require("network.SlotReadService")
 local SaveLoadService   = require("network.SaveLoadService")
@@ -271,6 +272,13 @@ function HandleClientIdentity(eventType, eventData)
     local connKey = ConnKey(connection)
 
     local userId = connection.identity["user_id"]:GetInt64()
+
+    -- ── 登录黑名单拦截：被 ban 的玩家直接踢出 ──
+    if Blacklist.IsKickedOnLogin(userId) then
+        print("[Server][BAN] Kicking banned userId=" .. tostring(userId) .. " connKey=" .. connKey)
+        connection:Disconnect()
+        return
+    end
 
     -- 清理同一 userId 的旧连接记录（引擎会自动踢掉旧连接）
     -- 注意：不能给旧连接 SafeSend，引擎踢人与发消息存在竞态会导致崩溃

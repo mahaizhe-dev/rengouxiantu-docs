@@ -71,7 +71,7 @@ YaochiWashSystem.PILL_VALUES = {
     qi_pill         = 10,
     zhuji_pill      = 100,
     jindan_sand     = 100,
-    yuanying_fruit  = 100,
+    yuanying_fruit  = 200,
     jiuzhuan_jindan = 500,
     dujie_dan       = 1000,
 }

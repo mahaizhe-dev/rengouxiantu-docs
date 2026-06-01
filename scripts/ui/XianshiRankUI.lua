@@ -7,6 +7,7 @@
 local UI = require("urhox-libs/UI")
 local T = require("config.UITheme")
 local CloudStorage = require("network.CloudStorage")
+local Blacklist = require("config.Blacklist")
 
 local XianshiRankUI = {}
 
@@ -52,7 +53,7 @@ function XianshiRankUI.Show()
         onClick = function(self) XianshiRankUI.Hide() end,
         children = {
             UI.Panel {
-                width = 500, maxHeight = 600,
+                width = 580, maxHeight = 600,
                 backgroundColor = {25, 28, 38, 250},
                 borderRadius = T.radius.lg,
                 borderWidth = 1,
@@ -152,6 +153,9 @@ function XianshiRankUI.RenderList(rankList)
         end
     end
 
+    -- 过滤黑名单玩家
+    entries = Blacklist.FilterRankList(entries)
+
     -- 按仙石数量降序
     table.sort(entries, function(a, b) return a.xianshi > b.xianshi end)
 
@@ -198,13 +202,21 @@ function XianshiRankUI.RenderList(rankList)
                     width = 30,
                     textAlign = "center",
                 },
-                -- 昵称
-                UI.Label {
-                    text = entry.nick .. (isMe and " (你)" or ""),
-                    fontSize = T.fontSize.md,
-                    fontColor = isMe and {255, 230, 130, 255} or {210, 210, 225, 240},
-                    flexGrow = 1,
-                    flexShrink = 1,
+                -- 昵称 + UID
+                UI.Panel {
+                    flexGrow = 1, flexShrink = 1,
+                    children = {
+                        UI.Label {
+                            text = entry.nick .. (isMe and " (你)" or ""),
+                            fontSize = T.fontSize.md,
+                            fontColor = isMe and {255, 230, 130, 255} or {210, 210, 225, 240},
+                        },
+                        UI.Label {
+                            text = tostring(entry.userId),
+                            fontSize = T.fontSize.xs,
+                            fontColor = {120, 120, 140, 160},
+                        },
+                    },
                 },
                 -- 仙石数量
                 UI.Label {
