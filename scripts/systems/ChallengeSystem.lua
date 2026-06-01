@@ -237,6 +237,21 @@ function ChallengeSystem.GetReputationProgress(factionKey, repLevel)
     return treasure[tostring(repLevel)]
 end
 
+---判断某一层是否已完成
+---@param factionKey string
+---@param level number tier(旧版) 或 repLevel(新版)
+---@param isReputation boolean|nil 为 true 时查新版 reputation 进度
+---@return boolean
+function ChallengeSystem.IsCompleted(factionKey, level, isReputation)
+    local prog
+    if isReputation then
+        prog = ChallengeSystem.GetReputationProgress(factionKey, level)
+    else
+        prog = ChallengeSystem.GetProgress(factionKey, level)
+    end
+    return prog ~= nil and prog.completed == true
+end
+
 -- ============================================================================
 -- 炼丹
 -- ============================================================================
