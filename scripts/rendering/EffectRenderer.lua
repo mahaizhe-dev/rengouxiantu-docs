@@ -73,7 +73,10 @@ function EffectRenderer.RenderSkillEffects(nvg, l, camera)
 
             local renderer = SKILL_EFFECT_REGISTRY[se.skillId]
             if renderer then
-                renderer(nvg, se, sx, sy, progress, c, alpha, expand, baseAngle, tileSize, l, camera)
+                local ok, err = pcall(renderer, nvg, se, sx, sy, progress, c, alpha, expand, baseAngle, tileSize, l, camera)
+                if not ok then
+                    print("[EffectRenderer] skill effect error (skillId=" .. tostring(se.skillId) .. "): " .. tostring(err))
+                end
             end
 
             nvgRestore(nvg)

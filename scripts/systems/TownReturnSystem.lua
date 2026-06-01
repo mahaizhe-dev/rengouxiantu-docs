@@ -9,6 +9,7 @@
 local GameState      = require("core.GameState")
 local EventBus       = require("core.EventBus")
 local ActiveZoneData = require("config.ActiveZoneData")
+local CombatSystem   = require("systems.CombatSystem")
 
 local TownReturnSystem = {}
 
@@ -185,10 +186,17 @@ function TownReturnSystem.PerformTeleport()
         end
     end
 
-    -- 7. 启动传送光效
+    -- 7. 清除残留技能特效（防止 stale effect 导致渲染错误）
+    if CombatSystem.skillEffects then
+        for i = #CombatSystem.skillEffects, 1, -1 do
+            CombatSystem.skillEffects[i] = nil
+        end
+    end
+
+    -- 8. 启动传送光效
     TownReturnSystem._fxTimer = TownReturnSystem.FX_DURATION
 
-    -- 8. 触发存档
+    -- 9. 触发存档
     EventBus.Emit("save_request")
 
     print("[TownReturn] Teleported to SPAWN_POINT (" .. spawn.x .. ", " .. spawn.y .. ")")
