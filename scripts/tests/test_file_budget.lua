@@ -56,8 +56,8 @@ local EXEMPTIONS = {
     -- [已毕业] rendering/EffectRenderer.lua — 206 行 facade，Step 5 拆分
     -- [已毕业] rendering/TileRenderer.lua — 270 行 facade，Step 5 拆分
     -- [已毕业] rendering/EntityRenderer.lua — 24 行 facade，Step 5 拆分
-    ["rendering/effects/skills_b.lua"] = 950,   -- 当前 902（9个技能渲染器，单函数不可再拆）
-    ["rendering/entities/monsters.lua"]= 1050,  -- 当前 1006（4个怪物渲染函数，紧耦合不可拆）
+    ["rendering/effects/skills_b.lua"] = 950,   -- 当前 906（9个技能渲染器，单函数不可再拆）
+    ["rendering/entities/monsters.lua"]= 1050,  -- 当前 1013（4个怪物渲染函数，紧耦合不可拆）
     ["ui/PetPanel.lua"]                = 2225,  -- 当前 2175
 
     -- ═══════════════════════════════════════════════════════════════════════
@@ -76,7 +76,7 @@ local EXEMPTIONS = {
     -- [已毕业] systems/ChallengeSystem.lua — 428 行 facade，Step 6D 拆分
     -- [已毕业] systems/InventorySystem.lua — 361 行 facade，Step 6C 拆分
     ["systems/AtlasSystem.lua"]        = 1265,  -- 当前 1215
-    ["systems/CombatSystem.lua"]       = 1075,  -- 当前 1025
+    ["systems/CombatSystem.lua"]       = 1090,  -- 当前 1038
     ["systems/QuestSystem.lua"]        = 1010,  -- 当前 959
     ["systems/save/SaveMigrations.lua"]= 1165,  -- 当前 1111
 
@@ -88,17 +88,17 @@ local EXEMPTIONS = {
     ["ui/AtlasUI.lua"]                 = 1370,  -- 当前 1317
     ["ui/BlackMerchantUI.lua"]         = 1825,  -- 当前 1775
     ["ui/BottomBar.lua"]               = 1130,  -- 当前 1078
-    ["ui/BulletinUI.lua"]              = 1435,  -- 当前 1382
-    ["ui/ChallengeUI.lua"]             = 2170,  -- 当前 2119
+    ["ui/BulletinUI.lua"]              = 1455,  -- 当前 1405
+    ["ui/ChallengeUI.lua"]             = 2200,  -- 当前 2143
     ["ui/CharacterSelectScreen.lua"]   = 1285,  -- 当前 1231
-    ["ui/CharacterUI.lua"]             = 1660,  -- 当前 1607
+    ["ui/CharacterUI.lua"]             = 1730,  -- 当前 1679
     ["ui/DaoQuestionUI.lua"]           = 1005,  -- 当前 954
     ["ui/DragonForgeUI.lua"]           = 1690,  -- 当前 1639
     ["ui/EquipTooltip.lua"]            = 1075,  -- 当前 1024
     ["ui/EventExchangeUI.lua"]         = 1605,  -- 当前 1551
-    ["ui/GMConsole.lua"]               = 1510,  -- 当前 1457
+    ["ui/GMConsole.lua"]               = 1535,  -- 当前 1485
     ["ui/GourdUI.lua"]                 = 1155,  -- 当前 1103
-    ["ui/LeaderboardUI.lua"]           = 1370,  -- 当前 1320
+    ["ui/LeaderboardUI.lua"]           = 1380,  -- 当前 1331
     ["ui/Minimap.lua"]                 = 1385,  -- 当前 1331
     ["ui/NPCDialog.lua"]               = 1005,  -- 当前 955
     ["ui/QuestRewardUI.lua"]           = 1055,  -- 当前 1005

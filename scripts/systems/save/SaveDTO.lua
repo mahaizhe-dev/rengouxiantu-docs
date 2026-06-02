@@ -32,8 +32,8 @@
 --
 -- 字段来源：
 --   - P0-3A 合同 §4.1 定义 22 个 DTO 主体字段域
---   - SavePersistence.DoSave() coreData 实际构建包含 6 个额外信封字段
---   - 总计 22 DTO + 6 envelope + 3 passthrough = 31 个已知字段
+--   - SavePersistence.DoSave() coreData 实际构建包含 7 个额外信封字段
+--   - 总计 22 DTO + 7 envelope + 3 passthrough = 32 个已知字段
 -- ============================================================================
 
 local SaveDTO = {}
@@ -99,7 +99,7 @@ local PASSTHROUGH_FIELDS = {
 -- 派生集合（后向兼容：schema = DTO + envelope）
 -- ═══════════════════════════════════════════════════════════════════════════
 
---- SCHEMA_FIELDS = DTO_FIELDS ∪ ENVELOPE_FIELDS（后向兼容，28 个字段）
+--- SCHEMA_FIELDS = DTO_FIELDS ∪ ENVELOPE_FIELDS（后向兼容，29 个字段）
 ---@type table<string, true>
 local SCHEMA_FIELDS = {}
 for k in pairs(DTO_FIELDS) do SCHEMA_FIELDS[k] = true end
@@ -229,7 +229,7 @@ end
 ---
 ---@param coreData table DoSave 构建的原始 coreData
 ---@return table dto        只含 DTO_FIELDS 的表（22 个字段）
----@return table envelope   只含 ENVELOPE_FIELDS 的表（6 个字段）
+---@return table envelope   只含 ENVELOPE_FIELDS 的表（7 个字段）
 ---@return table passthrough 只含 PASSTHROUGH_FIELDS 的表（3 个字段）
 ---@return table unknowns   不在任何已知分类中的字段 { name = value }
 function SaveDTO.FromCoreData(coreData)

@@ -59,17 +59,17 @@ test("DTO field count = 22", function()
     assertEqual(SaveDTO.GetDTOFieldCount(), 22, "DTO fields")
 end)
 
-test("envelope field count = 6", function()
-    assertEqual(SaveDTO.GetEnvelopeFieldCount(), 6, "envelope fields")
+test("envelope field count = 7", function()
+    assertEqual(SaveDTO.GetEnvelopeFieldCount(), 7, "envelope fields")
 end)
 
 test("passthrough field count = 3", function()
     assertEqual(SaveDTO.GetPassthroughFieldCount(), 3, "passthrough fields")
 end)
 
--- 后向兼容：schema = DTO + envelope = 28
-test("schema field count = 28 (backward compat: DTO 22 + envelope 6)", function()
-    assertEqual(SaveDTO.GetSchemaFieldCount(), 28, "schema fields")
+-- 后向兼容：schema = DTO + envelope = 29
+test("schema field count = 29 (backward compat: DTO 22 + envelope 7)", function()
+    assertEqual(SaveDTO.GetSchemaFieldCount(), 29, "schema fields")
 end)
 
 -- ─────────────────────────────────────────────────────────────
