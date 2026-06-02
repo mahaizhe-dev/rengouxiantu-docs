@@ -252,6 +252,16 @@ function ChallengeSystem.IsCompleted(factionKey, level, isReputation)
     return prog ~= nil and prog.completed == true
 end
 
+--- 判断某一关/声望等级是否已解锁（第一关/第一级永远解锁，后续要求前一级已通关）
+---@param factionKey string
+---@param level number tier(旧版) 或 repLevel(新版)
+---@param isReputation boolean|nil 为 true 时查新版 reputation 进度
+---@return boolean
+function ChallengeSystem.IsUnlocked(factionKey, level, isReputation)
+    if level <= 1 then return true end
+    return ChallengeSystem.IsCompleted(factionKey, level - 1, isReputation)
+end
+
 -- ============================================================================
 -- 炼丹
 -- ============================================================================
