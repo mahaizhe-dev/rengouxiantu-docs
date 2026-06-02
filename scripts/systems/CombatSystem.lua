@@ -59,6 +59,7 @@ local FT_SHADOW_STRIKE   = {160, 60, 220, 255}   -- 灭影
 local FT_LIFESTEAL_DMG   = {180, 80, 255, 255}   -- 噬魂增伤
 local FT_WARNING_DEFAULT = {220, 50, 50, 100}    -- 预警默认色
 local FT_BAGFULL_RED     = {255, 100, 100, 255}  -- 背包已满提示
+local FT_TIANZHU         = {0, 220, 220, 255}  -- 天诛（青色）
 
 -- 浮动伤害数字队列
 CombatSystem.floatingTexts = {}
@@ -430,8 +431,10 @@ EFFECT_HANDLERS["luxian"] = {
         if math_random() >= eff.procChance then return end
         eff._cooldown = eff.cooldown or 1.0
         -- 连击：走完整普攻判定（含暴击、装备特效，但标记 isChain=true 排除戮仙）
-        local chainDmg, chainCrit = HitResolver.Hit(player, monster, player:GetTotalAtk(), { noEvent = true })
-        if chainCrit then
+        local chainDmg, chainCrit, chainTianzhu = HitResolver.Hit(player, monster, player:GetTotalAtk(), { noEvent = true })
+        if chainTianzhu then
+            CombatSystem.AddFloatingText(monster.x, monster.y - 1.1, "天诛连击 " .. chainDmg, FT_TIANZHU, 1.5, 1.6)
+        elseif chainCrit then
             CombatSystem.AddFloatingText(monster.x, monster.y - 1.1, "连击暴击 " .. chainDmg, FT_CRIT_YELLOW, 1.3)
         else
             CombatSystem.AddFloatingText(monster.x, monster.y - 1.1, "连击 " .. chainDmg, FT_LUXIAN, 1.1)
@@ -442,7 +445,7 @@ EFFECT_HANDLERS["luxian"] = {
         CombatSystem.TriggerEquipEffectsOnHit(player, monster, chainCrit, true)
         -- 连击也触发 player_normal_hit 系列事件（绝仙叠层、灭影等依赖此事件）
         EventBus.Emit("player_normal_hit", player, monster)
-        EventBus.Emit("player_deal_damage", player, monster)
+        EventBus.Emit("player_deal_damage", player, monster, false, chainTianzhu)
     end,
     update = function(dt)
         local player = GameState.player
@@ -646,13 +649,14 @@ end
 ---@param text string
 ---@param color table {r,g,b,a}
 ---@param lifetime number|nil 生命周期（秒）
-function CombatSystem.AddFloatingText(x, y, text, color, lifetime)
+function CombatSystem.AddFloatingText(x, y, text, color, lifetime, baseScale)
     table.insert(CombatSystem.floatingTexts, {
         x = x,
         y = y,
         text = text,
         color = color or FT_WHITE,
         lifetime = lifetime or 1.0,
+        baseScale = baseScale,
         elapsed = 0,
         offsetY = 0,
     })
@@ -916,8 +920,16 @@ function CombatSystem.AutoAttack(dt)
         if player.attackTimer >= player:GetAttackInterval() then
             player.attackTimer = 0
             -- HitResolver: Standard + noEvent（event 在攻击链末尾统一发出）
-            local damage, isCrit = HitResolver.Hit(player, nearest, player:GetTotalAtk(), { noEvent = true })
-            if isCrit then
+            local damage, isCrit, isTianzhu = HitResolver.Hit(player, nearest, player:GetTotalAtk(), { noEvent = true })
+            if isTianzhu then
+                CombatSystem.AddFloatingText(
+                    nearest.x, nearest.y - 0.5,
+                    "天诛 " .. damage,
+                    FT_TIANZHU,
+                    1.5,
+                    1.6
+                )
+            elseif isCrit then
                 CombatSystem.AddFloatingText(
                     nearest.x, nearest.y - 0.5,
                     "暴击 " .. damage,
@@ -938,15 +950,16 @@ function CombatSystem.AutoAttack(dt)
                     heavyDmg = math_floor(heavyDmg * (1 + heavyDmgBonus))
                 end
                 -- HitResolver: TrueDamage + noEvent（player_heavy_hit 是独立事件）
-                local heavyCrit
-                heavyDmg, heavyCrit = HitResolver.Hit(player, nearest, heavyDmg, { skipCalcDamage = true, skipCrit = false, noEvent = true })
-                local heavyPrefix = heavyCrit and "重击暴击 " or "重击 "
-                local heavyColor = heavyCrit and FT_CRIT_YELLOW or FT_HEAVY_ORANGE
+                local heavyCrit, heavyTianzhu
+                heavyDmg, heavyCrit, heavyTianzhu = HitResolver.Hit(player, nearest, heavyDmg, { skipCalcDamage = true, skipCrit = false, noEvent = true })
+                local heavyPrefix = heavyTianzhu and "天诛重击 " or (heavyCrit and "重击暴击 " or "重击 ")
+                local heavyColor = heavyTianzhu and FT_TIANZHU or (heavyCrit and FT_CRIT_YELLOW or FT_HEAVY_ORANGE)
                 CombatSystem.AddFloatingText(
                     nearest.x, nearest.y - 0.6,
                     heavyPrefix .. heavyDmg,
                     heavyColor,
-                    1.5
+                    1.5,
+                    heavyTianzhu and 1.6 or nil
                 )
                 print("[Combat] HEAVY HIT! " .. heavyDmg .. (heavyCrit and " (CRIT)" or ""))
                 EventBus.Emit("player_heavy_hit", player, nearest)
@@ -962,7 +975,7 @@ function CombatSystem.AutoAttack(dt)
             ArtifactSystem.TryPassiveStrike(player, nearest)
 
             -- 玩家直接伤害事件（血怒等后处理由事件监听统一处理）
-            EventBus.Emit("player_deal_damage", player, nearest)
+            EventBus.Emit("player_deal_damage", player, nearest, false, isTianzhu)
 
             print("[Combat] Player hit " .. nearest.name .. " for " .. damage .. (isCrit and " (CRIT)" or "") .. " (HP: " .. math_floor(nearest.hp) .. "/" .. nearest.maxHp .. ")")
         end

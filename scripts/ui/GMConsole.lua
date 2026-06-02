@@ -427,6 +427,34 @@ local GM_CATEGORIES = {
         color = {255, 200, 100, 255},
         commands = {
             { label = "GM铁剑",       action = CmdGiveGMSword },
+            { label = "天诛测试剑", action = function()
+                local player = GameState.player
+                if not player then return end
+                local InventorySystem = require("systems.InventorySystem")
+                local item = {
+                    id = Utils.NextId(),
+                    name = "天诛试炼剑",
+                    slot = "weapon",
+                    type = "weapon",
+                    icon = "icon_weapon.png",
+                    quality = "orange",
+                    tier = 4,
+                    mainStat = { atk = 9999 },
+                    subStats = {
+                        { stat = "critRate", name = "暴击率", value = 0.5 },
+                        { stat = "critDmg", name = "暴击伤害", value = 2.0 },
+                    },
+                    spiritStat = { stat = "tianzhuChance", name = "天诛", value = 0.5 },
+                    saintStat = { stat = "tianzhuDamage", name = "天诛伤害", value = 0.5 },
+                    sellPrice = 0,
+                }
+                local ok = InventorySystem.AddItem(item)
+                if ok then
+                    ShowLog("天诛试炼剑 已放入背包 (天诛50%/伤害+50%)")
+                else
+                    ShowLog("背包已满！", {255, 120, 100, 255})
+                end
+            end },
             { label = "体魄测试头盔", action = function()
                 local player = GameState.player
                 if not player then return end

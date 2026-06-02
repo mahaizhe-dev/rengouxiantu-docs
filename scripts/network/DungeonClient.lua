@@ -668,12 +668,14 @@ function M._HandleAttackResult(eventType, eventData)
     local attacker = ""
     local damage = 0
     local isCrit = false
+    local isTianzhu = false
     local bossHp = 0
     local bossMaxHp = 0
 
     pcall(function() attacker  = eventData["attacker"]:GetString() end)
     pcall(function() damage    = eventData["damage"]:GetInt() end)
     pcall(function() isCrit    = eventData["isCrit"]:GetBool() end)
+    pcall(function() isTianzhu = eventData["isTianzhu"]:GetBool() end)
     pcall(function() bossHp    = eventData["bossHp"]:GetInt() end)
     pcall(function() bossMaxHp = eventData["bossMaxHp"]:GetInt() end)
 
@@ -685,7 +687,7 @@ function M._HandleAttackResult(eventType, eventData)
 
     -- 更新 HUD
     DungeonHUD.UpdateBossHP(bossHp, bossMaxHp)
-    DungeonHUD.OnAttackResult(attacker, damage, isCrit)
+    DungeonHUD.OnAttackResult(attacker, damage, isCrit, isTianzhu)
 
     -- 同步 attacker 名称（从远程玩家表查找）
     local remotePlayers = DungeonRenderer.GetRemotePlayers()

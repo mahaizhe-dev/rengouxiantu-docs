@@ -693,6 +693,78 @@ local function BuildTab1Content()
         })
     end
 
+    -- 天诛概率（带 tips 解释）
+    local tianzhuColor = {0, 220, 220, 255}
+    local tzChance = player:GetTotalTianzhuChance()
+    local tzDmg = player:GetTotalTianzhuDmg()
+    if tzChance > 0 or tzDmg > 1.5 then
+        table.insert(children, UI.Panel {
+            flexDirection = "row",
+            justifyContent = "space-between",
+            alignItems = "center",
+            paddingLeft = T.spacing.sm,
+            paddingRight = T.spacing.sm,
+            height = 24,
+            children = {
+                UI.Panel {
+                    flexDirection = "row",
+                    alignItems = "center",
+                    gap = 4,
+                    children = {
+                        UI.Label {
+                            text = "天诛概率",
+                            fontSize = T.fontSize.sm,
+                            fontColor = tianzhuColor,
+                        },
+                        UI.Button {
+                            text = "!",
+                            width = 16, height = 16,
+                            fontSize = 10,
+                            fontWeight = "bold",
+                            fontColor = {0, 200, 200, 255},
+                            backgroundColor = {20, 60, 60, 200},
+                            borderRadius = 8,
+                            onClick = function(self)
+                                CharacterUI._showTianzhuTip = not CharacterUI._showTianzhuTip
+                                CharacterUI.Refresh()
+                            end,
+                        },
+                    },
+                },
+                UI.Label {
+                    text = fmtVal(tzChance * 100, "%.0f%%"),
+                    fontSize = T.fontSize.sm,
+                    fontWeight = "bold",
+                    fontColor = {240, 240, 240, 255},
+                },
+            },
+        })
+        table.insert(children, StatRow("天诛伤害", fmtVal(tzDmg * 100, "%.0f%%"), tianzhuColor))
+
+        -- 天诛 tips 展开说明
+        if CharacterUI._showTianzhuTip then
+            table.insert(children, UI.Panel {
+                backgroundColor = {20, 50, 50, 220},
+                borderRadius = T.radius.sm,
+                padding = T.spacing.sm,
+                marginLeft = T.spacing.sm,
+                marginRight = T.spacing.sm,
+                children = {
+                    UI.Label {
+                        text = "【天诛】暴击成功后进行二次判定，"
+                            .. "按天诛概率决定是否触发。\n"
+                            .. "触发后伤害 = 暴击伤害 × 天诛伤害倍率。\n"
+                            .. "基础倍率150%，装备天诛伤害直接累加。\n"
+                            .. "天诛属性来源于灵性/圣性装备，数值固定。",
+                        fontSize = T.fontSize.xs,
+                        fontColor = {140, 230, 230, 220},
+                        whiteSpace = "normal",
+                    },
+                },
+            })
+        end
+    end
+
     table.insert(children, StatRow("减伤", fmtVal((player.equipDmgReduce or 0) * 100, "%.1f%%"), {180, 140, 255, 255}))
     table.insert(children, StatRow("移动速度", fmtVal((player.equipSpeed or 0) * 100, "+%.1f%%"), {100, 220, 255, 255}))
     table.insert(children, StatRow("攻击速度", fmtVal(player:GetAttackSpeed(), "%.2fx"), {255, 180, 150, 255}))

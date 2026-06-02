@@ -622,6 +622,44 @@ TestRegistry.tests = {
         gate          = "blocking",
         skip_reason   = nil,
     },
+
+    ---------------------------------------------------------------------------
+    -- AdminPenalty: 账号处罚控制
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "admin_penalty_control",
+        group         = "system",
+        path          = "scripts/tests/test_admin_penalty_control.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "admin_penalty_wiring",
+        group         = "system",
+        path          = "scripts/tests/test_admin_penalty_wiring.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
+    -- BM-RECYCLE-WINDOW: 黑市自动回收窗口调度
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "recycle_window_schedule",
+        group         = "system",
+        path          = "scripts/tests/test_recycle_window_schedule.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
 }
 
 --- 返回所有测试条目

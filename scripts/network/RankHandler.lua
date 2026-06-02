@@ -10,6 +10,7 @@
 local Session      = require("network.ServerSession")
 local SaveProtocol = require("network.SaveProtocol")
 local GameConfig   = require("config.GameConfig")
+local AdminPenaltyControl = require("network.AdminPenaltyControl")
 
 ---@diagnostic disable-next-line: undefined-global
 local cjson = cjson
@@ -363,6 +364,9 @@ function M.HandleGetRankList(eventType, eventData)
     -- 需要先拿排名，再用 BatchGet 补查附加字段
     serverCloud:GetRankList(rankKey, adjustedStart, count, {
         ok = function(rankList)
+            -- ── [AdminPenalty] suppressRank: 过滤被屏蔽的 UID（xianshi_rank 豁免）──
+            rankList = AdminPenaltyControl.FilterRankList(rankList, rankKey)
+
             -- 无附加字段或无结果 → 直接返回
             if #extraKeys == 0 or #rankList == 0 then
                 local resultData = VariantMap()

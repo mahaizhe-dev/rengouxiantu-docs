@@ -453,4 +453,21 @@ function BMConfig.RealDayGap(todayNum, cloudDate)
     return todayNum - cloudDate
 end
 
+-- ============================================================================
+-- 自动收购调度窗口（北京时间 UTC+8）
+-- ============================================================================
+
+--- 业务时区偏移（秒），固定按 UTC+8 解释业务日期
+BMConfig.RECYCLE_TIMEZONE_OFFSET = 8 * 3600
+--- 自动回收窗口开始（北京时间整点，含）
+BMConfig.RECYCLE_AUTO_START_HOUR = 12
+--- 自动回收窗口结束（北京时间整点，开区间）
+BMConfig.RECYCLE_AUTO_END_HOUR   = 13
+--- 调度检查间隔（秒）：窗口内正常检查频率
+BMConfig.RECYCLE_CHECK_INTERVAL  = 60
+--- 失败后重试间隔（秒）：云端失败后等待多久再重试
+BMConfig.RECYCLE_RETRY_INTERVAL  = 300
+--- 补跑截止小时（北京时间，开区间）：过了这个时间放弃当日回收
+BMConfig.RECYCLE_LATE_END_HOUR   = 18
+
 return BMConfig

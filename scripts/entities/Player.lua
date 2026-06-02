@@ -86,6 +86,8 @@ function Player.New(x, y, opts)
     self.equipWisdom = 0
     self.equipConstitution = 0
     self.equipPhysique = 0
+    self.equipTianzhuChance = 0      -- 天诛触发概率（灵性/圣性属性附加）
+    self.equipTianzhuDamage = 0      -- 天诛伤害加成（基础150% + 此值）
 
     -- 福源果加成（一次性交互物永久+1）
     self.fruitFortune = init.fruitFortune or 0
@@ -414,14 +416,34 @@ function Player:GetTotalHeavyHit()
     return (self.equipHeavyHit or 0) + (self.titleHeavyHit or 0) + (self.artifactHeavyHit or 0) + (self.collectionHeavyHit or 0)
 end
 
---- 对伤害应用暴击判定，返回 最终伤害, 是否暴击
+--- 获取总天诛触发概率（装备加成）
+---@return number
+function Player:GetTotalTianzhuChance()
+    return self.equipTianzhuChance or 0
+end
+
+--- 获取总天诛伤害倍率（基础1.5 + 装备加成）
+---@return number
+function Player:GetTotalTianzhuDmg()
+    return 1.5 + (self.equipTianzhuDamage or 0)
+end
+
+--- 对伤害应用暴击判定，返回 最终伤害, 是否暴击, 是否天诛
+--- 天诛：暴击触发后再判定，公式 = 暴击伤害 × 天诛倍率
 ---@param damage number 原始伤害
----@return number, boolean
+---@return number finalDamage
+---@return boolean isCrit
+---@return boolean isTianzhu
 function Player:ApplyCrit(damage)
     if math.random() < self:GetTotalCritRate() then
-        return math.floor(damage * self:GetTotalCritDmg()), true
+        local critDmg = math.floor(damage * self:GetTotalCritDmg())
+        -- 天诛判定（仅暴击后触发）
+        if self:GetTotalTianzhuChance() > 0 and math.random() < self:GetTotalTianzhuChance() then
+            return math.floor(critDmg * self:GetTotalTianzhuDmg()), true, true
+        end
+        return critDmg, true, false
     end
-    return damage, false
+    return damage, false, false
 end
 
 -- ============================================================================

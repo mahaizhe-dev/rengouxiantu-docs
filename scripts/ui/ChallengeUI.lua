@@ -1739,6 +1739,30 @@ local function BuildFabaoCardRows(item)
         })
     end
 
+    -- 圣性属性
+    if item.saintStat then
+        local ss = item.saintStat
+        table.insert(rows, UI.Panel {
+            width = "100%", height = 1,
+            backgroundColor = {0, 220, 220, 40},
+            marginTop = 2, marginBottom = 2,
+        })
+        table.insert(rows, UI.Panel {
+            flexDirection = "row", justifyContent = "space-between",
+            alignItems = "center", paddingLeft = 4, paddingRight = 4,
+            children = {
+                UI.Label {
+                    text = (STAT_ICONS[ss.stat] or "✨") .. " " .. (ss.name or STAT_NAMES[ss.stat] or ss.stat),
+                    fontSize = T.fontSize.xs, fontColor = {100, 240, 240, 255},
+                },
+                UI.Label {
+                    text = FormatStatValue(ss.stat, ss.value),
+                    fontSize = T.fontSize.xs, fontWeight = "bold", fontColor = {0, 220, 220, 255},
+                },
+            },
+        })
+    end
+
     -- 技能
     if item.skillId then
         local skillDef = SkillData.Skills[item.skillId]

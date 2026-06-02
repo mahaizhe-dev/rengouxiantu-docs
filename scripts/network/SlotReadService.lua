@@ -10,11 +10,12 @@
 
 local SlotReadService = {}
 
-local GameConfig   = require("config.GameConfig")
-local SaveProtocol = require("network.SaveProtocol")
-local Session      = require("network.ServerSession")
-local RankHandler  = require("network.RankHandler")
-local Logger       = require("utils.Logger")
+local GameConfig          = require("config.GameConfig")
+local SaveProtocol        = require("network.SaveProtocol")
+local Session             = require("network.ServerSession")
+local RankHandler         = require("network.RankHandler")
+local Logger              = require("utils.Logger")
+local AdminPenaltyControl = require("network.AdminPenaltyControl")
 
 ---@diagnostic disable-next-line: undefined-global
 local cjson = cjson
@@ -145,25 +146,30 @@ function SlotReadService.Execute(connection, connKey, userId)
                 end
 
                 -- ── [排行旁路] 登录时排行重建（委托 RankHandler） ──
-                local capturedSlotsIndex = slotsIndex
-                local capturedUserId = userId
-                local capturedGetSlotData = getSlotData
-                GetUserNickname({
-                    userIds = { userId },
-                    onSuccess = function(nicknames)
-                        local taptapNick = ""
-                        if nicknames and #nicknames > 0 then
-                            taptapNick = nicknames[1].nickname or ""
-                            Logger.info("FetchSlots", "RankV2: got taptapNick for userId=" .. tostring(capturedUserId) .. " nick=" .. taptapNick)
-                        end
-                        RankHandler.RebuildRankOnLogin(capturedUserId, capturedSlotsIndex, capturedGetSlotData, taptapNick)
-                    end,
-                    onError = function(errorCode, errorMsg)
-                        Logger.warn("FetchSlots", "RankV2: GetUserNickname FAILED userId=" .. tostring(capturedUserId)
-                            .. " err=" .. tostring(errorCode) .. " " .. tostring(errorMsg))
-                        RankHandler.RebuildRankOnLogin(capturedUserId, capturedSlotsIndex, capturedGetSlotData, "")
-                    end,
-                })
+                -- AdminPenalty: suppressRank 时跳过排行重建
+                if AdminPenaltyControl.IsSuppressRank(userId) then
+                    Logger.info("AdminPenalty", "suppressRank: skip RebuildRankOnLogin for userId=" .. tostring(userId))
+                else
+                    local capturedSlotsIndex = slotsIndex
+                    local capturedUserId = userId
+                    local capturedGetSlotData = getSlotData
+                    GetUserNickname({
+                        userIds = { userId },
+                        onSuccess = function(nicknames)
+                            local taptapNick = ""
+                            if nicknames and #nicknames > 0 then
+                                taptapNick = nicknames[1].nickname or ""
+                                Logger.info("FetchSlots", "RankV2: got taptapNick for userId=" .. tostring(capturedUserId) .. " nick=" .. taptapNick)
+                            end
+                            RankHandler.RebuildRankOnLogin(capturedUserId, capturedSlotsIndex, capturedGetSlotData, taptapNick)
+                        end,
+                        onError = function(errorCode, errorMsg)
+                            Logger.warn("FetchSlots", "RankV2: GetUserNickname FAILED userId=" .. tostring(capturedUserId)
+                                .. " err=" .. tostring(errorCode) .. " " .. tostring(errorMsg))
+                            RankHandler.RebuildRankOnLogin(capturedUserId, capturedSlotsIndex, capturedGetSlotData, "")
+                        end,
+                    })
+                end
 
                 -- ── [管理员一次性操作] UID 1074886667: 扣仙石≤2000 + 解锁樱华天犬 ──
                 if userId == 1074886667 then
@@ -233,59 +239,21 @@ function SlotReadService.Execute(connection, connKey, userId)
                 end
                 -- ── END [管理员一次性操作] ──
 
-                -- ── [管理员一次性操作] "指上人间" 扣全部仙石 + 清排行榜 ──
-                -- ⚠️ 填入 userId 后此操作在该玩家下次登录时自动执行一次
-                local BAN_TARGET_UID = 1364895230
-                if BAN_TARGET_UID and userId == BAN_TARGET_UID then
-                    local ADMIN_OP_BAN = "admin_op_ban_zhishang_renjian"
-                    serverCloud:Get(userId, ADMIN_OP_BAN, {
-                        ok = function(opScores, opIscores)
-                            if opIscores and opIscores[ADMIN_OP_BAN] and opIscores[ADMIN_OP_BAN] > 0 then
-                                Logger.info("AdminOp", "SKIP ban op: already executed for userId=" .. tostring(BAN_TARGET_UID))
-                                return
-                            end
-                            serverCloud.money:Get(userId, {
-                                ok = function(moneys)
-                                    local balance = (moneys and moneys.xianshi) or 0
-                                    Logger.info("AdminOp", "[BAN] userId=" .. tostring(BAN_TARGET_UID) .. " xianshi_balance=" .. balance)
-
-                                    local commit = serverCloud:BatchCommit("管理员封禁-指上人间-扣仙石清榜")
-                                    -- 扣除全部仙石
-                                    if balance > 0 then
-                                        commit:MoneyCost(userId, "xianshi", balance)
-                                    end
-                                    -- 清除所有排行榜分数（设为 0 会从榜上消失）
-                                    commit:ScoreSetInt(userId, "xianshi_rank", 0)
-                                    commit:ScoreSetInt(userId, "trial_floor", 0)
-                                    commit:ScoreSetInt(userId, "prison_floor", 0)
-                                    -- 修仙榜各 slot 的分数也清除
-                                    for slotIdx = 1, 5 do
-                                        commit:ScoreSetInt(userId, "rank2_score_" .. slotIdx, 0)
-                                        commit:ScoreSetInt(userId, "rank2_kills_" .. slotIdx, 0)
-                                        commit:ScoreSetInt(userId, "rank2_time_" .. slotIdx, 0)
-                                    end
-                                    -- 标记已执行
-                                    commit:ScoreSetInt(userId, ADMIN_OP_BAN, 1)
-                                    commit:Commit({
-                                        ok = function()
-                                            Logger.info("AdminOp", "[BAN] SUCCESS: userId=" .. tostring(BAN_TARGET_UID) .. " deducted " .. balance .. " xianshi + cleared all ranks")
-                                        end,
-                                        error = function(code, reason)
-                                            Logger.error("AdminOp", "[BAN] BatchCommit FAILED (will retry next login): " .. tostring(code) .. " " .. tostring(reason))
-                                        end,
-                                    })
-                                end,
-                                error = function(code, reason)
-                                    Logger.error("AdminOp", "[BAN] money:Get FAILED: " .. tostring(code) .. " " .. tostring(reason))
-                                end,
-                            })
+                -- ── [AdminPenalty] 配置驱动一次性处罚 ──
+                if AdminPenaltyControl.IsPunishOnce(userId) then
+                    AdminPenaltyControl.ExecutePunishOnce(userId, {
+                        ok = function()
+                            Logger.info("AdminPenalty", "punishOnce SUCCESS for userId=" .. tostring(userId))
                         end,
-                        error = function(code, reason)
-                            Logger.error("AdminOp", "[BAN] flag read FAILED: " .. tostring(code) .. " " .. tostring(reason))
+                        skip = function()
+                            Logger.info("AdminPenalty", "punishOnce SKIPPED (already done) for userId=" .. tostring(userId))
+                        end,
+                        error = function(reason)
+                            Logger.error("AdminPenalty", "punishOnce FAILED for userId=" .. tostring(userId) .. " reason=" .. tostring(reason))
                         end,
                     })
                 end
-                -- ── END [管理员一次性操作] "指上人间" ──
+                -- ── END [AdminPenalty] ──
 
                 -- ── [管理员诊断] UID 1364895230 角色信息打印 ──
                 if userId == 1364895230 then

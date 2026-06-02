@@ -1195,10 +1195,14 @@ end
 -- §12 自动收购（胤）
 -- ============================================================================
 
---- 内存日期缓存，避免每 tick 都读云端
+--- 内存：今日是否已成功执行自动回收（北京日期 YYYYMMDD 字符串）
 local lastRecycleDate_ = nil  -- string: "YYYYMMDD" or nil
 --- 执行锁，防止自动触发与 GM 手动触发并发
 local recycleRunning_ = false
+--- 调度：距上次检查的累计时间（秒）
+local recycleCheckAccum_ = 0
+--- 调度：上次尝试（失败）的时间戳（os.time），用于失败节流
+local recycleLastAttemptTs_ = 0
 
 --- 加权随机收购数量（0/1/2），基于 BMConfig.RECYCLE_WEIGHTS 累积概率
 ---@return integer
@@ -1315,7 +1319,18 @@ function M.ExecuteRecycle(callback)
     end)
 end
 
---- 每帧 tick：检查是否需要执行每日自动收购
+--- 计算当前北京时间的业务日期和小时
+---@return string bizDate "YYYYMMDD"
+---@return integer bizHour 0~23
+local function GetBizDateTime()
+    local utcNow = os.time()
+    local bizTs = utcNow + (BMConfig.RECYCLE_TIMEZONE_OFFSET or 28800)
+    local t = os.date("!*t", bizTs)  -- UTC 基础 + 偏移 = 北京时间各字段
+    local bizDate = string.format("%04d%02d%02d", t.year, t.month, t.day)
+    return bizDate, t.hour
+end
+
+--- 每帧 tick：检查是否需要执行每日自动收购（午间窗口调度版）
 --- 执行顺序："先占坑再干活" — 先更新云端日期，成功后才处理商品。
 --- 确保即使崩溃/重启，也不会重复回收。
 --- 由 server_main.lua HandleServerUpdate 调用
@@ -1324,23 +1339,54 @@ function M.RecycleTick(dt)
     if not BMConfig.RECYCLE_ENABLED then return end
     if recycleRunning_ then return end
 
-    local today = os.date("%Y%m%d")
-    if lastRecycleDate_ == today then return end
+    -- ① 节流：每 CHECK_INTERVAL 秒才真正检查一次
+    recycleCheckAccum_ = recycleCheckAccum_ + dt
+    local checkInterval = BMConfig.RECYCLE_CHECK_INTERVAL or 60
+    if recycleCheckAccum_ < checkInterval then return end
+    recycleCheckAccum_ = 0
 
-    -- 内存占位（快速路径，避免同一帧重复进入）
-    lastRecycleDate_ = today
+    -- ② 计算北京时间业务日期和小时
+    local bizDate, bizHour = GetBizDateTime()
 
-    -- 1. 读取云端日期
+    -- ③ 今日已成功执行 → 跳过
+    if lastRecycleDate_ == bizDate then return end
+
+    -- ④ 窗口判断：未到开始时间 → 跳过
+    local startHour = BMConfig.RECYCLE_AUTO_START_HOUR or 12
+    local lateEndHour = BMConfig.RECYCLE_LATE_END_HOUR or 18
+    if bizHour < startHour then return end
+
+    -- ⑤ 超过补跑截止 → 放弃当日（设置内存标记避免后续无意义检查）
+    if bizHour >= lateEndHour then
+        lastRecycleDate_ = bizDate
+        print("[BlackMerchant][Recycle] 已过补跑截止(" .. tostring(lateEndHour)
+            .. ":00), 放弃当日自动回收 bizDate=" .. bizDate)
+        return
+    end
+
+    -- ⑥ 失败节流：距上次尝试不足 RETRY_INTERVAL → 跳过
+    local retryInterval = BMConfig.RECYCLE_RETRY_INTERVAL or 300
+    local now = os.time()
+    if recycleLastAttemptTs_ > 0 and (now - recycleLastAttemptTs_) < retryInterval then
+        return
+    end
+
+    -- ⑦ 记录本次尝试时间
+    recycleLastAttemptTs_ = now
+
+    -- ⑧ 读取云端日期，进入占坑流程
     serverCloud.money:Get(BMConfig.SYSTEM_UID, {
         ok = function(moneys)
             local cloudDate = moneys[BMConfig.RECYCLE_DATE_KEY] or 0
-            local todayNum = tonumber(today) or 0
+            local todayNum = tonumber(bizDate) or 0
             -- BM-S4D: 用 YYYYMMDD 数值差推进云端日期值（Add 增量）
             local numericGap = todayNum - cloudDate
             -- BM-S4D: 用真实日差判断是否跨天 / 异常（跨月跨年不再失真）
             local realGap = BMConfig.RealDayGap(todayNum, cloudDate)
 
             if realGap <= 0 then
+                -- 云端已是今天 → 别的进程或之前启动已占坑成功
+                lastRecycleDate_ = bizDate
                 print("[BlackMerchant][Recycle] 当日已执行 (cloud=" .. tostring(cloudDate) .. ")")
                 return
             end
@@ -1351,22 +1397,23 @@ function M.RecycleTick(dt)
                     .. tostring(BMConfig.MAX_RECYCLE_GAP) .. ", 疑似时间异常或长期停机, 仅更新日期")
                 serverCloud.money:Add(BMConfig.SYSTEM_UID, BMConfig.RECYCLE_DATE_KEY, numericGap, {
                     ok = function()
-                        print("[BlackMerchant][Recycle] 日期已跳转至: " .. today .. " (无回收)")
+                        lastRecycleDate_ = bizDate
+                        print("[BlackMerchant][Recycle] 日期已跳转至: " .. bizDate .. " (无回收)")
                     end,
                     error = function(c, r)
-                        -- 日期更新失败，清除内存占位让下一 tick 重试
-                        lastRecycleDate_ = nil
                         print("[BlackMerchant][Recycle] 日期跳转失败: " .. tostring(r))
                     end,
                 })
                 return
             end
 
-            -- 2. 先占坑：更新云端日期（在处理任何商品之前）
+            -- 先占坑：更新云端日期（在处理任何商品之前）
             serverCloud.money:Add(BMConfig.SYSTEM_UID, BMConfig.RECYCLE_DATE_KEY, numericGap, {
                 ok = function()
-                    print("[BlackMerchant][Recycle] 日期已占坑: " .. today .. " (realGap=" .. realGap .. ")")
-                    -- 3. 占坑成功后才执行回收（fire-and-forget，失败可接受）
+                    lastRecycleDate_ = bizDate
+                    recycleLastAttemptTs_ = 0  -- 占坑成功，清除失败节流
+                    print("[BlackMerchant][Recycle] 日期已占坑: " .. bizDate .. " (realGap=" .. realGap .. ")")
+                    -- 占坑成功后才执行回收（fire-and-forget，失败可接受）
                     M.ExecuteRecycle(function(ok, summary)
                         if ok then
                             print("[BlackMerchant][Recycle] " .. summary)
@@ -1377,17 +1424,13 @@ function M.RecycleTick(dt)
                     end)
                 end,
                 error = function(c, r)
-                    -- 占坑失败 → 商品未动 → 清除内存占位让下一 tick 重试
-                    -- 这是安全的：没有任何商品被处理
-                    lastRecycleDate_ = nil
+                    -- 占坑失败 → 商品未动 → 等下一个 RETRY_INTERVAL 再尝试
                     print("[BlackMerchant][Recycle] 占坑失败(商品未动,可重试): " .. tostring(r))
                 end,
             })
         end,
         error = function(code, reason)
-            -- 云端读取失败 → 清除内存占位让下一 tick 重试
-            -- 安全：既没占坑也没处理商品
-            lastRecycleDate_ = nil
+            -- 云端读取失败 → 等下一个 RETRY_INTERVAL 再尝试
             print("[BlackMerchant][Recycle] 云端读取失败(可重试): " .. tostring(reason))
         end,
     })

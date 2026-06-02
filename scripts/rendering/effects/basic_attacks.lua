@@ -40,9 +40,10 @@ function M.RenderFloatingTexts(nvg, l, camera)
             local c = ft.color
 
             -- 缩放效果（刚出现时放大，然后恢复）
-            local scale = 1.0
+            local baseScale = ft.baseScale or 1.0
+            local scale = baseScale
             if progress < 0.15 then
-                scale = 1.0 + 0.5 * (1.0 - progress / 0.15)
+                scale = baseScale + 0.5 * baseScale * (1.0 - progress / 0.15)
             end
 
             -- 阴影

@@ -68,6 +68,7 @@ function BattleContracts.NewHitResult(overrides)
         requestedDamage = 0,     -- 请求伤害（CalcDamage 之后、TakeDamage 之前）
         finalDamage     = 0,     -- 实际伤害（TakeDamage 返回值）
         isCrit          = false, -- 是否暴击
+        isTianzhu       = false, -- 是否天诛（暴击后触发的额外倍率）
         targetAlive     = true,  -- 目标是否存活
         wasEvaded       = false, -- 是否被闪避
         wasAbsorbed     = false, -- 是否被护盾完全吸收

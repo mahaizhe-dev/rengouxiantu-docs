@@ -56,6 +56,7 @@ function HitResolver.Hit(source, target, rawDmg, opts)
 
     local damage = rawDmg
     local isCrit = false
+    local isTianzhu = false
 
     -- Step 1: 防御减算
     if not opts.skipCalcDamage then
@@ -67,12 +68,12 @@ function HitResolver.Hit(source, target, rawDmg, opts)
         if opts.conditionalCrit then
             -- 条件暴击：仅当 canCrit 为 true 且 source 有 ApplyCrit 时
             if opts.canCrit and source and source.ApplyCrit then
-                damage, isCrit = source:ApplyCrit(damage)
+                damage, isCrit, isTianzhu = source:ApplyCrit(damage)
             end
         else
             -- 无条件暴击
             if source and source.ApplyCrit then
-                damage, isCrit = source:ApplyCrit(damage)
+                damage, isCrit, isTianzhu = source:ApplyCrit(damage)
             end
         end
     end
@@ -92,13 +93,13 @@ function HitResolver.Hit(source, target, rawDmg, opts)
     -- Step 4: 事件
     if not opts.noEvent then
         if opts.isDot then
-            EventBus.Emit("player_deal_damage", source, target, true)
+            EventBus.Emit("player_deal_damage", source, target, true, isTianzhu)
         else
-            EventBus.Emit("player_deal_damage", source, target)
+            EventBus.Emit("player_deal_damage", source, target, false, isTianzhu)
         end
     end
 
-    return damage, isCrit
+    return damage, isCrit, isTianzhu
 end
 
 -- ============================================================================
@@ -112,6 +113,7 @@ end
 ---@param rawDmg number
 ---@return number actualDamage
 ---@return boolean isCrit
+---@return boolean isTianzhu
 function HitResolver.Standard(source, target, rawDmg)
     return HitResolver.Hit(source, target, rawDmg)
 end

@@ -213,6 +213,27 @@ RedeemCodes.CODES = {
         perUser   = 1,
         note      = "剑星草x1+灵韵1000（5/5）",
     },
+    -- ====== 六一活动兑换码 ======
+    {
+        code      = "LIUYI2026",
+        rewards   = {
+            { type = "item", id = "childday_rattle", amount = 5 },
+            { type = "item", id = "childday_pinwheel", amount = 1 },
+        },
+        maxUses   = 100,
+        perUser   = 1,
+        note      = "六一活动：拨浪鼓x5+风车x1，限100次",
+    },
+    {
+        code      = "LIUYI61FU",
+        rewards   = {
+            { type = "item", id = "childday_rattle", amount = 5 },
+            { type = "item", id = "item_guardian_token", amount = 1 },
+        },
+        maxUses   = 10,
+        perUser   = 1,
+        note      = "六一福利：拨浪鼓x5+守护者证明x1，限10次",
+    },
 }
 
 return RedeemCodes

@@ -109,7 +109,8 @@ end
 ---@param attacker string  攻击者 connKey
 ---@param damage number    伤害值
 ---@param isCrit boolean   是否暴击
-function M.OnAttackResult(attacker, damage, isCrit)
+---@param isTianzhu boolean|nil 是否天诛
+function M.OnAttackResult(attacker, damage, isCrit, isTianzhu)
     -- 更新伤害统计
     if not damageStats_[attacker] then
         local isSelf = (attacker == localConnKey_)
@@ -129,12 +130,19 @@ function M.OnAttackResult(attacker, damage, isCrit)
 
     -- 添加飘字（屏幕 BOSS 血条附近）
     local offsetX = (math.random() - 0.5) * 80
+    local text = tostring(damage)
+    if isTianzhu then
+        text = "天诛 " .. text
+    elseif isCrit then
+        text = text .. "!"
+    end
     table.insert(floatingDamages_, {
-        text  = isCrit and (tostring(damage) .. "!") or tostring(damage),
+        text  = text,
         x     = offsetX,
         y     = 0,
         timer = FLOAT_DURATION,
         isCrit = isCrit,
+        isTianzhu = isTianzhu or false,
     })
 end
 
@@ -545,6 +553,14 @@ function M.RenderFloatingDamages(nvg, screenW, screenH)
             nvgText(nvg, posX + 1, posY + 1, f.text)
             -- 文字
             nvgFillColor(nvg, nvgRGBA(255, 60, 60, alpha))
+            nvgText(nvg, posX, posY, f.text)
+        elseif f.isTianzhu then
+            -- 天诛文字（青色特大字，比暴击更醒目）
+            nvgFontSize(nvg, 24)
+            nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+            nvgFillColor(nvg, nvgRGBA(0, 0, 0, alpha))
+            nvgText(nvg, posX + 1, posY + 1, f.text)
+            nvgFillColor(nvg, nvgRGBA(0, 220, 220, alpha))
             nvgText(nvg, posX, posY, f.text)
         elseif f.isCrit then
             -- 暴击文字（金色大字）

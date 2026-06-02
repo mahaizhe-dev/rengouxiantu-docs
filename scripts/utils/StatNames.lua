@@ -32,6 +32,8 @@ StatNames.NAMES = {
     constitution = "根骨",
     physique    = "体魄",
     killGold    = "击杀金币",
+    tianzhuChance = "天诛概率",
+    tianzhuDamage = "天诛伤害",
 }
 
 ------------------------------------------------------------------------
@@ -55,6 +57,8 @@ StatNames.SHORT_NAMES = {
     constitution = "根骨",
     physique    = "体魄",
     killGold    = "击杀金币",
+    tianzhuChance = "天诛",
+    tianzhuDamage = "天诛伤",
 }
 
 ------------------------------------------------------------------------
@@ -78,6 +82,8 @@ StatNames.ICONS = {
     constitution = "💪",
     physique    = "🩸",
     killGold    = "💰",
+    tianzhuChance = "⚡",
+    tianzhuDamage = "⚡",
 }
 
 ------------------------------------------------------------------------
@@ -96,6 +102,8 @@ StatNames.COLORS = {
     wisdom      = {180, 140, 255, 255},
     constitution = {140, 220, 180, 255},
     physique    = {220, 180, 140, 255},
+    tianzhuChance = {0, 220, 220, 255},
+    tianzhuDamage = {0, 220, 220, 255},
 }
 
 ------------------------------------------------------------------------
@@ -108,6 +116,8 @@ StatNames.PCT_STATS = {
     critDmg   = true,
     dmgReduce = true,
     skillDmg  = true,
+    tianzhuChance = true,
+    tianzhuDamage = true,
 }
 
 ------------------------------------------------------------------------

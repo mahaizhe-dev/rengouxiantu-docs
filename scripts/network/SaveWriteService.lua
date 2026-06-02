@@ -20,6 +20,7 @@ local SealDemonConfig  = require("config.SealDemonConfig")
 local SaveProtocol     = require("network.SaveProtocol")
 local Session          = require("network.ServerSession")
 local RankHandler      = require("network.RankHandler")
+local AdminPenaltyControl = require("network.AdminPenaltyControl")
 local Logger           = require("utils.Logger")
 
 ---@diagnostic disable-next-line: undefined-global
@@ -146,10 +147,19 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
         batch:SetInt("player_level", playerLevel)
     end
 
+    -- ── [AdminPenalty] suppressRank 守卫 — 跳过所有排行写入 ──
+    local _skipRank = AdminPenaltyControl.IsSuppressRank(userId)
+    if _skipRank then
+        Logger.info("SaveGame", "[AdminPenalty] suppressRank: skip ALL rank writes for userId=" .. tostring(userId))
+    end
+
     -- ════════════════════════════════════════════════════════════════
     -- [排行旁路] rank2_ 排行榜（服务端权威计算）
     -- ════════════════════════════════════════════════════════════════
-    local rankInfo, rankRejectReason = RankHandler.ComputeRankFromSaveData(coreData)
+    local rankInfo, rankRejectReason
+    if not _skipRank then
+        rankInfo, rankRejectReason = RankHandler.ComputeRankFromSaveData(coreData)
+    end
 
     -- TapTap 昵称
     local taptapNick = nil
@@ -219,7 +229,7 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
     -- ════════════════════════════════════════════════════════════════
     -- [试炼旁路] trial_floor + trial_info
     -- ════════════════════════════════════════════════════════════════
-    local trialTower = coreData.trialTower
+    local trialTower = not _skipRank and coreData.trialTower or nil
     if trialTower and type(trialTower) == "table" then
         local highestFloor = trialTower.highestFloor
         if highestFloor and type(highestFloor) == "number" and highestFloor > 0 then
@@ -257,7 +267,7 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
     -- ════════════════════════════════════════════════════════════════
     -- [镇狱塔旁路] prison_floor + prison_info
     -- ════════════════════════════════════════════════════════════════
-    local prisonTower = coreData.prisonTower
+    local prisonTower = not _skipRank and coreData.prisonTower or nil
     if prisonTower and type(prisonTower) == "table" then
         local prisonHighest = prisonTower.highestFloor
         if prisonHighest and type(prisonHighest) == "number" and prisonHighest > 0 then

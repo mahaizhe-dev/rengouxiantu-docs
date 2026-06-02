@@ -147,6 +147,8 @@ local function CreateEquipPanel()
         { key = "wisdom", label = "悟性", color = {200, 150, 255, 255} },
         { key = "constitution", label = "根骨", color = {255, 180, 100, 255} },
         { key = "physique", label = "体魄", color = {220, 50, 50, 255} },
+        { key = "tianzhuChance", label = "天诛概率", color = {0, 220, 220, 255} },
+        { key = "tianzhuDamage", label = "天诛伤害", color = {0, 220, 220, 255} },
     }
 
     for _, sd in ipairs(statDefs) do
@@ -611,21 +613,31 @@ function InventoryUI.UpdateStats()
         { key = "physique", value = summary.physique },
     }
 
+    -- 天诛属性：显示玩家总值（非装备增量），player 为 nil 时显示 0
+    local player = GameState.player
+    local tzChance = player and player:GetTotalTianzhuChance() or 0
+    local tzDmg = player and player:GetTotalTianzhuDmg() or 0
+    table.insert(stats, { key = "tianzhuChance", value = tzChance, isTotal = true })
+    table.insert(stats, { key = "tianzhuDamage", value = tzDmg, isTotal = true })
+
     local pctKeys = { critRate = true, critDmg = true, dmgReduce = true, skillDmg = true }
 
     for _, s in ipairs(stats) do
         local label = panel_:FindById("stat_" .. s.key)
         if label then
             local val = s.value or 0
-            local txt = "+"
-            if s.key == "hpRegen" then
-                txt = txt .. string.format("%.1f/s", val)
+            local txt
+            if s.isTotal then
+                -- 天诛显示总值百分比（不带+号）
+                txt = string.format("%.1f%%", val * 100)
+            elseif s.key == "hpRegen" then
+                txt = "+" .. string.format("%.1f/s", val)
             elseif pctKeys[s.key] then
-                txt = txt .. string.format("%.1f%%", val * 100)
+                txt = "+" .. string.format("%.1f%%", val * 100)
             elseif s.key == "speed" then
-                txt = txt .. string.format("%.1f", val)
+                txt = "+" .. string.format("%.1f", val)
             else
-                txt = txt .. tostring(math.floor(val))
+                txt = "+" .. tostring(math.floor(val))
             end
             label:SetText(txt)
         end

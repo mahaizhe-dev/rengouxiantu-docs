@@ -29,6 +29,7 @@ local BlackMerchantHandler = require("network.BlackMerchantHandler")
 local XianyuanChestHandler = require("network.XianyuanChestHandler")
 local SkinShopHandler = require("network.SkinShopHandler")
 local Blacklist = require("config.Blacklist")
+local AdminPenaltyControl = require("network.AdminPenaltyControl")
 -- §R3: 主存档链路服务壳（等价拆分第一阶段）
 local SlotReadService   = require("network.SlotReadService")
 local SaveLoadService   = require("network.SaveLoadService")
@@ -276,6 +277,19 @@ function HandleClientIdentity(eventType, eventData)
     -- ── 登录黑名单拦截：被 ban 的玩家直接踢出 ──
     if Blacklist.IsKickedOnLogin(userId) then
         print("[Server][BAN] Kicking banned userId=" .. tostring(userId) .. " connKey=" .. connKey)
+        connection:Disconnect()
+        return
+    end
+
+    -- ── AdminPenalty denyLogin 拦截 ──
+    if AdminPenaltyControl.IsDenyLogin(userId) then
+        Logger.info("AdminPenalty", "denyLogin: userId=" .. tostring(userId) .. " connKey=" .. connKey)
+        -- 尝试发送维护消息后断连（降级为直接断连）
+        pcall(function()
+            local data = VariantMap()
+            data["message"] = Variant("账号已被限制登录")
+            Session.SafeSend(connection, SaveProtocol.S2C_Maintenance, data)
+        end)
         connection:Disconnect()
         return
     end

@@ -209,7 +209,7 @@ end
 ---@return table|nil
 function M.GenerateSpiritStat(tier, mainStatType, quality)
     local pool = {}
-    for _, sub in ipairs(EquipmentData.SUB_STATS) do
+    for _, sub in ipairs(EquipmentData.SPIRIT_STATS) do
         if sub.stat ~= mainStatType then
             table.insert(pool, sub)
         end
@@ -226,7 +226,10 @@ function M.GenerateSpiritStat(tier, mainStatType, quality)
     local pctTierMult = EquipmentData.PCT_SUB_TIER_MULT[tier] or 1.0
 
     local value
-    if sub.linearGrowth then
+    if sub.fixed then
+        -- 天诛等固定属性：完全固定，无任何波动
+        value = sub.baseValue
+    elseif sub.linearGrowth then
         local qualityConfig = GameConfig.QUALITY[quality]
         local qualityMult = qualityConfig and qualityConfig.multiplier or 1.0
         value = math.floor(tier * qualityMult) * 0.5
@@ -254,7 +257,7 @@ end
 ---@return table|nil
 function M.GenerateSaintStat(tier, mainStatType, quality)
     local pool = {}
-    for _, sub in ipairs(EquipmentData.SUB_STATS) do
+    for _, sub in ipairs(EquipmentData.SAINT_STATS) do
         if sub.stat ~= mainStatType then
             table.insert(pool, sub)
         end
@@ -271,7 +274,10 @@ function M.GenerateSaintStat(tier, mainStatType, quality)
     local pctTierMult = EquipmentData.PCT_SUB_TIER_MULT[tier] or 1.0
 
     local value
-    if sub.linearGrowth then
+    if sub.fixed then
+        -- 天诛等固定属性：完全固定，无任何波动
+        value = sub.baseValue
+    elseif sub.linearGrowth then
         local qualityConfig = GameConfig.QUALITY[quality]
         local qualityMult = qualityConfig and qualityConfig.multiplier or 1.0
         value = math.floor(tier * qualityMult)

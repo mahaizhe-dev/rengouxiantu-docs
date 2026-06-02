@@ -228,6 +228,42 @@ EquipmentData.SUB_STATS = {
     { stat = "physique",     name = "体魄",  baseValue = 1, linearGrowth = true },
 }
 
+-- 灵性属性池 = 标准副属性 + 天诛属性（供 GenerateSpiritStat 使用）
+EquipmentData.SPIRIT_STATS = {
+    { stat = "atk",       name = "攻击力",   baseValue = 1.5 },
+    { stat = "def",       name = "防御力",   baseValue = 1.2 },
+    { stat = "maxHp",     name = "生命值",   baseValue = 6 },
+    { stat = "hpRegen",   name = "生命回复", baseValue = 0.5 },
+    { stat = "killHeal",  name = "击杀回血", baseValue = 3 },
+    { stat = "critRate",  name = "暴击率",   baseValue = 0.01 },
+    { stat = "critDmg",   name = "暴击伤害", baseValue = 0.05 },
+    { stat = "heavyHit",  name = "重击值",   baseValue = 8 },
+    { stat = "fortune",   name = "福缘",     baseValue = 1, linearGrowth = true },
+    { stat = "wisdom",    name = "悟性",     baseValue = 1, linearGrowth = true },
+    { stat = "constitution", name = "根骨",  baseValue = 1, linearGrowth = true },
+    { stat = "physique",     name = "体魄",  baseValue = 1, linearGrowth = true },
+    { stat = "tianzhuChance", name = "天诛概率", baseValue = 0.01, fixed = true },
+    { stat = "tianzhuDamage", name = "天诛伤害", baseValue = 0.05, fixed = true },
+}
+
+-- 圣性属性池 = 标准副属性 + 天诛属性（供 GenerateSaintStat 使用）
+EquipmentData.SAINT_STATS = {
+    { stat = "atk",       name = "攻击力",   baseValue = 1.5 },
+    { stat = "def",       name = "防御力",   baseValue = 1.2 },
+    { stat = "maxHp",     name = "生命值",   baseValue = 6 },
+    { stat = "hpRegen",   name = "生命回复", baseValue = 0.5 },
+    { stat = "killHeal",  name = "击杀回血", baseValue = 3 },
+    { stat = "critRate",  name = "暴击率",   baseValue = 0.01 },
+    { stat = "critDmg",   name = "暴击伤害", baseValue = 0.05 },
+    { stat = "heavyHit",  name = "重击值",   baseValue = 8 },
+    { stat = "fortune",   name = "福缘",     baseValue = 1, linearGrowth = true },
+    { stat = "wisdom",    name = "悟性",     baseValue = 1, linearGrowth = true },
+    { stat = "constitution", name = "根骨",  baseValue = 1, linearGrowth = true },
+    { stat = "physique",     name = "体魄",  baseValue = 1, linearGrowth = true },
+    { stat = "tianzhuChance", name = "天诛概率", baseValue = 0.02, fixed = true },
+    { stat = "tianzhuDamage", name = "天诛伤害", baseValue = 0.10, fixed = true },
+}
+
 -- 副属性强度（按阶级递增）
 EquipmentData.SUB_STAT_TIER_MULT = {
     [1]  = 1.0,

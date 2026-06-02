@@ -21,6 +21,7 @@ function M.RecalcEquipStats(IS)
         critRate = 0, dmgReduce = 0, skillDmg = 0, killHeal = 0,
         critDmg = 0, heavyHit = 0, fortune = 0, wisdom = 0,
         constitution = 0, physique = 0,
+        tianzhuChance = 0, tianzhuDamage = 0,
     }
 
     -- 统计套装件数（按原始 slot 去重：同 slot 的重复装备只计1件）
@@ -134,6 +135,7 @@ function M.RecalcEquipStats(IS)
         critDmg = "equipCritDmg", heavyHit = "equipHeavyHit",
         fortune = "equipFortune", wisdom = "equipWisdom",
         constitution = "equipConstitution", physique = "equipPhysique",
+        tianzhuChance = "equipTianzhuChance", tianzhuDamage = "equipTianzhuDamage",
     }
     for stat, field in pairs(STAT_TO_PLAYER) do
         player[field] = totals[stat]
