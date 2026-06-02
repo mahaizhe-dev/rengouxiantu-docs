@@ -222,4 +222,27 @@ SaveSystem.ProcessLoadedData = SaveLoader.ProcessLoadedData
 -- SaveRecovery
 SaveSystem.TryRecoverSave   = SaveRecovery.TryRecoverSave
 
+-- ── 拆分后遗漏：CheckSaveExists（LoginScreen 依赖）──────────────────────────
+--- 检查云端是否存在任何有效存档（回调方式）
+---@param callback fun(hasSave: boolean|nil, errorReason: string|nil)
+function SaveSystem.CheckSaveExists(callback)
+    SaveSystem.FetchSlots(function(slotsIndex, err)
+        if err then
+            callback(nil, err)
+            return
+        end
+        if not slotsIndex or not slotsIndex.slots then
+            callback(false, nil)
+            return
+        end
+        for slot = 1, SaveSystem.MAX_SLOTS do
+            if slotsIndex.slots[slot] and not slotsIndex.slots[slot].dataLost then
+                callback(true, nil)
+                return
+            end
+        end
+        callback(false, nil)
+    end)
+end
+
 return SaveSystem
