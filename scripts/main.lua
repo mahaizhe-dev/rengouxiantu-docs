@@ -84,6 +84,7 @@ local TownReturnEntry = require("ui.TownReturnEntry")
 local TownReturnSystem = require("systems.TownReturnSystem")
 local DPSTracker = require("ui.DPSTracker")
 local PerfMonitor = require("systems.PerfMonitor")
+local AudioSystem = require("systems.AudioSystem")
 local _dcOk, DungeonClient = pcall(require, "network.DungeonClient")
 if not _dcOk then
     print("[WARN] DungeonClient load failed: " .. tostring(DungeonClient))
@@ -96,9 +97,7 @@ end
 local uiRoot_ = nil
 local worldWidget_ = nil
 local gameMap_ = nil
-local bgmScene_ = nil    -- 音乐专用 Scene
-local bgmSource_ = nil   -- 当前背景音乐 SoundSource
-local bgmEnabled_ = true -- 背景音乐开关（仅会话内有效，不保存）
+-- BGM/掉落音已迁移至 AudioSystem 模块
 local camera_ = nil
 local spawner_ = nil
 local hudUpdateTimer_ = 0
@@ -112,10 +111,6 @@ local daoQuestionPending_ = false  -- 新角色创角后等待首帧触发天道
 local FAR_MONSTER_RANGE = GameConfig.DEAGGRO_RANGE * 2
 local FAR_MONSTER_DIST_SQ = FAR_MONSTER_RANGE * FAR_MONSTER_RANGE
 local FAR_MONSTER_UPDATE_INTERVAL = 0.5  -- 远处怪物更新间隔（秒）
-
--- ============================================================================
--- 背景音乐
--- ============================================================================
 
 --- NPC 数据浅拷贝（RebuildWorld / InitGame 共用）
 ---@param npcData table ZoneData 中的 NPC 定义
@@ -146,63 +141,27 @@ local function CopyNPC(npcData)
     }
 end
 
---- 章节对应的音乐文件
-local CHAPTER_BGM = {
-    [1] = "audio/music_1772863945987.ogg",  -- 两界村（登录共用）
-    [2] = "audio/music_1772864079904.ogg",  -- 乌家堡
-    [3] = "audio/music_1773407979739.ogg",  -- 万里黄沙
-    [4] = "audio/music_1775307731590.ogg",  -- 八卦海
-}
-
---- 播放指定章节的背景音乐
+--- 播放指定章节的背景音乐（委托 AudioSystem）
 ---@param chapterId number
 function PlayBGM(chapterId)
-    local path = CHAPTER_BGM[chapterId]
-    if not path then return end
-
-    -- 首次调用：创建音乐专用 Scene + Node + SoundSource
-    if not bgmScene_ then
-        bgmScene_ = Scene()
-        local node = bgmScene_:CreateChild("BGM")
-        bgmSource_ = node:CreateComponent("SoundSource")
-        bgmSource_:SetSoundType("Music")
-        bgmSource_.gain = 0.35
-    end
-
-    -- 用户本次会话关了音乐则不播放
-    if not bgmEnabled_ then return end
-
-    -- 加载并播放
-    local sound = cache:GetResource("Sound", path)
-    if sound then
-        sound.looped = true
-        bgmSource_:Play(sound)
-        print("[BGM] Playing: " .. path)
-    end
+    AudioSystem.PlayBGM(chapterId)
 end
 
---- 停止背景音乐
+--- 停止背景音乐（委托 AudioSystem）
 function StopBGM()
-    if bgmSource_ then
-        bgmSource_:Stop()
-    end
+    AudioSystem.StopBGM()
 end
 
---- 设置背景音乐开关（仅当前会话有效，不保存）
+--- 设置背景音乐开关（委托 AudioSystem，现在持久化到存档）
 ---@param enabled boolean
 function SetBGMEnabled(enabled)
-    bgmEnabled_ = enabled
-    if enabled then
-        PlayBGM(GameState.currentChapter or 1)
-    else
-        StopBGM()
-    end
+    AudioSystem.SetBGMEnabled(enabled)
 end
 
---- 获取背景音乐开关状态
+--- 获取背景音乐开关状态（委托 AudioSystem）
 ---@return boolean
 function IsBGMEnabled()
-    return bgmEnabled_
+    return AudioSystem.IsBGMEnabled()
 end
 
 -- ============================================================================
@@ -245,6 +204,9 @@ function GameStart()
         self:SetState({ pressed = false })
         self:TransitionToStateBgColor()
     end
+
+    -- 1.5 初始化音频系统（需在存档加载前，以便 ApplySettings 生效）
+    AudioSystem.Init()
 
     -- 2. 初始化存档系统（登录界面检查存档需要）
     SaveSystem.Init()

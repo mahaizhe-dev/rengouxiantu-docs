@@ -224,6 +224,7 @@ function SavePersistence.DoSave(slot, callback, epoch)
         end)(),
         -- 透传服务端写入的仙缘宝箱待选奖励（客户端不解析，原样写回防覆盖）
         pendingXianyuanRewards = SS._pendingXianyuanRewards,
+        -- v26: audioSettings 已迁移到本地文件（AudioSystem 自管理），不再写入云存档
     }
 
     -- P0-3: SAVE_PIPELINE_V2 影子校验 — 检查 coreData 字段边界

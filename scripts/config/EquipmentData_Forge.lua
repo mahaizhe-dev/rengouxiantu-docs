@@ -531,5 +531,11 @@ EquipmentData.SWORD_FORGE_ORDER = {
     "fabao_longhunling",
 }
 
+-- 打造随机套装池白名单（ForgeRandomSetLingqi 使用）
+-- 只有这里列出的 setId 才会被随机套装锻造产出
+EquipmentData.FORGE_SET_POOLS = {
+    lingqi_t9_standard = { "xuesha", "qingyun", "fengmo", "haoqi" },
+}
+
 
 end

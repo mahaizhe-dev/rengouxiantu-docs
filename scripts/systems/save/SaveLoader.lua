@@ -599,6 +599,8 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
         end
     end
 
+    -- v26: audioSettings 已迁移到本地文件（AudioSystem.Init 自行加载），不再从云存档恢复
+
     EventBus.Emit("game_loaded")
 
     -- 登录备份：加载成功后将已验证的数据写入独立 key

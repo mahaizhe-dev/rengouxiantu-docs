@@ -136,6 +136,10 @@ function M.AutoPickup(player, dt)
                         if string.find(cId, "_fragment_") then
                             hasFragmentPickup = true
                         end
+                        -- 掉落音判定（A~E类消耗品：碎片/丹药/灵韵果/黑市等）
+                        local AudioSystem = require("systems.AudioSystem")
+                        AudioSystem.CheckAndPlayForConsumable(cId)
+
                         local remaining = cAmount - added
                         if remaining <= 0 then
                             drop.consumables[cId] = nil
@@ -180,6 +184,9 @@ function M.AutoPickup(player, dt)
                             qColor and qColor.color or {255, 255, 255, 255},
                             2.0
                         )
+                        -- 掉落音判定（B类灵器+/E类专属/黑市装备）
+                        local AudioSystem = require("systems.AudioSystem")
+                        AudioSystem.CheckAndPlayForItem(item)
                         if item.isSpecial then
                             print("[Pickup] Special equipment acquired, requesting save: " .. item.name)
                             EventBus.Emit("save_request")
@@ -305,6 +312,9 @@ function M.PetPickup(player, drop)
                 if string.find(cId, "_fragment_") then
                     hasFragmentPickup = true
                 end
+                -- 掉落音判定（A~E类消耗品：碎片/丹药/灵韵果/黑市等）
+                local AudioSystem = require("systems.AudioSystem")
+                AudioSystem.CheckAndPlayForConsumable(cId)
                 local remaining = cAmount - added
                 if remaining <= 0 then
                     drop.consumables[cId] = nil

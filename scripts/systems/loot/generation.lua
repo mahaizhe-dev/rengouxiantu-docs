@@ -661,10 +661,12 @@ function M.CreateSaintEquipment(equipId)
     if not item then return nil end
 
     if item.saintStat then
+        -- 路线 A：固定圣性（帝尊圣戒等）
         item.spiritStat = nil
         print("[LootSystem] CreateSaintEquipment: " .. equipId ..
               " fixed saintStat=" .. item.saintStat.name .. "+" .. tostring(item.saintStat.value))
     else
+        -- 路线 B：随机圣性（圣衣、圣氅、解封古剑等）
         item.spiritStat = nil
         local mainStatType = nil
         if template.mainStat then

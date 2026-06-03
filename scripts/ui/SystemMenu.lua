@@ -25,6 +25,7 @@ local SystemMenu = {}
 local panel_ = nil
 local visible_ = false
 local bgmToggleLabel_ = nil   -- 开关文字引用
+local dropVoiceToggleLabel_ = nil  -- 掉落音开关文字引用
 local rulesPanel_ = nil
 local rulesVisible_ = false
 local bestiaryPanel_ = nil
@@ -705,7 +706,7 @@ function SystemMenu.Create(parentOverlay, callbacks)
         onClick = function(self) end,  -- 防止点击穿透
         children = {
             UI.Panel {
-                width = T.size.smallPanelW,
+                width = 440,
                 backgroundColor = T.color.panelBg,
                 borderRadius = T.radius.lg,
                 padding = T.spacing.lg,
@@ -827,7 +828,7 @@ function SystemMenu.Create(parentOverlay, callbacks)
                                     AtlasUI.Toggle()
                                 end,
                             },
-                            -- 背景音乐开关
+                            -- 背景音乐（三档：大/小/关）
                             UI.Panel {
                                 width = "100%",
                                 height = 52,
@@ -863,11 +864,17 @@ function SystemMenu.Create(parentOverlay, callbacks)
                                                 end,
                                             },
                                             (function()
+                                                local AudioSystem = require("systems.AudioSystem")
+                                                local lv = AudioSystem.GetBGMLevel()
+                                                local display = AudioSystem.GetLevelDisplay(lv)
+                                                local color = lv == "high" and {100, 220, 130, 255}
+                                                    or lv == "low" and {220, 200, 100, 255}
+                                                    or {180, 80, 80, 255}
                                                 bgmToggleLabel_ = UI.Label {
-                                                    text = "开",
+                                                    text = display,
                                                     fontSize = T.fontSize.md,
                                                     fontWeight = "bold",
-                                                    fontColor = {100, 220, 130, 255},
+                                                    fontColor = color,
                                                     width = 36,
                                                     textAlign = "center",
                                                 }
@@ -883,6 +890,73 @@ function SystemMenu.Create(parentOverlay, callbacks)
                                                 pressedBackgroundColor = {80, 85, 105, 255},
                                                 onClick = function(self)
                                                     SystemMenu.ToggleBGM()
+                                                end,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                            -- 掉落提示音（三档：大/小/关）
+                            UI.Panel {
+                                width = "100%",
+                                height = 52,
+                                flexDirection = "row",
+                                alignItems = "center",
+                                justifyContent = "space-between",
+                                backgroundColor = {40, 45, 60, 220},
+                                borderRadius = T.radius.md,
+                                paddingLeft = 16,
+                                paddingRight = 8,
+                                children = {
+                                    UI.Label {
+                                        text = "🔔  掉落提示音",
+                                        fontSize = T.fontSize.md,
+                                        fontColor = {220, 220, 230, 255},
+                                    },
+                                    UI.Panel {
+                                        flexDirection = "row",
+                                        alignItems = "center",
+                                        gap = 4,
+                                        children = {
+                                            UI.Button {
+                                                text = "◀",
+                                                width = 36,
+                                                height = 36,
+                                                fontSize = T.fontSize.sm,
+                                                borderRadius = T.radius.sm,
+                                                backgroundColor = {60, 65, 80, 220},
+                                                pressedBackgroundColor = {80, 85, 105, 255},
+                                                onClick = function(self)
+                                                    SystemMenu.ToggleDropVoice()
+                                                end,
+                                            },
+                                            (function()
+                                                local AudioSystem = require("systems.AudioSystem")
+                                                local lv = AudioSystem.GetDropLevel()
+                                                local display = AudioSystem.GetLevelDisplay(lv)
+                                                local color = lv == "high" and {100, 220, 130, 255}
+                                                    or lv == "low" and {220, 200, 100, 255}
+                                                    or {180, 80, 80, 255}
+                                                dropVoiceToggleLabel_ = UI.Label {
+                                                    text = display,
+                                                    fontSize = T.fontSize.md,
+                                                    fontWeight = "bold",
+                                                    fontColor = color,
+                                                    width = 36,
+                                                    textAlign = "center",
+                                                }
+                                                return dropVoiceToggleLabel_
+                                            end)(),
+                                            UI.Button {
+                                                text = "▶",
+                                                width = 36,
+                                                height = 36,
+                                                fontSize = T.fontSize.sm,
+                                                borderRadius = T.radius.sm,
+                                                backgroundColor = {60, 65, 80, 220},
+                                                pressedBackgroundColor = {80, 85, 105, 255},
+                                                onClick = function(self)
+                                                    SystemMenu.ToggleDropVoice()
                                                 end,
                                             },
                                         },
@@ -1287,16 +1361,35 @@ end
 -- ============================================================================
 
 function SystemMenu.ToggleBGM()
-    local newState = not IsBGMEnabled()
-    SetBGMEnabled(newState)
-    -- 更新标签文字和颜色
+    local AudioSystem = require("systems.AudioSystem")
+    local newLevel = AudioSystem.CycleBGMLevel()
+    local display = AudioSystem.GetLevelDisplay(newLevel)
+    local color = newLevel == "high" and {100, 220, 130, 255}
+        or newLevel == "low" and {220, 200, 100, 255}
+        or {180, 80, 80, 255}
     if bgmToggleLabel_ then
         bgmToggleLabel_:SetStyle({
-            text = newState and "开" or "关",
-            fontColor = newState and {100, 220, 130, 255} or {180, 80, 80, 255},
+            text = display,
+            fontColor = color,
         })
     end
-    print("[SystemMenu] BGM " .. (newState and "ON" or "OFF"))
+    print("[SystemMenu] BGM → " .. newLevel)
+end
+
+function SystemMenu.ToggleDropVoice()
+    local AudioSystem = require("systems.AudioSystem")
+    local newLevel = AudioSystem.CycleDropLevel()
+    local display = AudioSystem.GetLevelDisplay(newLevel)
+    local color = newLevel == "high" and {100, 220, 130, 255}
+        or newLevel == "low" and {220, 200, 100, 255}
+        or {180, 80, 80, 255}
+    if dropVoiceToggleLabel_ then
+        dropVoiceToggleLabel_:SetStyle({
+            text = display,
+            fontColor = color,
+        })
+    end
+    print("[SystemMenu] DropVoice → " .. newLevel)
 end
 
 -- ============================================================================
@@ -1505,6 +1598,7 @@ function SystemMenu.Destroy()
     panel_ = nil
     visible_ = false
     bgmToggleLabel_ = nil
+    dropVoiceToggleLabel_ = nil
     rulesPanel_ = nil
     rulesVisible_ = false
     bestiaryPanel_ = nil

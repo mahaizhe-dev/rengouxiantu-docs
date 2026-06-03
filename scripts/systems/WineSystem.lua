@@ -95,6 +95,12 @@ function WineSystem.ObtainWine(wineId)
     player.wineObtained[wineId] = true
     print("[WineSystem] Obtained wine: " .. wineDef.name)
 
+    -- B类掉落音效
+    local okAudio, AudioSystem = pcall(require, "systems.AudioSystem")
+    if okAudio and AudioSystem then
+        AudioSystem.PlayWineCue()
+    end
+
     -- 发出美酒获得事件（UI层处理演出）
     EventBus.Emit("wine_obtained", wineId)
     return true

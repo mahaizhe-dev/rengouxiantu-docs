@@ -1045,6 +1045,18 @@ local MIGRATIONS = {
         data.version = 25
         return data
     end,
+
+    -- v25 → v26: 新增 audioSettings（BGM 开关 + 掉落音开关持久化）
+    [26] = function(data)
+        if not data.audioSettings then
+            data.audioSettings = {
+                musicEnabled = true,
+                dropVoiceEnabled = true,
+            }
+        end
+        data.version = 26
+        return data
+    end,
 }
 
 -- ============================================================================

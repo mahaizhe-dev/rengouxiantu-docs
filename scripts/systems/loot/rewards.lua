@@ -336,17 +336,17 @@ function M.ForgeRandomLingqi(slot)
 end
 
 --- 灵器打造：生成套装灵器（30%概率时调用）
---- 从所有套装中随机选取，固定 T9+cyan，随机槽位
+--- 从制式套装白名单中随机选取，固定 T9+cyan，随机槽位
 ---@return table|nil
 function M.ForgeRandomSetLingqi()
-    -- 从所有套装 ID 中随机选一个
-    local setIds = {}
-    for setId, _ in pairs(EquipmentData.SetBonuses) do
-        table.insert(setIds, setId)
+    -- 从白名单中随机选一个制式套装
+    local pool = EquipmentData.FORGE_SET_POOLS and EquipmentData.FORGE_SET_POOLS.lingqi_t9_standard
+    if not pool or #pool == 0 then
+        print("[LootSystem] ForgeRandomSetLingqi: FORGE_SET_POOLS.lingqi_t9_standard is empty!")
+        return nil
     end
-    if #setIds == 0 then return nil end
 
-    local setId = setIds[math.random(1, #setIds)]
+    local setId = pool[math.random(1, #pool)]
     -- 复用 GenerateSetEquipment（已硬编码 T9+cyan）
     return generation.GenerateSetEquipment(100, setId, nil)
 end
