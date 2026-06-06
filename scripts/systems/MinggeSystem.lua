@@ -22,6 +22,8 @@ local unlocked_ = false  -- 手动解封标记（持久化）
 
 --- 初始化命格系统（创建独立的 InventoryManager）
 function MinggeSystem.Init()
+    unlocked_ = false  -- 防御性重置，避免跨角色/重载残留
+
     -- 构建 15 个装备槽配置
     local equipSlots = {}
     for _, slotId in ipairs(MinggeData.ALL_SLOTS) do

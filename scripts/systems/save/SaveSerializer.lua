@@ -44,6 +44,7 @@ function SaveSerializer.SerializePlayer()
         hpRegen = player.hpRegen,
         pillKillHeal = player.pillKillHeal or 0,
         pillConstitution = player.pillConstitution or 0,
+        gangguConstitution = player.gangguConstitution or 0,
         fruitFortune = player.fruitFortune or 0,
         seaPillarDef = player.seaPillarDef or 0,
         seaPillarAtk = player.seaPillarAtk or 0,
@@ -142,6 +143,7 @@ function SaveSerializer.DeserializePlayer(data)
     player.hpRegen = data.hpRegen or 1.0
     player.pillKillHeal = data.pillKillHeal or 0
     player.pillConstitution = data.pillConstitution or 0
+    player.gangguConstitution = data.gangguConstitution or 0
     player.fruitFortune = data.fruitFortune or 0
     player.seaPillarDef = data.seaPillarDef or 0
     player.seaPillarAtk = data.seaPillarAtk or 0

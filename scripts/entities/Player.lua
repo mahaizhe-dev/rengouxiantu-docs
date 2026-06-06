@@ -111,7 +111,8 @@ function Player.New(x, y, opts)
 
     -- 丹药加成（由 ChallengeSystem 丹药奖励写入，存档保存）
     self.pillKillHeal = 0
-    self.pillConstitution = 0
+    self.pillConstitution = 0      -- 千锤百炼丹（上限50）
+    self.gangguConstitution = 0    -- 钢筋铁骨丹（上限50）
 
     -- 悟道树悟性（每日参悟 25% 概率 +1，上限 100，连续5次不出第6次必出）
     self.daoTreeWisdom = 0
@@ -306,7 +307,7 @@ function Player:_RecalcStatsCache()
     end
     local petBonusConst = self.petOwnerBonuses and self.petOwnerBonuses.constitution or 0
     local buffConst = (cs and cs.GetBuffConstitutionFlat) and cs.GetBuffConstitutionFlat() or 0
-    self._cachedTotalConstitution = (self.equipConstitution or 0) + (self.pillConstitution or 0) + (self.artifactConstitution or 0) + classConst + petBonusConst + (self.wineConstitution or 0) + (self.medalGengu or 0) + (self.collectionConstitution or 0) + buffConst + (self.daoConstitution or 0) + (skinBonuses.constitution or 0) + (self.artifactCh5Constitution or 0) + (self.minggeConstitution or 0)
+    self._cachedTotalConstitution = (self.equipConstitution or 0) + (self.pillConstitution or 0) + (self.gangguConstitution or 0) + (self.artifactConstitution or 0) + classConst + petBonusConst + (self.wineConstitution or 0) + (self.medalGengu or 0) + (self.collectionConstitution or 0) + buffConst + (self.daoConstitution or 0) + (skinBonuses.constitution or 0) + (self.artifactCh5Constitution or 0) + (self.minggeConstitution or 0)
 
     -- GetTotalDef（依赖根骨）
     local defBase = self.def + self.equipDef + (self.collectionDef or 0) + (self.seaPillarDef or 0) + (self.swordPoolDef or 0) + (self.artifactCh4Defense or 0) + (self.medalDefFlat or 0) + (self.prisonTowerDef or 0) + (self.minggeDef or 0)

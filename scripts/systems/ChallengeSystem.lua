@@ -124,7 +124,7 @@ ChallengeSystem.NEW_PILL_CONFIG = {
         color = {100, 220, 180, 255},
     },
     ganggu_dan = {
-        bonuses = { { stat = "constitution", bonus = 1, desc = "根骨" } },
+        bonuses = { { stat = "gangguConstitution", bonus = 1, desc = "根骨" } },
         maxUse = 50,
         countField = "gangguDanCount",
         name = "钢筋铁骨丹",

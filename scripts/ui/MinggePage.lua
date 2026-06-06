@@ -619,7 +619,7 @@ function UpdateStats()
                     text = elName .. "行·" .. setDef.name .. ": " .. setDef.desc,
                     fontSize = T.fontSize.xs,
                     fontColor = {100, 220, 255, 230},
-                    numberOfLines = 1,
+                    maxWidth = 9999,
                 })
             end
         end
@@ -674,6 +674,7 @@ function MinggePage.OnShow()
                 MinggeSystem.Init()
             end
             isUnlocked = true
+            EventBus.Emit("save_request")
         end
         if isUnlocked then
             lockMask_:Hide()

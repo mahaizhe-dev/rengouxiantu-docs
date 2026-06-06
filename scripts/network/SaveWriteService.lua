@@ -429,7 +429,8 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
             { field = "temperingPillEaten", max = 50, name = "千锤百炼丹" },
             { field = "xueshaDanCount",    max = 9,  name = "血煞丹" },
             { field = "haoqiDanCount",     max = 9,  name = "浩气丹" },
-            { field = "pillConstitution", max = 50, name = "根骨(千锤)" },
+            { field = "pillConstitution", max = 50, name = "根骨(千锤百炼)" },
+            { field = "gangguConstitution", max = 50, name = "根骨(钢筋铁骨)" },
             { field = "pillPhysique",     max = SealDemonConfig.PHYSIQUE_PILL.maxCount, name = "体魄丹" },
             { field = "pillKillHeal",     max = 45, name = "击杀回血(血煞)" },
             { field = "daoTreeWisdom",    max = 100, name = "悟道" },
@@ -590,7 +591,7 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
             local selId = pet.appearance.selectedId
             if selId and type(selId) == "string" then
                 local PetAppearanceConfig = require("config.PetAppearanceConfig")
-                if not PetAppearanceConfig.GetSkinById(selId) then
+                if not PetAppearanceConfig.byId[selId] then
                     Logger.warn("SaveGame", "[V7e] Pet appearance selectedId unknown: "
                         .. selId .. " userId=" .. tostring(userId))
                 end

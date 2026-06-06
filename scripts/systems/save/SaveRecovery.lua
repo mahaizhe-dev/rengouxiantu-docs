@@ -201,6 +201,7 @@ function SaveRecovery.TryRecoverSave(slot, callback)
                                 chapter = rebuildChapter,
                                 pillKillHeal = 0,
                                 pillConstitution = 0,
+                                gangguConstitution = 0,
                                 fruitFortune = 0,
                                 daoTreeWisdom = 0,
                                 daoTreeWisdomPity = 0,
