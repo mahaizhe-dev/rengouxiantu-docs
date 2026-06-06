@@ -351,16 +351,48 @@ function CloudStorage.BatchSet()
         if coreData and slot then
             rankData.level = coreData.player and coreData.player.level or 0
 
+            -- P1 防御：encode 加 pcall，失败时走 error 回调而非让整个链路死锁
+            local ok_core, json_core = pcall(cjson.encode, coreData)
+            if not ok_core then
+                Logger.error("CloudStorage", "cjson.encode(coreData) FAILED: " .. tostring(json_core))
+                if events and events.error then
+                    events.error(-2, "encode_failed: " .. tostring(json_core))
+                end
+                return
+            end
+            local ok_rank, json_rank = pcall(cjson.encode, rankData)
+            if not ok_rank then
+                Logger.error("CloudStorage", "cjson.encode(rankData) FAILED: " .. tostring(json_rank))
+                if events and events.error then
+                    events.error(-2, "encode_rank_failed: " .. tostring(json_rank))
+                end
+                return
+            end
+            local json_slots = ""
+            if slotsIndex then
+                local ok_s, js = pcall(cjson.encode, slotsIndex)
+                if not ok_s then
+                    Logger.error("CloudStorage", "cjson.encode(slotsIndex) FAILED: " .. tostring(js))
+                end
+                json_slots = ok_s and js or ""
+            end
+            local json_bulletin = ""
+            if bulletin then
+                local ok_b, jb = pcall(cjson.encode, bulletin)
+                if not ok_b then
+                    Logger.error("CloudStorage", "cjson.encode(bulletin) FAILED: " .. tostring(jb))
+                end
+                json_bulletin = ok_b and jb or ""
+            end
+
             local requestId = RegisterCallback(events)
 
             local eventData = VariantMap()
             eventData["slot"] = Variant(slot)
-            eventData["coreData"] = Variant(cjson.encode(coreData))
-            -- 🔴 Bug fix: slotsIndex 为 nil 时发送空字符串而非 "{}"，
-            -- 防止服务端把空对象当作有效值写入，清空 slots_index
-            eventData["slotsIndex"] = Variant(slotsIndex and cjson.encode(slotsIndex) or "")
-            eventData["rankData"] = Variant(cjson.encode(rankData))
-            eventData["bulletin"] = Variant(bulletin and cjson.encode(bulletin) or "")
+            eventData["coreData"] = Variant(json_core)
+            eventData["slotsIndex"] = Variant(json_slots)
+            eventData["rankData"] = Variant(json_rank)
+            eventData["bulletin"] = Variant(json_bulletin)
             eventData["playerLevel"] = Variant(playerLevel or 0)
             eventData["codeVersion"] = Variant(codeVersion or 0)
             eventData["requestId"] = Variant(requestId)

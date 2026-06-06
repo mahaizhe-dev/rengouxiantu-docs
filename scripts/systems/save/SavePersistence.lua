@@ -265,6 +265,10 @@ function SavePersistence.DoSave(slot, callback, epoch)
                     print("[SaveSystem] WARNING: " .. label .. " approaching 10KB limit!")
                 end
                 return bytes
+            else
+                -- P1 修复：encode 失败时必须报错，不能静默返回 0
+                local Logger = require("utils.Logger")
+                Logger.error("SaveSystem", "measureSize encode FAILED for [" .. label .. "]: " .. tostring(json))
             end
         end
         return 0
