@@ -758,7 +758,7 @@ function SaveSerializer.SerializeMingge()
         end
     end
 
-    return { equipped = equipped, backpack = backpack }
+    return { equipped = equipped, backpack = backpack, unlocked = MinggeSystem.IsUnlocked() or nil }
 end
 
 --- 序列化单个命格物品
@@ -820,6 +820,11 @@ function SaveSerializer.DeserializeMingge(data)
                 end
             end
         end
+    end
+
+    -- 恢复解封标记
+    if data.unlocked then
+        MinggeSystem.SetUnlocked(true)
     end
 
     -- 重算属性

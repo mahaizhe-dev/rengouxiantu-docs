@@ -758,6 +758,151 @@ local GM_CATEGORIES = {
                 end
                 ShowLog("铸剑材料包：消耗品×30（" .. added .. "种）+ 装备×" .. eqAdded .. "件", {255, 200, 80, 255})
             end },
+            { label = "青色命格×10", action = function()
+                SendGMCommand("give_cyan_mingge_10", function()
+                    local MinggeSystem = require("systems.MinggeSystem")
+                    local MinggeData = require("config.MinggeData")
+                    local mgr = MinggeSystem.GetManager()
+                    if not mgr then
+                        ShowLog("命格系统未初始化", {255, 120, 100, 255})
+                        return
+                    end
+                    -- 收集所有 bossId
+                    local bossIds = {}
+                    for id in pairs(MinggeData.SOURCES) do
+                        bossIds[#bossIds + 1] = id
+                    end
+                    local added = 0
+                    for i = 1, 10 do
+                        local bossId = bossIds[math.random(1, #bossIds)]
+                        local source = MinggeData.SOURCES[bossId]
+                        local stat = source.stat
+                        local tier = source.tier
+                        local ranges = MinggeData.STAT_RANGES[tier]
+                        local range = ranges and ranges[stat] and ranges[stat]["cyan"]
+                        if range then
+                            local min, max = range[1], range[2]
+                            local value = min + (max - min) * math.random()
+                            -- 百分比属性保留3位小数，整数属性取整
+                            if max <= 1 then
+                                value = math.floor(value * 1000 + 0.5) / 1000
+                            else
+                                value = math.floor(value + 0.5)
+                            end
+                            local roll = math.random(4001, 6000)
+                            -- 20% 概率附带套装
+                            local setId = nil
+                            if math.random() < 0.2 then
+                                setId = MinggeData.SET_IDS[math.random(1, #MinggeData.SET_IDS)]
+                            end
+                            local minggeId = MinggeData.GetMinggeId(bossId)
+                            local name = MinggeData.GetMinggeFullName(bossId, setId)
+                            local sellPrice = MinggeData.SELL_PRICE[tier] and MinggeData.SELL_PRICE[tier]["cyan"] or 3
+                            local item = {
+                                category     = "mingge",
+                                id           = "mingge_gm_" .. bossId .. "_" .. math.random(100000, 999999),
+                                minggeId     = minggeId,
+                                bossId       = bossId,
+                                bossName     = source.name,
+                                name         = name,
+                                element      = source.element,
+                                type         = source.element,
+                                tier         = tier,
+                                quality      = "cyan",
+                                stat         = stat,
+                                value        = value,
+                                roll         = roll,
+                                setId        = setId,
+                                sellCurrency = "lingYun",
+                                sellPrice    = sellPrice,
+                                locked       = false,
+                            }
+                            local ok = mgr:AddToInventory(item)
+                            if ok then added = added + 1 end
+                        end
+                    end
+                    MinggeSystem.RecalcStats()
+                    ShowLog("发放 " .. added .. " 个青色命格", {0, 220, 220, 255})
+                end)
+            end },
+            { label = "随机命格×10(按掉率)", action = function()
+                SendGMCommand("give_random_mingge_10", function()
+                    local MinggeSystem = require("systems.MinggeSystem")
+                    local MinggeData = require("config.MinggeData")
+                    local mgr = MinggeSystem.GetManager()
+                    if not mgr then
+                        ShowLog("命格系统未初始化", {255, 120, 100, 255})
+                        return
+                    end
+                    -- 收集所有 bossId（数量即天然权重：T1=15,T2=15,T3=7）
+                    local bossIds = {}
+                    for id in pairs(MinggeData.SOURCES) do
+                        bossIds[#bossIds + 1] = id
+                    end
+                    local added = 0
+                    local qualities = {}
+                    for i = 1, 10 do
+                        local bossId = bossIds[math.random(1, #bossIds)]
+                        local item = MinggeSystem.GenerateItem(bossId)
+                        if item then
+                            local ok = mgr:AddToInventory(item)
+                            if ok then
+                                added = added + 1
+                                local q = item.quality or "?"
+                                qualities[q] = (qualities[q] or 0) + 1
+                            end
+                        end
+                    end
+                    MinggeSystem.RecalcStats()
+                    -- 汇总品质信息
+                    local parts = {}
+                    for q, c in pairs(qualities) do
+                        parts[#parts + 1] = q .. "×" .. c
+                    end
+                    ShowLog("随机发放 " .. added .. " 个命格 (" .. table.concat(parts, ", ") .. ")", {180, 140, 255, 255})
+                end)
+            end },
+            { label = "套装命格×10", action = function()
+                SendGMCommand("give_set_mingge_10", function()
+                    local MinggeSystem = require("systems.MinggeSystem")
+                    local MinggeData = require("config.MinggeData")
+                    local mgr = MinggeSystem.GetManager()
+                    if not mgr then
+                        ShowLog("命格系统未初始化", {255, 120, 100, 255})
+                        return
+                    end
+                    local bossIds = {}
+                    for id in pairs(MinggeData.SOURCES) do
+                        bossIds[#bossIds + 1] = id
+                    end
+                    local added = 0
+                    local sets = {}
+                    for i = 1, 10 do
+                        local bossId = bossIds[math.random(1, #bossIds)]
+                        local item = MinggeSystem.GenerateItem(bossId)
+                        if item then
+                            -- 强制设为青品质 + 随机套装
+                            item.quality = "cyan"
+                            local setId = MinggeData.SET_IDS[math.random(1, #MinggeData.SET_IDS)]
+                            item.setId = setId
+                            item.name = MinggeData.GetMinggeFullName(bossId, setId)
+                            -- 更新卖价为青品质
+                            item.sellPrice = MinggeData.SELL_PRICE[item.tier] and MinggeData.SELL_PRICE[item.tier]["cyan"] or 1
+                            local ok = mgr:AddToInventory(item)
+                            if ok then
+                                added = added + 1
+                                sets[setId] = (sets[setId] or 0) + 1
+                            end
+                        end
+                    end
+                    MinggeSystem.RecalcStats()
+                    local parts = {}
+                    for s, c in pairs(sets) do
+                        parts[#parts + 1] = s .. "×" .. c
+                    end
+                    ShowLog("发放 " .. added .. " 个套装命格 (" .. table.concat(parts, ", ") .. ")", {180, 140, 255, 255})
+                end)
+            end },
         },
     },
     {

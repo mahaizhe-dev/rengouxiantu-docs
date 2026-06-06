@@ -674,6 +674,104 @@ TestRegistry.tests = {
         gate          = "blocking",
         skip_reason   = nil,
     },
+
+    ---------------------------------------------------------------------------
+    -- MINGGE: 五行命格配置完整性
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "mingge_config",
+        group         = "config",
+        path          = "scripts/tests/test_mingge_config.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
+    -- MINGGE: 五行命格属性范围与粒度
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "mingge_ranges",
+        group         = "config",
+        path          = "scripts/tests/test_mingge_ranges.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
+    -- MINGGE: 五行命格掉落合同与定价
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "mingge_drop_contract",
+        group         = "config",
+        path          = "scripts/tests/test_mingge_drop_contract.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
+    -- MINGGE: 五行命格系统逻辑（引擎依赖）
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "mingge_system",
+        group         = "system",
+        path          = "scripts/tests/test_mingge_system.lua",
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "engine_required: MinggeSystem.GenerateItem 依赖 math.random 种子控制，需离线 lupa 环境",
+    },
+
+    ---------------------------------------------------------------------------
+    -- MINGGE: 五行命格掉落流程（引擎依赖）
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "mingge_drop_flow",
+        group         = "system",
+        path          = "scripts/tests/test_mingge_drop_flow.lua",
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "engine_required: 依赖 GameState.player, GameEvents 运行时",
+    },
+
+    ---------------------------------------------------------------------------
+    -- MINGGE: 五行命格存档往返（引擎依赖）
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "mingge_save_roundtrip",
+        group         = "save",
+        path          = "scripts/tests/test_mingge_save_roundtrip.lua",
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "engine_required: 依赖 SaveSerializer/SaveLoader 完整存档链路",
+    },
+
+    ---------------------------------------------------------------------------
+    -- MINGGE: 天诛桥接验证（引擎依赖）
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "mingge_tianzhu_bridge",
+        group         = "system",
+        path          = "scripts/tests/test_mingge_tianzhu_bridge.lua",
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "engine_required: 依赖 HitResolver.tianzhu 链路和 RecalcStats 实际效果",
+    },
 }
 
 --- 返回所有测试条目

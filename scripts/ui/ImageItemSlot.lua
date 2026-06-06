@@ -32,6 +32,9 @@ function ImageItemSlot:Init(props)
     self.imageOverlay_:SetVisible(false)
     Widget.AddChild(self, self.imageOverlay_)
 
+    -- 五行元素标识：延迟创建（仅命格物品需要，避免非命格槽位浪费节点）
+    self.elementBadge_ = nil
+
     -- BM-S4AR: 锁图标覆盖层（右上角小标签）
     local lockSize = math.max(14, math.floor(self.props.size * 0.3))
     self.lockOverlay_ = Label {
@@ -50,6 +53,33 @@ function ImageItemSlot:Init(props)
     Widget.AddChild(self, self.lockOverlay_)
 
     -- Re-run display update now that image overlay exists
+    self:UpdateDisplay()
+end
+
+--- 生成物品显示指纹（用于跳过无变化的 UpdateDisplay）
+local function ItemFingerprint(item)
+    if not item then return nil end
+    -- 包含影响显示的所有关键字段
+    return string.format("%s|%s|%s|%s|%d|%s|%s|%s",
+        tostring(item.name),
+        tostring(item.image or item.icon or ""),
+        tostring(item.quality or ""),
+        tostring(item.element or ""),
+        item.count or item.quantity or 1,
+        tostring(item.locked or false),
+        tostring(item.equipped or false),
+        tostring(item.setId or "")
+    )
+end
+
+--- 覆写 SetItem：快速对比指纹，无变化则跳过重绘
+function ImageItemSlot:SetItem(item)
+    local newFP = ItemFingerprint(item)
+    if newFP == self.lastItemFP_ and item == self.props.item then
+        return  -- 同一物品引用且显示字段无变化，跳过
+    end
+    self.lastItemFP_ = newFP
+    self.props.item = item
     self:UpdateDisplay()
 end
 
@@ -90,6 +120,12 @@ function ImageItemSlot:UpdateDisplay()
             imgPath = curItem.image
         elseif isImagePath(curItem.icon) then
             imgPath = curItem.icon
+        elseif curItem.category == "mingge" and curItem.bossId then
+            -- 旧存档命格没有 image 字段，从 MinggeData.PORTRAITS 回退查
+            local MinggeData = require("config.MinggeData")
+            if MinggeData.PORTRAITS and MinggeData.PORTRAITS[curItem.bossId] then
+                imgPath = MinggeData.PORTRAITS[curItem.bossId]
+            end
         elseif curItem.category == "consumable" and curItem.consumableId then
             -- 旧存档可能没有 image 字段，从 GameConfig 实时查
             local GameConfig = require("config.GameConfig")
@@ -161,13 +197,83 @@ function ImageItemSlot:UpdateDisplay()
         end
     end
 
-    -- BM-S4AR: 锁图标显示/隐藏
+    -- BM-S4AR: 锁图标显示/隐藏（item.locked = 用户手动锁 | TradeLock = 黑市交易锁）
     if self.lockOverlay_ then
-        if item and TradeLock.IsLocked(item) then
+        if item and (item.locked or TradeLock.IsLocked(item)) then
             self.lockOverlay_:SetVisible(true)
         else
             self.lockOverlay_:SetVisible(false)
         end
+    end
+
+    -- 五行元素标识（仅命格物品显示，按需创建）
+    if item and item.category == "mingge" and item.element then
+        local MinggeData = require("config.MinggeData")
+        local elemName = MinggeData.ELEMENT_NAMES[item.element]
+        local elemColor = MinggeData.ELEMENT_COLORS[item.element]
+        if elemName then
+            -- 按需创建 badge（首次遇到命格物品时）
+            if not self.elementBadge_ then
+                local elemSize = math.max(12, math.floor(self.props.size * 0.28))
+                self.elementBadge_ = Label {
+                    text = "",
+                    fontSize = math.max(8, elemSize - 3),
+                    fontColor = {255, 255, 255, 255},
+                    textAlign = "center",
+                    position = "absolute",
+                    bottom = 1,
+                    right = 1,
+                    width = elemSize,
+                    height = elemSize,
+                    backgroundColor = {0, 0, 0, 160},
+                    borderRadius = 3,
+                    pointerEvents = "none",
+                }
+                Widget.AddChild(self, self.elementBadge_)
+            end
+            self.elementBadge_:SetText(elemName)
+            if elemColor then
+                self.elementBadge_.props.fontColor = elemColor
+            end
+            self.elementBadge_:SetVisible(true)
+        elseif self.elementBadge_ then
+            self.elementBadge_:SetVisible(false)
+        end
+    elseif self.elementBadge_ then
+        self.elementBadge_:SetVisible(false)
+    end
+
+    -- 四象套装角标（左上角，仅命格物品有 setId 时显示）
+    if item and item.category == "mingge" and item.setId then
+        local MinggeData = require("config.MinggeData")
+        local setColor = MinggeData.SET_COLORS and MinggeData.SET_COLORS[item.setId]
+        local setShort = MinggeData.SET_SHORT and MinggeData.SET_SHORT[item.setId]
+        if setColor and setShort then
+            if not self.setBadge_ then
+                local badgeSize = math.max(12, math.floor(self.props.size * 0.28))
+                self.setBadge_ = Label {
+                    text = "",
+                    fontSize = math.max(8, badgeSize - 3),
+                    fontColor = {255, 255, 255, 255},
+                    textAlign = "center",
+                    position = "absolute",
+                    top = 1,
+                    left = 1,
+                    width = badgeSize,
+                    height = badgeSize,
+                    borderRadius = 3,
+                    pointerEvents = "none",
+                }
+                Widget.AddChild(self, self.setBadge_)
+            end
+            self.setBadge_:SetText(setShort)
+            self.setBadge_.props.backgroundColor = setColor
+            self.setBadge_:SetVisible(true)
+        elseif self.setBadge_ then
+            self.setBadge_:SetVisible(false)
+        end
+    elseif self.setBadge_ then
+        self.setBadge_:SetVisible(false)
     end
 end
 

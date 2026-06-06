@@ -13,6 +13,7 @@ local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
 local ImageItemSlot = require("ui.ImageItemSlot")
 local MinggeTooltip = require("ui.MinggeTooltip")
+local GameConfig = require("config.GameConfig")
 local T = require("config.UITheme")
 
 local MinggePage = {}
@@ -21,9 +22,44 @@ local MinggePage = {}
 local contentPanel_ = nil
 local equipSlots_ = {}
 local invSlots_ = {}
-local infoLabel_ = nil
 local sellMenu_ = nil
-local sellQualities_ = { purple = true, orange = true, cyan = false }
+local lockMask_ = nil
+local wrapperPanel_ = nil
+local sellQualities_ = { purple = true, orange = false }
+local contentCreated_ = false  -- 延迟渲染标志：首次 OnShow 时才创建格子
+
+-- 批量出售品质勾选本地持久化
+local SELL_SETTINGS_FILE = "sell_mingge_settings.json"
+local cjson = require("cjson")
+
+local function LoadSellSettings()
+    pcall(function()
+        if not fileSystem or not fileSystem:FileExists(SELL_SETTINGS_FILE) then return end
+        local file = File(SELL_SETTINGS_FILE, FILE_READ)
+        if not file or not file:IsOpen() then return end
+        local raw = file:ReadString()
+        file:Close()
+        local ok, data = pcall(cjson.decode, raw)
+        if ok and type(data) == "table" then
+            for k, v in pairs(data) do
+                if sellQualities_[k] ~= nil then
+                    sellQualities_[k] = (v == true)
+                end
+            end
+        end
+    end)
+end
+
+local function SaveSellSettings()
+    pcall(function()
+        local file = File(SELL_SETTINGS_FILE, FILE_WRITE)
+        if not file or not file:IsOpen() then return end
+        file:WriteString(cjson.encode(sellQualities_))
+        file:Close()
+    end)
+end
+
+LoadSellSettings()
 
 -- 配置
 local INV_COLS = 6
@@ -47,6 +83,15 @@ local ELEMENT_COLORS = {
 local function UpdateAllSlots() end
 local function UpdateStats() end
 local function UpdateFreeSlots() end
+
+--- 检查是否达到解锁境界（金丹初期 order>=7）
+local function CheckRealmUnlocked()
+    local player = GameState.player
+    if not player then return false end
+    local realmData = GameConfig.REALMS[player.realm]
+    if not realmData then return false end
+    return realmData.order >= 7
+end
 
 -- ============================================================================
 -- 装备面板（左侧 5行×3列）
@@ -221,9 +266,6 @@ local function CreateInvPanel()
                                     MinggeSystem.SortBackpack()
                                     UpdateAllSlots()
                                     UpdateFreeSlots()
-                                    if infoLabel_ then
-                                        infoLabel_:SetText("命格已整理")
-                                    end
                                 end,
                             },
                             UI.Button {
@@ -242,20 +284,16 @@ local function CreateInvPanel()
                                         if v then hasAny = true; break end
                                     end
                                     if not hasAny then
-                                        if infoLabel_ then infoLabel_:SetText("请先在▼中勾选要出售的品质") end
+                                        EventBus.Emit("mingge_info", "请先在▼中勾选要出售的品质")
                                         return
                                     end
                                     local count, lingYun = MinggeSystem.SellByQuality(sellQualities_)
                                     if count > 0 then
                                         UpdateAllSlots()
                                         UpdateFreeSlots()
-                                        if infoLabel_ then
-                                            infoLabel_:SetText("出售了 " .. count .. " 件，获得 " .. lingYun .. " 灵韵")
-                                        end
+                                        EventBus.Emit("mingge_info", "出售了 " .. count .. " 件，获得 " .. lingYun .. " 灵韵")
                                     else
-                                        if infoLabel_ then
-                                            infoLabel_:SetText("没有可出售的对应品质命格")
-                                        end
+                                        EventBus.Emit("mingge_info", "没有可出售的对应品质命格")
                                     end
                                 end,
                             },
@@ -386,52 +424,14 @@ end
 ---@param parentOverlay Panel 遮罩层（用于挂载 tooltip 和 menu）
 ---@return Panel
 function MinggePage.Create(parentOverlay)
-    -- 信息标签
-    infoLabel_ = UI.Label {
-        id = "mg_info",
-        text = "点击命格查看详情",
-        fontSize = T.fontSize.sm,
-        fontColor = {200, 200, 200, 200},
-        textAlign = "center",
-    }
-
     contentPanel_ = UI.Panel {
         gap = T.spacing.sm,
-        children = {
-            -- 标题 + 信息
-            UI.Panel {
-                flexDirection = "row",
-                justifyContent = "space-between",
-                alignItems = "center",
-                children = {
-                    UI.Label {
-                        text = "五行命格",
-                        fontSize = T.fontSize.lg,
-                        fontWeight = "bold",
-                        fontColor = T.color.titleText,
-                    },
-                    infoLabel_,
-                },
-            },
-            -- 装备 + 背包
-            UI.Panel {
-                flexDirection = "row",
-                gap = T.spacing.md,
-                flexWrap = "wrap",
-                justifyContent = "center",
-                alignItems = "flex-start",
-                children = {
-                    CreateEquipPanel(),
-                    CreateInvPanel(),
-                },
-            },
-        },
     }
 
     -- 初始化 MinggeTooltip
     MinggeTooltip.Init(parentOverlay)
 
-    -- 批量出售品质选择菜单
+    -- 批量出售品质选择菜单（仅紫品/橙品，青品为最高品质不可批量出售）
     sellMenu_ = UI.Menu {
         size = "sm",
         position = "absolute",
@@ -439,12 +439,12 @@ function MinggePage.Create(parentOverlay)
         items = {
             { label = "🟣 紫品", checked = sellQualities_.purple, keepOpen = true },
             { label = "🟠 橙品", checked = sellQualities_.orange, keepOpen = true },
-            { label = "🔵 青品", checked = sellQualities_.cyan,   keepOpen = true },
         },
         onItemClick = function(self, item, index)
-            local keys = { "purple", "orange", "cyan" }
+            local keys = { "purple", "orange" }
             if keys[index] then
                 sellQualities_[keys[index]] = item.checked or false
+                SaveSellSettings()
             end
         end,
     }
@@ -456,7 +456,90 @@ function MinggePage.Create(parentOverlay)
         UpdateStats()
     end)
 
-    return contentPanel_
+    -- 解封遮罩（手动解封，需金丹初期 order>=7）
+    lockMask_ = UI.Panel {
+        id = "mg_lock_mask",
+        position = "absolute",
+        top = 0, left = 0, right = 0, bottom = 0,
+        backgroundColor = {15, 10, 25, 220},
+        justifyContent = "center",
+        alignItems = "center",
+        zIndex = 50,
+        children = {
+            UI.Panel {
+                alignItems = "center",
+                gap = T.spacing.md,
+                children = {
+                    UI.Label {
+                        text = "🔒",
+                        fontSize = 40,
+                        textAlign = "center",
+                    },
+                    UI.Label {
+                        text = "五行命格",
+                        fontSize = T.fontSize.xl,
+                        fontWeight = "bold",
+                        fontColor = {180, 140, 255, 255},
+                        textAlign = "center",
+                    },
+                    UI.Label {
+                        text = "修炼至「金丹初期」可解封",
+                        fontSize = T.fontSize.md,
+                        fontColor = {200, 200, 200, 200},
+                        textAlign = "center",
+                    },
+                    UI.Label {
+                        id = "mg_lock_realm_hint",
+                        text = "",
+                        fontSize = T.fontSize.sm,
+                        fontColor = {150, 150, 150, 180},
+                        textAlign = "center",
+                    },
+                    UI.Button {
+                        id = "mg_unlock_btn",
+                        text = "解 封",
+                        fontSize = T.fontSize.md,
+                        fontWeight = "bold",
+                        paddingLeft = T.spacing.xl,
+                        paddingRight = T.spacing.xl,
+                        paddingTop = T.spacing.sm,
+                        paddingBottom = T.spacing.sm,
+                        marginTop = T.spacing.md,
+                        borderRadius = T.radius.md,
+                        backgroundColor = {100, 60, 180, 240},
+                        onClick = function(self)
+                            if CheckRealmUnlocked() then
+                                -- 解封成功
+                                MinggeSystem.SetUnlocked(true)
+                                lockMask_:Hide()
+                                UpdateAllSlots()
+                                UpdateStats()
+                                UpdateFreeSlots()
+                                EventBus.Emit("mingge_info", "五行命格已解封！")
+                                EventBus.Emit("save_requested")
+                            else
+                                -- 境界不足
+                                local hintLabel = lockMask_:FindById("mg_lock_realm_hint")
+                                if hintLabel then
+                                    hintLabel:SetText("⚠ 境界不足，需要「金丹初期」")
+                                end
+                            end
+                        end,
+                    },
+                },
+            },
+        },
+    }
+
+    -- 用 wrapper 包裹 contentPanel_ 和 lockMask_（相对定位容器）
+    wrapperPanel_ = UI.Panel {
+        children = {
+            contentPanel_,
+            lockMask_,
+        },
+    }
+
+    return wrapperPanel_
 end
 
 --- 刷新所有格子显示
@@ -547,6 +630,44 @@ end
 
 --- 页面被显示时调用（刷新数据）
 function MinggePage.OnShow()
+    -- 延迟渲染：首次 OnShow 时才创建装备面板和背包面板
+    if not contentCreated_ then
+        contentCreated_ = true
+        local mainRow = UI.Panel {
+            flexDirection = "row",
+            gap = T.spacing.md,
+            flexWrap = "wrap",
+            justifyContent = "center",
+            alignItems = "flex-start",
+            children = {
+                CreateEquipPanel(),
+                CreateInvPanel(),
+            },
+        }
+        contentPanel_:AddChild(mainRow)
+    end
+
+    -- 检查持久化解封标记
+    if lockMask_ then
+        if MinggeSystem.IsUnlocked() then
+            lockMask_:Hide()
+        else
+            lockMask_:Show()
+            -- 更新当前境界提示
+            local hintLabel = lockMask_:FindById("mg_lock_realm_hint")
+            if hintLabel then
+                local player = GameState.player
+                local realmName = "凡人"
+                if player and player.realm then
+                    local rd = GameConfig.REALMS[player.realm]
+                    if rd then realmName = rd.name end
+                end
+                hintLabel:SetText("当前境界：" .. realmName)
+            end
+            return  -- 遮罩状态下不刷新内容
+        end
+    end
+
     UpdateAllSlots()
     UpdateStats()
     UpdateFreeSlots()

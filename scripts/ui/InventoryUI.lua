@@ -23,7 +23,40 @@ local invSlots_ = {}
 local infoLabel_ = nil
 local sellMenu_ = nil
 local sellToggleBtn_ = nil
-local sellQualities_ = { white = true, green = true, blue = true, purple = false }
+local sellQualities_ = { white = true, green = true, blue = true, purple = false, orange = false }
+
+-- 批量出售品质勾选本地持久化
+local SELL_SETTINGS_FILE = "sell_equip_settings.json"
+local cjson = require("cjson")
+
+local function LoadSellSettings()
+    pcall(function()
+        if not fileSystem or not fileSystem:FileExists(SELL_SETTINGS_FILE) then return end
+        local file = File(SELL_SETTINGS_FILE, FILE_READ)
+        if not file or not file:IsOpen() then return end
+        local raw = file:ReadString()
+        file:Close()
+        local ok, data = pcall(cjson.decode, raw)
+        if ok and type(data) == "table" then
+            for k, v in pairs(data) do
+                if sellQualities_[k] ~= nil then
+                    sellQualities_[k] = (v == true)
+                end
+            end
+        end
+    end)
+end
+
+local function SaveSellSettings()
+    pcall(function()
+        local file = File(SELL_SETTINGS_FILE, FILE_WRITE)
+        if not file or not file:IsOpen() then return end
+        file:WriteString(cjson.encode(sellQualities_))
+        file:Close()
+    end)
+end
+
+LoadSellSettings()
 
 -- Tab 切页状态
 local currentTab_ = "equip"  -- "equip" | "mingge"
@@ -405,15 +438,6 @@ end
 --- Tab 切换函数
 local function SwitchTab(tab)
     if currentTab_ == tab then return end
-    -- 境界守卫：金丹初期（order>=7）才能打开命格页
-    if tab == "mingge" then
-        local player = GameState.player
-        local realmData = player and GameConfig.REALMS[player.realm]
-        if not realmData or realmData.order < 7 then
-            if infoLabel_ then infoLabel_:SetText("需要达到金丹初期才能解锁五行命格") end
-            return
-        end
-    end
     currentTab_ = tab
 
     -- 更新按钮样式（醒目配色）
@@ -434,14 +458,16 @@ local function SwitchTab(tab)
         if tab == "mingge" then minggeContent_:Show() else minggeContent_:Hide() end
     end
 
-    -- 切页时刷新对应页面数据
+    -- 切页时刷新对应页面数据 + 更新信息标签
     if tab == "equip" then
+        if infoLabel_ then infoLabel_:SetText("点击装备查看详情") end
         UpdateAllSlots()
         InventoryUI.UpdateStats()
         InventoryUI.UpdateFreeSlots()
         -- 隐藏命格 tooltip
         MinggePage.OnHide()
     else
+        if infoLabel_ then infoLabel_:SetText("点击命格查看详情") end
         MinggePage.OnShow()
         -- 隐藏装备 tooltip
         EquipTooltip.Hide()
@@ -546,12 +572,13 @@ function InventoryUI.Create(parentOverlay)
                         padding = T.spacing.md,
                         gap = T.spacing.sm,
                         children = {
-                            -- 标题栏（关闭按钮在左，标题+tab在右）
+                            -- 标题栏（三列：左关闭、中tab居中、右信息）
                             UI.Panel {
                                 flexDirection = "row",
                                 justifyContent = "space-between",
                                 alignItems = "center",
                                 children = {
+                                    -- 左：关闭按钮
                                     UI.Button {
                                         text = "✕",
                                         width = T.size.closeButton,
@@ -563,22 +590,17 @@ function InventoryUI.Create(parentOverlay)
                                             InventoryUI.Hide()
                                         end,
                                     },
+                                    -- 中：Tab 按钮居中
                                     UI.Panel {
-                                        gap = 4,
-                                        alignItems = "center",
+                                        flexDirection = "row",
+                                        gap = T.spacing.sm,
                                         children = {
-                                            -- Tab 按钮行（居中醒目）
-                                            UI.Panel {
-                                                flexDirection = "row",
-                                                gap = T.spacing.sm,
-                                                children = {
-                                                    tabBtnEquip_,
-                                                    tabBtnMingge_,
-                                                },
-                                            },
-                                            infoLabel_,
+                                            tabBtnEquip_,
+                                            tabBtnMingge_,
                                         },
                                     },
+                                    -- 右：信息标签（与左侧关闭按钮平衡宽度）
+                                    infoLabel_,
                                 },
                             },
                             -- 装备页内容
@@ -604,12 +626,14 @@ function InventoryUI.Create(parentOverlay)
             { label = "🟢 良品", checked = sellQualities_.green,  keepOpen = true },
             { label = "🔵 精品", checked = sellQualities_.blue,   keepOpen = true },
             { label = "🟣 极品", checked = sellQualities_.purple, keepOpen = true },
+            { label = "🟠 稀世", checked = sellQualities_.orange, keepOpen = true },
         },
         onItemClick = function(self, item, index)
             -- 同步勾选状态到 sellQualities_
-            local keys = { "white", "green", "blue", "purple" }
+            local keys = { "white", "green", "blue", "purple", "orange" }
             if keys[index] then
                 sellQualities_[keys[index]] = item.checked or false
+                SaveSellSettings()
             end
         end,
     }
@@ -622,6 +646,13 @@ function InventoryUI.Create(parentOverlay)
     -- 监听装备变更
     EventBus.On("equip_stats_changed", function()
         InventoryUI.UpdateStats()
+    end)
+
+    -- 监听命格页信息（由 MinggePage 通过事件传递到共享 infoLabel）
+    EventBus.On("mingge_info", function(msg)
+        if infoLabel_ and currentTab_ == "mingge" then
+            infoLabel_:SetText(msg or "")
+        end
     end)
 end
 
@@ -716,14 +747,14 @@ function InventoryUI.UpdateStats()
         { key = "physique", value = summary.physique },
     }
 
-    -- 天诛属性：显示玩家总值（非装备增量），player 为 nil 时显示 0
+    -- 天诛属性：仅显示装备提供的天诛值
     local player = GameState.player
-    local tzChance = player and player:GetTotalTianzhuChance() or 0
-    local tzDmg = player and player:GetTotalTianzhuDmg() or 0
-    table.insert(stats, { key = "tianzhuChance", value = tzChance, isTotal = true })
-    table.insert(stats, { key = "tianzhuDamage", value = tzDmg, isTotal = true })
+    local tzChance = player and (player.equipTianzhuChance or 0) or 0
+    local tzDmg = player and (player.equipTianzhuDamage or 0) or 0
+    table.insert(stats, { key = "tianzhuChance", value = tzChance })
+    table.insert(stats, { key = "tianzhuDamage", value = tzDmg })
 
-    local pctKeys = { critRate = true, critDmg = true, dmgReduce = true, skillDmg = true }
+    local pctKeys = { critRate = true, critDmg = true, dmgReduce = true, skillDmg = true, tianzhuChance = true, tianzhuDamage = true }
 
     for _, s in ipairs(stats) do
         local label = panel_:FindById("stat_" .. s.key)

@@ -103,6 +103,22 @@ MinggeData.SETS = {
 
 MinggeData.SET_IDS = { "qinglong", "baihu", "zhuque", "xuanwu" }
 
+-- 套装颜色（左上角角标用）
+MinggeData.SET_COLORS = {
+    qinglong = { 60, 200, 120, 255 },  -- 青龙·翠绿
+    baihu    = { 240, 220, 100, 255 },  -- 白虎·金黄
+    zhuque   = { 255, 80, 60, 255 },    -- 朱雀·朱红
+    xuanwu   = { 80, 140, 220, 255 },   -- 玄武·玄蓝
+}
+
+-- 套装简称（角标显示）
+MinggeData.SET_SHORT = {
+    qinglong = "龙",
+    baihu    = "虎",
+    zhuque   = "雀",
+    xuanwu   = "武",
+}
+
 -- 套装触发条件：同一五行内 3 件同套
 MinggeData.SET_REQUIRED_PIECES = 3
 
@@ -170,6 +186,7 @@ MinggeData.STAT_NAMES = {
     constitution    = "根骨",
     physique        = "体魄",
     attackSpeedBonus = "攻速",
+    petSyncRate     = "宠物同步率",
 }
 
 -- 百分比显示属性（显示时 ×100 并加 % 后缀）
@@ -307,7 +324,54 @@ MinggeData.SOURCES = {
 }
 
 -- ============================================================================
--- 9. 流沙之子双来源映射
+-- 9. 命格图标头像映射（bossId → 怪物头像资源路径）
+-- ============================================================================
+
+MinggeData.PORTRAITS = {
+    -- T1
+    kumu_king       = "Textures/monster_kumu_king.png",
+    yanchan_king    = "Textures/monster_yanchan_king.png",
+    canglang_king   = "Textures/monster_canglang_king.png",
+    liusha_son      = "Textures/monster_liusha_mother.png",
+    chijia_king     = "Textures/monster_chijia_king.png",
+    shegu_king      = "Textures/monster_shegu_king.png",
+    lieyan_lion     = "Textures/monster_lieyan_lion.png",
+    shen_king       = "Textures/monster_shen_king.png",
+    sha_wanli       = "Textures/monster_sha_wanli.png",
+    liusha_mother   = "Textures/monster_liusha_mother_emperor.png",
+    kan_boss        = "Textures/monster_kan_boss.png",
+    gen_boss        = "Textures/monster_gen_boss.png",
+    zhen_boss       = "Textures/monster_zhen_boss.png",
+    yin_spirit      = "Textures/monster_yin_spirit.png",
+    xun_boss        = "Textures/monster_xun_boss.png",
+    -- T2
+    li_boss         = "Textures/monster_li_boss.png",
+    kun_boss        = "Textures/monster_kun_boss.png",
+    pei_qianyue     = "Textures/monster_pei_qianyue.png",
+    dui_boss        = "Textures/monster_dui_boss.png",
+    qian_boss       = "Textures/monster_qian_boss.png",
+    yang_spirit     = "Textures/monster_yang_spirit.png",
+    dragon_ice      = "Textures/monster_dragon_ice.png",
+    dragon_abyss    = "Textures/monster_dragon_abyss.png",
+    dragon_fire     = "Textures/monster_dragon_fire.png",
+    dragon_sand     = "Textures/monster_dragon_sand.png",
+    frost_luan      = "Textures/monster_frost_luan.png",
+    han_bailian     = "Textures/monster_han_bailian.png",
+    shi_guanlan     = "Textures/monster_shi_guanlan.png",
+    ning_qiwu       = "Textures/monster_ning_qiwu.png",
+    wen_suzhang     = "Textures/monster_wen_suzhang.png",
+    -- T3
+    sword_zhu       = "image/monster_sword_zhu_20260517104708.png",
+    sword_xian      = "image/monster_sword_xian_20260517104710.png",
+    sword_lu        = "image/edited_monster_sword_lu_20260517105112.png",
+    sword_jue       = "image/monster_sword_jue_20260517104750.png",
+    blood_general   = "Textures/monster_blood_general.png",
+    marshal_shugu   = "Textures/monster_marshal_shugu.png",
+    marshal_liesoul = "Textures/monster_marshal_liesoul.png",
+}
+
+-- ============================================================================
+-- 10. 流沙之子双来源映射
 -- ============================================================================
 -- bossTypeId → 命格来源 bossId
 -- 两个不同 monster typeId 映射到同一个命格 bossId
@@ -320,7 +384,7 @@ MinggeData.BOSS_TO_MINGGE = {
 }
 
 -- ============================================================================
--- 10. 五行属性归属（用于验证装备位匹配）
+-- 11. 五行属性归属（用于验证装备位匹配）
 -- ============================================================================
 
 MinggeData.ELEMENT_STATS = {
@@ -332,7 +396,7 @@ MinggeData.ELEMENT_STATS = {
 }
 
 -- ============================================================================
--- 11. 命格 ID 生成规则
+-- 12. 命格 ID 生成规则
 -- ============================================================================
 -- minggeId = element .. "_" .. bossId
 -- 例如: "metal_sha_wanli", "water_kumu_king"

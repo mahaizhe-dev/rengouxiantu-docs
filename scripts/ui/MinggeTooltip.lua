@@ -39,18 +39,7 @@ local function GetQualityColor(quality)
     return MinggeData.QUALITY_COLORS[quality] or {200, 200, 200, 255}
 end
 
---- 获取 roll 百分比描述
-local function GetRollPercent(item)
-    if not item.roll then return "" end
-    local ranges = MinggeData.STAT_RANGES[item.tier]
-    if not ranges or not ranges[item.stat] then return "" end
-    local range = ranges[item.stat][item.quality]
-    if not range then return "" end
-    local min, max = range[1], range[2]
-    if max <= min then return "100%" end
-    local pct = (item.value - min) / (max - min) * 100
-    return string.format("%.0f%%", pct)
-end
+
 
 -- ============================================================================
 -- 初始化
@@ -105,11 +94,55 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
         onClick = function(self) end,
     }
 
-    -- ── 名称行 ──
+    -- ── 图标区域（怪物头像 + 五行标识） ──
     local qualityColor = GetQualityColor(item.quality)
     local qualityName = MinggeData.QUALITY_NAMES[item.quality] or "?"
     local elementName = MinggeData.ELEMENT_NAMES[item.element] or "?"
+    local elemColor = MinggeData.ELEMENT_COLORS[item.element] or {200, 200, 200, 255}
 
+    local portrait = item.image
+    if not portrait and item.bossId then
+        portrait = MinggeData.PORTRAITS[item.bossId]
+    end
+
+    if portrait then
+        card:AddChild(UI.Panel {
+            alignSelf = "center",
+            width = 56,
+            height = 56,
+            borderRadius = T.radius.md,
+            borderWidth = 2,
+            borderColor = qualityColor,
+            backgroundColor = {20, 22, 35, 255},
+            overflow = "hidden",
+            children = {
+                UI.Panel {
+                    width = 52,
+                    height = 52,
+                    backgroundImage = portrait,
+                    backgroundFit = "contain",
+                    alignSelf = "center",
+                    marginTop = 2,
+                },
+                -- 五行角标
+                UI.Label {
+                    text = elementName,
+                    fontSize = 10,
+                    fontColor = elemColor,
+                    textAlign = "center",
+                    position = "absolute",
+                    bottom = 1,
+                    right = 1,
+                    width = 14,
+                    height = 14,
+                    backgroundColor = {0, 0, 0, 180},
+                    borderRadius = 3,
+                },
+            },
+        })
+    end
+
+    -- ── 名称行 ──
     card:AddChild(UI.Label {
         text = item.name or "未知命格",
         fontSize = T.fontSize.lg,
@@ -127,27 +160,6 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
         textAlign = "center",
     })
 
-    -- ── 来源 ──
-    if item.bossName then
-        card:AddChild(UI.Panel {
-            flexDirection = "row",
-            justifyContent = "center",
-            gap = T.spacing.xs,
-            children = {
-                UI.Label {
-                    text = "来源:",
-                    fontSize = T.fontSize.xs,
-                    fontColor = {140, 140, 160, 200},
-                },
-                UI.Label {
-                    text = item.bossName,
-                    fontSize = T.fontSize.xs,
-                    fontColor = {200, 180, 140, 255},
-                },
-            },
-        })
-    end
-
     -- ── 分隔线 ──
     card:AddChild(UI.Panel {
         height = 1,
@@ -156,40 +168,31 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
         marginBottom = T.spacing.xs,
     })
 
-    -- ── 属性值 ──
+    -- ── 属性值（带底色强调） ──
     local statName = MinggeData.STAT_NAMES[item.stat] or item.stat or "?"
     local statValue = FormatStatValue(item.stat, item.value or 0)
-    local rollPct = GetRollPercent(item)
 
     card:AddChild(UI.Panel {
         flexDirection = "row",
         justifyContent = "space-between",
         alignItems = "center",
-        paddingLeft = T.spacing.sm,
-        paddingRight = T.spacing.sm,
+        paddingLeft = T.spacing.md,
+        paddingRight = T.spacing.md,
+        paddingTop = T.spacing.sm,
+        paddingBottom = T.spacing.sm,
+        backgroundColor = {50, 60, 80, 200},
+        borderRadius = T.radius.sm,
         children = {
             UI.Label {
                 text = statName,
                 fontSize = T.fontSize.md,
                 fontColor = {220, 220, 240, 255},
             },
-            UI.Panel {
-                flexDirection = "row",
-                gap = T.spacing.xs,
-                alignItems = "center",
-                children = {
-                    UI.Label {
-                        text = statValue,
-                        fontSize = T.fontSize.md,
-                        fontWeight = "bold",
-                        fontColor = qualityColor,
-                    },
-                    rollPct ~= "" and UI.Label {
-                        text = "(" .. rollPct .. ")",
-                        fontSize = T.fontSize.xs,
-                        fontColor = {150, 150, 170, 200},
-                    } or nil,
-                },
+            UI.Label {
+                text = statValue,
+                fontSize = T.fontSize.md,
+                fontWeight = "bold",
+                fontColor = qualityColor,
             },
         },
     })
@@ -280,8 +283,9 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
             onClick = function(self)
                 local ok, err = MinggeSystem.Equip(slotIndex)
                 if ok then
+                    local cb = onDone_
                     MinggeTooltip.Hide()
-                    if onDone_ then onDone_() end
+                    if cb then cb() end
                 else
                     print("[MinggeTooltip] Equip failed: " .. (err or ""))
                 end
@@ -299,9 +303,10 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
                 borderRadius = T.radius.md,
                 backgroundColor = {140, 80, 40, 240},
                 onClick = function(self)
+                    local cb = onDone_
                     MinggeSystem.SellItem(slotIndex)
                     MinggeTooltip.Hide()
-                    if onDone_ then onDone_() end
+                    if cb then cb() end
                 end,
             })
         end
@@ -316,9 +321,10 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
             borderRadius = T.radius.md,
             backgroundColor = {80, 80, 100, 220},
             onClick = function(self)
+                local cb = onDone_
                 MinggeSystem.ToggleLock(slotIndex)
                 MinggeTooltip.Hide()
-                if onDone_ then onDone_() end
+                if cb then cb() end
             end,
         })
     elseif source == "equipment" then
@@ -334,8 +340,9 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
             onClick = function(self)
                 local ok, err = MinggeSystem.Unequip(slotIndex)
                 if ok then
+                    local cb = onDone_
                     MinggeTooltip.Hide()
-                    if onDone_ then onDone_() end
+                    if cb then cb() end
                 else
                     print("[MinggeTooltip] Unequip failed: " .. (err or ""))
                 end

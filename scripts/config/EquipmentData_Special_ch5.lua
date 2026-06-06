@@ -499,7 +499,7 @@ return {
         name = "深渊圣氅",
         desc = "以深渊之力与圣器精华合铸，气势如虹，穿此圣氅者百邪莫侵。",
         slot = "cape",
-        icon = "image/icon_saint_cape_ch5_20260524015410.png",
+        icon = "image/icon_saint_cape_ch5_20260524014625.png",
         quality = "red",
         tier = 10,
         sellPrice = 5,

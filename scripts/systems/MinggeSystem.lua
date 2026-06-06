@@ -14,6 +14,7 @@ local MinggeSystem = {}
 
 ---@type InventoryManager|nil
 local manager_ = nil
+local unlocked_ = false  -- 手动解封标记（持久化）
 
 -- ============================================================================
 -- 初始化
@@ -54,6 +55,18 @@ function MinggeSystem.SetManager(mgr)
     manager_ = mgr
 end
 
+--- 是否已手动解封命格系统
+---@return boolean
+function MinggeSystem.IsUnlocked()
+    return unlocked_
+end
+
+--- 设置解封标记（由 UI 在手动解封时调用）
+---@param val boolean
+function MinggeSystem.SetUnlocked(val)
+    unlocked_ = val
+end
+
 -- ============================================================================
 -- 背包操作
 -- ============================================================================
@@ -65,14 +78,7 @@ end
 function MinggeSystem.AddItem(item)
     if not manager_ then return false, nil end
 
-    -- 境界守卫：金丹初期（order>=7）以上才能获得命格
-    local GameConfig = require("config.GameConfig")
-    local player = GameState.player
-    local realmData = player and GameConfig.REALMS[player.realm]
-    if not realmData or realmData.order < 7 then
-        print("[MinggeSystem] Realm guard: player realm too low, reject AddItem")
-        return false, nil
-    end
+    -- 注意：掉落不限境界，UI 操作（装备/出售）由 MinggePage 遮罩守卫
 
     -- 确保 category 和 type 字段
     item.category = "mingge"
@@ -147,11 +153,11 @@ function MinggeSystem.SellByQuality(qualitySet)
     return soldCount, totalLingYun
 end
 
---- 整理背包（按 tier→quality→element→stat 排序）
+--- 整理背包（按 属性→套装→T级→品质 排序，不影响装备栏）
 function MinggeSystem.SortBackpack()
     if not manager_ then return end
 
-    -- 收集所有背包物品
+    -- 收集背包物品
     local items = {}
     for i = 1, MinggeData.BACKPACK_SIZE do
         local item = manager_:GetInventoryItem(i)
@@ -160,23 +166,28 @@ function MinggeSystem.SortBackpack()
         end
     end
 
-    -- 排序规则：tier desc → quality(cyan>orange>purple) → element → stat
+    -- 排序规则：五行元素 → 套装 → T级 desc → 品质 desc
     local qualityOrder = { cyan = 3, orange = 2, purple = 1 }
     local elementOrder = { metal = 1, wood = 2, water = 3, fire = 4, earth = 5 }
+    local setOrder = { qinglong = 1, baihu = 2, zhuque = 3, xuanwu = 4 }
 
     table.sort(items, function(a, b)
-        -- tier 降序
+        -- 1. 五行元素分组（金木水火土归拢）
+        local ea = elementOrder[a.element] or 99
+        local eb = elementOrder[b.element] or 99
+        if ea ~= eb then return ea < eb end
+        -- 2. 套装分组（有套装优先，同套装归拢）
+        local sa = a.setId and (setOrder[a.setId] or 50) or 99
+        local sb = b.setId and (setOrder[b.setId] or 50) or 99
+        if sa ~= sb then return sa < sb end
+        -- 3. T级 降序
         if a.tier ~= b.tier then return a.tier > b.tier end
-        -- quality 降序
+        -- 4. 品质 降序（cyan > orange > purple）
         local qa = qualityOrder[a.quality] or 0
         local qb = qualityOrder[b.quality] or 0
         if qa ~= qb then return qa > qb end
-        -- element 升序
-        local ea = elementOrder[a.element] or 0
-        local eb = elementOrder[b.element] or 0
-        if ea ~= eb then return ea < eb end
-        -- stat 字母序
-        return (a.stat or "") < (b.stat or "")
+        -- 5. 同品质按数值 降序
+        return (a.value or 0) > (b.value or 0)
     end)
 
     -- 清空全部格子，按排序结果重新放入
@@ -468,6 +479,7 @@ function MinggeSystem.GenerateItem(bossId)
         sellCurrency = "lingYun",
         sellPrice    = sellPrice,
         locked       = false,
+        image        = MinggeData.PORTRAITS[bossId],  -- 怪物头像图标
     }
 
     return item

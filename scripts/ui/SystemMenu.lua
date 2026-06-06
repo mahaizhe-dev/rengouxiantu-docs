@@ -19,6 +19,7 @@ local PetSkillData = require("config.PetSkillData")
 local IconUtils = require("utils.IconUtils")
 local ChapterConfig = require("config.ChapterConfig")
 local WineData = require("config.WineData")
+local MinggeData = require("config.MinggeData")
 
 local SystemMenu = {}
 
@@ -327,6 +328,17 @@ local function BuildDropSummary(monster, typeId)
             local obtained = player and player.wineObtained and player.wineObtained[wine.wine_id]
             local mark = obtained and " \xe2\x9c\x85" or ""
             table.insert(parts, wine.name .. "(\xe7\xbe\x8e\xe9\x85\x92)" .. mark)
+        end
+    end
+
+    -- 命格掉落：查询该怪物是否掉落五行命格
+    if typeId then
+        local minggeSourceId = MinggeData.BOSS_TO_MINGGE[typeId] or typeId
+        local source = MinggeData.SOURCES[minggeSourceId]
+        if source then
+            local elemName = MinggeData.ELEMENT_NAMES[source.element] or "?"
+            local statName = MinggeData.STAT_NAMES[source.stat] or source.stat
+            table.insert(parts, elemName .. "命·" .. source.name .. "(命格·" .. statName .. ")")
         end
     end
 
