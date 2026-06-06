@@ -301,6 +301,25 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
             end
         end
 
+        -- ================================================================
+        -- 钢筋铁骨丹根骨补算（修复历史 bug：丹药计数存在但属性未写入）
+        -- 权威来源：ChallengeSystem.gangguDanCount（丹药面板计数）
+        -- 每次加载自愈，补齐 gangguConstitution
+        -- ================================================================
+        do
+            local p = GameState.player
+            local ChallengeSystem = require("systems.ChallengeSystem")
+            if p then
+                local count = ChallengeSystem.gangguDanCount or 0
+                local current = p.gangguConstitution or 0
+                if count > 0 and current < count then
+                    print("[GangguFix] gangguConstitution补算: " .. current .. " -> " .. count
+                        .. " (gangguDanCount=" .. count .. ")")
+                    p.gangguConstitution = count
+                end
+            end
+        end
+
         if saveData.sealDemon then
             local SealDemonSystem = require("systems.SealDemonSystem")
             SealDemonSystem.Deserialize(saveData.sealDemon, saveData.player and saveData.player.pillPhysique or 0)

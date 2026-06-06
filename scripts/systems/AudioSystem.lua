@@ -438,6 +438,19 @@ function AudioSystem.PlayWineCue()
     PlayDropCueInternal(AUDIO_B, PRIORITY_B)
 end
 
+--- 命格掉落音效（紫E/橙D/青B）
+--- 传入命格品质字符串，播放对应类别音效
+---@param quality string "purple"|"orange"|"cyan"
+function AudioSystem.PlayMinggeCue(quality)
+    if quality == "cyan" then
+        PlayDropCueInternal(AUDIO_B, PRIORITY_B)
+    elseif quality == "orange" then
+        PlayDropCueInternal(AUDIO_D, PRIORITY_D)
+    elseif quality == "purple" then
+        PlayDropCueInternal(AUDIO_E, PRIORITY_E)
+    end
+end
+
 --- 判断消耗品是否应触发掉落音
 --- 判定顺序按优先级从高到低，命中最高优先级即播放
 ---@param consumableId string

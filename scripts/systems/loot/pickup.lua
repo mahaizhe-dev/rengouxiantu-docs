@@ -238,6 +238,11 @@ function M.AutoPickup(player, dt)
                         qColor,
                         2.0
                     )
+                    -- 命格掉落音效（紫E/橙D/青B，优先级自动处理）
+                    local okAudio, AudioSys = pcall(require, "systems.AudioSystem")
+                    if okAudio and AudioSys then
+                        AudioSys.PlayMinggeCue(mItem.quality)
+                    end
                 end
             end
             -- 移除或标记

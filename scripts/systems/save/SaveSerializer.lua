@@ -611,6 +611,22 @@ function SaveSerializer.DeserializePet(data)
     pet.exp = data.exp or 0
     pet.tier = data.tier or 0
 
+    -- 修复：exp 被旧版 V7c 误钳制后可能低于当前等级累计阈值，导致显示负值
+    local curLevelExp = GameConfig.PET_EXP_TABLE[pet.level] or 0
+    if pet.exp < curLevelExp then
+        -- 恢复到当前等级 80% 进度
+        local nextLevelExp = GameConfig.PET_EXP_TABLE[pet.level + 1]
+        local recoveredExp
+        if nextLevelExp then
+            recoveredExp = curLevelExp + math.floor((nextLevelExp - curLevelExp) * 0.8)
+        else
+            recoveredExp = curLevelExp  -- 满级无下一级，对齐到起点即可
+        end
+        print("[SaveSystem] WARNING: Pet exp recovery! exp=" .. pet.exp
+            .. " < curLevelExp=" .. curLevelExp .. " (Lv." .. pet.level .. "), fixing to " .. recoveredExp .. " (80%)")
+        pet.exp = recoveredExp
+    end
+
     pet.skills = {}
     if data.skills then
         local seenIds = {}
