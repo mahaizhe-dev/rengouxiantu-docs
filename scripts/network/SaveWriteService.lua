@@ -99,8 +99,13 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
 
     -- ════════════════════════════════════════════════════════════════
     -- [B4-S2 硬校验] V1~V6：服务端权威修正关键数值
+    -- 策略A：校验异常时跳过校验继续写入，宁存不完美数据也不丢玩家进度
     -- ════════════════════════════════════════════════════════════════
-    SaveWriteService._ValidateCoreData(coreData, userId)
+    local validateOk, validateErr = pcall(SaveWriteService._ValidateCoreData, coreData, userId)
+    if not validateOk then
+        Logger.error("SaveGame", "[CRITICAL] _ValidateCoreData THREW: " .. tostring(validateErr)
+            .. " | userId=" .. tostring(userId) .. " — skipping validation, saving anyway")
+    end
 
     -- ── [主存档正文] v11 单 key 写入 ──
     local saveKey = "save_" .. slot
