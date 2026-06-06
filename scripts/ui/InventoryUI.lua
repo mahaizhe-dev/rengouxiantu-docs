@@ -654,6 +654,7 @@ function InventoryUI.Create(parentOverlay)
             infoLabel_:SetText(msg or "")
         end
     end)
+
 end
 
 --- 显示背包面板

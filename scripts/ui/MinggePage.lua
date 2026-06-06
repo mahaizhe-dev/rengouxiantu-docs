@@ -210,13 +210,11 @@ local function CreateEquipPanel()
         })
     end
 
-    -- 套装标签
-    statsPanel:AddChild(UI.Label {
-        id = "mg_set_bonus_label",
-        text = "",
-        fontSize = T.fontSize.xs,
-        fontColor = {100, 220, 255, 230},
+    -- 套装标签（容器，每条套装独占一行不换行）
+    statsPanel:AddChild(UI.Panel {
+        id = "mg_set_bonus_panel",
         marginTop = T.spacing.xs,
+        gap = 2,
     })
 
     eqPanel:AddChild(statsPanel)
@@ -424,6 +422,13 @@ end
 ---@param parentOverlay Panel 遮罩层（用于挂载 tooltip 和 menu）
 ---@return Panel
 function MinggePage.Create(parentOverlay)
+    -- 🔴 FIX: 重置所有模块级状态，防止"退出再进"时 contentCreated_ 残留导致
+    -- 新 contentPanel_ 为空但 OnShow() 跳过内容创建，旧 slot widget 脱离渲染树
+    -- 后 backgroundImage 在错误位置显示（P0 渲染异常）
+    contentCreated_ = false
+    equipSlots_ = {}
+    invSlots_ = {}
+
     contentPanel_ = UI.Panel {
         gap = T.spacing.sm,
     }
@@ -454,6 +459,14 @@ function MinggePage.Create(parentOverlay)
     -- 监听命格变更
     EventBus.On("mingge_stats_changed", function()
         UpdateStats()
+    end)
+
+    -- 🔴 FIX: 监听命格拾取，实时刷新背包格子（否则页面已打开时拾取不会显示新物品）
+    EventBus.On("mingge_item_added", function()
+        if contentCreated_ then
+            UpdateAllSlots()
+            UpdateFreeSlots()
+        end
     end)
 
     -- 解封遮罩（手动解封，需金丹初期 order>=7）
@@ -511,12 +524,16 @@ function MinggePage.Create(parentOverlay)
                             if CheckRealmUnlocked() then
                                 -- 解封成功
                                 MinggeSystem.SetUnlocked(true)
+                                -- 确保 manager 已初始化（新游戏路径可能为 nil）
+                                if not MinggeSystem.GetManager() then
+                                    MinggeSystem.Init()
+                                end
                                 lockMask_:Hide()
                                 UpdateAllSlots()
                                 UpdateStats()
                                 UpdateFreeSlots()
                                 EventBus.Emit("mingge_info", "五行命格已解封！")
-                                EventBus.Emit("save_requested")
+                                EventBus.Emit("save_request")
                             else
                                 -- 境界不足
                                 local hintLabel = lockMask_:FindById("mg_lock_realm_hint")
@@ -589,22 +606,22 @@ function UpdateStats()
         end
     end
 
-    -- 套装加成
-    local setLabel = contentPanel_:FindById("mg_set_bonus_label")
-    if setLabel then
+    -- 套装加成（每条独占一行）
+    local setPanel = contentPanel_:FindById("mg_set_bonus_panel")
+    if setPanel then
+        setPanel:RemoveAllChildren()
         local bonuses = MinggeSystem.GetActiveSetBonuses()
-        if #bonuses > 0 then
-            local texts = {}
-            for _, b in ipairs(bonuses) do
-                local setDef = MinggeData.SETS[b.setId]
-                if setDef then
-                    local elName = MinggeData.ELEMENT_NAMES[b.element] or "?"
-                    table.insert(texts, elName .. "行·" .. setDef.name .. ": " .. setDef.desc)
-                end
+        for _, b in ipairs(bonuses) do
+            local setDef = MinggeData.SETS[b.setId]
+            if setDef then
+                local elName = MinggeData.ELEMENT_NAMES[b.element] or "?"
+                setPanel:AddChild(UI.Label {
+                    text = elName .. "行·" .. setDef.name .. ": " .. setDef.desc,
+                    fontSize = T.fontSize.xs,
+                    fontColor = {100, 220, 255, 230},
+                    numberOfLines = 1,
+                })
             end
-            setLabel:SetText(table.concat(texts, "\n"))
-        else
-            setLabel:SetText("")
         end
     end
 end
@@ -647,9 +664,18 @@ function MinggePage.OnShow()
         contentPanel_:AddChild(mainRow)
     end
 
-    -- 检查持久化解封标记
+    -- 检查持久化解封标记（境界达标时自动解封）
     if lockMask_ then
-        if MinggeSystem.IsUnlocked() then
+        local isUnlocked = MinggeSystem.IsUnlocked()
+        if not isUnlocked and CheckRealmUnlocked() then
+            -- 境界已达标但未解封（老存档），自动解封
+            MinggeSystem.SetUnlocked(true)
+            if not MinggeSystem.GetManager() then
+                MinggeSystem.Init()
+            end
+            isUnlocked = true
+        end
+        if isUnlocked then
             lockMask_:Hide()
         else
             lockMask_:Show()

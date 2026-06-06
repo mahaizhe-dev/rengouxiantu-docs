@@ -201,12 +201,12 @@ EquipmentData.GOURD_UPGRADE = {
     [3]  = { cost = 25000,    requiredRealm = "lianqi_1",  quality = "blue",   subStats = { { stat = "maxHp", value = 15 }, { stat = "fortune", value = 3 } } },                                       -- floor(6×2.2×1.2)=15, floor(3×1.2)=3
     [4]  = { cost = 50000,    requiredRealm = "lianqi_1",  quality = "blue",   subStats = { { stat = "maxHp", value = 21 }, { stat = "fortune", value = 4 } } },                                       -- floor(6×3.0×1.2)=21, floor(4×1.2)=4
     [5]  = { cost = 100000,   requiredRealm = "zhuji_1",   quality = "purple", subStats = { { stat = "maxHp", value = 28 }, { stat = "fortune", value = 6 }, { stat = "killHeal", value = 14.4 } } },  -- floor(6×4.0×1.2)=28, floor(5×1.3)=6, 3×4.0×1.2=14.4
-    [6]  = { cost = 200000,   requiredRealm = "jindan_1",  quality = "purple", subStats = { { stat = "maxHp", value = 39 }, { stat = "fortune", value = 7 }, { stat = "killHeal", value = 19.8 } } },  -- floor(6×5.5×1.2)=39, floor(6×1.3)=7, 3×5.5×1.2=19.8
+    [6]  = { cost = 250000,   requiredRealm = "jindan_1",  quality = "purple", subStats = { { stat = "maxHp", value = 39 }, { stat = "fortune", value = 7 }, { stat = "killHeal", value = 19.8 } } },  -- floor(6×5.5×1.2)=39, floor(6×1.3)=7, 3×5.5×1.2=19.8
     [7]  = { cost = 750000,   requiredRealm = "yuanying_1", quality = "orange",  subStats = { { stat = "maxHp", value = 54 }, { stat = "fortune", value = 10 }, { stat = "killHeal", value = 27.3 } } }, -- floor(6×7.0×1.3)=54, floor(7×1.5)=10, 3×7.0×1.3=27.3
-    [8]  = { cost = 2400000,  requiredRealm = "huashen_1", quality = "orange",  subStats = { { stat = "maxHp", value = 70 }, { stat = "fortune", value = 12 }, { stat = "killHeal", value = 35.1 } } }, -- floor(6×9.0×1.3)=70, floor(8×1.5)=12, 3×9.0×1.3=35.1
-    [9]  = { cost = 7000000,  requiredRealm = "heti_1",    quality = "cyan",    subStats = { { stat = "maxHp", value = 79 }, { stat = "fortune", value = 16 }, { stat = "killHeal", value = 39.6 } }, spiritStat = { stat = "wisdom", name = "悟性", value = 8 } }, -- floor(6×11.0×1.2)=79, floor(9×1.8)=16, 3×11.0×1.2=39.6, spirit=floor(9×1.8×0.5)=8
-    [10] = { cost = 5000000,  requiredRealm = "dacheng_1", quality = "cyan",    subStats = { { stat = "maxHp", value = 93 }, { stat = "fortune", value = 18 }, { stat = "killHeal", value = 46.8 } }, spiritStat = { stat = "wisdom", name = "悟性", value = 9 } }, -- floor(6×13.0×1.2)=93, floor(10×1.8)=18, 3×13.0×1.2=46.8, spirit=floor(10×1.8×0.5)=9
-    [11] = { cost = 10000000, requiredRealm = "dujie_1",   quality = "cyan",    subStats = { { stat = "maxHp", value = 108 }, { stat = "fortune", value = 19 }, { stat = "killHeal", value = 54 } }, spiritStat = { stat = "wisdom", name = "悟性", value = 9 } },   -- floor(6×15.0×1.2)=108, floor(11×1.8)=19, 3×15.0×1.2=54, spirit=floor(11×1.8×0.5)=9
+    [8]  = { cost = 2500000,  requiredRealm = "huashen_1", quality = "orange",  subStats = { { stat = "maxHp", value = 70 }, { stat = "fortune", value = 12 }, { stat = "killHeal", value = 35.1 } } }, -- floor(6×9.0×1.3)=70, floor(8×1.5)=12, 3×9.0×1.3=35.1
+    [9]  = { cost = 5000000,  requiredRealm = "heti_1",    quality = "cyan",    subStats = { { stat = "maxHp", value = 79 }, { stat = "fortune", value = 16 }, { stat = "killHeal", value = 39.6 } }, spiritStat = { stat = "wisdom", name = "悟性", value = 8 } }, -- floor(6×11.0×1.2)=79, floor(9×1.8)=16, 3×11.0×1.2=39.6, spirit=floor(9×1.8×0.5)=8
+    [10] = { cost = 10000000, requiredRealm = "dacheng_1", quality = "cyan",    subStats = { { stat = "maxHp", value = 93 }, { stat = "fortune", value = 18 }, { stat = "killHeal", value = 46.8 } }, spiritStat = { stat = "wisdom", name = "悟性", value = 9 } }, -- floor(6×13.0×1.2)=93, floor(10×1.8)=18, 3×13.0×1.2=46.8, spirit=floor(10×1.8×0.5)=9
+    [11] = { cost = 20000000, requiredRealm = "dujie_1",   quality = "cyan",    subStats = { { stat = "maxHp", value = 108 }, { stat = "fortune", value = 19 }, { stat = "killHeal", value = 54 } }, spiritStat = { stat = "wisdom", name = "悟性", value = 9 } },   -- floor(6×15.0×1.2)=108, floor(11×1.8)=19, 3×15.0×1.2=54, spirit=floor(11×1.8×0.5)=9
 }
 
 -- 葫芦各阶主属性（hpRegen）= 基础值 × TIER_MULTIPLIER × 品质倍率
@@ -524,7 +524,7 @@ EquipmentData.SWORD_FORGE_COSTS = {
         desc        = "以仙元精血熔炼T10灵器，30%概率获得套装灵器。",
         gold        = 1000000,
         materials   = {
-            { id = "immortal_essence_blood", count = 4 },
+            { id = "immortal_essence_blood", count = 5 },
         },
     },
 }
@@ -900,7 +900,7 @@ EquipmentData.FORGE_RECIPES = {
         outputMode  = "add_to_bag",
         gold        = 1000000,
         materials   = {
-            { id = "immortal_essence_blood", count = 4 },
+            { id = "immortal_essence_blood", count = 5 },
         },
         generator   = {
             type      = "random_lingqi_mixed",

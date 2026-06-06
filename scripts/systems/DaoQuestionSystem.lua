@@ -14,6 +14,9 @@ local DaoQuestionSystem = {}
 --- 重置费用（灵韵）
 DaoQuestionSystem.RESET_COST = 500
 
+--- 重置境界门槛（金丹初期，防止新手浪费灵韵）
+DaoQuestionSystem.RESET_REQUIRED_REALM = "jindan_1"
+
 --- 五道天问数据
 --- 每题: { intro = 引语, optA = 选项A文案, optB = 选项B文案, statA = {字段=值}, statB = {字段=值} }
 DaoQuestionSystem.QUESTIONS = {
@@ -271,10 +274,21 @@ function DaoQuestionSystem.TryEnter(player, source)
         return true
 
     elseif source == "npc_reset" then
-        -- 重置问心：必须已答过 + 灵韵足够
+        -- 重置问心：必须已答过 + 境界达标 + 灵韵足够
         if not DaoQuestionSystem.HasCompleted(player) then
             print("[DaoQuestion] TryEnter rejected: never completed, should use npc_first")
             return false
+        end
+        -- 境界门槛检查（防止新手浪费灵韵）
+        local GameConfig = require("config.GameConfig")
+        local requiredRealm = GameConfig.REALMS[DaoQuestionSystem.RESET_REQUIRED_REALM]
+        local playerRealm = GameConfig.REALMS[player.realm]
+        local playerOrder = playerRealm and playerRealm.order or 0
+        local requiredOrder = requiredRealm and requiredRealm.order or 0
+        if playerOrder < requiredOrder then
+            print("[DaoQuestion] TryEnter rejected: realm too low ("
+                .. tostring(player.realm) .. " order=" .. playerOrder .. " < " .. requiredOrder .. ")")
+            return false, "realm"
         end
         if player.lingYun < DaoQuestionSystem.RESET_COST then
             print("[DaoQuestion] TryEnter rejected: insufficient lingYun ("

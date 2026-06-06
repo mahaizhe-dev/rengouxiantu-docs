@@ -740,6 +740,33 @@ function M.CreateLonghunling(sourceLongjiItem)
 end
 
 -- ============================================================================
+-- 命格掉落
+-- ============================================================================
+
+--- 命格掉落判定 + 生成（从 GameEvents 内联逻辑提取）
+--- 返回 minggeItem 或 nil（不满足条件时）
+---@param monster table 被击杀的怪物 { typeId, x, y, ... }
+---@param player table 玩家 { realm, ... }
+---@return table|nil minggeItem
+function M.RollMingge(monster, player)
+    local MinggeData   = require("config.MinggeData")
+    local MinggeSystem = require("systems.MinggeSystem")
+
+    -- 查找 monster.typeId 是否为命格来源 BOSS
+    local bossId = MinggeData.BOSS_TO_MINGGE[monster.typeId] or monster.typeId
+    local source = MinggeData.SOURCES[bossId]
+    if not source then return nil end
+    if not player then return nil end
+
+    -- 概率判定
+    if math.random() >= MinggeData.DROP_RULES.baseDropChance then return nil end
+
+    -- 生成命格
+    local minggeItem = MinggeSystem.GenerateItem(bossId)
+    return minggeItem
+end
+
+-- ============================================================================
 -- 图标辅助
 -- ============================================================================
 

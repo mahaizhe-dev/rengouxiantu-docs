@@ -446,7 +446,7 @@ function MinggeSystem.GenerateItem(bossId)
         return nil
     end
 
-    local value, roll = MinggeSystem._RollValue(range[1], range[2])
+    local value, roll = MinggeSystem._RollValue(range[1], range[2], quality)
 
     -- 3. 判定套装（仅青品质有 20% 概率）
     local setId = nil
@@ -503,16 +503,19 @@ function MinggeSystem._RollQuality()
     return "purple" -- fallback
 end
 
---- 属性值 roll（在 min~max 区间均匀随机）
---- 返回值和 roll 点（1~6000 轴）
----@param min number
----@param max number
+--- 属性值 roll（在品质对应子区间内随机）
+--- roll 同时编码品质归属和品质内百分位，可逆推导
+---@param min number 属性值下限
+---@param max number 属性值上限
+---@param quality string 品质（purple/orange/cyan）
 ---@return number value, number roll
-function MinggeSystem._RollValue(min, max)
-    -- roll 点在 1~6000 随机
-    local roll = math.random(1, 6000)
-    -- 线性映射到 min~max
-    local t = (roll - 1) / 5999  -- 0~1
+function MinggeSystem._RollValue(min, max, quality)
+    -- roll 限定在品质子区间内（purple=1~2000, orange=2001~4000, cyan=4001~6000）
+    local qRange = MinggeData.QUALITY_ROLL[quality]
+    local lo, hi = qRange[1], qRange[2]
+    local roll = math.random(lo, hi)
+    -- 线性映射到 min~max：roll 在子区间内的位置 → value
+    local t = (roll - lo) / (hi - lo)  -- 0~1
     local value = min + t * (max - min)
 
     -- 对于整数属性，四舍五入

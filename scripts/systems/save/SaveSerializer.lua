@@ -738,7 +738,15 @@ function SaveSerializer.SerializeMingge()
     local MinggeSystem = require("systems.MinggeSystem")
     local MinggeData = require("config.MinggeData")
     local mgr = MinggeSystem.GetManager()
-    if not mgr then return nil end
+    local isUnlocked = MinggeSystem.IsUnlocked()
+
+    -- 即使 manager_ 为 nil，只要已解封也要持久化标记
+    if not mgr then
+        if isUnlocked then
+            return { unlocked = true }
+        end
+        return nil
+    end
 
     -- 装备槽
     local equipped = {}
@@ -758,7 +766,7 @@ function SaveSerializer.SerializeMingge()
         end
     end
 
-    return { equipped = equipped, backpack = backpack, unlocked = MinggeSystem.IsUnlocked() or nil }
+    return { equipped = equipped, backpack = backpack, unlocked = isUnlocked or nil }
 end
 
 --- 序列化单个命格物品

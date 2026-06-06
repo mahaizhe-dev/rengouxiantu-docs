@@ -197,13 +197,33 @@ function M.RenderLootDrops(nvg, l, camera)
                 nvgFillPaint(nvg, innerGlow)
                 nvgFill(nvg)
 
-                -- 五行符号居中
-                local elemIcon = MinggeData.ELEMENT_ICONS and MinggeData.ELEMENT_ICONS[mItem.element] or "☯"
-                nvgFontFace(nvg, "sans")
-                nvgFontSize(nvg, slotHalf * 1.3)
-                nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
-                nvgFillColor(nvg, nvgRGBA(255, 255, 255, math.floor(230 * pulse)))
-                nvgText(nvg, sx, sy, elemIcon)
+                -- Boss 头像 / 五行符号居中
+                local portrait = mItem.image
+                local imgDrawn = false
+                if portrait then
+                    local imgHandle = RenderUtils.GetCachedImage(nvg, portrait)
+                    if imgHandle then
+                        local imgSize = bw * 0.82
+                        local imgX = sx - imgSize / 2
+                        local imgY = sy - imgSize / 2
+                        nvgSave(nvg)
+                        nvgBeginPath(nvg)
+                        nvgRoundedRect(nvg, bx + 2, by + 2, bw - 4, bh - 4, cornerR - 1)
+                        local imgPaint = nvgImagePattern(nvg, imgX, imgY, imgSize, imgSize, 0, imgHandle, pulse)
+                        nvgFillPaint(nvg, imgPaint)
+                        nvgFill(nvg)
+                        nvgRestore(nvg)
+                        imgDrawn = true
+                    end
+                end
+                if not imgDrawn then
+                    local elemIcon = MinggeData.ELEMENT_ICONS and MinggeData.ELEMENT_ICONS[mItem.element] or "☯"
+                    nvgFontFace(nvg, "sans")
+                    nvgFontSize(nvg, slotHalf * 1.3)
+                    nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+                    nvgFillColor(nvg, nvgRGBA(255, 255, 255, math.floor(230 * pulse)))
+                    nvgText(nvg, sx, sy, elemIcon)
+                end
 
                 -- 品质色边框
                 local borderAlpha = math.floor(160 * pulse)

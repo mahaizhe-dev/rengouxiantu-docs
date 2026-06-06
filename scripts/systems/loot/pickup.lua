@@ -43,6 +43,12 @@ function M.AutoPickup(player, dt)
         -- 含装备的掉落物：背包满时不磁吸、不拾取
         if drop.items and #drop.items > 0 then
             if freeSlots < #drop.items then
+                -- 如果已在磁吸中，回退到原始位置
+                if drop.magnetized then
+                    drop.x = drop.originX or drop.x
+                    drop.y = drop.originY or drop.y
+                    drop.magnetized = false
+                end
                 if distSq <= MAGNET_RANGE_SQ then
                     if not drop.fullHintTime or (time.elapsedTime - drop.fullHintTime > 2.0) then
                         drop.fullHintTime = time.elapsedTime
@@ -50,6 +56,30 @@ function M.AutoPickup(player, dt)
                         CombatSystem.AddFloatingText(
                             player.x, player.y - 0.5,
                             "背包已满", {255, 100, 100, 255}, 1.5
+                        )
+                    end
+                end
+                goto continue_drop
+            end
+        end
+
+        -- 含命格的掉落物：背包满时不磁吸、不拾取（与装备一致）
+        if drop.mingges and #drop.mingges > 0 then
+            local MinggeSystem = require("systems.MinggeSystem")
+            if MinggeSystem.GetFreeSlots() < #drop.mingges then
+                -- 如果已在磁吸中，回退到原始位置
+                if drop.magnetized then
+                    drop.x = drop.originX or drop.x
+                    drop.y = drop.originY or drop.y
+                    drop.magnetized = false
+                end
+                if distSq <= MAGNET_RANGE_SQ then
+                    if not drop._minggeFullHintTime or (time.elapsedTime - drop._minggeFullHintTime > 2.0) then
+                        drop._minggeFullHintTime = time.elapsedTime
+                        local CombatSystem = require("systems.CombatSystem")
+                        CombatSystem.AddFloatingText(
+                            player.x, player.y - 0.5,
+                            "命格背包已满", {255, 100, 100, 255}, 1.5
                         )
                     end
                 end
@@ -194,38 +224,20 @@ function M.AutoPickup(player, dt)
                     end
                 end
             end
-            -- 命格
+            -- 命格（前置拦截已确保有空位，与装备一致直接添加）
             if drop.mingges and #drop.mingges > 0 then
                 local MinggeSystem = require("systems.MinggeSystem")
                 local CombatSystem = require("systems.CombatSystem")
                 local MinggeData = require("config.MinggeData")
-                local allAdded = true
                 for _, mItem in ipairs(drop.mingges) do
-                    local ok = MinggeSystem.AddItem(mItem)
-                    if ok then
-                        local qColor = MinggeData.QUALITY_COLORS[mItem.quality] or {200, 200, 200, 255}
-                        CombatSystem.AddFloatingText(
-                            drop.x, drop.y - 0.3,
-                            mItem.name,
-                            qColor,
-                            2.0
-                        )
-                        print("[Pickup] Got mingge: " .. mItem.name)
-                    else
-                        allAdded = false
-                        -- 背包满，限频提示
-                        if not drop._minggeFullHintTime or (time.elapsedTime - drop._minggeFullHintTime > 5.0) then
-                            drop._minggeFullHintTime = time.elapsedTime
-                            CombatSystem.AddFloatingText(
-                                player.x, player.y - 0.5,
-                                "命格背包已满", {255, 100, 100, 255}, 1.5
-                            )
-                        end
-                    end
-                end
-                if not allAdded then
-                    -- 命格背包满，不移除地面对象
-                    goto continue_drop
+                    MinggeSystem.AddItem(mItem)
+                    local qColor = MinggeData.QUALITY_COLORS[mItem.quality] or {200, 200, 200, 255}
+                    CombatSystem.AddFloatingText(
+                        drop.x, drop.y - 0.3,
+                        mItem.name,
+                        qColor,
+                        2.0
+                    )
                 end
             end
             -- 移除或标记

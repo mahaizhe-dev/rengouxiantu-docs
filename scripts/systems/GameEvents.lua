@@ -133,27 +133,20 @@ function GameEvents.Register(refs)
             })
         end
 
-        -- 命格掉落（独立于常规掉落系统，仅限金丹初期以上）
+        -- 命格掉落（通过 LootSystem 统一入口）
         do
-            local MinggeData = require("config.MinggeData")
-            local MinggeSystem = require("systems.MinggeSystem")
-            -- 查找 monster.typeId 是否为命格来源 BOSS
-            local bossId = MinggeData.BOSS_TO_MINGGE[monster.typeId] or monster.typeId
-            local source = MinggeData.SOURCES[bossId]
-            if source and player then
-                local realmData = GameConfig.REALMS[player.realm]
-                local realmOk = realmData and realmData.order >= 7  -- 金丹初期 order=7
-                if realmOk and math.random() < MinggeData.DROP_RULES.baseDropChance then
-                    local minggeItem = MinggeSystem.GenerateItem(bossId)
-                    if minggeItem then
-                        GameState.AddLootDrop({
-                            x = monster.x,
-                            y = monster.y,
-                            mingges = { minggeItem },
-                        })
-                        print("[Loot] Mingge drop: " .. minggeItem.name .. " (" .. minggeItem.quality .. ")")
-                    end
-                end
+            local LootSystem = require("systems.LootSystem")
+            local minggeItem = LootSystem.RollMingge(monster, player)
+            if minggeItem then
+                -- 小偏移避免与装备掉落完全重叠
+                local ox = (math.random() - 0.5) * 0.6
+                local oy = (math.random() - 0.5) * 0.6
+                GameState.AddLootDrop({
+                    x = monster.x + ox,
+                    y = monster.y + oy,
+                    mingges = { minggeItem },
+                })
+                print("[Loot] Mingge drop: " .. minggeItem.name .. " (" .. minggeItem.quality .. ")")
             end
         end
 

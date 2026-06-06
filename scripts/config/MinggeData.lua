@@ -127,7 +127,7 @@ MinggeData.SET_REQUIRED_PIECES = 3
 -- ============================================================================
 
 MinggeData.DROP_RULES = {
-    baseDropChance     = 0.05,   -- 5% 基础掉落概率
+    baseDropChance     = 0.05,   -- 5% 基础掉率
     setEligibleQuality = "cyan", -- 只有青品质允许判定套装
     setAttachChance    = 0.20,   -- 20% 套装附带概率
 }
@@ -380,7 +380,31 @@ MinggeData.BOSS_TO_MINGGE = {
     -- 流沙之子·外域 和 流沙之子·中域 都映射到 liusha_son
     liusha_son_outer = "liusha_son",
     liusha_son_mid   = "liusha_son",
-    -- 其他 BOSS 直接与 SOURCES key 一致，此表仅放特殊映射
+
+    -- Ch3 沙漠妖王（MonsterTypes 用 yao_king_N 序号命名）
+    yao_king_1 = "sha_wanli",
+    yao_king_2 = "shen_king",
+    yao_king_3 = "lieyan_lion",
+    yao_king_4 = "shegu_king",
+    yao_king_5 = "chijia_king",
+    yao_king_6 = "canglang_king",
+    yao_king_7 = "yanchan_king",
+    yao_king_8 = "kumu_king",
+
+    -- Ch5 BOSS（MonsterTypes 用 ch5_ 前缀）
+    ch5_pei_qianyue     = "pei_qianyue",
+    ch5_frost_luan      = "frost_luan",
+    ch5_han_bailian     = "han_bailian",
+    ch5_shi_guanlan     = "shi_guanlan",
+    ch5_ning_qiwu       = "ning_qiwu",
+    ch5_wen_suzhang     = "wen_suzhang",
+    ch5_sword_zhu       = "sword_zhu",
+    ch5_sword_xian      = "sword_xian",
+    ch5_sword_lu        = "sword_lu",
+    ch5_sword_jue       = "sword_jue",
+    ch5_blood_general   = "blood_general",
+    ch5_marshal_shugu   = "marshal_shugu",
+    ch5_marshal_liesoul = "marshal_liesoul",
 }
 
 -- ============================================================================

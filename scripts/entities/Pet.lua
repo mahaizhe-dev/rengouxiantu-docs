@@ -174,12 +174,39 @@ end
 
 --- 重新计算全部属性
 --- 公式: (基础值 + 固定成长×(等级-1) + 玩家属性×同步率) × (1 + 技能百分比/100)
+--- 注意：单向加成，宠物给主人的加成不反哺同步率计算（避免循环依赖）
 function Pet:RecalcStats()
     local base = GameConfig.PET_BASE
     local growth = GameConfig.PET_GROWTH
-    local syncRate = self:GetSyncRate()
     local lvGrowth = self.level - 1
 
+    -- 技能被动百分比加成（不依赖主人属性，先算）
+    local skillPct = self:GetSkillBonuses()
+    local perLv = skillPct._perLv
+
+    -- ① 先更新主人加成（单向输出，不参与宠物自身同步率计算）
+    if self.owner then
+        local newOwnerBonuses = skillPct._ownerFlat or {}
+        local oldBonuses = self.owner.petOwnerBonuses or {}
+        -- 检测加成是否变化，变化时强制失效主人属性缓存
+        local changed = false
+        for k, v in pairs(newOwnerBonuses) do
+            if (oldBonuses[k] or 0) ~= v then changed = true; break end
+        end
+        if not changed then
+            for k, _ in pairs(oldBonuses) do
+                if not newOwnerBonuses[k] then changed = true; break end
+            end
+        end
+        if changed then
+            self.owner.petOwnerBonuses = newOwnerBonuses
+            -- 强制失效主人属性缓存，使下面读取时能算到最新值
+            self.owner._statsCacheFrame = nil
+        end
+    end
+
+    -- ② 再读取主人属性（此时已包含最新 petOwnerBonuses）
+    local syncRate = self:GetSyncRate()
     local playerMaxHp = 0
     local playerAtk = 0
     local playerDef = 0
@@ -188,10 +215,6 @@ function Pet:RecalcStats()
         playerAtk = self.owner:GetTotalAtk()
         playerDef = self.owner:GetTotalDef()
     end
-
-    -- 技能被动百分比加成
-    local skillPct = self:GetSkillBonuses()
-    local perLv = skillPct._perLv
 
     local rawMaxHp = base.maxHp + growth.maxHp * lvGrowth + playerMaxHp * syncRate
     local rawAtk   = base.atk   + growth.atk   * lvGrowth + playerAtk   * syncRate
@@ -217,14 +240,17 @@ function Pet:RecalcStats()
     self.lifeStealPct = skillPct.lifeStealPct  -- 吸血比例(%)
     self.dmgReducePct = skillPct.dmgReducePct  -- 减伤比例(%)
 
+    -- 攻速影响攻击间隔：基础 1.2 秒，攻速越高间隔越短
+    local baseInterval = 1.2
+    if self.atkSpeedPct > 0 then
+        self.attackInterval = baseInterval / (1 + self.atkSpeedPct / 100)
+    else
+        self.attackInterval = baseInterval
+    end
+
     -- Ch5 属性
     self.ignoreDefPct = skillPct.ignoreDefPct  -- 忽视防御触发率(%)
     self.bonusDmgPct  = skillPct.bonusDmgPct   -- 伤害加成(%)
-
-    -- 同步主人加成（灵兽赐主技能：固定值直接加给主人仙缘属性）
-    if self.owner then
-        self.owner.petOwnerBonuses = skillPct._ownerFlat or {}
-    end
 
     -- 确保 hp 不超过 maxHp
     if self.hp and self.hp > self.maxHp then
@@ -821,6 +847,12 @@ function Pet:TakeDamage(damage, source)
     if self.evadeChance > 0 and math.random(100) <= self.evadeChance then
         EventBus.Emit("pet_evade", self, source)
         return 0
+    end
+
+    -- 减伤乘区
+    if self.dmgReducePct and self.dmgReducePct > 0 then
+        damage = math.floor(damage * (1 - self.dmgReducePct / 100))
+        damage = math.max(1, damage)
     end
 
     self.hp = self.hp - damage

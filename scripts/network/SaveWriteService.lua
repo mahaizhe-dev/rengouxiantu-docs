@@ -500,6 +500,104 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
         end
     end
 
+    -- V7: pet 宠物数据校验（钳制+日志，与角色校验同级别）
+    if coreData.pet and type(coreData.pet) == "table" then
+        local pet = coreData.pet
+
+        -- V7a: tier 必须在 PET_TIERS 范围内
+        if pet.tier and type(pet.tier) == "number" then
+            local maxTier = 7  -- GameConfig.PET_TIERS 最大 key
+            if pet.tier < 0 then
+                Logger.warn("SaveGame", "[V7a] Pet tier clamped from " .. pet.tier .. " -> 0"
+                    .. " userId=" .. tostring(userId))
+                pet.tier = 0
+            end
+            if pet.tier > maxTier then
+                Logger.warn("SaveGame", "[V7a] Pet tier clamped from " .. pet.tier .. " -> " .. maxTier
+                    .. " userId=" .. tostring(userId))
+                pet.tier = maxTier
+            end
+        end
+
+        -- V7b: level 必须在 1..当前阶级maxLevel
+        if pet.level and type(pet.level) == "number" then
+            if pet.level < 1 then
+                Logger.warn("SaveGame", "[V7b] Pet level clamped from " .. pet.level .. " -> 1"
+                    .. " userId=" .. tostring(userId))
+                pet.level = 1
+            end
+            local tierCfg = GameConfig.PET_TIERS[pet.tier or 0]
+            local maxLv = tierCfg and tierCfg.maxLevel or 20
+            if pet.level > maxLv then
+                Logger.warn("SaveGame", "[V7b] Pet level clamped from " .. pet.level .. " -> " .. maxLv
+                    .. " (tier=" .. tostring(pet.tier) .. ") userId=" .. tostring(userId))
+                pet.level = maxLv
+            end
+        end
+
+        -- V7c: exp 不得为负，不超过当前等级合理上界
+        if pet.exp and type(pet.exp) == "number" then
+            if pet.exp < 0 then
+                Logger.warn("SaveGame", "[V7c] Pet exp clamped from " .. pet.exp .. " -> 0"
+                    .. " userId=" .. tostring(userId))
+                pet.exp = 0
+            end
+            -- 宠物经验上界：按等级 × 合理食物投入估算（每级约 500 经验上界）
+            local expCap = (pet.level or 1) * 500
+            if pet.exp > expCap then
+                Logger.warn("SaveGame", "[V7c] Pet exp clamped from " .. pet.exp .. " -> " .. expCap
+                    .. " (level=" .. tostring(pet.level) .. ") userId=" .. tostring(userId))
+                pet.exp = expCap
+            end
+        end
+
+        -- V7d: skills 白名单校验（id 必须合法，tier 1~4）
+        if pet.skills and type(pet.skills) == "table" then
+            local PetSkillData = require("config.PetSkillData")
+            local maxSlots = 6  -- 最大技能槽数
+            for i = 1, maxSlots do
+                local skill = pet.skills[i]
+                if skill and type(skill) == "table" then
+                    -- id 白名单
+                    if not skill.id or not PetSkillData.SKILLS[skill.id] then
+                        Logger.warn("SaveGame", "[V7d] Pet skill[" .. i .. "] invalid id: "
+                            .. tostring(skill.id) .. " userId=" .. tostring(userId))
+                        pet.skills[i] = nil
+                    else
+                        -- tier 范围 1~4
+                        if not skill.tier or type(skill.tier) ~= "number"
+                            or skill.tier < 1 or skill.tier > 4 then
+                            Logger.warn("SaveGame", "[V7d] Pet skill[" .. i .. "] tier clamped: "
+                                .. tostring(skill.tier) .. " -> 1 (id=" .. skill.id
+                                .. ") userId=" .. tostring(userId))
+                            skill.tier = 1
+                        end
+                    end
+                end
+            end
+            -- 清除超出槽位的非法数据
+            for i = maxSlots + 1, #pet.skills do
+                if pet.skills[i] then
+                    Logger.warn("SaveGame", "[V7d] Pet skill[" .. i .. "] beyond max slots, removed"
+                        .. " userId=" .. tostring(userId))
+                    pet.skills[i] = nil
+                end
+            end
+        end
+
+        -- V7e: appearance.selectedId 合法性（只记日志，不钳制，避免误伤）
+        if pet.appearance and type(pet.appearance) == "table" then
+            local selId = pet.appearance.selectedId
+            if selId and type(selId) == "string" then
+                local PetAppearanceConfig = require("config.PetAppearanceConfig")
+                if not PetAppearanceConfig.GetSkinById(selId) then
+                    Logger.warn("SaveGame", "[V7e] Pet appearance selectedId unknown: "
+                        .. selId .. " userId=" .. tostring(userId))
+                end
+            end
+        end
+    end
+
     -- V5c: maxHp/atk/def 属性上界软校验（仅记日志，不 clamp）
     if coreData.player then
         local cp = coreData.player

@@ -541,18 +541,32 @@ local INTERACT_HANDLERS = {
             })
         else
             -- 已完成：重置问心
-            if player.lingYun < DaoQuestionSystem.RESET_COST then
+            -- 境界门槛检查
+            local GameConfig = require("config.GameConfig")
+            local requiredRealm = GameConfig.REALMS[DaoQuestionSystem.RESET_REQUIRED_REALM]
+            local playerRealm = GameConfig.REALMS[player.realm]
+            local playerOrder = playerRealm and playerRealm.order or 0
+            local requiredOrder = requiredRealm and requiredRealm.order or 0
+            local realmName = requiredRealm and requiredRealm.name or "金丹初期"
+            if playerOrder < requiredOrder then
                 ShowGenericDialog({
                     name = npc.name, subtitle = npc.subtitle,
                     portrait = npc.portrait,
-                    dialog = "命格非定数……你可愿再问一次天心？\n\n（需消耗灵韵 ×" .. DaoQuestionSystem.RESET_COST .. "）",
+                    dialog = "命格非定数……但你修为尚浅，重问天心恐伤根基。\n\n（需达到「" .. realmName .. "」方可重新问心）",
+                    highlightText = "⚠️ 境界不足，继续修行吧",
+                })
+            elseif player.lingYun < DaoQuestionSystem.RESET_COST then
+                ShowGenericDialog({
+                    name = npc.name, subtitle = npc.subtitle,
+                    portrait = npc.portrait,
+                    dialog = "命格非定数……你可愿再问一次天心？\n\n问心之答将重塑你的初始属性分配。\n\n（需消耗灵韵 ×" .. DaoQuestionSystem.RESET_COST .. "）",
                     highlightText = "⚡ 你的灵韵尚浅，且去历练（当前: " .. math.floor(player.lingYun) .. "）",
                 })
             else
                 ShowGenericDialog({
                     name = npc.name, subtitle = npc.subtitle,
                     portrait = npc.portrait,
-                    dialog = "命格非定数……你可愿再问一次天心？\n\n（消耗灵韵 ×" .. DaoQuestionSystem.RESET_COST .. "）",
+                    dialog = "命格非定数……你可愿再问一次天心？\n\n问心之答将重塑你的初始属性分配。\n\n（消耗灵韵 ×" .. DaoQuestionSystem.RESET_COST .. "）",
                     buttons = {
                         {
                             text = "重新问心",

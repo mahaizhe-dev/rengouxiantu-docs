@@ -32,6 +32,7 @@ LootSystem.CreateJiefengSword      = generation.CreateJiefengSword
 LootSystem.CreateLonghunling       = generation.CreateLonghunling
 LootSystem.GetSlotIcon             = generation.GetSlotIcon
 LootSystem.GetGourdIcon            = generation.GetGourdIcon
+LootSystem.RollMingge              = generation.RollMingge
 
 --------------------------------------------------------------------------------
 -- Pickup sub-module
