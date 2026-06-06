@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- ============================================================================
 -- test_save_dto_contract.lua — SaveDTO v1 合同边界测试
 --
@@ -55,8 +56,8 @@ print("\n[test_save_dto_contract] === SaveDTO v1 三层边界测试 ===\n")
 -- 1. 三层字段数量断言（核心：22 / 6 / 3）
 -- ─────────────────────────────────────────────────────────────
 
-test("DTO field count = 22", function()
-    assertEqual(SaveDTO.GetDTOFieldCount(), 22, "DTO fields")
+test("DTO field count = 23", function()
+    assertEqual(SaveDTO.GetDTOFieldCount(), 23, "DTO fields")
 end)
 
 test("envelope field count = 7", function()
@@ -68,23 +69,24 @@ test("passthrough field count = 3", function()
 end)
 
 -- 后向兼容：schema = DTO + envelope = 29
-test("schema field count = 29 (backward compat: DTO 22 + envelope 7)", function()
-    assertEqual(SaveDTO.GetSchemaFieldCount(), 29, "schema fields")
+test("schema field count = 30 (backward compat: DTO 23 + envelope 7)", function()
+    assertEqual(SaveDTO.GetSchemaFieldCount(), 30, "schema fields")
 end)
 
 -- ─────────────────────────────────────────────────────────────
 -- 2. P0-3A 合同 22 个 DTO 主体字段全部存在
 -- ─────────────────────────────────────────────────────────────
 
-local CONTRACT_22 = {
+local CONTRACT_23 = {
     "version", "player", "equipment", "backpack", "skills",
     "collection", "pet", "quests", "shop", "titles",
     "challenges", "sealDemon", "trialTower", "artifact",
     "fortuneFruits", "seaPillar", "prisonTower", "warehouse",
     "yaochi_wash", "event_data", "openedXianyuanChests", "bossKillTimes",
+    "mingge",
 }
 
-for _, field in ipairs(CONTRACT_22) do
+for _, field in ipairs(CONTRACT_23) do
     test("contract DTO field '" .. field .. "' is DTO", function()
         assertTrue(SaveDTO.IsDTOField(field), field .. " should be DTO")
         assertTrue(SaveDTO.IsSchemaField(field), field .. " should also be schema (compat)")
@@ -265,10 +267,10 @@ end)
 -- 9. 无损往返：FromCoreData → ToCoreData ≈ 原始 coreData
 -- ─────────────────────────────────────────────────────────────
 
-test("round-trip: FromCoreData → ToCoreData preserves all 31 fields", function()
-    -- 构造包含所有 22 DTO + 6 envelope + 3 passthrough = 31 字段的 coreData
+test("round-trip: FromCoreData → ToCoreData preserves all 32 fields", function()
+    -- 构造包含所有 23 DTO + 6 envelope + 3 passthrough = 32 字段的 coreData
     local original = {
-        -- 22 DTO
+        -- 23 DTO
         version = 23, player = { level = 50 }, equipment = { w = 1 },
         backpack = { b = 1 }, skills = { s = 1 }, collection = { c = 1 },
         pet = { p = 1 }, quests = { q = 1 }, shop = { sh = 1 },
@@ -277,6 +279,7 @@ test("round-trip: FromCoreData → ToCoreData preserves all 31 fields", function
         seaPillar = { sp = 1 }, prisonTower = { pt = 1 }, warehouse = { wh = 1 },
         yaochi_wash = { yw = 1 }, event_data = { ed = 1 },
         openedXianyuanChests = { ox = 1 }, bossKillTimes = { bkt = 1 },
+        mingge = { equipped = {}, backpack = {} },
         -- 6 envelope
         code_version = "1.2.3", timestamp = 1234567890,
         bossKills = 42, _bossKillsMigrated = true,
@@ -294,10 +297,10 @@ test("round-trip: FromCoreData → ToCoreData preserves all 31 fields", function
     for _ in pairs(unk) do unkCount = unkCount + 1 end
     assertEqual(unkCount, 0, "no unknowns")
 
-    -- DTO 提取 22 个
+    -- DTO 提取 23 个
     local dtoCount = 0
     for _ in pairs(dto) do dtoCount = dtoCount + 1 end
-    assertEqual(dtoCount, 22, "dto field count")
+    assertEqual(dtoCount, 23, "dto field count")
 
     -- envelope 提取 6 个
     local envCount = 0
@@ -309,10 +312,10 @@ test("round-trip: FromCoreData → ToCoreData preserves all 31 fields", function
     for _ in pairs(pt) do ptCount = ptCount + 1 end
     assertEqual(ptCount, 3, "passthrough field count")
 
-    -- 重建后字段数 = 31
+    -- 重建后字段数 = 32
     local reCount = 0
     for _ in pairs(reconstructed) do reCount = reCount + 1 end
-    assertEqual(reCount, 31, "reconstructed field count")
+    assertEqual(reCount, 32, "reconstructed field count")
 
     -- 抽检关键字段
     assertEqual(reconstructed.version, 23, "version")

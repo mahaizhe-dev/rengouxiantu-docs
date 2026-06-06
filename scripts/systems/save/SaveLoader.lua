@@ -385,6 +385,11 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
             end
         end
 
+        -- v27: 五行命格系统
+        if saveData.mingge then
+            SaveSerializer.DeserializeMingge(saveData.mingge)
+        end
+
         -- 账号级外观数据（account_cosmetics）
         if saveData.accountCosmetics and type(saveData.accountCosmetics) == "table" then
             GameState.accountCosmetics = saveData.accountCosmetics

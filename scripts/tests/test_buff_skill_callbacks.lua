@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- scripts/tests/test_buff_skill_callbacks.lua
 -- GM命令触发: "P0-2回调自测"
 --

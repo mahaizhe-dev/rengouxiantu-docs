@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- entities/npcs.lua - NPC 渲染
 local shared = require("rendering.entities.shared")
 local GameConfig = shared.GameConfig

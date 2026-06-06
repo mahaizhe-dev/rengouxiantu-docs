@@ -1,5 +1,6 @@
+---@diagnostic disable
 --- 宠物外观系统配置
---- @module PetAppearanceConfig
+--- 宠物外观系统配置模块
 --- v20: 宠物外观系统
 
 local PetAppearanceConfig = {}

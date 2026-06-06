@@ -68,6 +68,7 @@ local DTO_FIELDS = {
     event_data      = true,  -- 活动数据（EventSystem.Serialize）
     openedXianyuanChests = true, -- 仙缘宝箱（XianyuanChestSystem.Serialize）
     bossKillTimes   = true,  -- BOSS击杀冷却
+    mingge          = true,  -- 五行命格数据（SaveSerializer.SerializeMingge）
 }
 
 --- DoSave 构建 coreData 时附加的 7 个信封/元数据字段

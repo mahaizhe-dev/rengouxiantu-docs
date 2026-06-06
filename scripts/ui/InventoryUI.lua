@@ -10,6 +10,7 @@ local EventBus = require("core.EventBus")
 local InventorySystem = require("systems.InventorySystem")
 local EquipTooltip = require("ui.EquipTooltip")
 local ImageItemSlot = require("ui.ImageItemSlot")
+local MinggePage = require("ui.MinggePage")
 local T = require("config.UITheme")
 
 local InventoryUI = {}
@@ -23,6 +24,13 @@ local infoLabel_ = nil
 local sellMenu_ = nil
 local sellToggleBtn_ = nil
 local sellQualities_ = { white = true, green = true, blue = true, purple = false }
+
+-- Tab 切页状态
+local currentTab_ = "equip"  -- "equip" | "mingge"
+local tabBtnEquip_ = nil
+local tabBtnMingge_ = nil
+local equipContent_ = nil     -- 装备页内容容器
+local minggeContent_ = nil    -- 命格页内容容器
 
 -- 配置
 local INV_COLS = 6    -- 横屏最大列数（用于计算 maxWidth）
@@ -394,6 +402,53 @@ local function CreateInvPanel()
     return invPanel
 end
 
+--- Tab 切换函数
+local function SwitchTab(tab)
+    if currentTab_ == tab then return end
+    -- 境界守卫：金丹初期（order>=7）才能打开命格页
+    if tab == "mingge" then
+        local player = GameState.player
+        local realmData = player and GameConfig.REALMS[player.realm]
+        if not realmData or realmData.order < 7 then
+            if infoLabel_ then infoLabel_:SetText("需要达到金丹初期才能解锁五行命格") end
+            return
+        end
+    end
+    currentTab_ = tab
+
+    -- 更新按钮样式（醒目配色）
+    local activeColor = {60, 140, 220, 255}
+    local inactiveColor = {60, 60, 75, 200}
+    if tabBtnEquip_ then
+        tabBtnEquip_:SetBackgroundColor(tab == "equip" and activeColor or inactiveColor)
+    end
+    if tabBtnMingge_ then
+        tabBtnMingge_:SetBackgroundColor(tab == "mingge" and activeColor or inactiveColor)
+    end
+
+    -- 切换内容可见性
+    if equipContent_ then
+        if tab == "equip" then equipContent_:Show() else equipContent_:Hide() end
+    end
+    if minggeContent_ then
+        if tab == "mingge" then minggeContent_:Show() else minggeContent_:Hide() end
+    end
+
+    -- 切页时刷新对应页面数据
+    if tab == "equip" then
+        UpdateAllSlots()
+        InventoryUI.UpdateStats()
+        InventoryUI.UpdateFreeSlots()
+        -- 隐藏命格 tooltip
+        MinggePage.OnHide()
+    else
+        MinggePage.OnShow()
+        -- 隐藏装备 tooltip
+        EquipTooltip.Hide()
+        if sellMenu_ and sellMenu_:IsOpen() then sellMenu_:Close() end
+    end
+end
+
 --- 创建整个背包 UI 面板
 ---@param parentOverlay table overlay Widget
 function InventoryUI.Create(parentOverlay)
@@ -405,6 +460,53 @@ function InventoryUI.Create(parentOverlay)
         fontColor = {200, 200, 200, 200},
         textAlign = "center",
     }
+
+    -- Tab 按钮（醒目大号）
+    tabBtnEquip_ = UI.Button {
+        text = "装备物品",
+        fontSize = 16,
+        fontColor = {255, 255, 255, 255},
+        paddingLeft = 18,
+        paddingRight = 18,
+        height = 36,
+        borderRadius = 18,
+        backgroundColor = {60, 140, 220, 255},
+        onClick = function(self) SwitchTab("equip") end,
+    }
+    tabBtnMingge_ = UI.Button {
+        text = "五行命格",
+        fontSize = 16,
+        fontColor = {255, 255, 255, 255},
+        paddingLeft = 18,
+        paddingRight = 18,
+        height = 36,
+        borderRadius = 18,
+        backgroundColor = {60, 60, 75, 200},
+        onClick = function(self) SwitchTab("mingge") end,
+    }
+
+    -- 装备页内容容器
+    equipContent_ = UI.Panel {
+        gap = T.spacing.sm,
+        children = {
+            -- 装备 + 背包格子
+            UI.Panel {
+                flexDirection = "row",
+                gap = T.spacing.md,
+                flexWrap = "wrap",
+                justifyContent = "center",
+                alignItems = "flex-start",
+                children = {
+                    CreateEquipPanel(),
+                    CreateInvPanel(),
+                },
+            },
+        },
+    }
+
+    -- 命格页内容容器
+    minggeContent_ = MinggePage.Create(parentOverlay)
+    minggeContent_:Hide()  -- 默认隐藏
 
     -- 主面板（全屏半透明背景）
     panel_ = UI.Panel {
@@ -432,7 +534,7 @@ function InventoryUI.Create(parentOverlay)
                     paddingRight = T.spacing.sm,
                 },
                 children = {
-                    -- 统一卡片（显式宽度 = 装备面板 + 间距 + 背包面板 + 内边距）
+                    -- 统一卡片
                     UI.Panel {
                         maxWidth = 3 * (SLOT_SIZE + SLOT_GAP) + T.spacing.lg * 2
                               + T.spacing.md
@@ -444,7 +546,7 @@ function InventoryUI.Create(parentOverlay)
                         padding = T.spacing.md,
                         gap = T.spacing.sm,
                         children = {
-                            -- 标题栏（关闭按钮在左，标题在右）
+                            -- 标题栏（关闭按钮在左，标题+tab在右）
                             UI.Panel {
                                 flexDirection = "row",
                                 justifyContent = "space-between",
@@ -462,32 +564,27 @@ function InventoryUI.Create(parentOverlay)
                                         end,
                                     },
                                     UI.Panel {
-                                        gap = 2,
-                                        alignItems = "flex-end",
+                                        gap = 4,
+                                        alignItems = "center",
                                         children = {
-                                            UI.Label {
-                                                text = "装备与背包",
-                                                fontSize = T.fontSize.lg,
-                                                fontWeight = "bold",
-                                                fontColor = T.color.titleText,
+                                            -- Tab 按钮行（居中醒目）
+                                            UI.Panel {
+                                                flexDirection = "row",
+                                                gap = T.spacing.sm,
+                                                children = {
+                                                    tabBtnEquip_,
+                                                    tabBtnMingge_,
+                                                },
                                             },
                                             infoLabel_,
                                         },
                                     },
                                 },
                             },
-                            -- 装备 + 背包格子
-                            UI.Panel {
-                                flexDirection = "row",
-                                gap = T.spacing.md,
-                                flexWrap = "wrap",
-                                justifyContent = "center",
-                                alignItems = "flex-start",
-                                children = {
-                                    CreateEquipPanel(),
-                                    CreateInvPanel(),
-                                },
-                            },
+                            -- 装备页内容
+                            equipContent_,
+                            -- 命格页内容
+                            minggeContent_,
                         },
                     },
                 },
@@ -538,9 +635,14 @@ function InventoryUI.Show()
         -- 先拾取待领取物品
         InventorySystem.PickupPendingItems()
 
-        UpdateAllSlots()
-        InventoryUI.UpdateStats()
-        InventoryUI.UpdateFreeSlots()
+        -- 根据当前 tab 刷新对应页面
+        if currentTab_ == "mingge" then
+            MinggePage.OnShow()
+        else
+            UpdateAllSlots()
+            InventoryUI.UpdateStats()
+            InventoryUI.UpdateFreeSlots()
+        end
     end
 end
 
@@ -553,6 +655,7 @@ function InventoryUI.Hide()
         if infoLabel_ then infoLabel_:SetText("点击装备查看详情") end
         if sellMenu_ and sellMenu_:IsOpen() then sellMenu_:Close() end
         EquipTooltip.Hide()
+        MinggePage.OnHide()
     end
 end
 

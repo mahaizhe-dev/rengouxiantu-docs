@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- ============================================================================
 -- test_save_system_net_state_machine.lua — SaveSystemNet 状态机收口测试
 --

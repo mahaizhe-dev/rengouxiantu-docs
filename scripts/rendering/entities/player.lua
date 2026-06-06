@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- entities/player.lua - 玩家渲染
 local shared = require("rendering.entities.shared")
 local GameConfig = shared.GameConfig

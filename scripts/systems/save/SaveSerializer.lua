@@ -728,4 +728,104 @@ function SaveSerializer.DeserializeAtlas(data)
     AtlasSystem.Deserialize(data)
 end
 
+-- ============================================================================
+-- 命格序列化
+-- ============================================================================
+
+--- 序列化命格数据（装备 + 背包）
+---@return table|nil
+function SaveSerializer.SerializeMingge()
+    local MinggeSystem = require("systems.MinggeSystem")
+    local MinggeData = require("config.MinggeData")
+    local mgr = MinggeSystem.GetManager()
+    if not mgr then return nil end
+
+    -- 装备槽
+    local equipped = {}
+    for _, slotId in ipairs(MinggeData.ALL_SLOTS) do
+        local item = mgr:GetEquipmentItem(slotId)
+        if item then
+            equipped[slotId] = SaveSerializer._SerializeMinggeItem(item)
+        end
+    end
+
+    -- 背包
+    local backpack = {}
+    for i = 1, MinggeData.BACKPACK_SIZE do
+        local item = mgr:GetInventoryItem(i)
+        if item then
+            backpack[tostring(i)] = SaveSerializer._SerializeMinggeItem(item)
+        end
+    end
+
+    return { equipped = equipped, backpack = backpack }
+end
+
+--- 序列化单个命格物品
+---@param item table
+---@return table
+function SaveSerializer._SerializeMinggeItem(item)
+    return {
+        id         = item.id,
+        minggeId   = item.minggeId,
+        bossId     = item.bossId,
+        bossName   = item.bossName,
+        name       = item.name,
+        element    = item.element,
+        type       = item.type,
+        tier       = item.tier,
+        quality    = item.quality,
+        stat       = item.stat,
+        value      = item.value,
+        roll       = item.roll,
+        setId      = item.setId,
+        sellCurrency = item.sellCurrency,
+        sellPrice  = item.sellPrice,
+        locked     = item.locked,
+        category   = "mingge",
+    }
+end
+
+--- 反序列化命格数据
+---@param data table|nil
+function SaveSerializer.DeserializeMingge(data)
+    local MinggeSystem = require("systems.MinggeSystem")
+    local MinggeData = require("config.MinggeData")
+
+    -- 确保系统已初始化
+    MinggeSystem.Init()
+    local mgr = MinggeSystem.GetManager()
+    if not mgr or not data then return end
+
+    -- 恢复装备槽
+    if data.equipped then
+        for slotId, itemData in pairs(data.equipped) do
+            if itemData then
+                itemData.category = "mingge"
+                itemData.type = itemData.element or itemData.type
+                mgr:SetEquipmentItem(slotId, itemData)
+            end
+        end
+    end
+
+    -- 恢复背包
+    if data.backpack then
+        for idx, itemData in pairs(data.backpack) do
+            if itemData then
+                itemData.category = "mingge"
+                itemData.type = itemData.element or itemData.type
+                local slot = tonumber(idx)
+                if slot and slot >= 1 and slot <= MinggeData.BACKPACK_SIZE then
+                    mgr:SetInventoryItem(slot, itemData)
+                end
+            end
+        end
+    end
+
+    -- 重算属性
+    MinggeSystem.RecalcStats()
+    print("[SaveSerializer] Mingge deserialized: "
+        .. (data.equipped and (function() local c=0; for _ in pairs(data.equipped) do c=c+1 end; return c end)() or 0) .. " equipped")
+end
+
 return SaveSerializer

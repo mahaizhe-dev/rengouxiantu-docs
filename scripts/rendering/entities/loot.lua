@@ -150,6 +150,76 @@ function M.RenderLootDrops(nvg, l, camera)
                 local tierStr = bestItem.tier and (bestItem.tier .. "阶 ") or ""
                 nvgFillColor(nvg, nvgRGBA(qc[1], qc[2], qc[3], 240))
                 nvgText(nvg, sx, textY, tierStr .. bestItem.name)
+            elseif drop.mingges and #drop.mingges > 0 then
+                -- ── 命格掉落：五行色方框 + 名称 ──
+                local MinggeData = require("config.MinggeData")
+                local mItem = drop.mingges[1]
+                local qc = MinggeData.QUALITY_COLORS[mItem.quality] or {200, 200, 200, 255}
+                local elemColor = MinggeData.ELEMENT_COLORS and MinggeData.ELEMENT_COLORS[mItem.element] or qc
+
+                local slotHalfBase = ts * 0.22
+                local cornerR = 4
+                local seed = drop.id or i
+                local pulse = math.sin(time * 3 + seed) * 0.10 + 0.90
+                local breathe = 1.0 + math.sin(time * 1.8 + seed * 0.5) * 0.05
+                local slotHalf = slotHalfBase * breathe
+
+                local bx = sx - slotHalf
+                local by = sy - slotHalf
+                local bw = slotHalf * 2
+                local bh = bw
+
+                -- 外层光晕
+                local glowPulse = math.sin(time * 2.0 + seed) * 0.3 + 0.7
+                local glowR = slotHalf + 8 + math.sin(time * 1.5 + seed) * 2
+                local outerGlow = nvgRadialGradient(nvg, sx, sy, slotHalf, glowR,
+                    nvgRGBA(qc[1], qc[2], qc[3], math.floor(50 * glowPulse)),
+                    nvgRGBA(qc[1], qc[2], qc[3], 0))
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, sx, sy, glowR)
+                nvgFillPaint(nvg, outerGlow)
+                nvgFill(nvg)
+
+                -- 半透明背景
+                nvgBeginPath(nvg)
+                nvgRoundedRect(nvg, bx, by, bw, bh, cornerR)
+                nvgFillColor(nvg, nvgRGBA(15, 18, 30, 170))
+                nvgFill(nvg)
+
+                -- 五行色内发光
+                local ga = math.floor(60 * pulse)
+                local innerGlow = nvgRadialGradient(nvg, sx, sy,
+                    slotHalf * 0.1, slotHalf * 0.9,
+                    nvgRGBA(elemColor[1], elemColor[2], elemColor[3], ga),
+                    nvgRGBA(elemColor[1], elemColor[2], elemColor[3], 0))
+                nvgBeginPath(nvg)
+                nvgRoundedRect(nvg, bx, by, bw, bh, cornerR)
+                nvgFillPaint(nvg, innerGlow)
+                nvgFill(nvg)
+
+                -- 五行符号居中
+                local elemIcon = MinggeData.ELEMENT_ICONS and MinggeData.ELEMENT_ICONS[mItem.element] or "☯"
+                nvgFontFace(nvg, "sans")
+                nvgFontSize(nvg, slotHalf * 1.3)
+                nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+                nvgFillColor(nvg, nvgRGBA(255, 255, 255, math.floor(230 * pulse)))
+                nvgText(nvg, sx, sy, elemIcon)
+
+                -- 品质色边框
+                local borderAlpha = math.floor(160 * pulse)
+                nvgBeginPath(nvg)
+                nvgRoundedRect(nvg, bx, by, bw, bh, cornerR)
+                nvgStrokeColor(nvg, nvgRGBA(qc[1], qc[2], qc[3], borderAlpha))
+                nvgStrokeWidth(nvg, 2.0)
+                nvgStroke(nvg)
+
+                -- 名称（下方）
+                local textY = by + bh + 4
+                nvgFontFace(nvg, "sans")
+                nvgFontSize(nvg, 10)
+                nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_TOP)
+                nvgFillColor(nvg, nvgRGBA(qc[1], qc[2], qc[3], 230))
+                nvgText(nvg, sx, textY, mItem.name)
             else
                 -- ── 非装备掉落：气球样式渲染 ──
                 local seed = drop.id or i

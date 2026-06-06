@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- ============================================================================
 -- test_bm_warehouse_consistency.lua — HOTFIX-BM-01 黑市仓库一致性测试
 --

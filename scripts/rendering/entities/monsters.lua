@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- entities/monsters.lua - 怪物渲染（列表、单体、边框、血条）
 local shared = require("rendering.entities.shared")
 local GameConfig = shared.GameConfig

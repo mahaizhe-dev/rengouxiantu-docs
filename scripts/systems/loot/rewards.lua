@@ -294,13 +294,15 @@ end
 -- Lingqi Forging
 --------------------------------------------------------------------------------
 
---- 灵器打造：生成固定 T9+cyan 的标准灵器装备（背包打造专用）
+--- 灵器打造：生成固定 tier+cyan 的标准灵器装备（背包打造专用）
 --- 与 GenerateRandomEquipment 不同，此函数直接指定 tier/quality/slot，不走等级驱动。
 ---@param slot string|nil 指定槽位（nil=从 LINGQI_FORGE_SLOTS 随机）
+---@param tierOverride integer|nil 指定 tier（nil=默认 9）
+---@param qualityOverride string|nil 指定 quality（nil=默认 "cyan"）
 ---@return table|nil
-function M.ForgeRandomLingqi(slot)
-    local tier = 9
-    local quality = "cyan"
+function M.ForgeRandomLingqi(slot, tierOverride, qualityOverride)
+    local tier = tierOverride or 9
+    local quality = qualityOverride or "cyan"
     local qualityConfig = GameConfig.QUALITY[quality]
     if not qualityConfig then return nil end
 
@@ -336,19 +338,20 @@ function M.ForgeRandomLingqi(slot)
 end
 
 --- 灵器打造：生成套装灵器（30%概率时调用）
---- 从制式套装白名单中随机选取，固定 T9+cyan，随机槽位
+--- 从制式套装白名单中随机选取，固定 cyan，随机槽位
+---@param poolId string|nil 套装池 key（nil=默认 "lingqi_t9_standard"）
+---@param tierOverride integer|nil 指定 tier（nil=由 GenerateSetEquipment 内部决定）
 ---@return table|nil
-function M.ForgeRandomSetLingqi()
-    -- 从白名单中随机选一个制式套装
-    local pool = EquipmentData.FORGE_SET_POOLS and EquipmentData.FORGE_SET_POOLS.lingqi_t9_standard
+function M.ForgeRandomSetLingqi(poolId, tierOverride)
+    local poolKey = poolId or "lingqi_t9_standard"
+    local pool = EquipmentData.FORGE_SET_POOLS and EquipmentData.FORGE_SET_POOLS[poolKey]
     if not pool or #pool == 0 then
-        print("[LootSystem] ForgeRandomSetLingqi: FORGE_SET_POOLS.lingqi_t9_standard is empty!")
+        print("[LootSystem] ForgeRandomSetLingqi: FORGE_SET_POOLS." .. poolKey .. " is empty!")
         return nil
     end
 
     local setId = pool[math.random(1, #pool)]
-    -- 复用 GenerateSetEquipment（已硬编码 T9+cyan）
-    return generation.GenerateSetEquipment(100, setId, nil)
+    return generation.GenerateSetEquipment(100, setId, nil, tierOverride)
 end
 
 return M

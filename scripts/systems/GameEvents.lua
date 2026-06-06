@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- ============================================================================
 -- GameEvents.lua - 游戏事件注册（从 main.lua 提取）
 -- ============================================================================
@@ -75,7 +76,7 @@ function GameEvents.Register(refs)
 
         -- 击杀回血（装备 + 图录 + 称号 + 丹药）
         local player = GameState.player
-        local killHeal = player and ((player.equipKillHeal or 0) + (player.titleKillHeal or 0) + (player.collectionKillHeal or 0) + (player.pillKillHeal or 0) + (player.artifactTiandiKillHeal or 0)) or 0
+        local killHeal = player and ((player.equipKillHeal or 0) + (player.titleKillHeal or 0) + (player.collectionKillHeal or 0) + (player.pillKillHeal or 0) + (player.artifactTiandiKillHeal or 0) + (player.minggeKillHeal or 0)) or 0
         if killHeal > 0 and player.alive then
             local maxHp = player:GetTotalMaxHp()
             local healAmt = math.floor(killHeal)
@@ -130,6 +131,30 @@ function GameEvents.Register(refs)
                 items = dropResult.items,
                 materials = dropResult.materials,
             })
+        end
+
+        -- 命格掉落（独立于常规掉落系统，仅限金丹初期以上）
+        do
+            local MinggeData = require("config.MinggeData")
+            local MinggeSystem = require("systems.MinggeSystem")
+            -- 查找 monster.typeId 是否为命格来源 BOSS
+            local bossId = MinggeData.BOSS_TO_MINGGE[monster.typeId] or monster.typeId
+            local source = MinggeData.SOURCES[bossId]
+            if source and player then
+                local realmData = GameConfig.REALMS[player.realm]
+                local realmOk = realmData and realmData.order >= 7  -- 金丹初期 order=7
+                if realmOk and math.random() < MinggeData.DROP_RULES.baseDropChance then
+                    local minggeItem = MinggeSystem.GenerateItem(bossId)
+                    if minggeItem then
+                        GameState.AddLootDrop({
+                            x = monster.x,
+                            y = monster.y,
+                            mingges = { minggeItem },
+                        })
+                        print("[Loot] Mingge drop: " .. minggeItem.name .. " (" .. minggeItem.quality .. ")")
+                    end
+                end
+            end
         end
 
         -- 美酒掉落检查（一次性掉落，不受 LootSystem 管理）

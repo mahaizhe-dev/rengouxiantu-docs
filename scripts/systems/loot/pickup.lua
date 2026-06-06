@@ -194,6 +194,40 @@ function M.AutoPickup(player, dt)
                     end
                 end
             end
+            -- 命格
+            if drop.mingges and #drop.mingges > 0 then
+                local MinggeSystem = require("systems.MinggeSystem")
+                local CombatSystem = require("systems.CombatSystem")
+                local MinggeData = require("config.MinggeData")
+                local allAdded = true
+                for _, mItem in ipairs(drop.mingges) do
+                    local ok = MinggeSystem.AddItem(mItem)
+                    if ok then
+                        local qColor = MinggeData.QUALITY_COLORS[mItem.quality] or {200, 200, 200, 255}
+                        CombatSystem.AddFloatingText(
+                            drop.x, drop.y - 0.3,
+                            mItem.name,
+                            qColor,
+                            2.0
+                        )
+                        print("[Pickup] Got mingge: " .. mItem.name)
+                    else
+                        allAdded = false
+                        -- 背包满，限频提示
+                        if not drop._minggeFullHintTime or (time.elapsedTime - drop._minggeFullHintTime > 5.0) then
+                            drop._minggeFullHintTime = time.elapsedTime
+                            CombatSystem.AddFloatingText(
+                                player.x, player.y - 0.5,
+                                "命格背包已满", {255, 100, 100, 255}, 1.5
+                            )
+                        end
+                    end
+                end
+                if not allAdded then
+                    -- 命格背包满，不移除地面对象
+                    goto continue_drop
+                end
+            end
             -- 移除或标记
             if hasConsumableFailure then
                 drop.partialLooted = true
@@ -227,6 +261,7 @@ function M.FindPetPickable(petX, petY, blacklist)
         if age < GameConfig.PET_PICKUP_DELAY then goto next_drop end
         if drop.magnetized then goto next_drop end
         if drop.items and #drop.items > 0 then goto next_drop end
+        if drop.mingges and #drop.mingges > 0 then goto next_drop end
         if blacklist and blacklist[drop.id] then goto next_drop end
 
         local distSq = Utils.DistanceSq(petX, petY, drop.x, drop.y)
@@ -248,6 +283,7 @@ function M.PetPickup(player, drop)
     local CombatSystem = require("systems.CombatSystem")
 
     if drop.items and #drop.items > 0 then return false end
+    if drop.mingges and #drop.mingges > 0 then return false end
 
     -- 经验
     if drop.expReward and drop.expReward > 0 then

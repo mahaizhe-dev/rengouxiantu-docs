@@ -517,6 +517,16 @@ EquipmentData.SWORD_FORGE_COSTS = {
             { id = "dragon_scale_abyss",     count = 4 },  -- 渊蛟龙骨
         },
     },
+    -- 配方6：灵器铸造（仙人精血×4 + 100万金，随机T10灵器）
+    t10_random_lingqi_ch5 = {
+        outputId    = nil,  -- 随机产出，无固定 outputId
+        label       = "灵器铸造",
+        desc        = "以仙元精血熔炼T10灵器，30%概率获得套装灵器。",
+        gold        = 1000000,
+        materials   = {
+            { id = "immortal_essence_blood", count = 4 },
+        },
+    },
 }
 
 -- 铸剑地炉配方显示顺序（上排：解封古剑；下排：圣器；最后：灵器龙魂令）
@@ -529,12 +539,401 @@ EquipmentData.SWORD_FORGE_ORDER = {
     "daozang_saint_armor",
     "saint_cape_ch5",
     "fabao_longhunling",
+    "t10_random_lingqi_ch5",
 }
 
 -- 打造随机套装池白名单（ForgeRandomSetLingqi 使用）
 -- 只有这里列出的 setId 才会被随机套装锻造产出
 EquipmentData.FORGE_SET_POOLS = {
-    lingqi_t9_standard = { "xuesha", "qingyun", "fengmo", "haoqi" },
+    lingqi_t9_standard  = { "xuesha", "qingyun", "fengmo", "haoqi" },
+    lingqi_t10_standard = { "xuesha", "qingyun", "fengmo", "haoqi" },  -- 阶段4: T10套装池
+}
+
+-- ============================================================================
+-- 统一打造系统配置（阶段3 · ForgeSystem 使用）
+-- ============================================================================
+
+--- 打造站点定义
+EquipmentData.FORGE_STATIONS = {
+    dragon_forge = { name = "龙神熔炉", desc = "以四龙之力锻造圣器" },
+    sword_forge  = { name = "铸剑地炉", desc = "太虚遗藏，铸剑成圣" },
+}
+
+--- 统一打造配方表（ForgeSystem.Execute 的单一入口配置）
+---
+--- 字段说明：
+---   stationId    : string  — 所属站点 key（对应 FORGE_STATIONS）
+---   label        : string  — 显示名称
+---   desc         : string  — 配方描述
+---   inputMode    : string  — 输入模式：
+---       "equip_weapon"  : 需要当前装备特定武器（由 equipSource 指定）
+---       "bag_consume"   : 消耗背包/消耗品中的物品
+---   outputMode   : string  — 输出模式：
+---       "replace_weapon": 原地替换当前武器（保留 forgeStat）
+---       "add_to_bag"    : 产物放入背包
+---   gold         : number  — 金币消耗（0 = 免费）
+---   materials    : table?  — 消耗品列表 {{ id=string, count=number }, ...}
+---   taixu_token  : number? — 太虚令消耗（仅龙极令用）
+---   equipSource  : string? — inputMode="equip_weapon" 时，要求装备的 equipId
+---   fromBag      : table?  — 从背包消耗单件装备 { equipId=string }
+---   fromBag2     : table?  — 从背包消耗第二件装备 { equipId=string }
+---   fromBagList  : table?  — 从背包消耗多件装备 {{ equipId=string }, ...}
+---   generator    : table   — 生成器配置：
+---       type     : string  — 生成器类型（见 ForgeSystem 调度）
+---       ...      : any     — 生成器特定参数
+---
+--- 生成器类型枚举：
+---   "special_equipment"   : 龙神圣器（T9红，spiritStat，原地替换）
+---   "jiefeng_sword"       : 解封古剑（T10圣器，saintStat，原地替换）
+---   "fabao"               : 法宝生成（龙极令）
+---   "longhunling"         : 龙魂令（升级自龙极令）
+---   "saint_equipment"     : 第五章圣器（帝尊圣戒/道藏圣衣/圣氅，saintStat）
+---   "random_lingqi_mixed" : 随机灵器（概率套装/普通）
+
+EquipmentData.FORGE_RECIPES = {
+    -- ===================== 龙神熔炉：圣器打造 =====================
+    dragon_shengqi_duanliu = {
+        stationId   = "dragon_forge",
+        label       = "断流",
+        desc        = "将黄沙断流锻造为龙神圣器·断流",
+        inputMode   = "equip_weapon",
+        outputMode  = "replace_weapon",
+        gold        = 5000000,
+        materials   = {
+            { id = "dragon_scale_ice",   count = 1 },
+            { id = "dragon_scale_abyss", count = 1 },
+            { id = "dragon_scale_fire",  count = 1 },
+            { id = "dragon_scale_sand",  count = 1 },
+        },
+        equipSource = "huangsha_duanliu",
+        generator   = {
+            type     = "special_equipment",
+            targetId = "shengqi_duanliu",
+        },
+    },
+    dragon_shengqi_fentian = {
+        stationId   = "dragon_forge",
+        label       = "焚天",
+        desc        = "将黄沙焚天锻造为龙神圣器·焚天",
+        inputMode   = "equip_weapon",
+        outputMode  = "replace_weapon",
+        gold        = 5000000,
+        materials   = {
+            { id = "dragon_scale_ice",   count = 1 },
+            { id = "dragon_scale_abyss", count = 1 },
+            { id = "dragon_scale_fire",  count = 1 },
+            { id = "dragon_scale_sand",  count = 1 },
+        },
+        equipSource = "huangsha_fentian",
+        generator   = {
+            type     = "special_equipment",
+            targetId = "shengqi_fentian",
+        },
+    },
+    dragon_shengqi_shihun = {
+        stationId   = "dragon_forge",
+        label       = "噬魂",
+        desc        = "将黄沙噬魂锻造为龙神圣器·噬魂",
+        inputMode   = "equip_weapon",
+        outputMode  = "replace_weapon",
+        gold        = 5000000,
+        materials   = {
+            { id = "dragon_scale_ice",   count = 1 },
+            { id = "dragon_scale_abyss", count = 1 },
+            { id = "dragon_scale_fire",  count = 1 },
+            { id = "dragon_scale_sand",  count = 1 },
+        },
+        equipSource = "huangsha_shihun",
+        generator   = {
+            type     = "special_equipment",
+            targetId = "shengqi_shihun",
+        },
+    },
+    dragon_shengqi_liedi = {
+        stationId   = "dragon_forge",
+        label       = "裂地",
+        desc        = "将黄沙裂地锻造为龙神圣器·裂地",
+        inputMode   = "equip_weapon",
+        outputMode  = "replace_weapon",
+        gold        = 5000000,
+        materials   = {
+            { id = "dragon_scale_ice",   count = 1 },
+            { id = "dragon_scale_abyss", count = 1 },
+            { id = "dragon_scale_fire",  count = 1 },
+            { id = "dragon_scale_sand",  count = 1 },
+        },
+        equipSource = "huangsha_liedi",
+        generator   = {
+            type     = "special_equipment",
+            targetId = "shengqi_liedi",
+        },
+    },
+    dragon_shengqi_mieying = {
+        stationId   = "dragon_forge",
+        label       = "灭影",
+        desc        = "将黄沙灭影锻造为龙神圣器·灭影",
+        inputMode   = "equip_weapon",
+        outputMode  = "replace_weapon",
+        gold        = 5000000,
+        materials   = {
+            { id = "dragon_scale_ice",   count = 1 },
+            { id = "dragon_scale_abyss", count = 1 },
+            { id = "dragon_scale_fire",  count = 1 },
+            { id = "dragon_scale_sand",  count = 1 },
+        },
+        equipSource = "huangsha_mieying",
+        generator   = {
+            type     = "special_equipment",
+            targetId = "shengqi_mieying",
+        },
+    },
+
+    -- ===================== 龙神熔炉：龙极令打造 =====================
+    dragon_longji = {
+        stationId   = "dragon_forge",
+        label       = "龙极令",
+        desc        = "以四龙鳞片与太虚令铸成龙极令",
+        inputMode   = "bag_consume",
+        outputMode  = "add_to_bag",
+        gold        = 0,
+        taixu_token = 1000,
+        materials   = {
+            { id = "dragon_scale_ice",   count = 1 },
+            { id = "dragon_scale_abyss", count = 1 },
+            { id = "dragon_scale_fire",  count = 1 },
+            { id = "dragon_scale_sand",  count = 1 },
+        },
+        generator   = {
+            type       = "fabao",
+            templateId = "fabao_longjiling",
+            tier       = 9,
+            quality    = "cyan",
+        },
+    },
+
+    -- ===================== 龙神熔炉：随机灵器打造 =====================
+    dragon_lingqi = {
+        stationId   = "dragon_forge",
+        label       = "灵器铸造",
+        desc        = "以四龙鳞片熔炼随机灵器，30%概率获得套装灵器",
+        inputMode   = "bag_consume",
+        outputMode  = "add_to_bag",
+        gold        = 100000,
+        materials   = {
+            { id = "dragon_scale_ice",   count = 1 },
+            { id = "dragon_scale_abyss", count = 1 },
+            { id = "dragon_scale_fire",  count = 1 },
+            { id = "dragon_scale_sand",  count = 1 },
+        },
+        generator   = {
+            type      = "random_lingqi_mixed",
+            tier      = 9,
+            quality   = "cyan",
+            setChance = 0.30,
+            setPoolId = "lingqi_t9_standard",
+        },
+    },
+
+    -- ===================== 铸剑地炉：帝尊圣戒 =====================
+    dizun_saint_ring = {
+        stationId   = "sword_forge",
+        label       = "帝尊圣戒",
+        desc        = "五戒归一，福缘汇聚，帝尊之位以此戒为证。",
+        inputMode   = "bag_consume",
+        outputMode  = "add_to_bag",
+        gold        = 1000000,
+        fromBagList = {
+            { equipId = "dizun_ring_ch1"  },
+            { equipId = "dizun_ring_ch2"  },
+            { equipId = "dizun_ring_ch3"  },
+            { equipId = "silong_ring_ch4" },
+            { equipId = "dizun_ring_ch5"  },
+        },
+        generator   = {
+            type     = "saint_equipment",
+            outputId = "dizun_saint_ring",
+        },
+    },
+
+    -- ===================== 铸剑地炉：道藏圣衣 =====================
+    daozang_saint_armor = {
+        stationId   = "sword_forge",
+        label       = "道藏圣衣",
+        desc        = "藏真玄衣与泽渊仙铠熔铸相融，以帝尊圣戒为媒，凝就道藏圣衣。",
+        inputMode   = "bag_consume",
+        outputMode  = "add_to_bag",
+        gold        = 5000000,
+        fromBagList = {
+            { equipId = "cangzhen_armor_ch5" },
+            { equipId = "zeyuan_armor_ch4"   },
+            { equipId = "dizun_saint_ring"   },
+        },
+        materials   = {
+            { id = "immortal_essence_blood", count = 4 },
+        },
+        generator   = {
+            type     = "saint_equipment",
+            outputId = "daozang_saint_armor",
+        },
+    },
+
+    -- ===================== 铸剑地炉：深渊圣氅 =====================
+    saint_cape_ch5 = {
+        stationId   = "sword_forge",
+        label       = "深渊圣氅",
+        desc        = "噬渊魔氅与天渊灵披合而为一，以帝尊圣戒为媒，炼就深渊圣氅。",
+        inputMode   = "bag_consume",
+        outputMode  = "add_to_bag",
+        gold        = 5000000,
+        fromBagList = {
+            { equipId = "shiyuan_cape_ch5" },
+            { equipId = "dizun_saint_ring" },
+            { equipId = "lingqi_cape_ch5"  },
+        },
+        materials   = {
+            { id = "immortal_essence_blood", count = 4 },
+        },
+        generator   = {
+            type     = "saint_equipment",
+            outputId = "saint_cape_ch5",
+        },
+    },
+
+    -- ===================== 铸剑地炉：龙魂令 =====================
+    fabao_longhunling = {
+        stationId   = "sword_forge",
+        label       = "龙魂令",
+        desc        = "将龙极令与千枚太虚剑令融合，以仙人精血为引，铸就承载龙魂之法宝。",
+        inputMode   = "bag_consume",
+        outputMode  = "add_to_bag",
+        gold        = 0,
+        fromBag     = { equipId = "fabao_longjiling" },
+        materials   = {
+            { id = "immortal_essence_blood", count = 1    },
+            { id = "taixu_jianling",         count = 1000 },
+        },
+        generator   = {
+            type = "longhunling",
+        },
+    },
+
+    -- ===================== 铸剑地炉：解封古剑×4 =====================
+    jiefeng_zhuxian_ch5 = {
+        stationId   = "sword_forge",
+        label       = "解封古剑·诛仙",
+        desc        = "以帝尊圣戒之力解开封印，令诛仙古剑重焕圣威。",
+        inputMode   = "equip_weapon",
+        outputMode  = "replace_weapon",
+        gold        = 10000000,
+        equipSource = "fengyin_zhuxian_ch5",
+        fromBag2    = { equipId = "dizun_saint_ring" },
+        materials   = {
+            { id = "immortal_essence_blood", count = 4 },
+            { id = "dragon_scale_sand",      count = 4 },
+        },
+        generator   = {
+            type     = "jiefeng_sword",
+            outputId = "jiefeng_zhuxian_ch5",
+        },
+    },
+    jiefeng_xianxian_ch5 = {
+        stationId   = "sword_forge",
+        label       = "解封古剑·陷仙",
+        desc        = "以帝尊圣戒之力解开封印，令陷仙古剑重焕圣威。",
+        inputMode   = "equip_weapon",
+        outputMode  = "replace_weapon",
+        gold        = 10000000,
+        equipSource = "fengyin_xianxian_ch5",
+        fromBag2    = { equipId = "dizun_saint_ring" },
+        materials   = {
+            { id = "immortal_essence_blood", count = 4 },
+            { id = "dragon_scale_ice",       count = 4 },
+        },
+        generator   = {
+            type     = "jiefeng_sword",
+            outputId = "jiefeng_xianxian_ch5",
+        },
+    },
+    jiefeng_luxian_ch5 = {
+        stationId   = "sword_forge",
+        label       = "解封古剑·戮仙",
+        desc        = "以帝尊圣戒之力解开封印，令戮仙古剑重焕圣威。",
+        inputMode   = "equip_weapon",
+        outputMode  = "replace_weapon",
+        gold        = 10000000,
+        equipSource = "fengyin_luxian_ch5",
+        fromBag2    = { equipId = "dizun_saint_ring" },
+        materials   = {
+            { id = "immortal_essence_blood", count = 4 },
+            { id = "dragon_scale_fire",      count = 4 },
+        },
+        generator   = {
+            type     = "jiefeng_sword",
+            outputId = "jiefeng_luxian_ch5",
+        },
+    },
+    jiefeng_juexian_ch5 = {
+        stationId   = "sword_forge",
+        label       = "解封古剑·绝仙",
+        desc        = "以帝尊圣戒之力解开封印，令绝仙古剑重焕圣威。",
+        inputMode   = "equip_weapon",
+        outputMode  = "replace_weapon",
+        gold        = 10000000,
+        equipSource = "fengyin_juexian_ch5",
+        fromBag2    = { equipId = "dizun_saint_ring" },
+        materials   = {
+            { id = "immortal_essence_blood", count = 4 },
+            { id = "dragon_scale_abyss",     count = 4 },
+        },
+        generator   = {
+            type     = "jiefeng_sword",
+            outputId = "jiefeng_juexian_ch5",
+        },
+    },
+
+    -- ===================== 铸剑地炉：T10 随机灵器 =====================
+    t10_random_lingqi_ch5 = {
+        stationId   = "sword_forge",
+        label       = "灵器铸造",
+        desc        = "以仙元精血熔炼T10灵器，30%概率获得套装灵器",
+        inputMode   = "bag_consume",
+        outputMode  = "add_to_bag",
+        gold        = 1000000,
+        materials   = {
+            { id = "immortal_essence_blood", count = 4 },
+        },
+        generator   = {
+            type      = "random_lingqi_mixed",
+            tier      = 10,
+            quality   = "cyan",
+            setChance = 0.30,
+            setPoolId = "lingqi_t10_standard",
+        },
+    },
+}
+
+--- 各站点的配方显示顺序
+EquipmentData.FORGE_RECIPE_ORDER = {
+    dragon_forge = {
+        "dragon_shengqi_duanliu",
+        "dragon_shengqi_fentian",
+        "dragon_shengqi_shihun",
+        "dragon_shengqi_liedi",
+        "dragon_shengqi_mieying",
+        "dragon_longji",
+        "dragon_lingqi",
+    },
+    sword_forge = {
+        "jiefeng_zhuxian_ch5",
+        "jiefeng_xianxian_ch5",
+        "jiefeng_luxian_ch5",
+        "jiefeng_juexian_ch5",
+        "dizun_saint_ring",
+        "daozang_saint_armor",
+        "saint_cape_ch5",
+        "fabao_longhunling",
+        "t10_random_lingqi_ch5",
+    },
 }
 
 

@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- ============================================================================
 -- test_black_merchant_warehouse_consistency.lua — HOTFIX-BM-01/01A 黑市一致性测试
 --

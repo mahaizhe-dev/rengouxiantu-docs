@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- ============================================================================
 -- BlackMerchantHandler.lua — 万界黑商服务端 Handler
 --

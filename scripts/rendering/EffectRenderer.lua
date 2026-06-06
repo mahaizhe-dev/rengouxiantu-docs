@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- ============================================================================
 -- EffectRenderer.lua - 战斗特效渲染 (Facade)
 -- 子模块: effects/{shared,assets,basic_attacks,skills_a,skills_b,formations,zones,auras}

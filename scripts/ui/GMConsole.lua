@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- ============================================================================
 -- GMConsole.lua - GM 调试后台（F1 呼出，仅调试端可用）
 -- ============================================================================
@@ -727,33 +728,7 @@ local GM_CATEGORIES = {
                     ShowLog(item.name .. " 已放入背包", {255, 100, 100, 255})
                 else ShowLog("创建失败", {255, 120, 100, 255}) end
             end },
-            { label = "龙魂令×1", action = function()
-                local InventorySystem = require("systems.InventorySystem")
-                local LootSystem = require("systems.LootSystem")
-                if InventorySystem.GetFreeSlots() < 1 then ShowLog("背包已满！", {255, 120, 100, 255}); return end
-                local item = LootSystem.CreateLonghunling(nil)
-                if item and InventorySystem.AddItem(item) then
-                    ShowLog(item.name .. " 已放入背包", {255, 150, 50, 255})
-                else ShowLog("创建失败", {255, 120, 100, 255}) end
-            end },
-            { label = "解封古剑·诛仙×1", action = function()
-                local InventorySystem = require("systems.InventorySystem")
-                local LootSystem = require("systems.LootSystem")
-                if InventorySystem.GetFreeSlots() < 1 then ShowLog("背包已满！", {255, 120, 100, 255}); return end
-                local item = LootSystem.CreateJiefengSword(nil, "jiefeng_zhuxian_ch5")
-                if item and InventorySystem.AddItem(item) then
-                    ShowLog(item.name .. " 已放入背包", {255, 80, 80, 255})
-                else ShowLog("创建失败", {255, 120, 100, 255}) end
-            end },
-            { label = "解封古剑·绝仙×1", action = function()
-                local InventorySystem = require("systems.InventorySystem")
-                local LootSystem = require("systems.LootSystem")
-                if InventorySystem.GetFreeSlots() < 1 then ShowLog("背包已满！", {255, 120, 100, 255}); return end
-                local item = LootSystem.CreateJiefengSword(nil, "jiefeng_juexian_ch5")
-                if item and InventorySystem.AddItem(item) then
-                    ShowLog(item.name .. " 已放入背包", {255, 80, 80, 255})
-                else ShowLog("创建失败", {255, 120, 100, 255}) end
-            end },
+            -- [阶段5移除] 直造龙魂令/解封古剑已禁止，请走铸剑地炉 UI 完整流程验收
             { label = "铸剑材料包", action = function()
                 -- 给予铸剑地炉所有配方所需消耗材料（各30）
                 local InventorySystem = require("systems.InventorySystem")
@@ -1186,6 +1161,17 @@ local GM_CATEGORIES = {
                     ShowLog("诛仙阵图: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
                 else
                     ShowLog("诛仙阵图: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
+                end
+            end },
+            { label = "打造合同自测", action = function()
+                package.loaded["tests.test_forge_contract"] = nil
+                local result = require("tests.test_forge_contract")
+                if result and result.failed == 0 then
+                    ShowLog("打造合同: 全部 " .. result.passed .. " 项通过!", {100, 255, 100, 255})
+                else
+                    local f = result and result.failed or -1
+                    local t = result and result.total or 0
+                    ShowLog("打造合同: " .. f .. " 项失败 / " .. t .. " 项", {255, 100, 100, 255})
                 end
             end },
             -- [已禁用] 解封流水线自测 / 铸剑地炉综合自测

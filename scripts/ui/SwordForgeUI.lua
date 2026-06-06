@@ -11,7 +11,7 @@ local EventBus = require("core.EventBus")
 local T = require("config.UITheme")
 local StatNames = require("utils.StatNames")
 local FormatUtils = require("utils.FormatUtils")
-local LootSystem = require("systems.LootSystem")
+local ForgeSystem = require("systems.ForgeSystem")
 
 local SwordForgeUI = {}
 
@@ -620,264 +620,49 @@ local RefreshUI
 -- 执行打造
 -- ============================================================================
 
---- 执行铸剑地炉打造
+--- 执行铸剑地炉打造（委托 ForgeSystem）
 ---@param recipeId string
 function SwordForgeUI.DoForgeSword(recipeId)
-    local InventorySystem = require("systems.InventorySystem")
-    local player = GameState.player
-    if not player then return end
-
-    local recipe = EquipmentData.SWORD_FORGE_COSTS[recipeId]
-    if not recipe then
-        resultLabel_:SetText("未知配方：" .. tostring(recipeId))
+    local result = ForgeSystem.Execute(recipeId)
+    if not result.success then
+        resultLabel_:SetText(result.error or "铸造失败")
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         return
     end
-
-    local manager = InventorySystem.GetManager()
-    if not manager then
-        resultLabel_:SetText("背包系统异常")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        return
-    end
-
-    -- 判断是否为解封古剑路径（封印四仙剑 → 解封古剑，武器在装备栏就地升级）
-    local isJiefengPath = recipe.fromBag and string.find(recipe.fromBag.equipId, "fengyin_")
-
-    -- ================================================================
-    -- 路径A：解封古剑（就地替换装备栏武器，不占背包格）
-    -- ================================================================
-    if isJiefengPath then
-        local weapon = GetEquippedWeapon()
-        local fengyinDef = EquipmentData.SpecialEquipment[recipe.fromBag.equipId]
-        if not weapon or weapon.equipId ~= recipe.fromBag.equipId then
-            resultLabel_:SetText("请先装备「" .. (fengyinDef and fengyinDef.name or recipe.fromBag.equipId) .. "」")
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-            return
-        end
-
-        -- 检查 fromBag2（帝尊圣戒，从背包消耗）
-        local fromBag2Slot = nil
-        if recipe.fromBag2 then
-            local fromBag2Item
-            fromBag2Item, fromBag2Slot = FindBagItemByEquipId(manager, recipe.fromBag2.equipId, {})
-            if not fromBag2Item then
-                local def = EquipmentData.SpecialEquipment[recipe.fromBag2.equipId]
-                resultLabel_:SetText("背包中缺少：" .. (def and def.name or recipe.fromBag2.equipId))
-                resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-                return
-            end
-        end
-
-        -- 检查金币
-        if player.gold < recipe.gold then
-            resultLabel_:SetText("金币不足！需要" .. FormatGold(recipe.gold) .. "金币")
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-            return
-        end
-
-        -- 检查普通材料
-        for _, mat in ipairs(recipe.materials or {}) do
-            if InventorySystem.CountUnlockedConsumable(mat.id) < mat.count then
-                local matDef = GameConfig.PET_MATERIALS[mat.id]
-                resultLabel_:SetText("材料不足：" .. (matDef and matDef.name or mat.id))
-                resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-                return
-            end
-        end
-
-        -- ---- 检查通过，开始扣除 ----
-        player:SpendGold(recipe.gold)
-        if fromBag2Slot then manager:SetInventoryItem(fromBag2Slot, nil) end
-        for _, mat in ipairs(recipe.materials or {}) do
-            local ok = InventorySystem.ConsumeConsumable(mat.id, mat.count)
-            if not ok then
-                resultLabel_:SetText("材料扣除失败（可能被锁定）")
-                resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-                return
-            end
-        end
-
-        -- 生成目标装备数据（以当前封印剑为来源）
-        local newItem = LootSystem.CreateJiefengSword(weapon, recipe.outputId)
-        if not newItem then
-            resultLabel_:SetText("铸造失败：数据异常")
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-            return
-        end
-
-        -- 就地替换装备栏武器字段（与 DragonForgeUI.DoForge 逻辑一致）
-        local oldForgeStat = weapon.forgeStat
-        weapon.equipId       = newItem.equipId
-        weapon.name          = newItem.name
-        weapon.icon          = newItem.icon
-        weapon.quality       = newItem.quality
-        weapon.tier          = newItem.tier
-        weapon.sellPrice     = newItem.sellPrice
-        weapon.sellCurrency  = newItem.sellCurrency
-        weapon.mainStat      = newItem.mainStat
-        weapon.subStats      = newItem.subStats
-        weapon.specialEffect = newItem.specialEffect
-        weapon.spiritStat    = newItem.spiritStat
-        weapon.saintStat     = newItem.saintStat
-        if oldForgeStat then weapon.forgeStat = oldForgeStat end
-
-        InventorySystem.RecalcEquipStats()
-        EventBus.Emit("save_request")
-        EventBus.Emit("equipment_changed")
-
-        local refreshOk, refreshErr = pcall(RefreshUI)
-        if not refreshOk then
-            print("[SwordForgeUI] WARNING: RefreshUI error after jiefeng forge: " .. tostring(refreshErr))
-        end
-
-        local popupOk, popupErr = pcall(ShowForgeSuccess, weapon, "⚔️ 解封古剑！", "封印破除，圣剑出世")
-        if not popupOk then
-            print("[SwordForgeUI] ERROR: ShowForgeSuccess failed: " .. tostring(popupErr))
-            resultLabel_:SetText("铸造成功！（" .. weapon.name .. "已装备）")
-            resultLabel_:SetStyle({ fontColor = {100, 255, 150, 255} })
-        end
-        return
-    end
-
-    -- ================================================================
-    -- 路径B：通用铸造（产出新装备放入背包）
-    -- ================================================================
-    if InventorySystem.GetFreeSlots() <= 0 then
-        resultLabel_:SetText("背包已满，无法铸造")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        return
-    end
-
-    if player.gold < recipe.gold then
-        resultLabel_:SetText("金币不足！需要" .. FormatGold(recipe.gold) .. "金币")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        return
-    end
-
-    local usedSlots = {}
-
-    -- 检查 fromBag
-    local fromBagItem, fromBagSlot = nil, nil
-    if recipe.fromBag then
-        fromBagItem, fromBagSlot = FindBagItemByEquipId(manager, recipe.fromBag.equipId, usedSlots)
-        if not fromBagItem then
-            local def = EquipmentData.SpecialEquipment[recipe.fromBag.equipId]
-                     or EquipmentData.FabaoTemplates[recipe.fromBag.equipId]
-            resultLabel_:SetText("背包中缺少：" .. (def and def.name or recipe.fromBag.equipId))
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-            return
-        end
-        usedSlots[fromBagSlot] = true
-    end
-
-    -- 检查 fromBag2
-    local fromBag2Item, fromBag2Slot = nil, nil
-    if recipe.fromBag2 then
-        fromBag2Item, fromBag2Slot = FindBagItemByEquipId(manager, recipe.fromBag2.equipId, usedSlots)
-        if not fromBag2Item then
-            local def = EquipmentData.SpecialEquipment[recipe.fromBag2.equipId]
-            resultLabel_:SetText("背包中缺少：" .. (def and def.name or recipe.fromBag2.equipId))
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-            return
-        end
-        usedSlots[fromBag2Slot] = true
-    end
-
-    -- 检查 fromBagList
-    local fromBagListItems = {}
-    if recipe.fromBagList then
-        for _, fb in ipairs(recipe.fromBagList) do
-            local foundItem, foundSlot = FindBagItemByEquipId(manager, fb.equipId, usedSlots)
-            if not foundItem then
-                local def = EquipmentData.SpecialEquipment[fb.equipId]
-                resultLabel_:SetText("背包中缺少：" .. (def and def.name or fb.equipId))
-                resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-                return
-            end
-            table.insert(fromBagListItems, { slot = foundSlot })
-            usedSlots[foundSlot] = true
-        end
-    end
-
-    -- 检查普通材料
-    for _, mat in ipairs(recipe.materials or {}) do
-        if InventorySystem.CountUnlockedConsumable(mat.id) < mat.count then
-            local matDef = GameConfig.PET_MATERIALS[mat.id]
-            resultLabel_:SetText("材料不足：" .. (matDef and matDef.name or mat.id))
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-            return
-        end
-    end
-
-    -- ---- 所有检查通过，开始扣除 ----
-    player:SpendGold(recipe.gold)
-
-    -- 移除 fromBagList（降序，避免 slot 偏移）
-    if #fromBagListItems > 0 then
-        table.sort(fromBagListItems, function(a, b) return a.slot > b.slot end)
-        for _, fb in ipairs(fromBagListItems) do
-            manager:SetInventoryItem(fb.slot, nil)
-        end
-    end
-
-    if fromBag2Slot then manager:SetInventoryItem(fromBag2Slot, nil) end
-    if fromBagSlot  then manager:SetInventoryItem(fromBagSlot, nil)  end
-
-    for _, mat in ipairs(recipe.materials or {}) do
-        local ok = InventorySystem.ConsumeConsumable(mat.id, mat.count)
-        if not ok then
-            resultLabel_:SetText("材料扣除失败（可能被锁定）")
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-            return
-        end
-    end
-
-    -- ---- 生成产出 ----
-    local item = nil
-    local outputId = recipe.outputId
-
-    if recipe.fromBag and recipe.fromBag.equipId == "fabao_longjiling" then
-        item = LootSystem.CreateLonghunling(fromBagItem)
-    else
-        item = LootSystem.CreateSaintEquipment(outputId)
-    end
-
-    if not item then
-        resultLabel_:SetText("铸造失败：数据异常")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        return
-    end
-
-    local ok = InventorySystem.AddItem(item)
-    if not ok then
-        resultLabel_:SetText("放入背包失败")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        return
-    end
-
-    EventBus.Emit("save_request")
-    EventBus.Emit("equipment_changed")
 
     local refreshOk, refreshErr = pcall(RefreshUI)
     if not refreshOk then
         print("[SwordForgeUI] WARNING: RefreshUI error after forge: " .. tostring(refreshErr))
     end
 
-    -- 成功弹窗
-    local title, subtitle
-    if outputId == "fabao_longhunling" then
-        title    = "🐲 龙魂令铸成！"
-        subtitle = "千枚剑灵融入龙极，龙魂觉醒"
+    -- 根据产出模式选择弹窗内容
+    local recipe = EquipmentData.FORGE_RECIPES[recipeId]
+    local title, subtitle, displayItem
+
+    if recipe and recipe.outputMode == "replace_weapon" then
+        -- 解封古剑路径
+        title       = "⚔️ 解封古剑！"
+        subtitle    = "封印破除，圣剑出世"
+        displayItem = result.weapon
+    elseif recipe and recipe.generator and recipe.generator.type == "longhunling" then
+        title       = "🐲 龙魂令铸成！"
+        subtitle    = "千枚剑灵融入龙极，龙魂觉醒"
+        displayItem = result.item
+    elseif recipe and recipe.generator and recipe.generator.type == "random_lingqi_mixed" then
+        title       = "✨ 灵器铸成！"
+        subtitle    = (result.item and result.item.setId) and "套装灵器，天工巧铸" or "灵器出炉，神光隐现"
+        displayItem = result.item
     else
-        title    = "🔥 圣器铸成！"
-        subtitle = recipe.desc or "铸剑地炉，圣威显现"
+        title       = "🔥 圣器铸成！"
+        subtitle    = (recipe and recipe.desc) or "铸剑地炉，圣威显现"
+        displayItem = result.item
     end
 
-    local popupOk, popupErr = pcall(ShowForgeSuccess, item, title, subtitle)
+    local popupOk, popupErr = pcall(ShowForgeSuccess, displayItem, title, subtitle)
     if not popupOk then
         print("[SwordForgeUI] ERROR: ShowForgeSuccess failed: " .. tostring(popupErr))
-        resultLabel_:SetText("铸造成功！（" .. item.name .. "已放入背包）")
+        local itemName = displayItem and displayItem.name or "未知"
+        resultLabel_:SetText("铸造成功！（" .. itemName .. "）")
         resultLabel_:SetStyle({ fontColor = {100, 255, 150, 255} })
     end
 end
@@ -935,6 +720,43 @@ local function BuildRecipeContent(recipeId)
         })
     end
 
+    -- ── 灵器铸造专属信息面板（outputId=nil 且配方含 lingqi）─────────────────
+    local isLingqiRecipe = (recipe.outputId == nil) and string.find(recipeId, "lingqi")
+    if isLingqiRecipe then
+        local cyanColor = GameConfig.QUALITY["cyan"] and GameConfig.QUALITY["cyan"].color or {0, 200, 200, 255}
+        -- 从 FORGE_RECIPES 获取 tier 和 setChance
+        local forgeRecipe = EquipmentData.FORGE_RECIPES and EquipmentData.FORGE_RECIPES[recipeId]
+        local gen = forgeRecipe and forgeRecipe.generator
+        local tier = gen and gen.tier or 10
+        local setChance = gen and gen.setChance or 0.30
+        local normalChance = math.floor((1 - setChance) * 100 + 0.5)
+        local setPercent = math.floor(setChance * 100 + 0.5)
+
+        table.insert(materialRows, UI.Panel {
+            width = "100%",
+            backgroundColor = {25, 35, 40, 240},
+            borderRadius = T.radius.lg,
+            borderWidth = 1,
+            borderColor = {cyanColor[1], cyanColor[2], cyanColor[3], 150},
+            padding = T.spacing.md,
+            gap = T.spacing.sm,
+            alignItems = "center",
+            children = {
+                UI.Label { text = "⚒️ 灵器铸造", fontSize = T.fontSize.lg, fontWeight = "bold",
+                           fontColor = {cyanColor[1], cyanColor[2], cyanColor[3], 255} },
+                UI.Label { text = "T" .. tier .. " 灵器品质  随机槽位", fontSize = T.fontSize.sm,
+                           fontColor = {cyanColor[1], cyanColor[2], cyanColor[3], 200} },
+                UI.Panel { width = "80%", height = 1, backgroundColor = {0, 200, 200, 60} },
+                UI.Label { text = "🎰 " .. setPercent .. "% 概率套装灵器，" .. normalChance .. "% 普通灵器",
+                           fontSize = T.fontSize.sm, fontColor = {255, 215, 0, 255} },
+                UI.Label { text = "🎲 随机槽位：武器/头盔/铠甲/肩甲/腰带/战靴/戒指/项链",
+                           fontSize = T.fontSize.xs, fontColor = {180, 200, 220, 200} },
+                UI.Label { text = "📦 产物放入背包", fontSize = T.fontSize.xs, fontColor = {180, 180, 190, 180} },
+            },
+        })
+        table.insert(materialRows, UI.Panel { width = "100%", height = 1, backgroundColor = {80, 80, 100, 60} })
+    end
+
     -- ── 背包空位（解封古剑原地变换，无需空位）──────────────────────────────
     local isJiefengRecipe = recipe.fromBag and recipe.fromBag.equipId
                             and string.find(recipe.fromBag.equipId, "fengyin_")
@@ -961,6 +783,7 @@ local function BuildRecipeContent(recipeId)
     end
 
     -- ── fromBag ──────────────────────────────────────────────────────────────
+    local missingWeaponEquip = false  -- 解封配方缺少装备武器标记
     if recipe.fromBag then
         local isFengyinSword = recipe.fromBag.equipId and string.find(recipe.fromBag.equipId, "fengyin_")
         local hasFb
@@ -968,6 +791,7 @@ local function BuildRecipeContent(recipeId)
             -- 封印四仙剑：检查装备栏（而非背包）
             local equippedWeapon = GetEquippedWeapon()
             hasFb = equippedWeapon ~= nil and equippedWeapon.equipId == recipe.fromBag.equipId
+            if not hasFb then missingWeaponEquip = true end
         else
             local fbItem = mgr and FindBagItemByEquipId(mgr, recipe.fromBag.equipId)
             hasFb = fbItem ~= nil
@@ -1022,6 +846,8 @@ local function BuildRecipeContent(recipeId)
         btnText = "背包已满"
     elseif not canAfford then
         btnText = "金币不足"
+    elseif missingWeaponEquip then
+        btnText = "⚠️ 需要装备武器"
     elseif not canForge then
         btnText = "材料不足"
     else
@@ -1113,6 +939,17 @@ local function BuildRecipeContent(recipeId)
         })
 
         -- 下部：材料面板（空位/金币/fromBag2/材料/描述/按钮）
+        table.insert(children, UI.Panel {
+            width = "100%",
+            backgroundColor = {30, 15, 12, 240},
+            borderRadius = T.radius.lg,
+            borderWidth = 1, borderColor = {RED_COLOR[1], RED_COLOR[2], RED_COLOR[3], 120},
+            padding = T.spacing.md, gap = T.spacing.sm,
+            children = materialRows,
+        })
+
+    elseif isLingqiRecipe then
+        -- ── 灵器铸造配方：只显示材料面板（信息已在 materialRows 中） ──────────
         table.insert(children, UI.Panel {
             width = "100%",
             backgroundColor = {30, 15, 12, 240},

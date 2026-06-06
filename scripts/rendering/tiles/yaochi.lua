@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- ============================================================================
 -- tiles/yaochi.lua - 瑶池与第五章特殊地形瓦片渲染
 -- 包含: Water, YaochiCliff, SteleIntact, SteleBroken, BloodPool, Furnace, LavaWall

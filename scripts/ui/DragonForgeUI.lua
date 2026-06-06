@@ -12,7 +12,7 @@ local T = require("config.UITheme")
 local IconUtils = require("utils.IconUtils")
 local StatNames = require("utils.StatNames")
 local FormatUtils = require("utils.FormatUtils")
-local LootSystem = require("systems.LootSystem")
+local ForgeSystem = require("systems.ForgeSystem")
 
 local DragonForgeUI = {}
 
@@ -1095,135 +1095,26 @@ local function ShowForgeSuccess(weapon, targetDef)
     GameState.uiOpen = "forge_success"
 end
 
---- 执行打造
+--- 执行打造（委托 ForgeSystem）
 function DragonForgeUI.DoForge()
-    local InventorySystem = require("systems.InventorySystem")
-    local player = GameState.player
-    if not player then return end
+    -- 从 FORGE_RECIPE_ORDER 映射 currentTab_ → recipeId
+    local order = EquipmentData.FORGE_RECIPE_ORDER.dragon_forge
+    local recipeId = order and order[currentTab_]
+    if not recipeId then return end
 
-    local recipes = EquipmentData.DRAGON_FORGE_RECIPES
-    local recipe = recipes[currentTab_]
-    if not recipe then return end
-
-    local weapon = GetEquippedWeapon()
-    if not weapon or weapon.equipId ~= recipe.source then
-        resultLabel_:SetText("请先装备「" .. (EquipmentData.SpecialEquipment[recipe.source] or {}).name .. "」")
+    local result = ForgeSystem.Execute(recipeId)
+    if not result.success then
+        resultLabel_:SetText(result.error or "打造失败")
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         return
     end
 
-    local cost = EquipmentData.DRAGON_FORGE_COST
-
-    -- 检查材料
-    for _, mat in ipairs(cost.materials) do
-        if InventorySystem.CountUnlockedConsumable(mat.id) < mat.count then
-            local matDef = GameConfig.PET_MATERIALS[mat.id]
-            resultLabel_:SetText("材料不足：" .. (matDef and matDef.name or mat.id))
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-            return
-        end
-    end
-
-    -- 检查金币
-    if player.gold < cost.gold then
-        resultLabel_:SetText("金币不足！需要" .. FormatGold(cost.gold) .. "金币")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        return
-    end
-
-    -- 扣除金币
-    player:SpendGold(cost.gold)
-
-    -- 扣除材料
-    for _, mat in ipairs(cost.materials) do
-        local ok = InventorySystem.ConsumeConsumable(mat.id, mat.count)
-        if not ok then
-            resultLabel_:SetText("材料扣除失败（可能被锁定）")
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-            return
-        end
-    end
-
-    -- 获取圣器模板
-    local targetDef = EquipmentData.SpecialEquipment[recipe.target]
-    if not targetDef then
-        resultLabel_:SetText("打造失败：配方数据异常")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        return
-    end
-
-    -- 保留原武器的洗练属性（如果有）
-    local oldForgeStat = weapon.forgeStat
-
-    -- 替换武器属性为圣器
-    weapon.equipId = recipe.target
-    weapon.name = targetDef.name
-    weapon.icon = targetDef.icon
-    weapon.quality = targetDef.quality
-    weapon.tier = targetDef.tier
-    weapon.sellPrice = targetDef.sellPrice
-    weapon.sellCurrency = targetDef.sellCurrency
-    weapon.mainStat = {}
-    for k, v in pairs(targetDef.mainStat) do
-        weapon.mainStat[k] = v
-    end
-    -- 副属性：条目类型固定（来自模板），数值随机浮动
-    weapon.subStats = {}
-    local qualityOrder = GameConfig.QUALITY_ORDER["red"]  -- 7
-    local shift = math.max(0, qualityOrder - 4) * 0.1     -- 0.3
-    local randBase = 0.8 + shift                           -- 1.1
-    local numTierMult = EquipmentData.SUB_STAT_TIER_MULT[9]  -- 11.0
-    local pctTierMult = EquipmentData.PCT_SUB_TIER_MULT[9]   -- 6.0
-    local qualityMult = GameConfig.QUALITY["red"].multiplier  -- 2.1
-
-    for _, templateSub in ipairs(targetDef.subStats) do
-        -- 查找 SUB_STATS 基础定义
-        local subDef = nil
-        for _, s in ipairs(EquipmentData.SUB_STATS) do
-            if s.stat == templateSub.stat then subDef = s; break end
-        end
-
-        local value
-        if subDef and subDef.linearGrowth then
-            -- 线性成长属性：固定值，无波动
-            value = math.floor(9 * qualityMult)
-            if value <= 0 then value = 1 end
-        else
-            -- 数值/百分比属性：baseValue × tierMult × 随机(1.1~1.5)
-            local baseVal = subDef and subDef.baseValue or 1
-            local tierMult = EquipmentData.PCT_STATS[templateSub.stat] and pctTierMult or numTierMult
-            value = baseVal * tierMult * (randBase + math.random() * 0.4)
-            value = math.floor(value * 100 + 0.5) / 100
-            if value <= 0 then value = 0.01 end
-        end
-
-        table.insert(weapon.subStats, {
-            stat = templateSub.stat,
-            name = templateSub.name,
-            value = value,
-        })
-    end
-
-    weapon.specialEffect = targetDef.specialEffect
-    -- 灵性属性：类型随机，数值随机（半值）
-    weapon.spiritStat = LootSystem.GenerateSpiritStat(9, "atk", "red")
-
-    -- 恢复洗练
-    if oldForgeStat then
-        weapon.forgeStat = oldForgeStat
-    end
-
-    -- 重新计算装备属性
-    InventorySystem.RecalcEquipStats()
-
-    -- 即时存档：龙极打造消耗大量金币和稀有材料且结果随机，防止退出重刷
-    EventBus.Emit("save_request")
-
-    EventBus.Emit("equipment_changed")
     RefreshUI()
 
     -- 弹出打造成功展示面板
-    ShowForgeSuccess(weapon, targetDef)
+    local recipe = EquipmentData.FORGE_RECIPES[recipeId]
+    local targetDef = EquipmentData.SpecialEquipment[recipe.generator.targetId]
+    ShowForgeSuccess(result.weapon, targetDef)
 end
 
 -- ============================================================================
@@ -1422,75 +1313,14 @@ local function ShowBagForgeSuccess(item, title, subtitle)
     GameState.uiOpen = "forge_success"
 end
 
---- 执行龙极令打造
+--- 执行龙极令打造（委托 ForgeSystem）
 function DragonForgeUI.DoForgeLongji()
-    local InventorySystem = require("systems.InventorySystem")
-    local player = GameState.player
-    if not player then return end
-
-    local cost = EquipmentData.LONGJI_FORGE_COST
-
-    -- 检查背包空位
-    if InventorySystem.GetFreeSlots() <= 0 then
-        resultLabel_:SetText("背包已满，无法打造")
+    local result = ForgeSystem.Execute("dragon_longji")
+    if not result.success then
+        resultLabel_:SetText(result.error or "打造失败")
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         return
     end
-
-    -- 检查太虚令
-    if InventorySystem.CountUnlockedConsumable("taixu_token") < cost.taixu_token then
-        resultLabel_:SetText("太虚令不足！需要" .. cost.taixu_token .. "枚")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        return
-    end
-
-    -- 检查材料
-    for _, mat in ipairs(cost.materials) do
-        if InventorySystem.CountUnlockedConsumable(mat.id) < mat.count then
-            local matDef = GameConfig.PET_MATERIALS[mat.id]
-            resultLabel_:SetText("材料不足：" .. (matDef and matDef.name or mat.id))
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-            return
-        end
-    end
-
-    -- 扣除太虚令
-    local ok_taixu = InventorySystem.ConsumeConsumable("taixu_token", cost.taixu_token)
-    if not ok_taixu then
-        resultLabel_:SetText("太虚令扣除失败（可能被锁定）")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        return
-    end
-
-    -- 扣除材料
-    for _, mat in ipairs(cost.materials) do
-        local ok = InventorySystem.ConsumeConsumable(mat.id, mat.count)
-        if not ok then
-            resultLabel_:SetText("材料扣除失败（可能被锁定）")
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-            return
-        end
-    end
-
-    -- 创建龙极令法宝
-    local item = LootSystem.CreateFabaoEquipment("fabao_longjiling", 9, "cyan")
-    if not item then
-        resultLabel_:SetText("打造失败：数据异常")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        return
-    end
-
-    -- 放入背包
-    local ok = InventorySystem.AddItem(item)
-    if not ok then
-        resultLabel_:SetText("放入背包失败")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        return
-    end
-
-    -- 即时存档
-    EventBus.Emit("save_request")
-    EventBus.Emit("equipment_changed")
 
     local refreshOk, refreshErr = pcall(RefreshUI)
     if not refreshOk then
@@ -1498,7 +1328,7 @@ function DragonForgeUI.DoForgeLongji()
     end
 
     -- 成功弹窗
-    local popupOk, popupErr = pcall(ShowBagForgeSuccess, item, "🐲 龙极令铸成！", "四龙之威凝为一令")
+    local popupOk, popupErr = pcall(ShowBagForgeSuccess, result.item, "🐲 龙极令铸成！", "四龙之威凝为一令")
     if not popupOk then
         print("[DragonForgeUI] ERROR: ShowBagForgeSuccess failed: " .. tostring(popupErr))
         resultLabel_:SetText("打造成功！（龙极令已放入背包）")
@@ -1510,84 +1340,23 @@ end
 -- 灵器铸造（背包模式）
 -- ============================================================================
 
---- 执行灵器铸造
+--- 执行灵器铸造（委托 ForgeSystem）
 function DragonForgeUI.DoForgeLingqi()
-    local InventorySystem = require("systems.InventorySystem")
-    local player = GameState.player
-    if not player then return end
-
-    local cost = EquipmentData.LINGQI_FORGE_COST
-
-    -- 检查背包空位
-    if InventorySystem.GetFreeSlots() <= 0 then
-        resultLabel_:SetText("背包已满，无法铸造")
+    local result = ForgeSystem.Execute("dragon_lingqi")
+    if not result.success then
+        resultLabel_:SetText(result.error or "铸造失败")
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         return
     end
-
-    -- 检查金币
-    if player.gold < cost.gold then
-        resultLabel_:SetText("金币不足！需要" .. FormatGold(cost.gold) .. "金币")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        return
-    end
-
-    -- 检查材料
-    for _, mat in ipairs(cost.materials) do
-        if InventorySystem.CountUnlockedConsumable(mat.id) < mat.count then
-            local matDef = GameConfig.PET_MATERIALS[mat.id]
-            resultLabel_:SetText("材料不足：" .. (matDef and matDef.name or mat.id))
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-            return
-        end
-    end
-
-    -- 扣除金币
-    player:SpendGold(cost.gold)
-
-    -- 扣除材料
-    for _, mat in ipairs(cost.materials) do
-        local ok = InventorySystem.ConsumeConsumable(mat.id, mat.count)
-        if not ok then
-            resultLabel_:SetText("材料扣除失败（可能被锁定）")
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-            return
-        end
-    end
-
-    -- 生成灵器：30% 套装 / 70% 普通
-    local item
-    local isSet = math.random() < EquipmentData.LINGQI_FORGE_SET_CHANCE
-    if isSet then
-        item = LootSystem.ForgeRandomSetLingqi()
-    else
-        item = LootSystem.ForgeRandomLingqi()
-    end
-
-    if not item then
-        resultLabel_:SetText("铸造失败：数据异常")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        return
-    end
-
-    -- 放入背包
-    local ok = InventorySystem.AddItem(item)
-    if not ok then
-        resultLabel_:SetText("放入背包失败")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        return
-    end
-
-    -- 即时存档
-    EventBus.Emit("save_request")
-    EventBus.Emit("equipment_changed")
 
     local refreshOk, refreshErr = pcall(RefreshUI)
     if not refreshOk then
         print("[DragonForgeUI] WARNING: RefreshUI error after lingqi forge: " .. tostring(refreshErr))
     end
 
-    -- 成功弹窗
+    -- 判断是否套装灵器（通过 setId 字段判断）
+    local item = result.item
+    local isSet = item and item.setId ~= nil
     local title = isSet and "🔮 套装灵器铸成！" or "⚒️ 灵器铸成！"
     local subtitle = isSet and "龙鳞淬炼，套装显现" or "龙鳞淬炼，灵器出世"
     local popupOk, popupErr = pcall(ShowBagForgeSuccess, item, title, subtitle)

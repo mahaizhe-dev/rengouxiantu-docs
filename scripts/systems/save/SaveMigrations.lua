@@ -1057,6 +1057,16 @@ local MIGRATIONS = {
         data.version = 26
         return data
     end,
+
+    -- v26 → v27: 新增五行命格系统存档字段
+    [27] = function(data)
+        -- 旧存档无命格数据，初始化为 nil（系统按空处理）
+        if not data.mingge then
+            data.mingge = nil
+        end
+        data.version = 27
+        return data
+    end,
 }
 
 -- ============================================================================

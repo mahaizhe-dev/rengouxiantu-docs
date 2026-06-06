@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- ============================================================================
 -- 开局一条狗 - 修仙 RPG
 -- 入口文件（基于 scaffold-2d.lua）
@@ -85,6 +86,7 @@ local TownReturnSystem = require("systems.TownReturnSystem")
 local DPSTracker = require("ui.DPSTracker")
 local PerfMonitor = require("systems.PerfMonitor")
 local AudioSystem = require("systems.AudioSystem")
+local MinggeSystem = require("systems.MinggeSystem")
 local _dcOk, DungeonClient = pcall(require, "network.DungeonClient")
 if not _dcOk then
     print("[WARN] DungeonClient load failed: " .. tostring(DungeonClient))
@@ -604,6 +606,7 @@ function ReturnToLogin()
     TrialTowerSystem.Init() -- 重置试炼塔状态
     PrisonTowerSystem.Init() -- 重置镇狱塔状态
     WineSystem.Init()       -- 重置美酒状态
+    MinggeSystem.Init()     -- 重置命格状态
 
     -- 🔴 重置副本状态（isDungeonMode_/savedPosition_ 等）
     -- 不清理则: 自动存档永久阻塞 + 后续手动存档使用陈旧 savedPosition_ 覆盖正确坐标

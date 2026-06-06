@@ -449,7 +449,7 @@ local function BuildTab1Content()
     table.insert(children, StatRow("生命回复", fmtVal((player.hpRegen or 0) + (player.equipHpRegen or 0) + (player.skillBonusHpRegen or 0) + (player.collectionHpRegen or 0) + (player.seaPillarHpRegen or 0) + (player.medalHpRegen or 0) + (player.artifactTiandiHpRegen or 0) + player:GetPhysiqueHealEfficiency(), "%.1f/s"), {150, 255, 200, 255}))
     table.insert(children, StatRow("暴击率", fmtVal(player:GetTotalCritRate() * 100, "%.1f%%"), {255, 220, 100, 255}))
     table.insert(children, StatRow("暴击伤害", fmtVal(player:GetTotalCritDmg() * 100, "%.0f%%"), {255, 200, 80, 255}))
-    table.insert(children, StatRow("击杀回血", fmtVal((player.equipKillHeal or 0) + (player.titleKillHeal or 0) + (player.collectionKillHeal or 0) + (player.pillKillHeal or 0), "+%d"), {100, 255, 180, 255}))
+    table.insert(children, StatRow("击杀回血", fmtVal((player.equipKillHeal or 0) + (player.titleKillHeal or 0) + (player.collectionKillHeal or 0) + (player.pillKillHeal or 0) + (player.minggeKillHeal or 0), "+%d"), {100, 255, 180, 255}))
 
     -- 重击率（带 tips 解释）
     local heavyHitColor = {255, 170, 80, 255}
