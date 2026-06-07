@@ -587,11 +587,10 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
             end
         end
 
-        -- V7c: exp 不得为负
+        -- V7c: exp 不得为负（仅记录告警，不修改值，避免丢失合法经验）
         if pet.exp ~= nil and type(pet.exp) == "number" then
             if pet.exp < 0 then
-                Logger.warn("SaveGame", "[V7c] pet.exp clamped: " .. pet.exp .. " -> 0 userId=" .. tostring(userId))
-                pet.exp = 0
+                Logger.warn("SaveGame", "[V7c] pet.exp negative: " .. pet.exp .. " userId=" .. tostring(userId))
             end
         end
 
@@ -638,7 +637,7 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
             end
         end
 
-        -- V7e: appearance 白名单（只允许 selectedId 字符串字段）
+        -- V7e: appearance 白名单 + 解锁校验
         if pet.appearance ~= nil then
             if type(pet.appearance) ~= "table" then
                 Logger.warn("SaveGame", "[V7e] pet.appearance not table, removing userId=" .. tostring(userId))
@@ -646,20 +645,62 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
             elseif pet.appearance.selectedId and type(pet.appearance.selectedId) ~= "string" then
                 Logger.warn("SaveGame", "[V7e] pet.appearance.selectedId not string, removing userId=" .. tostring(userId))
                 pet.appearance = nil
+            elseif pet.appearance.selectedId then
+                local PetAppearanceConfig = require("config.PetAppearanceConfig")
+                local skin = PetAppearanceConfig.byId and PetAppearanceConfig.byId[pet.appearance.selectedId]
+                if not skin then
+                    Logger.warn("SaveGame", "[V7e] pet.appearance.selectedId unknown: "
+                        .. pet.appearance.selectedId .. ", removing userId=" .. tostring(userId))
+                    pet.appearance = nil
+                elseif skin.category == "base" and (pet.tier or 1) < (skin.requiredTier or 0) then
+                    Logger.warn("SaveGame", "[V7e] pet.appearance tier locked: "
+                        .. pet.appearance.selectedId .. " requires tier " .. (skin.requiredTier or 0)
+                        .. " but pet tier=" .. tostring(pet.tier) .. ", removing userId=" .. tostring(userId))
+                    pet.appearance = nil
+                end
             end
         end
 
-        -- V7f: formId 白名单校验（必须是 PetFormConfig 中的合法 id，或 nil）
+        -- V7f: formId 白名单 + 解锁 + 启用校验
+        local PetFormConfig = require("config.PetFormConfig")
+        local petTier = pet.tier or 1
         if pet.formId ~= nil then
             if type(pet.formId) ~= "string" then
                 Logger.warn("SaveGame", "[V7f] pet.formId not string, removing userId=" .. tostring(userId))
                 pet.formId = nil
+            elseif not PetFormConfig.IsValid(pet.formId) then
+                Logger.warn("SaveGame", "[V7f] pet.formId invalid: " .. tostring(pet.formId)
+                    .. ", removing userId=" .. tostring(userId))
+                pet.formId = nil
+            elseif not PetFormConfig.IsFormEnabled(pet.formId) then
+                Logger.warn("SaveGame", "[V7f] pet.formId disabled: " .. pet.formId
+                    .. ", removing userId=" .. tostring(userId))
+                pet.formId = nil
             else
-                local PetFormConfig = require("config.PetFormConfig")
-                if not PetFormConfig.IsValid(pet.formId) then
-                    Logger.warn("SaveGame", "[V7f] pet.formId invalid: " .. tostring(pet.formId)
+                local cfg = PetFormConfig.Get(pet.formId)
+                if cfg and cfg.unlockTier > petTier then
+                    Logger.warn("SaveGame", "[V7f] pet.formId locked: " .. pet.formId
+                        .. " requires tier " .. cfg.unlockTier .. " but pet tier=" .. petTier
                         .. ", removing userId=" .. tostring(userId))
                     pet.formId = nil
+                end
+            end
+        end
+        -- V7f-2: pendingFormId 同等校验
+        if pet.pendingFormId ~= nil then
+            if type(pet.pendingFormId) ~= "string"
+                or not PetFormConfig.IsValid(pet.pendingFormId)
+                or not PetFormConfig.IsFormEnabled(pet.pendingFormId) then
+                Logger.warn("SaveGame", "[V7f] pet.pendingFormId invalid/disabled: "
+                    .. tostring(pet.pendingFormId) .. ", removing userId=" .. tostring(userId))
+                pet.pendingFormId = nil
+            else
+                local cfg = PetFormConfig.Get(pet.pendingFormId)
+                if cfg and cfg.unlockTier > petTier then
+                    Logger.warn("SaveGame", "[V7f] pet.pendingFormId locked: " .. pet.pendingFormId
+                        .. " requires tier " .. cfg.unlockTier .. " but pet tier=" .. petTier
+                        .. ", removing userId=" .. tostring(userId))
+                    pet.pendingFormId = nil
                 end
             end
         end

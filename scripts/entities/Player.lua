@@ -387,18 +387,18 @@ function Player:_RecalcStatsCache()
     local realmData = GameConfig.REALMS[self.realm]
     if realmData and realmData.order >= 7 and classData then
         if classData.id == "monk" then
-            -- 罗汉：根骨 → 防御（不被根骨%再次放大）
-            local jindanDef = math.floor(self._cachedTotalConstitution * 0.40)
+            -- 罗汉：每100根骨+40防御（阶梯制）
+            local jindanDef = math.floor(self._cachedTotalConstitution / 100) * 40
             self._cachedTotalDef = self._cachedTotalDef + jindanDef
             self._jindanPassiveBonus = { type = "def", value = jindanDef }
         elseif classData.id == "taixu" then
-            -- 太虚：悟性 → 攻击力（不被攻击%再次放大）
-            local jindanAtk = math.floor(self._cachedTotalWisdom * 0.50)
+            -- 太虚：每100悟性+50攻击（阶梯制）
+            local jindanAtk = math.floor(self._cachedTotalWisdom / 100) * 50
             self._cachedTotalAtk = self._cachedTotalAtk + jindanAtk
             self._jindanPassiveBonus = { type = "atk", value = jindanAtk }
         elseif classData.id == "zhenyue" then
-            -- 镇岳：体魄 → 生命值（不被体魄%再次放大）
-            local jindanHp = math.floor(self._cachedTotalPhysique * 3.00)
+            -- 镇岳：每100体魄+300生命（阶梯制）
+            local jindanHp = math.floor(self._cachedTotalPhysique / 100) * 300
             self._cachedTotalMaxHp = self._cachedTotalMaxHp + jindanHp
             self._jindanPassiveBonus = { type = "maxhp", value = jindanHp }
         end

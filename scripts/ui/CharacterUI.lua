@@ -926,22 +926,35 @@ local function BuildTab2Content()
                 lvlBonus)
         end
 
-        -- 金丹被动副词条（order >= 7 解锁）
-        -- 先确保 stats 缓存已刷新（_jindanPassiveBonus 在 _RecalcStatsCache 中计算）
-        player:GetTotalAtk()
-        local realmData_dbg = GameConfig.REALMS[player.realm]
-        print("[CharacterUI] 金丹被动检查: realm=" .. tostring(player.realm) .. " order=" .. tostring(realmData_dbg and realmData_dbg.order) .. " classId=" .. tostring(player.classId) .. " bonus=" .. tostring(player._jindanPassiveBonus))
-        local jindanBonus = player._jindanPassiveBonus
-        local jindanDescText = nil
-        if jindanBonus and jindanBonus.value > 0 then
-            if jindanBonus.type == "def" then
-                jindanDescText = string.format("〖金丹〗根骨×0.4 → 防御+%d", jindanBonus.value)
-            elseif jindanBonus.type == "atk" then
-                jindanDescText = string.format("〖金丹〗悟性×0.5 → 攻击+%d", jindanBonus.value)
-            elseif jindanBonus.type == "maxhp" then
-                jindanDescText = string.format("〖金丹〗体魄×3 → 生命+%d", jindanBonus.value)
+        -- 金丹被动（同一卡片内额外条目，直接在UI侧计算，不依赖缓存字段）
+        local jindanRealmData = GameConfig.REALMS[player.realm]
+        local jindanUnlocked = jindanRealmData and jindanRealmData.order >= 7
+        local jindanDescText
+        if player.classId == "monk" then
+            if jindanUnlocked then
+                local val = math.floor(player:GetTotalConstitution() / 100) * 40
+                jindanDescText = string.format("每100根骨额外+40防御(当前+%d)", val)
+            else
+                jindanDescText = "每100根骨额外+40防御"
+            end
+        elseif player.classId == "taixu" then
+            if jindanUnlocked then
+                local val = math.floor(player:GetTotalWisdom() / 100) * 50
+                jindanDescText = string.format("每100悟性额外+50攻击(当前+%d)", val)
+            else
+                jindanDescText = "每100悟性额外+50攻击"
+            end
+        elseif player.classId == "zhenyue" then
+            if jindanUnlocked then
+                local val = math.floor(player:GetTotalPhysique() / 100) * 300
+                jindanDescText = string.format("每100体魄额外+300生命(当前+%d)", val)
+            else
+                jindanDescText = "每100体魄额外+300生命"
             end
         end
+        local jindanLabelColor = jindanUnlocked and {255, 215, 100, 240} or {100, 100, 110, 180}
+        local jindanValueColor = jindanUnlocked and {255, 225, 140, 220} or {80, 80, 90, 150}
+
         table.insert(children, UI.Panel {
             flexDirection = "row",
             alignItems = "center",
@@ -976,53 +989,36 @@ local function BuildTab2Content()
                             fontSize = T.fontSize.xs,
                             fontColor = {180, 210, 240, 220},
                         },
-                    },
-                },
-            },
-        })
-
-        -- 金丹被动：独立条目，显示在基础被动卡片下方
-        if jindanBonus and jindanBonus.value > 0 and jindanDescText then
-            table.insert(children, UI.Panel {
-                flexDirection = "row",
-                alignItems = "center",
-                gap = T.spacing.sm,
-                padding = T.spacing.sm,
-                marginTop = 4,
-                backgroundColor = {35, 30, 18, 230},
-                borderRadius = T.radius.sm,
-                borderWidth = 1,
-                borderColor = {255, 200, 80, 100},
-                children = {
-                    UI.Label {
-                        text = "丹",
-                        fontSize = T.fontSize.xl + 4,
-                        width = 40,
-                        textAlign = "center",
-                        fontColor = {255, 215, 100, 255},
-                    },
-                    UI.Panel {
-                        flexGrow = 1,
-                        flexShrink = 1,
-                        flexBasis = 0,
-                        gap = 2,
-                        children = {
-                            UI.Label {
-                                text = "金丹初期解锁",
-                                fontSize = T.fontSize.xs,
-                                fontColor = {180, 160, 100, 180},
-                            },
-                            UI.Label {
-                                text = jindanDescText,
-                                fontSize = T.fontSize.md,
-                                fontWeight = "bold",
-                                fontColor = {255, 215, 100, 240},
+                        -- 金丹额外条目（分隔线 + 解锁标签 + 数值）
+                        UI.Panel {
+                            width = "100%",
+                            height = 1,
+                            marginTop = 4,
+                            marginBottom = 2,
+                            backgroundColor = jindanUnlocked and {255, 200, 80, 60} or {80, 80, 90, 40},
+                        },
+                        UI.Panel {
+                            flexDirection = "row",
+                            alignItems = "center",
+                            gap = 4,
+                            children = {
+                                UI.Label {
+                                    text = jindanUnlocked and "金丹强化" or "金丹期解锁",
+                                    fontSize = T.fontSize.xs,
+                                    fontColor = jindanLabelColor,
+                                },
+                                UI.Label {
+                                    text = jindanDescText or "",
+                                    fontSize = T.fontSize.xs,
+                                    fontWeight = jindanUnlocked and "bold" or "normal",
+                                    fontColor = jindanValueColor,
+                                },
                             },
                         },
                     },
                 },
-            })
-        end
+            },
+        })
     end
 
     for i = 1, SkillData.MAX_SKILL_SLOTS do

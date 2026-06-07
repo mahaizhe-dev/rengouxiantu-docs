@@ -148,6 +148,10 @@ end
 ---@return string
 function Pet:GetCurrentFormId()
     if not PetFormConfig.ENABLED then return "normal" end
+    -- 死亡期间若有 pending 切换，展示待生效形态（UI 用）
+    if not self.alive and self.pendingFormId then
+        return self.pendingFormId
+    end
     return self.formId or "normal"
 end
 
@@ -181,8 +185,11 @@ function Pet:CanSwitchForm(formId)
     if not PetFormConfig.IsFormEnabled(formId) then
         return false, "该形态已禁用"
     end
-    if formId == self.formId then
+    if formId == self.formId and not self.pendingFormId then
         return false, "已处于该形态"
+    end
+    if self.pendingFormId and formId == self.pendingFormId then
+        return false, "已选择该形态"
     end
     if not self:IsFormUnlocked(formId) then
         local cfg = PetFormConfig.Get(formId)
@@ -205,15 +212,13 @@ function Pet:SwitchForm(formId)
         return false, reason
     end
 
-    -- 死亡中：记录形态，复活时生效
+    -- 死亡中：记录到 pendingFormId，复活时才真正生效
     if not self.alive then
-        local oldForm = self.formId
-        self.formId = formId
-        self.pendingFormId = nil
+        self.pendingFormId = formId
         self.formSwitchCD = PetFormConfig.SWITCH_COOLDOWN
-        EventBus.Emit("pet_form_changed", oldForm, formId)
+        EventBus.Emit("pet_form_changed", self.formId, formId)  -- UI 刷新用
         EventBus.Emit("save_request")
-        print("[Pet] Form switched while dead: " .. oldForm .. " → " .. formId .. " (applies on revive)")
+        print("[Pet] Form switch pending (dead): → " .. formId .. " (applies on revive)")
         return true, nil
     end
 
@@ -665,9 +670,8 @@ function Pet:Update(dt, gameMap)
 
     if not self.alive then
         self.deathTimer = self.deathTimer + dt
-        -- 形态影响复活时间（守护形态固定 20 秒，其余用默认 30 秒）
-        local formCfg = self:GetFormConfig()
-        local effectiveRevive = formCfg.reviveTime or self.reviveTime
+        -- 使用死亡时快照的复活时长（死亡期间切形态不影响本次倒计时）
+        local effectiveRevive = self._snapshotReviveTime or self.reviveTime
         if self.deathTimer >= effectiveRevive then
             self:Revive()
         end
@@ -1046,9 +1050,12 @@ function Pet:TakeDamage(damage, source)
         self.state = "dead"
         self.deathTimer = 0
         self.target = nil
-        self.pendingFormId = nil  -- 死亡取消延后切换，不消耗 CD
+        self.pendingFormId = nil  -- 死亡取消攻击延后切换，不消耗 CD
+        -- 快照复活时长（死亡期间切形态不影响本次复活倒计时）
+        local formCfg = self:GetFormConfig()
+        self._snapshotReviveTime = formCfg.reviveTime or self.reviveTime
         EventBus.Emit("pet_death")
-        print("[Pet] " .. self.name .. " died! Reviving in " .. self.reviveTime .. "s")
+        print("[Pet] " .. self.name .. " died! Reviving in " .. self._snapshotReviveTime .. "s")
         -- PD-1: 结构化监控 — 宠物死亡时记录当前形态（用于统计各形态死亡率）
         print("[Monitor] pet_death form=" .. tostring(self.formId) .. " tier=" .. tostring(self.tier))
     end
@@ -1059,11 +1066,22 @@ end
 --- 复活
 function Pet:Revive()
     self.alive = true
+    self.deathTimer = 0
+    self._snapshotReviveTime = nil
+
+    -- 应用死亡期间的待定形态切换
+    if self.pendingFormId then
+        local oldForm = self.formId
+        self.formId = self.pendingFormId
+        self.pendingFormId = nil
+        print("[Pet] Pending form applied on revive: " .. oldForm .. " → " .. self.formId)
+        EventBus.Emit("pet_form_changed", oldForm, self.formId)
+    end
+
     self:RecalcStats()
     self.hp = self.maxHp
     self.state = "follow"
     self.target = nil
-    self.deathTimer = 0
 
     if self.owner then
         self.x = self.owner.x + 1
@@ -1071,6 +1089,7 @@ function Pet:Revive()
     end
 
     EventBus.Emit("pet_revive")
+    EventBus.Emit("save_request")
     print("[Pet] " .. self.name .. " revived!")
 end
 

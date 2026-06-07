@@ -587,12 +587,19 @@ function SaveSerializer.SerializePet()
         appearanceData = { selectedId = pet.appearance.selectedId }
     end
 
-    -- 形态系统（PB-6）：序列化 formId，pending 视为已生效
+    -- 形态系统（PB-6）：formId 和 pendingFormId 分开存
     local formId = nil
+    local pendingFormId = nil
     local PetFormConfig = require("config.PetFormConfig")
     if PetFormConfig.ENABLED then
-        formId = pet.pendingFormId or pet.formId
+        -- 存实际生效的 formId
+        formId = pet.formId
         if formId == "normal" then formId = nil end  -- "normal" 是默认值，省存档空间
+        -- 死亡期间的待定切换单独存（复活时生效）
+        if not pet.alive and pet.pendingFormId then
+            pendingFormId = pet.pendingFormId
+            if pendingFormId == "normal" then pendingFormId = nil end
+        end
     end
 
     return {
@@ -606,6 +613,7 @@ function SaveSerializer.SerializePet()
         skills = skillsData,
         appearance = appearanceData,
         formId = formId,
+        pendingFormId = pendingFormId,
     }
 end
 
@@ -683,7 +691,13 @@ function SaveSerializer.DeserializePet(data)
     else
         pet.formId = "normal"
     end
+    -- 恢复死亡期间的待定形态切换
     pet.pendingFormId = nil
+    if data.pendingFormId and PetFormConfig.ENABLED then
+        if PetFormConfig.IsValid(data.pendingFormId) then
+            pet.pendingFormId = data.pendingFormId
+        end
+    end
     pet.formSwitchCD = 0
 
     pet:RecalcStats()
