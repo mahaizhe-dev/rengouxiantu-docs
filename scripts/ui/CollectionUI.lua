@@ -112,6 +112,7 @@ local function CreateEntryWidget(equipId)
                 justifyContent = "center",
                 alignItems = "center",
                 children = {
+                    ---@diagnostic disable-next-line: param-type-mismatch
                     UI.Label {
                         text = SLOT_EMOJI[template.slot] or "?",
                         fontSize = 22,
@@ -131,6 +132,7 @@ local function CreateEntryWidget(equipId)
                         alignItems = "center",
                         gap = T.spacing.xs,
                         children = {
+                            ---@diagnostic disable-next-line: param-type-mismatch
                             UI.Label {
                                 text = template.name,
                                 fontSize = T.fontSize.sm,
@@ -163,6 +165,7 @@ local function CreateEntryWidget(equipId)
                         },
                     },
                     -- 第三行：描述
+                    ---@diagnostic disable-next-line: param-type-mismatch
                     UI.Label {
                         text = isCollected and entry.desc or "收录后解锁详情",
                         fontSize = T.fontSize.xs,

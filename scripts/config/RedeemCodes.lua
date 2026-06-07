@@ -234,6 +234,28 @@ RedeemCodes.CODES = {
         perUser   = 1,
         note      = "六一福利：拨浪鼓x5+守护者证明x1，限10次",
     },
+    -- ====== UID 1503407930 专属补偿 ======
+    {
+        code      = "VIP1503A",
+        rewards   = {
+            { type = "item", id = "item_guardian_token", amount = 1 },
+            { type = "title", id = "pioneer" },
+        },
+        maxUses   = 1,
+        perUser   = 1,
+        targetUID = 1503407930,
+        note      = "1503407930专属：守护者证明x1+先行者称号",
+    },
+    -- ====== 10W灵韵兑换码 ======
+    {
+        code      = "LY10W6RX",
+        rewards   = {
+            { type = "lingYun", amount = 100000 },
+        },
+        maxUses   = 1,
+        perUser   = 1,
+        note      = "10W灵韵，限1次",
+    },
 }
 
 return RedeemCodes
