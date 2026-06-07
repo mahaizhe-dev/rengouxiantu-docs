@@ -256,6 +256,15 @@ RedeemCodes.CODES = {
         perUser   = 1,
         note      = "10W灵韵，限1次",
     },
+    {
+        code      = "LY1W5PKD",
+        rewards   = {
+            { type = "lingYun", amount = 10000 },
+        },
+        maxUses   = 5,
+        perUser   = 1,
+        note      = "1W灵韵，限5次，每人1次",
+    },
 }
 
 return RedeemCodes
