@@ -404,6 +404,7 @@ function M.RenderBuffAuras(nvg, l, camera)
     if burnState and burnState.active then
         local tileSize = camera:GetTileSize()
         local sx = (player.x - camera.x) * tileSize + l.w / 2 + l.x
+        ---@diagnostic disable-next-line: assign-type-mismatch
         local sy = (player.y - camera.y) * tileSize + l.h / 2 + l.y
         local time = GameState.gameTime or 0
         local burnRadius = tileSize * 3.0  -- 半径3格
@@ -481,6 +482,7 @@ function M.RenderBuffAuras(nvg, l, camera)
 
     local tileSize = camera:GetTileSize()
     local sx = (player.x - camera.x) * tileSize + l.w / 2 + l.x
+    ---@diagnostic disable-next-line: assign-type-mismatch
     local sy = (player.y - camera.y) * tileSize + l.h / 2 + l.y
     local time = GameState.gameTime or 0
 

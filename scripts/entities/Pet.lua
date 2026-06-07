@@ -6,6 +6,7 @@
 local GameConfig = require("config.GameConfig")
 local PetSkillData = require("config.PetSkillData")
 local PetAppearanceConfig = require("config.PetAppearanceConfig")
+local PetFormConfig = require("config.PetFormConfig")
 local Utils = require("core.Utils")
 local EventBus = require("core.EventBus")
 local LootSystem = require("systems.LootSystem")
@@ -44,6 +45,11 @@ function Pet.New(owner)
     -- 外观（v20+）
     -- appearance = { selectedId = "pet_base_t0" } 或 nil（使用默认）
     self.appearance = nil
+
+    -- 形态系统
+    self.formId = "normal"        -- 当前激活形态
+    self.pendingFormId = nil      -- 延后切换（等攻击动画结束）
+    self.formSwitchCD = 0         -- 切换冷却倒计时（秒）
 
     -- 运行时属性（由 RecalcStats 计算）
     self.maxHp = 0
@@ -134,6 +140,136 @@ function Pet:GetIcon()
     return self:GetTierData().icon
 end
 
+-- ============================================================================
+-- 形态系统
+-- ============================================================================
+
+--- 获取当前有效形态 ID（考虑 feature flag）
+---@return string
+function Pet:GetCurrentFormId()
+    if not PetFormConfig.ENABLED then return "normal" end
+    return self.formId or "normal"
+end
+
+--- 获取当前形态配置
+---@return table
+function Pet:GetFormConfig()
+    return PetFormConfig.Get(self:GetCurrentFormId()) or PetFormConfig.FORMS.normal
+end
+
+--- 判断某形态是否解锁
+---@param formId string
+---@return boolean
+function Pet:IsFormUnlocked(formId)
+    if not PetFormConfig.ENABLED then return formId == "normal" end
+    local cfg = PetFormConfig.Get(formId)
+    if not cfg then return false end
+    return self.tier >= cfg.unlockTier
+end
+
+--- 判断是否可以切换到某形态（含 CD、死亡、解锁检查）
+---@param formId string
+---@return boolean canSwitch, string|nil reason
+function Pet:CanSwitchForm(formId)
+    if not PetFormConfig.ENABLED then
+        return false, "形态系统未开启"
+    end
+    if not PetFormConfig.IsValid(formId) then
+        return false, "无效形态ID"
+    end
+    -- PD-2: 独立开关检查（狂暴形态可单独禁用）
+    if not PetFormConfig.IsFormEnabled(formId) then
+        return false, "该形态已禁用"
+    end
+    if formId == self.formId then
+        return false, "已处于该形态"
+    end
+    if not self:IsFormUnlocked(formId) then
+        local cfg = PetFormConfig.Get(formId)
+        return false, "需要阶级 " .. (cfg and cfg.unlockTier or "?") .. " 解锁"
+    end
+    if self.formSwitchCD > 0 then
+        return false, string.format("冷却中(%.0fs)", self.formSwitchCD)
+    end
+    return true, nil
+end
+
+--- 执行形态切换
+--- 如果正在攻击中，标记 pendingFormId 延后生效
+--- 如果已阵亡，记录形态但不重算属性，复活时生效
+---@param formId string
+---@return boolean success, string|nil reason
+function Pet:SwitchForm(formId)
+    local canSwitch, reason = self:CanSwitchForm(formId)
+    if not canSwitch then
+        return false, reason
+    end
+
+    -- 死亡中：记录形态，复活时生效
+    if not self.alive then
+        local oldForm = self.formId
+        self.formId = formId
+        self.pendingFormId = nil
+        self.formSwitchCD = PetFormConfig.SWITCH_COOLDOWN
+        EventBus.Emit("pet_form_changed", oldForm, formId)
+        EventBus.Emit("save_request")
+        print("[Pet] Form switched while dead: " .. oldForm .. " → " .. formId .. " (applies on revive)")
+        return true, nil
+    end
+
+    -- 如果正在攻击动画中，延后切换
+    if self.state == "attack" and self.attackTimer > 0 then
+        self.pendingFormId = formId
+        print("[Pet] Form switch pending → " .. formId .. " (waiting attack end)")
+        return true, nil
+    end
+
+    -- 立即切换
+    self:_ApplyFormSwitch(formId)
+    return true, nil
+end
+
+--- 内部：实际执行形态切换（含 RecalcStats + hp 钳位 + CD 触发）
+---@param formId string
+function Pet:_ApplyFormSwitch(formId)
+    local oldForm = self.formId
+    self.formId = formId
+    self.pendingFormId = nil
+    self.formSwitchCD = PetFormConfig.SWITCH_COOLDOWN
+
+    -- 重算属性（形态修正在 GetSkillBonuses 内部）
+    self:RecalcStats()
+    -- hp 钳位已在 RecalcStats 末尾处理
+
+    self._statsDirty = false
+    EventBus.Emit("pet_form_changed", oldForm, formId)
+    -- PB-7: 形态切换即时存档（formId 变更属高价值状态）
+    EventBus.Emit("save_request")
+    print("[Pet] Form switched: " .. oldForm .. " → " .. formId)
+    -- PD-1: 结构化监控 — 形态切换（用于统计使用率）
+    print("[Monitor] pet_form_switch from=" .. oldForm .. " to=" .. formId .. " tier=" .. tostring(self.tier))
+end
+
+--- 获取所有已解锁形态列表
+---@return table[] { id, name, icon, desc, unlocked, active }
+function Pet:GetUnlockedForms()
+    local result = {}
+    for _, formId in ipairs(PetFormConfig.FORM_ORDER) do
+        local cfg = PetFormConfig.Get(formId)
+        if cfg then
+            result[#result + 1] = {
+                id = cfg.id,
+                name = cfg.name,
+                icon = cfg.icon,
+                desc = cfg.desc,
+                unlocked = self:IsFormUnlocked(formId),
+                active = (self:GetCurrentFormId() == formId),
+            }
+        end
+    end
+    return result
+end
+
 --- 获取技能槽总数: 固定10格 (2x5宫格)
 ---@return number
 function Pet:GetSkillSlotCount()
@@ -169,6 +305,20 @@ function Pet:GetSkillBonuses()
     end
     bonuses._perLv = perLvBonuses
     bonuses._ownerFlat = ownerFlat
+
+    -- 形态乘区：放在最后叠加，保证任何 RecalcStats 调用都包含形态修正
+    if PetFormConfig.ENABLED then
+        local formCfg = self:GetFormConfig()
+        local mods = formCfg.statMods
+        if mods then
+            for stat, pct in pairs(mods) do
+                if bonuses[stat] ~= nil then
+                    bonuses[stat] = bonuses[stat] + pct
+                end
+            end
+        end
+    end
+
     return bonuses
 end
 
@@ -471,6 +621,30 @@ end
 function Pet:Update(dt, gameMap)
     self.animTimer = self.animTimer + dt
 
+    -- 形态切换 CD 倒计时
+    if self.formSwitchCD > 0 then
+        self.formSwitchCD = self.formSwitchCD - dt
+        if self.formSwitchCD < 0 then self.formSwitchCD = 0 end
+    end
+
+    -- 延后形态切换：攻击动画结束后激活
+    if self.pendingFormId and self.alive then
+        if self.state ~= "attack" or self.attackTimer <= 0 then
+            self:_ApplyFormSwitch(self.pendingFormId)
+        end
+    end
+
+    -- PD-2: 狂暴形态热回滚 — 开关关闭后强制回退 normal（不触发 CD）
+    if self.alive and self.formId ~= "normal" and not PetFormConfig.IsFormEnabled(self.formId) then
+        local disabledForm = self.formId
+        print("[Monitor] pet_form_rollback form=" .. disabledForm .. " reason=disabled")
+        self.formId = "normal"
+        self.pendingFormId = nil
+        self:RecalcStats()
+        self._statsDirty = false
+        EventBus.Emit("pet_form_changed", disabledForm, "normal")
+    end
+
     -- 属性脏时重算（装备/升级/技能变化时由事件标记）
     if self.alive and self._statsDirty then
         self:RecalcStats()
@@ -491,7 +665,10 @@ function Pet:Update(dt, gameMap)
 
     if not self.alive then
         self.deathTimer = self.deathTimer + dt
-        if self.deathTimer >= self.reviveTime then
+        -- 形态影响复活时间（守护形态固定 20 秒，其余用默认 30 秒）
+        local formCfg = self:GetFormConfig()
+        local effectiveRevive = formCfg.reviveTime or self.reviveTime
+        if self.deathTimer >= effectiveRevive then
             self:Revive()
         end
         return
@@ -804,10 +981,15 @@ function Pet:CastSpiritBite()
     local rawAtk = math.floor(self.atk * td.dmgMult)
     local result = self:CalcPetDamage(rawAtk, self.target, "spirit_bite")
 
-    -- 施加易伤 debuff
+    -- 施加易伤 debuff（战斗形态 spiritDevourDurationMul 倍率加成）
+    local vulnDuration = skill.vulnDuration
+    local formCfg = self:GetFormConfig()
+    if formCfg.spiritDevourDurationMul then
+        vulnDuration = vulnDuration * formCfg.spiritDevourDurationMul
+    end
     if self.target.ApplyDebuff then
         self.target:ApplyDebuff("vulnerability", {
-            duration = skill.vulnDuration,
+            duration = vulnDuration,
             percent = skill.vulnPercent,
         })
     end
@@ -864,8 +1046,11 @@ function Pet:TakeDamage(damage, source)
         self.state = "dead"
         self.deathTimer = 0
         self.target = nil
+        self.pendingFormId = nil  -- 死亡取消延后切换，不消耗 CD
         EventBus.Emit("pet_death")
         print("[Pet] " .. self.name .. " died! Reviving in " .. self.reviveTime .. "s")
+        -- PD-1: 结构化监控 — 宠物死亡时记录当前形态（用于统计各形态死亡率）
+        print("[Monitor] pet_death form=" .. tostring(self.formId) .. " tier=" .. tostring(self.tier))
     end
 
     return damage

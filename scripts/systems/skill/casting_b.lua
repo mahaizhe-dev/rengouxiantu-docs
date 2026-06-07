@@ -190,8 +190,8 @@ function M.CastMultiZoneHeavySkill(skill, player)
     end)
     local hitCount = math_min(#hitList, maxTargets)
 
-    -- 重击伤害公式：(ATK + HeavyHit) × damageMultiplier × (1 + 根骨重击加成)
-    local baseDmg = math_floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
+    -- 重击伤害公式：(DEF + HeavyHit) × damageMultiplier × (1 + 根骨重击加成)
+    local baseDmg = math_floor(player:GetTotalDef() + player:GetTotalHeavyHit())
     local heavyDmgBonus = player:GetConstitutionHeavyDmgBonus()
     if heavyDmgBonus > 0 then
         baseDmg = math_floor(baseDmg * (1 + heavyDmgBonus))
@@ -227,7 +227,7 @@ function M.CastMultiZoneHeavySkill(skill, player)
 
     -- 连击（自定义回调：重击伤害重算 + 共享暴击）
     ComboRunner.Schedule(player, skill, targetAngle, function()
-        local comboDmg = math_floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
+        local comboDmg = math_floor(player:GetTotalDef() + player:GetTotalHeavyHit())
         local comboDmgBonus = player:GetConstitutionHeavyDmgBonus()
         if comboDmgBonus > 0 then
             comboDmg = math_floor(comboDmg * (1 + comboDmgBonus))

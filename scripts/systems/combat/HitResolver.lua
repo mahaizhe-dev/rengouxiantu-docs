@@ -79,6 +79,11 @@ function HitResolver.Hit(source, target, rawDmg, opts)
         end
     end
 
+    -- Step 2.5: 犬魂狂暴全伤乘区（狂暴形态 bonusDmg）
+    if source and (source.petBerserkBonusDmg or 0) > 0 then
+        damage = math.floor(damage * (1 + source.petBerserkBonusDmg))
+    end
+
     -- Step 3: 扣血
     if opts.pcallTakeDamage then
         local ok, result = pcall(target.TakeDamage, target, damage, source)

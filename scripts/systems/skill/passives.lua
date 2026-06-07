@@ -371,7 +371,7 @@ function M.TriggerChargePassiveRelease(skill)
     local player = GameState.player
     if not player or not player.alive then return end
 
-    local heavyDmg = math_floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
+    local heavyDmg = math_floor(player:GetTotalDef() + player:GetTotalHeavyHit())
     local heavyDmgBonus = player:GetConstitutionHeavyDmgBonus()
     if heavyDmgBonus > 0 then
         heavyDmg = math_floor(heavyDmg * (1 + heavyDmgBonus))

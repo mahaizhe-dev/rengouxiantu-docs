@@ -17,6 +17,7 @@ local SaveWriteService = {}
 
 local GameConfig       = require("config.GameConfig")
 local SealDemonConfig  = require("config.SealDemonConfig")
+local PetSkillData     = require("config.PetSkillData")
 local SaveProtocol     = require("network.SaveProtocol")
 local Session          = require("network.ServerSession")
 local RankHandler      = require("network.RankHandler")
@@ -545,6 +546,122 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
         if cp.def and type(cp.def) == "number" and cp.def > expectedDef * tolerance then
             Logger.diag("SaveGame", string.format("[V5c] def SUSPICIOUS: %d > %.0f (expected=%d × %.1f) userId=%s realm=%s lv=%d",
                 cp.def, expectedDef * tolerance, expectedDef, tolerance, tostring(userId), realm, lv))
+        end
+    end
+
+    -- ════════════════════════════════════════════════════════════════
+    -- V7: 宠物数据校验（tier/level/exp/skills/appearance 白名单边界）
+    -- 策略：仅 clamp 越界数值 + 剔除非法技能条目，不删整个 pet 块
+    -- ════════════════════════════════════════════════════════════════
+    if coreData.pet and type(coreData.pet) == "table" then
+        local pet = coreData.pet
+
+        -- V7a: tier 范围 [0, 7]
+        if pet.tier ~= nil then
+            if type(pet.tier) ~= "number" then
+                Logger.warn("SaveGame", "[V7a] pet.tier not number, resetting to 0 userId=" .. tostring(userId))
+                pet.tier = 0
+            else
+                if pet.tier < 0 then pet.tier = 0 end
+                if pet.tier > 7 then
+                    Logger.warn("SaveGame", "[V7a] pet.tier clamped: " .. pet.tier .. " -> 7 userId=" .. tostring(userId))
+                    pet.tier = 7
+                end
+            end
+        end
+
+        -- V7b: level 范围 [1, tier.maxLevel]
+        if pet.level ~= nil then
+            if type(pet.level) ~= "number" then
+                Logger.warn("SaveGame", "[V7b] pet.level not number, resetting to 1 userId=" .. tostring(userId))
+                pet.level = 1
+            else
+                if pet.level < 1 then pet.level = 1 end
+                local tierData = GameConfig.PET_TIERS[pet.tier or 0]
+                local maxLv = tierData and tierData.maxLevel or 160
+                if pet.level > maxLv then
+                    Logger.warn("SaveGame", "[V7b] pet.level clamped: " .. pet.level .. " -> " .. maxLv
+                        .. " (tier=" .. tostring(pet.tier) .. ") userId=" .. tostring(userId))
+                    pet.level = maxLv
+                end
+            end
+        end
+
+        -- V7c: exp 不得为负
+        if pet.exp ~= nil and type(pet.exp) == "number" then
+            if pet.exp < 0 then
+                Logger.warn("SaveGame", "[V7c] pet.exp clamped: " .. pet.exp .. " -> 0 userId=" .. tostring(userId))
+                pet.exp = 0
+            end
+        end
+
+        -- V7d: skills 白名单校验（slot 1~10, id 必须在 PetSkillData.SKILLS 中, tier 1~MAX_TIER）
+        if pet.skills and type(pet.skills) == "table" then
+            local MAX_SLOT = 10
+            local MAX_SKILL_TIER = PetSkillData.MAX_TIER or 4
+            local keysToRemove = {}
+            for k, v in pairs(pet.skills) do
+                local slotNum = tonumber(k)
+                local invalid = false
+                if slotNum == nil or slotNum < 1 or slotNum > MAX_SLOT then
+                    invalid = true
+                    Logger.warn("SaveGame", "[V7d] pet skill invalid slot=" .. tostring(k)
+                        .. " userId=" .. tostring(userId))
+                elseif type(v) ~= "table" then
+                    invalid = true
+                    Logger.warn("SaveGame", "[V7d] pet skill slot " .. tostring(k)
+                        .. " value not table userId=" .. tostring(userId))
+                elseif not v.id or not PetSkillData.SKILLS[v.id] then
+                    invalid = true
+                    Logger.warn("SaveGame", "[V7d] pet skill unknown id=" .. tostring(v.id)
+                        .. " slot=" .. tostring(k) .. " userId=" .. tostring(userId))
+                else
+                    -- id 合法，clamp tier
+                    if v.tier and type(v.tier) == "number" then
+                        if v.tier < 1 then v.tier = 1 end
+                        if v.tier > MAX_SKILL_TIER then
+                            Logger.warn("SaveGame", "[V7d] pet skill tier clamped: " .. v.tier
+                                .. " -> " .. MAX_SKILL_TIER .. " id=" .. v.id
+                                .. " userId=" .. tostring(userId))
+                            v.tier = MAX_SKILL_TIER
+                        end
+                    else
+                        v.tier = 1
+                    end
+                end
+                if invalid then
+                    table.insert(keysToRemove, k)
+                end
+            end
+            for _, k in ipairs(keysToRemove) do
+                pet.skills[k] = nil
+            end
+        end
+
+        -- V7e: appearance 白名单（只允许 selectedId 字符串字段）
+        if pet.appearance ~= nil then
+            if type(pet.appearance) ~= "table" then
+                Logger.warn("SaveGame", "[V7e] pet.appearance not table, removing userId=" .. tostring(userId))
+                pet.appearance = nil
+            elseif pet.appearance.selectedId and type(pet.appearance.selectedId) ~= "string" then
+                Logger.warn("SaveGame", "[V7e] pet.appearance.selectedId not string, removing userId=" .. tostring(userId))
+                pet.appearance = nil
+            end
+        end
+
+        -- V7f: formId 白名单校验（必须是 PetFormConfig 中的合法 id，或 nil）
+        if pet.formId ~= nil then
+            if type(pet.formId) ~= "string" then
+                Logger.warn("SaveGame", "[V7f] pet.formId not string, removing userId=" .. tostring(userId))
+                pet.formId = nil
+            else
+                local PetFormConfig = require("config.PetFormConfig")
+                if not PetFormConfig.IsValid(pet.formId) then
+                    Logger.warn("SaveGame", "[V7f] pet.formId invalid: " .. tostring(pet.formId)
+                        .. ", removing userId=" .. tostring(userId))
+                    pet.formId = nil
+                end
+            end
         end
     end
 end

@@ -550,7 +550,7 @@ local function BuildTab1Content()
             children = {
                 UI.Label {
                     text = "【重击】每次攻击有概率触发重击，"
-                        .. "伤害 = 攻击力 + 重击值（无视防御，可暴击）。\n"
+                        .. "伤害 = 防御力 + 重击值（无视防御，可暴击）。\n"
                         .. "【重击值】额外附加的固定伤害数值，"
                         .. "来源于装备和强化。",
                     fontSize = T.fontSize.xs,
@@ -918,6 +918,29 @@ local function BuildTab2Content()
                 (passive.comboChance or 0) * 100,
                 passive.wisdomPerLevel,
                 lvlBonus)
+        elseif passive.physiquePerLevel then
+            local lvlBonus = player.level * passive.physiquePerLevel
+            passiveDescText = string.format("血怒+%.0f%%，每级+%d体魄(当前+%d)",
+                (passive.bloodRageChanceBonus or 0) * 100,
+                passive.physiquePerLevel,
+                lvlBonus)
+        end
+
+        -- 金丹被动副词条（order >= 7 解锁）
+        -- 先确保 stats 缓存已刷新（_jindanPassiveBonus 在 _RecalcStatsCache 中计算）
+        player:GetTotalAtk()
+        local realmData_dbg = GameConfig.REALMS[player.realm]
+        print("[CharacterUI] 金丹被动检查: realm=" .. tostring(player.realm) .. " order=" .. tostring(realmData_dbg and realmData_dbg.order) .. " classId=" .. tostring(player.classId) .. " bonus=" .. tostring(player._jindanPassiveBonus))
+        local jindanBonus = player._jindanPassiveBonus
+        local jindanDescText = nil
+        if jindanBonus and jindanBonus.value > 0 then
+            if jindanBonus.type == "def" then
+                jindanDescText = string.format("〖金丹〗根骨×0.4 → 防御+%d", jindanBonus.value)
+            elseif jindanBonus.type == "atk" then
+                jindanDescText = string.format("〖金丹〗悟性×0.5 → 攻击+%d", jindanBonus.value)
+            elseif jindanBonus.type == "maxhp" then
+                jindanDescText = string.format("〖金丹〗体魄×3 → 生命+%d", jindanBonus.value)
+            end
         end
         table.insert(children, UI.Panel {
             flexDirection = "row",
@@ -957,6 +980,49 @@ local function BuildTab2Content()
                 },
             },
         })
+
+        -- 金丹被动：独立条目，显示在基础被动卡片下方
+        if jindanBonus and jindanBonus.value > 0 and jindanDescText then
+            table.insert(children, UI.Panel {
+                flexDirection = "row",
+                alignItems = "center",
+                gap = T.spacing.sm,
+                padding = T.spacing.sm,
+                marginTop = 4,
+                backgroundColor = {35, 30, 18, 230},
+                borderRadius = T.radius.sm,
+                borderWidth = 1,
+                borderColor = {255, 200, 80, 100},
+                children = {
+                    UI.Label {
+                        text = "丹",
+                        fontSize = T.fontSize.xl + 4,
+                        width = 40,
+                        textAlign = "center",
+                        fontColor = {255, 215, 100, 255},
+                    },
+                    UI.Panel {
+                        flexGrow = 1,
+                        flexShrink = 1,
+                        flexBasis = 0,
+                        gap = 2,
+                        children = {
+                            UI.Label {
+                                text = "金丹初期解锁",
+                                fontSize = T.fontSize.xs,
+                                fontColor = {180, 160, 100, 180},
+                            },
+                            UI.Label {
+                                text = jindanDescText,
+                                fontSize = T.fontSize.md,
+                                fontWeight = "bold",
+                                fontColor = {255, 215, 100, 240},
+                            },
+                        },
+                    },
+                },
+            })
+        end
     end
 
     for i = 1, SkillData.MAX_SKILL_SLOTS do

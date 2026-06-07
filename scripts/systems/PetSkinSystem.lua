@@ -155,6 +155,7 @@ function PetSkinSystem.UnlockPremiumSkin(skinId)
 
     print("[PetSkinSystem] 解锁高级外观: " .. skinId)
     EventBus.Emit("pet_appearance_changed", skinId)
+    EventBus.Emit("save_request")  -- PA-5: 高级外观解锁（稀有活动奖励），即时存档
     return true
 end
 

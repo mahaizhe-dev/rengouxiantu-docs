@@ -11,6 +11,7 @@ local EventBus = require("core.EventBus")
 local InventorySystem = require("systems.InventorySystem")
 local CombatSystem = require("systems.CombatSystem")
 local PetSkinSystem = require("systems.PetSkinSystem")
+local PetPanelForms = require("ui.PetPanelForms")
 local T = require("config.UITheme")
 
 local PetPanel = {}
@@ -25,6 +26,7 @@ end
 
 local panel_ = nil
 local visible_ = false
+local cdRefreshAcc_ = 0  -- CD 文本刷新累计器（每秒一次）
 local currentTab_ = "info"  -- "info" | "breakthrough" | "skills" | "appearance"
 local confirmDialog_ = nil
 local parentOverlay_ = nil
@@ -392,6 +394,7 @@ local function BuildSkillsContent()
                                 fontSize = T.fontSize.xs,
                                 fontColor = {255, 180, 100, 200},
                             },
+                            PetPanelForms.GetBerserkEnhancementRow(),
                         },
                     },
                 },
@@ -435,6 +438,12 @@ local function BuildSkillsContent()
             },
         },
     })
+
+    -- 形态切换卡片行（固有技能和主动技能之间）
+    local formRow = PetPanelForms.BuildFormRow()
+    if formRow then
+        table.insert(children, formRow)
+    end
 
     -- 主动技能区：灵噬
     local activeSkill = PetSkillData.ACTIVE_SKILL
@@ -507,6 +516,7 @@ local function BuildSkillsContent()
                                     fontSize = T.fontSize.xs,
                                     fontColor = unlocked and {255, 200, 130, 200} or {100, 100, 100, 150},
                                 },
+                                unlocked and PetPanelForms.GetSpiritDevourEnhancementRow() or nil,
                             },
                         },
                     },
@@ -1088,6 +1098,16 @@ function PetPanel.Create(parentOverlay)
     }
 
     parentOverlay:AddChild(panel_)
+
+    -- PC-4: 形态切换后自动刷新面板
+    EventBus.On("pet_form_changed", function(oldForm, newForm)
+        if visible_ then
+            PetPanel.Refresh()
+        end
+        notifyCharacterUI()
+    end)
+
+    -- CD 刷新由 PetPanel.Update(dt) 驱动（main.lua 中调用）
 end
 
 -- ============================================================================
@@ -1261,6 +1281,10 @@ function PetPanel.DoBreakthrough()
             player.x, player.y - 1.0,
             msg, color, ok and 3.0 or 2.0
         )
+    end
+
+    if ok then
+        EventBus.Emit("save_request")  -- PA-5: 宠物突破消耗灵韵+丹药，高价值即时存档
     end
 
     PetPanel.Refresh()
@@ -1487,6 +1511,7 @@ function PetPanel.ShowLearnPopup(slotIndex)
                     "学习成功! " .. skillName, {100, 255, 200, 255}, 2.0
                 )
             end
+            EventBus.Emit("save_request")  -- PA-5: 学习技能消耗技能书，高价值即时存档
             PetPanel.HideSkillConfirm()
             PetPanel.Refresh()
             notifyCharacterUI()
@@ -2169,6 +2194,19 @@ function PetPanel.ShowSkillRules()
 
     if parentOverlay_ then
         parentOverlay_:AddChild(confirmDialog_)
+    end
+end
+
+-- ============================================================================
+-- 定时更新（由 main.lua HUD 更新块调用）
+-- ============================================================================
+
+function PetPanel.Update(dt)
+    if not visible_ or not panel_ then return end
+    cdRefreshAcc_ = cdRefreshAcc_ + dt
+    if cdRefreshAcc_ >= 1.0 then
+        cdRefreshAcc_ = 0
+        PetPanelForms.UpdateCDLabels(panel_)
     end
 end
 

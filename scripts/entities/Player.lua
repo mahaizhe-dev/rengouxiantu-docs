@@ -215,6 +215,8 @@ function Player.New(x, y, opts)
     self.petBerserkTimer = 0
     self.petBerserkAtkSpeed = 0
     self.petBerserkMoveSpeed = 0
+    self.petBerserkBonusDmg = 0    -- 全伤害加成（狂暴形态）
+    self.petBerserkDmgReduce = 0   -- 减伤加成（守护形态）
 
     -- 血气累计器（镇岳技能：裂山拳/焚血 消耗HP时累加，血爆读取并归零）
     self._bloodAccumulator = 0
@@ -379,6 +381,29 @@ function Player:_RecalcStatsCache()
                 if w == minVal then self._cachedTotalWisdom = w + bonus end
             end
         end
+    end
+
+    -- 金丹被动：境界 order >= 7 时追加额外属性（在所有%放大之后，防止二次加成）
+    local realmData = GameConfig.REALMS[self.realm]
+    if realmData and realmData.order >= 7 and classData then
+        if classData.id == "monk" then
+            -- 罗汉：根骨 → 防御（不被根骨%再次放大）
+            local jindanDef = math.floor(self._cachedTotalConstitution * 0.40)
+            self._cachedTotalDef = self._cachedTotalDef + jindanDef
+            self._jindanPassiveBonus = { type = "def", value = jindanDef }
+        elseif classData.id == "taixu" then
+            -- 太虚：悟性 → 攻击力（不被攻击%再次放大）
+            local jindanAtk = math.floor(self._cachedTotalWisdom * 0.50)
+            self._cachedTotalAtk = self._cachedTotalAtk + jindanAtk
+            self._jindanPassiveBonus = { type = "atk", value = jindanAtk }
+        elseif classData.id == "zhenyue" then
+            -- 镇岳：体魄 → 生命值（不被体魄%再次放大）
+            local jindanHp = math.floor(self._cachedTotalPhysique * 3.00)
+            self._cachedTotalMaxHp = self._cachedTotalMaxHp + jindanHp
+            self._jindanPassiveBonus = { type = "maxhp", value = jindanHp }
+        end
+    else
+        self._jindanPassiveBonus = nil
     end
 
     -- 高级皮肤移速加成（缓存供外部读取）
@@ -651,10 +676,12 @@ end
 ---@param duration number 持续时间（秒）
 ---@param atkSpeedBonus number 攻速加成（如0.3=+30%）
 ---@param moveSpeedBonus number 移速加成（如0.3=+30%）
-function Player:ApplyPetBerserk(duration, atkSpeedBonus, moveSpeedBonus)
+function Player:ApplyPetBerserk(duration, atkSpeedBonus, moveSpeedBonus, bonusDmg, dmgReduce)
     self.petBerserkTimer = duration
     self.petBerserkAtkSpeed = atkSpeedBonus
     self.petBerserkMoveSpeed = moveSpeedBonus
+    self.petBerserkBonusDmg = bonusDmg or 0     -- 全伤害加成（狂暴形态 +15%）
+    self.petBerserkDmgReduce = dmgReduce or 0   -- 减伤加成（守护形态 +15%）
 end
 
 --- 犬魂狂暴是否激活
@@ -740,6 +767,8 @@ function Player:Update(dt, gameMap)
             self.petBerserkTimer = 0
             self.petBerserkAtkSpeed = 0
             self.petBerserkMoveSpeed = 0
+            self.petBerserkBonusDmg = 0
+            self.petBerserkDmgReduce = 0
         end
     end
 
@@ -985,6 +1014,11 @@ function Player:TakeDamage(damage, source)
     if dmgReduce > 0 then
         local reduction = math.min(dmgReduce, 0.75)
         damage = math.max(1, math.floor(damage * (1 - reduction)))
+    end
+
+    -- 犬魂狂暴减伤（守护形态，独立乘区）
+    if self.petBerserkDmgReduce and self.petBerserkDmgReduce > 0 then
+        damage = math.max(1, math.floor(damage * (1 - self.petBerserkDmgReduce)))
     end
 
     -- 洗髓减伤（独立乘区，每级 1%，上限 26%）

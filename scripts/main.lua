@@ -1507,6 +1507,7 @@ function HandleUpdate(eventType, eventData)
         hudUpdateTimer_ = 0
         BottomBar.Update(uiRoot_)
         Minimap.UpdateQuest()
+        PetPanel.Update(0.1)
     end
 
     -- DPS 统计面板更新（每帧更新，自带区域检测）

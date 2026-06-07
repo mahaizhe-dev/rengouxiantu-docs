@@ -80,6 +80,13 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
             end
         end
 
+        -- PA-4: 账号外观数据必须在 DeserializePet 之前加载
+        -- 因为 Pet:RecalcStats() → owner._RecalcStatsCache() 会读取 accountCosmetics 算皮肤加成
+        if saveData.accountCosmetics and type(saveData.accountCosmetics) == "table" then
+            GameState.accountCosmetics = saveData.accountCosmetics
+            print("[SaveSystem] account_cosmetics loaded (early, before pet)")
+        end
+
         if saveData.pet then
             SaveSerializer.DeserializePet(saveData.pet)
         end
@@ -409,10 +416,10 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
             SaveSerializer.DeserializeMingge(saveData.mingge)
         end
 
-        -- 账号级外观数据（account_cosmetics）
+        -- 账号级外观数据（account_cosmetics）— PA-4: 已在 DeserializePet 前提前加载，此处幂等保留
+        -- （如果未来有其他系统在此之间修改了 accountCosmetics，此行保证最终一致）
         if saveData.accountCosmetics and type(saveData.accountCosmetics) == "table" then
             GameState.accountCosmetics = saveData.accountCosmetics
-            print("[SaveSystem] account_cosmetics loaded")
         end
 
         -- 恢复BOSS击杀冷却（从相对剩余时间转换回绝对killTime）

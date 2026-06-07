@@ -13,6 +13,7 @@ local ProgressionSystem = require("systems.ProgressionSystem")
 local SaveSystem = require("systems.SaveSystem")
 local CombatSystem = require("systems.CombatSystem")
 local Utils = require("core.Utils")
+local PetPanelForms = require("ui.PetPanelForms")
 local T = require("config.UITheme")
 
 -- PC端显示快捷键标记
@@ -717,7 +718,10 @@ function BottomBar.Update(root)
             if petName then
                 local tierData = pet.GetTierData and pet:GetTierData()
                 local tierStr = tierData and tierData.name or ""
-                petName:SetText("🐕 " .. (pet.name or "宠物") .. (tierStr ~= "" and (" " .. tierStr) or ""))
+                local formIcon = PetPanelForms.GetFormIcon()
+                local nameStr = "🐕 " .. (pet.name or "宠物") .. (tierStr ~= "" and (" " .. tierStr) or "")
+                if formIcon ~= "" then nameStr = nameStr .. " " .. formIcon end
+                petName:SetText(nameStr)
             end
             local petHpRatio = pet.maxHp > 0 and (pet.hp / pet.maxHp) or 0
             if petHpFill then

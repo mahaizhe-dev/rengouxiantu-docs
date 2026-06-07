@@ -431,7 +431,7 @@ EFFECT_HANDLERS["luxian"] = {
         if math_random() >= eff.procChance then return end
         eff._cooldown = eff.cooldown or 1.0
         -- 连击：走完整普攻判定（含暴击、装备特效，但标记 isChain=true 排除戮仙）
-        local chainDmg, chainCrit, chainTianzhu = HitResolver.Hit(player, monster, player:GetTotalAtk(), { noEvent = true })
+        local chainDmg, chainCrit, chainTianzhu = HitResolver.Hit(player, monster, player:GetTotalDef(), { noEvent = true })
         if chainTianzhu then
             CombatSystem.AddFloatingText(monster.x, monster.y - 1.1, "天诛连击 " .. chainDmg, FT_TIANZHU, 1.5, 1.6)
         elseif chainCrit then
@@ -941,9 +941,10 @@ function CombatSystem.AutoAttack(dt)
             EventBus.Emit("player_normal_hit", player, nearest)
 
             -- 重击判定：职业被动基础概率 + 根骨加成（每25点+1%）
+            -- 普通攻击可能已击杀目标，死亡后不再触发重击（避免"天诛重击 0"）
             local heavyHitChance = player:GetClassHeavyHitChance() + player:GetConstitutionHeavyHitChance()
-            if math_random() < heavyHitChance then
-                local heavyDmg = math_floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
+            if nearest.alive and math_random() < heavyHitChance then
+                local heavyDmg = math_floor(player:GetTotalDef() + player:GetTotalHeavyHit())
                 -- 根骨重击伤害加成（每25点+1%）
                 local heavyDmgBonus = player:GetConstitutionHeavyDmgBonus()
                 if heavyDmgBonus > 0 then
@@ -993,6 +994,7 @@ end
 ---@param player table
 ---@param monster table
 function CombatSystem.TryHeavyStrike(player, monster)
+    if not monster.alive then return end
     local effects = player.equipSpecialEffects
     if not effects then return end
 
@@ -1008,8 +1010,8 @@ function CombatSystem.TryHeavyStrike(player, monster)
     eff._counter = (eff._counter or 0) + 1
     if eff._counter >= (eff.hitInterval or 5) then
         eff._counter = 0
-        -- 与10%重击相同公式：ATK + heavyHit
-        local heavyDmg = math_floor(player:GetTotalAtk() + player:GetTotalHeavyHit())
+        -- 重击公式：DEF + heavyHit
+        local heavyDmg = math_floor(player:GetTotalDef() + player:GetTotalHeavyHit())
         -- 根骨重击伤害加成（每25点+1%）
         local heavyDmgBonus = player:GetConstitutionHeavyDmgBonus()
         if heavyDmgBonus > 0 then

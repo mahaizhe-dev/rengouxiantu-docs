@@ -7,6 +7,7 @@ local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
 local Utils = require("core.Utils")
 local GameConfig = require("config.GameConfig")
+local PetFormConfig = require("config.PetFormConfig")
 local CombatSystem = require("systems.CombatSystem")
 local LootSystem = require("systems.LootSystem")
 local InventoryUI = require("ui.InventoryUI")
@@ -436,16 +437,46 @@ function GameEvents.Register(refs)
         end
     end)
 
-    -- 宠物死亡 → 犬魂狂暴
+    -- 宠物死亡 → 清除宠物加成 + 犬魂狂暴
     RegisterEvent("pet_death", function()
         local player = GameState.player
         if player and player.alive then
-            player:ApplyPetBerserk(10, 0.3, 0.3)
+            -- PA-3: 宠物死亡时清除给主人的属性加成，防止死后残留
+            if next(player.petOwnerBonuses or {}) then
+                player.petOwnerBonuses = {}
+                player._statsCacheFrame = nil  -- 失效属性缓存
+            end
+
+            -- PB-4: 按宠物形态分支犬魂狂暴
+            local pet = GameState.pet
+            local formId = (pet and pet.formId) or "normal"
+            local formCfg = PetFormConfig.Get(formId)
+            local berserkOverride = formCfg and formCfg.berserk
+
+            if berserkOverride then
+                -- 形态有自定义犬魂狂暴参数
+                player:ApplyPetBerserk(
+                    berserkOverride.duration or 10,
+                    berserkOverride.atkSpeedBonus or 0.3,
+                    berserkOverride.moveSpeedBonus or 0.3,
+                    berserkOverride.bonusDmg or 0,
+                    berserkOverride.dmgReduce or 0
+                )
+                print("[Pet] 犬魂狂暴 (" .. formId .. " form): dur=" .. (berserkOverride.duration or 10)
+                    .. " atkSpd=" .. (berserkOverride.atkSpeedBonus or 0.3)
+                    .. " moveSpd=" .. (berserkOverride.moveSpeedBonus or 0.3)
+                    .. " bonusDmg=" .. (berserkOverride.bonusDmg or 0)
+                    .. " dmgReduce=" .. (berserkOverride.dmgReduce or 0))
+            else
+                -- 默认犬魂狂暴（normal/battle 形态）
+                player:ApplyPetBerserk(10, 0.3, 0.3, 0, 0)
+                print("[Pet] 犬魂狂暴 (default): +30% ATK Speed, +30% Move Speed for 10s")
+            end
+
             CombatSystem.AddFloatingText(
                 player.x, player.y - 0.8,
                 "犬魂狂暴!", {255, 80, 80, 255}, 2.0
             )
-            print("[Pet] 犬魂狂暴 activated! +30% ATK Speed, +30% Move Speed for 10s")
         end
     end)
 

@@ -19,6 +19,7 @@ local DungeonConfig     = require("config.DungeonConfig")
 local RedeemHandler     = require("network.RedeemHandler")
 -- ※ BM-01A 边界冻结：仅 require 以调用 CheckWALOnLogin，不修改该模块
 local BlackMerchantHandler = require("network.BlackMerchantHandler")
+local PetSkillRepair    = require("network.PetSkillRepairService")
 local Logger            = require("utils.Logger")
 
 ---@diagnostic disable-next-line: undefined-global
@@ -71,6 +72,9 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
     local dungeonPendingKey = DungeonConfig.MakePendingKey(nil, slot)
     local oldDungeonPendingKey = "dungeon_pending_reward_" .. slot
 
+    -- ── [一次性修复] 宠物技能丢失幂等 key ──
+    local petRepairFlagKey = PetSkillRepair.GetFlagKey(slot)
+
     serverCloud:BatchGet(userId)
         :Key(newSaveKey)
         :Key(oldSaveKey)
@@ -81,6 +85,7 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
         :Key(pendingKey)
         :Key(dungeonPendingKey)
         :Key(oldDungeonPendingKey)
+        :Key(petRepairFlagKey)
         :Fetch({
             ok = function(scores)
                 -- ── [主存档正文] v11 优先，v10 fallback ──
@@ -179,6 +184,43 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
                             error = function() end,
                         })
                     end
+                end
+
+                -- ── [一次性修复] 宠物技能丢失补偿 ──
+                local petRepairFlag = scores[petRepairFlagKey]
+                local repairPlan = PetSkillRepair.Evaluate(saveData, petRepairFlag, slot)
+
+                if repairPlan.shouldRepair then
+                    -- 执行修复：写入固定技能组合
+                    PetSkillRepair.ApplyRepair(saveData, repairPlan.tier)
+                    -- 原子写回存档 + 标记
+                    saveData.timestamp = os.time()
+                    serverCloud:BatchSet(userId)
+                        :Set(newSaveKey, saveData)
+                        :Set(petRepairFlagKey, PetSkillRepair.FLAG_REPAIRED)
+                        :Save("宠物技能V1修复", {
+                            ok = function()
+                                print("[PetSkillRepair V1] SAVED: userId=" .. tostring(userId)
+                                    .. " slot=" .. slot .. " tier=" .. repairPlan.tier)
+                            end,
+                            error = function(errCode, reason)
+                                print("[PetSkillRepair V1] SAVE FAILED: userId=" .. tostring(userId)
+                                    .. " slot=" .. slot .. " err=" .. tostring(reason))
+                            end,
+                        })
+                elseif repairPlan.shouldMark then
+                    -- 不需要修复，但打上"已检查"标记避免后续重复判定
+                    serverCloud:BatchSet(userId)
+                        :Set(petRepairFlagKey, PetSkillRepair.FLAG_CHECKED)
+                        :Save("宠物技能V1标记已检查", {
+                            ok = function() end,
+                            error = function() end,
+                        })
+                end
+                -- reason 日志（首次触发时记录）
+                if not petRepairFlag then
+                    print("[PetSkillRepair V1] userId=" .. tostring(userId)
+                        .. " slot=" .. slot .. " -> " .. repairPlan.reason)
                 end
 
                 -- ── [回包] 发送存档数据（v11 单 key 格式） ──

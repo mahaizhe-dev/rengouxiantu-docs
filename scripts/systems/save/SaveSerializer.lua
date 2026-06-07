@@ -587,6 +587,14 @@ function SaveSerializer.SerializePet()
         appearanceData = { selectedId = pet.appearance.selectedId }
     end
 
+    -- 形态系统（PB-6）：序列化 formId，pending 视为已生效
+    local formId = nil
+    local PetFormConfig = require("config.PetFormConfig")
+    if PetFormConfig.ENABLED then
+        formId = pet.pendingFormId or pet.formId
+        if formId == "normal" then formId = nil end  -- "normal" 是默认值，省存档空间
+    end
+
     return {
         name = pet.name,
         level = pet.level,
@@ -597,6 +605,7 @@ function SaveSerializer.SerializePet()
         deathTimer = pet.alive and 0 or pet.deathTimer,
         skills = skillsData,
         appearance = appearanceData,
+        formId = formId,
     }
 end
 
@@ -627,10 +636,20 @@ function SaveSerializer.DeserializePet(data)
         pet.exp = recoveredExp
     end
 
-    pet.skills = {}
-    if data.skills then
+    -- PA-1: 防御性技能恢复策略
+    -- data.skills == nil → 存档字段缺失，不碰内存（保留构造器默认值）
+    -- data.skills == {} → 异常空表，记录警告，不清空（防止误清）
+    -- data.skills 有条目 → 正常恢复（清空后逐条填入，保留去重逻辑）
+    if data.skills == nil then
+        print("[SaveSystem] WARNING: Pet skills field missing in save data, keeping memory default")
+    elseif not next(data.skills) then
+        print("[SaveSystem] WARNING: Pet skills is empty table in save data (anomaly), keeping memory default")
+    else
+        pet.skills = {}
         local seenIds = {}
+        local rawCount = 0
         for indexStr, skillData in pairs(data.skills) do
+            rawCount = rawCount + 1
             local index = tonumber(indexStr)
             if index and skillData and skillData.id then
                 if seenIds[skillData.id] then
@@ -641,12 +660,31 @@ function SaveSerializer.DeserializePet(data)
                 end
             end
         end
+        -- 恢复后二次校验：如果过滤后变成空表，说明存档中所有条目格式异常
+        if not next(pet.skills) then
+            print("[SaveSystem] ERROR: All " .. rawCount .. " pet skill entries invalid after filtering! Keeping empty (PetSkillRepairService handles upstream).")
+        end
     end
 
     -- 外观数据恢复（v20+，nil 安全）
     if data.appearance and data.appearance.selectedId then
         pet.appearance = { selectedId = data.appearance.selectedId }
     end
+
+    -- 形态系统恢复（PB-6）：formId 必须在 RecalcStats 之前设置
+    local PetFormConfig = require("config.PetFormConfig")
+    if PetFormConfig.ENABLED and data.formId then
+        if PetFormConfig.IsValid(data.formId) then
+            pet.formId = data.formId
+        else
+            print("[SaveSystem] WARNING: Invalid formId in save data: " .. tostring(data.formId) .. ", using normal")
+            pet.formId = "normal"
+        end
+    else
+        pet.formId = "normal"
+    end
+    pet.pendingFormId = nil
+    pet.formSwitchCD = 0
 
     pet:RecalcStats()
 
