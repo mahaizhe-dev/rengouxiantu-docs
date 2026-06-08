@@ -676,6 +676,34 @@ TestRegistry.tests = {
     },
 
     ---------------------------------------------------------------------------
+    -- ALCHEMY: 炼丹系统存档往返（Save Roundtrip）
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "alchemy_save_roundtrip",
+        group         = "save",
+        path          = "scripts/tests/test_alchemy_save_roundtrip.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
+    -- ALCHEMY: 炼丹系统状态同步（State Sync）
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "alchemy_state_sync",
+        group         = "save",
+        path          = "scripts/tests/test_alchemy_state_sync.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
     -- MINGGE: 五行命格配置完整性
     ---------------------------------------------------------------------------
 

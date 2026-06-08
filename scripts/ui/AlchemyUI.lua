@@ -15,6 +15,7 @@ local SaveSession = require("systems.save.SaveSession")
 local T = require("config.UITheme")
 local GameConfig = require("config.GameConfig")
 local InventorySystem = require("systems.InventorySystem")
+local PillRecipes = require("config.PillRecipes")
 
 local AlchemyUI = {}
 
@@ -25,54 +26,34 @@ local portraitPanel_ = nil
 local contentPanel_ = nil  -- 动态内容区域
 
 local PORTRAIT_SIZE = 64
-local QI_PILL_COST = GameConfig.QI_PILL_COST or 10
+local QI_PILL_COST = PillRecipes.CONSUMABLES.qi_pill.cost
 
--- ===== Ch1 配方 =====
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 配方常量（从 PillRecipes 单一数据源派生，消除双配置）
+-- ═══════════════════════════════════════════════════════════════════════════
 
--- 虎骨丹配置
-local TIGER_PILL = {
-    cost = 10,        -- 灵韵消耗
-    hpBonus = 30,     -- 每颗永久增加的 maxHp
-    maxBuy = 5,       -- 限购数量
-    material = "tiger_bone",  -- 所需材料
-}
+-- Ch1: 虎骨丹
+local _tp = PillRecipes.PERMANENTS.tiger
+local TIGER_PILL = { cost = _tp.cost, hpBonus = _tp.bonusValue, maxBuy = _tp.maxCount, material = _tp.material }
 
--- ===== Ch2 配方 =====
+-- Ch2: 筑基丹
+local ZHUJI_PILL_COST = PillRecipes.CONSUMABLES.zhuji_pill.cost
 
--- 筑基丹配置
-local ZHUJI_PILL_COST = 100  -- 灵韵/颗
+-- Ch2: 灵蛇丹
+local _sp = PillRecipes.PERMANENTS.snake
+local SNAKE_PILL = { cost = _sp.cost, atkBonus = _sp.bonusValue, maxBuy = _sp.maxCount, material = _sp.material }
 
--- 灵蛇丹配置
-local SNAKE_PILL = {
-    cost = 100,       -- 灵韵消耗
-    atkBonus = 10,    -- 每颗永久增加的攻击力
-    maxBuy = 5,       -- 限购数量
-    material = "snake_fruit",  -- 所需材料
-}
+-- Ch2: 金刚丹
+local _dp = PillRecipes.PERMANENTS.diamond
+local DIAMOND_PILL = { cost = _dp.cost, defBonus = _dp.bonusValue, maxBuy = _dp.maxCount, material = _dp.material }
 
--- 金刚丹配置
-local DIAMOND_PILL = {
-    cost = 100,       -- 灵韵消耗
-    defBonus = 8,     -- 每颗永久增加的防御力
-    maxBuy = 5,       -- 限购数量
-    material = "diamond_wood",  -- 所需材料
-}
+-- Ch3: 金丹沙 / 元婴果
+local JINDAN_SAND_COST = PillRecipes.CONSUMABLES.jindan_sand.cost
+local YUANYING_FRUIT_COST = PillRecipes.CONSUMABLES.yuanying_fruit.cost
 
--- ===== Ch3 配方 =====
-
--- 金丹沙配置
-local JINDAN_SAND_COST = 100  -- 灵韵/颗
-
--- 元婴果配置
-local YUANYING_FRUIT_COST = 200  -- 灵韵/颗
-
--- 千锤百炼丹配置
-local TEMPERING_PILL = {
-    cost = 100,          -- 灵韵消耗
-    constitutionBonus = 1, -- 每颗+1根骨
-    maxEat = 50,         -- 最多食用50颗
-    material = "wind_eroded_grass",  -- 所需材料
-}
+-- Ch3: 千锤百炼丹
+local _tmp = PillRecipes.PERMANENTS.tempering
+local TEMPERING_PILL = { cost = _tmp.cost, constitutionBonus = _tmp.bonusValue, maxEat = _tmp.maxCount, material = _tmp.material }
 
 -- v13 C2S 丹药购买：待授权回调表 { [pillId] = { cb=function, t=os.clock() } }
 local pendingPillBuys_ = {}
@@ -110,49 +91,28 @@ local function SendBuyPill(pillId, callback)
     end
 end
 
--- ===== Ch4 配方 =====
+-- Ch4: 九转金丹
+local JIUZHUAN_JINDAN_COST = PillRecipes.CONSUMABLES.jiuzhuan_jindan.cost
 
--- 九转金丹配置
-local JIUZHUAN_JINDAN_COST = 500  -- 灵韵/颗
+-- Ch4: 龙血丹
+local _db = PillRecipes.PERMANENTS.dragon_blood
+local DRAGON_BLOOD_PILL = { cost = _db.cost, hpBonus = _db.bonusValue, maxBuy = _db.maxCount, material = _db.material }
 
--- 龙血丹配置
-local DRAGON_BLOOD_PILL = {
-    cost = 500,           -- 灵韵消耗
-    hpBonus = 30,         -- 每颗永久增加的 maxHp
-    maxBuy = 10,          -- 限购数量
-    material = "dragon_blood_herb",  -- 所需材料（龙血草）
-}
+-- Ch5: 渡劫丹
+local DUJIE_DAN_COST = PillRecipes.CONSUMABLES.dujie_dan.cost
 
--- ===== Ch5 配方 =====
+-- Ch5: 太虚剑丹
+local _si = PillRecipes.PERMANENTS.sword_intent
+local SWORD_INTENT_PILL = { cost = _si.cost, atkBonus = _si.bonusValue, maxBuy = _si.maxCount, material = _si.material }
 
--- 渡劫丹配置
-local DUJIE_DAN_COST = 1000  -- 灵韵/颗
+-- Ch5: 狱甲丹
+local _as = PillRecipes.PERMANENTS.abyss_seal
+local ABYSS_SEAL_PILL = { cost = _as.cost, defBonus = _as.bonusValue, maxBuy = _as.maxCount, material = _as.material }
 
--- 太虚剑丹（攻击丹）配置
-local SWORD_INTENT_PILL = {
-    cost = 1000,          -- 灵韵消耗
-    atkBonus = 10,        -- 每颗永久增加的攻击力
-    maxBuy = 10,          -- 限购数量
-    material = "sword_intent_crystal",  -- 所需材料（剑星草）
-}
-
--- 狱甲丹（防御丹）配置
-local ABYSS_SEAL_PILL = {
-    cost = 1000,          -- 灵韵消耗
-    defBonus = 8,         -- 每颗永久增加的防御力
-    maxBuy = 10,          -- 限购数量
-    material = "abyss_seal_shard",  -- 所需材料（地狱灵芝）
-}
-
--- ===== 令牌盒配方（通用） =====
-local TOKEN_BOX_LINGYUN_COST = 100   -- 灵韵消耗
-local TOKEN_BOX_TOKEN_COST   = 100   -- 令牌消耗
-local TOKEN_BOX_RECIPES = {
-    { tokenId = "wubao_token",   boxId = "wubao_token_box",   chapter = 2 },
-    { tokenId = "sha_hai_ling",  boxId = "sha_hai_ling_box",  chapter = 3 },
-    { tokenId = "taixu_token",   boxId = "taixu_token_box",   chapter = 4 },
-    { tokenId = "taixu_jianling",  boxId = "taixu_jianling_box",  chapter = 5 },
-}
+-- 令牌盒配方（通用）
+local TOKEN_BOX_LINGYUN_COST = PillRecipes.TOKEN_BOX_LINGYUN_COST
+local TOKEN_BOX_TOKEN_COST   = PillRecipes.TOKEN_BOX_TOKEN_COST
+local TOKEN_BOX_RECIPES      = PillRecipes.TOKEN_BOXES
 
 --- 获取当前练气丹数量
 local function GetPillCount()
