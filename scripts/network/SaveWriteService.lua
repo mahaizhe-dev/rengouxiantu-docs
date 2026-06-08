@@ -552,8 +552,10 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
     -- ════════════════════════════════════════════════════════════════
     -- V7: 宠物数据校验（tier/level/exp/skills/appearance 白名单边界）
     -- 策略：仅 clamp 越界数值 + 剔除非法技能条目，不删整个 pet 块
+    -- 隔离 pcall：宠物段抛异常不影响 V1~V6 已完成的校验
     -- ════════════════════════════════════════════════════════════════
     if coreData.pet and type(coreData.pet) == "table" then
+      local petValOk, petValErr = pcall(function()
         local pet = coreData.pet
 
         -- V7a: tier 范围 [0, 7]
@@ -686,9 +688,14 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
                 end
             end
         end
-        -- V7f-2: pendingFormId 同等校验
+        -- V7f-2: pendingFormId 校验（仅死亡态合法，活着时无条件清除）
         if pet.pendingFormId ~= nil then
-            if type(pet.pendingFormId) ~= "string"
+            if pet.alive ~= false then
+                -- 宠物活着不应有 pendingFormId（只有死亡期间才暂存待切形态）
+                Logger.warn("SaveGame", "[V7f] pet.pendingFormId present while alive, clearing: "
+                    .. tostring(pet.pendingFormId) .. " userId=" .. tostring(userId))
+                pet.pendingFormId = nil
+            elseif type(pet.pendingFormId) ~= "string"
                 or not PetFormConfig.IsValid(pet.pendingFormId)
                 or not PetFormConfig.IsFormEnabled(pet.pendingFormId) then
                 Logger.warn("SaveGame", "[V7f] pet.pendingFormId invalid/disabled: "
@@ -704,6 +711,11 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
                 end
             end
         end
+      end) -- pcall end
+      if not petValOk then
+          Logger.error("SaveGame", "[V7] pet validation THREW: " .. tostring(petValErr)
+              .. " | userId=" .. tostring(userId) .. " — pet data saved as-is")
+      end
     end
 end
 

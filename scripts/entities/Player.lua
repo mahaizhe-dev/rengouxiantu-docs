@@ -386,17 +386,17 @@ function Player:_RecalcStatsCache()
     -- 金丹被动：境界 order >= 7 时追加额外属性（在所有%放大之后，防止二次加成）
     local realmData = GameConfig.REALMS[self.realm]
     if realmData and realmData.order >= 7 and classData then
-        if classData.id == "monk" then
+        if self.classId == "monk" then
             -- 罗汉：每100根骨+40防御（阶梯制）
             local jindanDef = math.floor(self._cachedTotalConstitution / 100) * 40
             self._cachedTotalDef = self._cachedTotalDef + jindanDef
             self._jindanPassiveBonus = { type = "def", value = jindanDef }
-        elseif classData.id == "taixu" then
+        elseif self.classId == "taixu" then
             -- 太虚：每100悟性+50攻击（阶梯制）
             local jindanAtk = math.floor(self._cachedTotalWisdom / 100) * 50
             self._cachedTotalAtk = self._cachedTotalAtk + jindanAtk
             self._jindanPassiveBonus = { type = "atk", value = jindanAtk }
-        elseif classData.id == "zhenyue" then
+        elseif self.classId == "zhenyue" then
             -- 镇岳：每100体魄+300生命（阶梯制）
             local jindanHp = math.floor(self._cachedTotalPhysique / 100) * 300
             self._cachedTotalMaxHp = self._cachedTotalMaxHp + jindanHp

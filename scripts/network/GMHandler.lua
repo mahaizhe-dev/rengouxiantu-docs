@@ -33,7 +33,7 @@ function M.HandleGMCommand(eventType, eventData)
     if cmd == "bm_recycle" then
         print("[Server][GM] bm_recycle: 开始异步执行")
         local BlackMerchantHandler = require("network.BlackMerchantHandler")
-        BlackMerchantHandler.ExecuteRecycle(function(ok, summary)
+        BlackMerchantHandler.GMExecuteRecycle(function(ok, summary)
             local data = VariantMap()
             data["ok"] = Variant(ok)
             data["cmd"] = Variant("bm_recycle")

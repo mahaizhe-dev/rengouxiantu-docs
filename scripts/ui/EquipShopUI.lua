@@ -1,6 +1,9 @@
 -- ============================================================================
--- EquipShopUI.lua - 装备商人面板（出售 T1 白色装备）
+-- EquipShopUI.lua - 装备商人面板
+-- Style: 仙侠暗金 (UITheme 规范化版)
+-- 特点: 56px大图标 | 分层icon | 品质辉光边框 | 金色标题 | 统一令牌
 -- ============================================================================
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 
 local UI = require("urhox-libs/UI")
 local GameConfig = require("config.GameConfig")
@@ -11,130 +14,136 @@ local Utils = require("core.Utils")
 local T = require("config.UITheme")
 local EquipTooltip = require("ui.EquipTooltip")
 local StatNames = require("utils.StatNames")
-
 local PetSkillData = require("config.PetSkillData")
 local WineData = require("config.WineData")
+local PanelShell = require("ui.components.PanelShell")
+local ItemSlot = require("ui.components.ItemSlot")
+local PriceTag = require("ui.components.PriceTag")
+
+-- ============================================================================
+-- 模块状态
+-- ============================================================================
 
 local EquipShopUI = {}
 
-local panel_ = nil
+local shell_ = nil       -- PanelShell instance
 local visible_ = false
-local resultLabel_ = nil
 local portraitPanel_ = nil
-local listPanel_ = nil
 
+-- ============================================================================
+-- 常量
+-- ============================================================================
+
+local ROW_HEIGHT = 64                    -- 商品行高（容纳56px图标+padding）
 local PORTRAIT_SIZE = 64
 
--- T1 装备图标路径映射（slot → png）
-local SLOT_ICON = {
-    weapon    = "icon_weapon.png",
-    helmet    = "icon_helmet.png",
-    armor     = "icon_armor.png",
-    shoulder  = "icon_shoulder.png",
-    belt      = "icon_belt.png",
-    boots     = "icon_boots.png",
-    ring1     = "icon_ring.png",
-    ring2     = "icon_ring.png",
-    necklace  = "icon_necklace.png",
-    cape      = "icon_cape.png",
-    treasure  = "image/gourd_green.png",
-    exclusive = "icon_exclusive.png",
-}
-
--- 属性中文名（来自共享模块）
+-- 属性中文名
 local STAT_NAMES = StatNames.NAMES
 
 -- 商品列表
 local SHOP_ITEMS = {}
 
---- 构建 Ch1 商品（T1白装 + 初级攻防血书 + 酒葫芦）
+-- ============================================================================
+-- 图标路径工具
+-- ============================================================================
+
+--- 获取装备的分层图标（优先 icon_t{tier}_{slot}.png，fallback 基础图标）
+---@param slot string
+---@param tier number|nil
+---@return string
+local function GetEquipIcon(slot, tier)
+    local baseSlot = (slot == "ring1" or slot == "ring2") and "ring" or slot
+    if tier and tier >= 2 then
+        return "icon_t" .. tier .. "_" .. baseSlot .. ".png"
+    end
+    -- T1 或无 tier：用基础图标
+    local BASE_ICONS = {
+        weapon = "icon_weapon.png", helmet = "icon_helmet.png",
+        armor = "icon_armor.png", shoulder = "icon_shoulder.png",
+        belt = "icon_belt.png", boots = "icon_boots.png",
+        ring = "icon_ring.png", necklace = "icon_necklace.png",
+        cape = "icon_cape.png", treasure = "image/gourd_green.png",
+        exclusive = "icon_exclusive.png",
+    }
+    return BASE_ICONS[baseSlot] or "icon_weapon.png"
+end
+
+--- 获取技能书图标（book_atk_1 → book_atk.png）
+---@param bookId string
+---@return string
+local function GetBookIcon(bookId)
+    local base = bookId:gsub("_owner", ""):gsub("_%d+$", "")
+    return base .. ".png"
+end
+
+--- 品质对应颜色
+---@param quality string
+---@return table
+local function GetQualityColor(quality)
+    local key = "quality" .. quality:sub(1,1):upper() .. quality:sub(2)
+    return T.color[key] or T.color.textPrimary
+end
+
+-- ============================================================================
+-- 商品数据构建
+-- ============================================================================
+
 local function BuildCh1Items()
-    -- T1 白装 9 标准槽位
     for _, slot in ipairs(EquipmentData.STANDARD_SLOTS) do
         if slot == "ring2" then goto continue end
-
         local tierNames = EquipmentData.TIER_SLOT_NAMES[1]
         local name = tierNames and tierNames[slot] or (EquipmentData.SLOT_NAMES[slot] or slot)
-
         local mainStatType = EquipmentData.MAIN_STAT[slot]
         local baseStat = EquipmentData.BASE_MAIN_STAT[slot]
         local baseValue = baseStat and baseStat[mainStatType] or 0
-        local statName = STAT_NAMES[mainStatType] or mainStatType
-
         table.insert(SHOP_ITEMS, {
-            slot = slot,
-            name = name,
-            icon = SLOT_ICON[slot] or "icon_weapon.png",
-            mainStatType = mainStatType,
-            mainValue = baseValue,
-            statName = statName,
-            price = 50,
-            quality = "white",
-            tier = 1,
-            isSpecial = false,
+            slot = slot, name = name,
+            icon = GetEquipIcon(slot, 1),
+            mainStatType = mainStatType, mainValue = baseValue,
+            statName = STAT_NAMES[mainStatType] or mainStatType,
+            price = 50, quality = "white", tier = 1, isSpecial = false,
         })
-
         ::continue::
     end
 
-    -- Ch1 技能书（初级攻防血 ×3，各 1000G）
     local SKILL_BOOK_IDS = { "book_atk_1", "book_hp_1", "book_def_1" }
     for _, bookId in ipairs(SKILL_BOOK_IDS) do
         local bookData = PetSkillData.SKILL_BOOKS[bookId]
         if bookData then
             table.insert(SHOP_ITEMS, {
-                slot = nil,
-                name = bookData.name,
-                icon = bookData.icon,
-                mainStatType = nil,
-                mainValue = 0,
-                statName = "",
-                price = 1000,
-                quality = bookData.quality or "white",
-                isSpecial = false,
-                isSkillBook = true,
-                consumableId = bookId,
-                bookData = bookData,
+                slot = nil, name = bookData.name, icon = GetBookIcon(bookId),
+                mainStatType = nil, mainValue = 0, statName = "",
+                price = 1000, quality = bookData.quality or "white",
+                isSpecial = false, isSkillBook = true,
+                consumableId = bookId, bookData = bookData,
             })
         end
     end
 
-    -- 酒葫芦（特殊法宝）
     local gourd = EquipmentData.SpecialEquipment.jade_gourd
     if gourd then
         local mainStatType = "hpRegen"
         local mainValue = gourd.mainStat and gourd.mainStat[mainStatType] or 0.5
         table.insert(SHOP_ITEMS, {
-            slot = "treasure",
-            name = "酒葫芦",
-            icon = SLOT_ICON["treasure"],
-            mainStatType = mainStatType,
-            mainValue = mainValue,
+            slot = "treasure", name = "酒葫芦",
+            icon = "image/gourd_green.png",
+            mainStatType = mainStatType, mainValue = mainValue,
             statName = STAT_NAMES[mainStatType] or mainStatType,
-            price = 1000,
-            quality = "green",
-            isSpecial = true,
-            specialId = "jade_gourd",
+            price = 1000, quality = "green", isSpecial = true, specialId = "jade_gourd",
         })
     end
 end
 
---- 构建 Ch2 商品（T3绿装 + 初级闪避/恢复/暴击书）
 local function BuildCh2Items()
-    -- T3 绿装 9 标准槽位
     local qualityCfg = GameConfig.QUALITY["green"]
     local qualityMult = qualityCfg and qualityCfg.multiplier or 1.1
-
     for _, slot in ipairs(EquipmentData.STANDARD_SLOTS) do
         if slot == "ring2" then goto continue end
-
         local tierNames = EquipmentData.TIER_SLOT_NAMES[3]
         local name = tierNames and tierNames[slot] or (EquipmentData.SLOT_NAMES[slot] or slot)
-
         local mainStatType = EquipmentData.MAIN_STAT[slot]
         local baseStat = EquipmentData.BASE_MAIN_STAT[slot]
         local baseValue = baseStat and baseStat[mainStatType] or 0
-        -- 百分比属性走独立的平缓倍率表
         local tierMult
         if EquipmentData.PCT_MAIN_STATS[mainStatType] then
             tierMult = EquipmentData.PCT_TIER_MULTIPLIER[3] or 2.0
@@ -142,69 +151,42 @@ local function BuildCh2Items()
             tierMult = EquipmentData.TIER_MULTIPLIER[3] or 3.0
         end
         local rawValue = baseValue * tierMult * qualityMult
-        local scaledValue
-        if rawValue < 1 then
-            scaledValue = math.floor(rawValue * 100 + 0.5) / 100
-        else
-            scaledValue = math.floor(rawValue)
-        end
-        local statName = STAT_NAMES[mainStatType] or mainStatType
-
+        local scaledValue = rawValue < 1 and (math.floor(rawValue * 100 + 0.5) / 100) or math.floor(rawValue)
         table.insert(SHOP_ITEMS, {
-            slot = slot,
-            name = name,
-            icon = SLOT_ICON[slot] or "icon_weapon.png",
-            mainStatType = mainStatType,
-            mainValue = scaledValue,
-            statName = statName,
-            price = 1000,
-            quality = "green",
-            tier = 3,
-            isSpecial = false,
+            slot = slot, name = name,
+            icon = GetEquipIcon(slot, 3),
+            mainStatType = mainStatType, mainValue = scaledValue,
+            statName = STAT_NAMES[mainStatType] or mainStatType,
+            price = 1000, quality = "green", tier = 3, isSpecial = false,
         })
-
         ::continue::
     end
 
-    -- Ch2 技能书（闪避/恢复/暴击 ×3，各 1000G）
     local SKILL_BOOK_IDS = { "book_evade_1", "book_regen_1", "book_crit_1" }
     for _, bookId in ipairs(SKILL_BOOK_IDS) do
         local bookData = PetSkillData.SKILL_BOOKS[bookId]
         if bookData then
             table.insert(SHOP_ITEMS, {
-                slot = nil,
-                name = bookData.name,
-                icon = bookData.icon,
-                mainStatType = nil,
-                mainValue = 0,
-                statName = "",
-                price = 1000,
-                quality = bookData.quality or "white",
-                isSpecial = false,
-                isSkillBook = true,
-                consumableId = bookId,
-                bookData = bookData,
+                slot = nil, name = bookData.name, icon = GetBookIcon(bookId),
+                mainStatType = nil, mainValue = 0, statName = "",
+                price = 1000, quality = bookData.quality or "white",
+                isSpecial = false, isSkillBook = true,
+                consumableId = bookId, bookData = bookData,
             })
         end
     end
 end
 
---- 构建 Ch3 商品（T5绿装）
 local function BuildCh3Items()
-    -- T5 绿装 9 标准槽位
     local qualityCfg = GameConfig.QUALITY["green"]
     local qualityMult = qualityCfg and qualityCfg.multiplier or 1.1
-
     for _, slot in ipairs(EquipmentData.STANDARD_SLOTS) do
         if slot == "ring2" then goto continue end
-
         local tierNames = EquipmentData.TIER_SLOT_NAMES[5]
         local name = tierNames and tierNames[slot] or (EquipmentData.SLOT_NAMES[slot] or slot)
-
         local mainStatType = EquipmentData.MAIN_STAT[slot]
         local baseStat = EquipmentData.BASE_MAIN_STAT[slot]
         local baseValue = baseStat and baseStat[mainStatType] or 0
-        -- 百分比属性走独立的平缓倍率表
         local tierMult
         if EquipmentData.PCT_MAIN_STATS[mainStatType] then
             tierMult = EquipmentData.PCT_TIER_MULTIPLIER[5] or 3.0
@@ -212,31 +194,17 @@ local function BuildCh3Items()
             tierMult = EquipmentData.TIER_MULTIPLIER[5] or 6.0
         end
         local rawValue = baseValue * tierMult * qualityMult
-        local scaledValue
-        if rawValue < 1 then
-            scaledValue = math.floor(rawValue * 100 + 0.5) / 100
-        else
-            scaledValue = math.floor(rawValue)
-        end
-        local statName = STAT_NAMES[mainStatType] or mainStatType
-
+        local scaledValue = rawValue < 1 and (math.floor(rawValue * 100 + 0.5) / 100) or math.floor(rawValue)
         table.insert(SHOP_ITEMS, {
-            slot = slot,
-            name = name,
-            icon = SLOT_ICON[slot] or "icon_weapon.png",
-            mainStatType = mainStatType,
-            mainValue = scaledValue,
-            statName = statName,
-            price = 3000,
-            quality = "green",
-            tier = 5,
-            isSpecial = false,
+            slot = slot, name = name,
+            icon = GetEquipIcon(slot, 5),
+            mainStatType = mainStatType, mainValue = scaledValue,
+            statName = STAT_NAMES[mainStatType] or mainStatType,
+            price = 3000, quality = "green", tier = 5, isSpecial = false,
         })
-
         ::continue::
     end
 
-    -- Ch3 技能书（灵兽赐主 ×4，各 1000G）
     local SKILL_BOOK_IDS = {
         "book_wisdom_owner_1", "book_constitution_owner_1",
         "book_physique_owner_1", "book_fortune_owner_1",
@@ -245,57 +213,36 @@ local function BuildCh3Items()
         local bookData = PetSkillData.SKILL_BOOKS[bookId]
         if bookData then
             table.insert(SHOP_ITEMS, {
-                slot = nil,
-                name = bookData.name,
-                icon = bookData.icon,
-                mainStatType = nil,
-                mainValue = 0,
-                statName = "",
-                price = 1000,
-                quality = bookData.quality or "white",
-                isSpecial = false,
-                isSkillBook = true,
-                consumableId = bookId,
-                bookData = bookData,
+                slot = nil, name = bookData.name, icon = GetBookIcon(bookId),
+                mainStatType = nil, mainValue = 0, statName = "",
+                price = 1000, quality = bookData.quality or "white",
+                isSpecial = false, isSkillBook = true,
+                consumableId = bookId, bookData = bookData,
             })
         end
     end
 
-    -- 漠商醇（美酒，100万金币，一次性购买）
     local moShang = WineData.BY_ID["mo_shang"]
     if moShang then
         local WineSystem = require("systems.WineSystem")
         if not WineSystem.IsObtained("mo_shang") then
             table.insert(SHOP_ITEMS, {
-                slot = nil,
-                name = moShang.name,
-                icon = "🍶",
-                mainStatType = nil,
-                mainValue = 0,
-                statName = "",
-                price = moShang.obtain.price or 1000000,
-                quality = "purple",
-                isSpecial = false,
-                isWine = true,
-                wineId = "mo_shang",
-                wineDef = moShang,
+                slot = nil, name = moShang.name, icon = "🍶",
+                mainStatType = nil, mainValue = 0, statName = "",
+                price = moShang.obtain.price or 1000000, quality = "purple",
+                isSpecial = false, isWine = true, wineId = "mo_shang", wineDef = moShang,
             })
         end
     end
 end
 
---- 构建 Ch4 商品（T7绿装 + 中级攻防血书）
 local function BuildCh4Items()
-    -- T7 绿装 9 标准槽位
     local qualityCfg = GameConfig.QUALITY["green"]
     local qualityMult = qualityCfg and qualityCfg.multiplier or 1.1
-
     for _, slot in ipairs(EquipmentData.STANDARD_SLOTS) do
         if slot == "ring2" then goto continue end
-
         local tierNames = EquipmentData.TIER_SLOT_NAMES[7]
         local name = tierNames and tierNames[slot] or (EquipmentData.SLOT_NAMES[slot] or slot)
-
         local mainStatType = EquipmentData.MAIN_STAT[slot]
         local baseStat = EquipmentData.BASE_MAIN_STAT[slot]
         local baseValue = baseStat and baseStat[mainStatType] or 0
@@ -306,127 +253,64 @@ local function BuildCh4Items()
             tierMult = EquipmentData.TIER_MULTIPLIER[7] or 10.5
         end
         local rawValue = baseValue * tierMult * qualityMult
-        local scaledValue
-        if rawValue < 1 then
-            scaledValue = math.floor(rawValue * 100 + 0.5) / 100
-        else
-            scaledValue = math.floor(rawValue)
-        end
-        local statName = STAT_NAMES[mainStatType] or mainStatType
-
+        local scaledValue = rawValue < 1 and (math.floor(rawValue * 100 + 0.5) / 100) or math.floor(rawValue)
         table.insert(SHOP_ITEMS, {
-            slot = slot,
-            name = name,
-            icon = SLOT_ICON[slot] or "icon_weapon.png",
-            mainStatType = mainStatType,
-            mainValue = scaledValue,
-            statName = statName,
-            price = 10000,
-            quality = "green",
-            tier = 7,
-            isSpecial = false,
+            slot = slot, name = name,
+            icon = GetEquipIcon(slot, 7),
+            mainStatType = mainStatType, mainValue = scaledValue,
+            statName = STAT_NAMES[mainStatType] or mainStatType,
+            price = 10000, quality = "green", tier = 7, isSpecial = false,
         })
-
         ::continue::
     end
 
-    -- Ch4 技能书（第三章掉落的初级技能书 ×7 + 流沙Boss初级书 ×3，各 50 灵韵）
     local SKILL_BOOK_IDS = {
         "book_atkSpd_1", "book_hpPerLv_1", "book_critDmg_1",
         "book_dmgReduce_1", "book_defPerLv_1", "book_doubleHit_1",
-        "book_lifeSteal_1",
-        "book_atkPerLv_1", "book_bonusDmg_1", "book_ignoreDef_1",
+        "book_lifeSteal_1", "book_atkPerLv_1", "book_bonusDmg_1", "book_ignoreDef_1",
     }
     for _, bookId in ipairs(SKILL_BOOK_IDS) do
         local bookData = PetSkillData.SKILL_BOOKS[bookId]
         if bookData then
             table.insert(SHOP_ITEMS, {
-                slot = nil,
-                name = bookData.name,
-                icon = bookData.icon,
-                mainStatType = nil,
-                mainValue = 0,
-                statName = "",
-                price = 0,
-                priceLingYun = 50,
-                quality = bookData.quality or "purple",
-                isSpecial = false,
-                isSkillBook = true,
-                consumableId = bookId,
-                bookData = bookData,
+                slot = nil, name = bookData.name, icon = GetBookIcon(bookId),
+                mainStatType = nil, mainValue = 0, statName = "",
+                price = 0, priceLingYun = 50, quality = bookData.quality or "purple",
+                isSpecial = false, isSkillBook = true,
+                consumableId = bookId, bookData = bookData,
             })
         end
     end
 end
 
---- 构建 Ch5 商品（仅宠物书，汇总1-4章所有技能书）
 local function BuildCh5Items()
-    -- Ch1 技能书（初级攻防血 ×3，各 1000G）
     local CH1_BOOKS = { "book_atk_1", "book_hp_1", "book_def_1" }
+    local CH2_BOOKS = { "book_evade_1", "book_regen_1", "book_crit_1" }
+    local CH3_BOOKS = { "book_wisdom_owner_1", "book_constitution_owner_1", "book_physique_owner_1", "book_fortune_owner_1" }
+    local CH4_BOOKS = { "book_atkSpd_1", "book_hpPerLv_1", "book_critDmg_1", "book_dmgReduce_1", "book_defPerLv_1", "book_doubleHit_1", "book_lifeSteal_1", "book_atkPerLv_1", "book_bonusDmg_1", "book_ignoreDef_1" }
+
     for _, bookId in ipairs(CH1_BOOKS) do
         local bookData = PetSkillData.SKILL_BOOKS[bookId]
         if bookData then
-            table.insert(SHOP_ITEMS, {
-                slot = nil, name = bookData.name, icon = bookData.icon,
-                mainStatType = nil, mainValue = 0, statName = "",
-                price = 1000, quality = bookData.quality or "white",
-                isSpecial = false, isSkillBook = true,
-                consumableId = bookId, bookData = bookData,
-            })
+            table.insert(SHOP_ITEMS, { slot = nil, name = bookData.name, icon = GetBookIcon(bookId), mainStatType = nil, mainValue = 0, statName = "", price = 1000, quality = bookData.quality or "white", isSpecial = false, isSkillBook = true, consumableId = bookId, bookData = bookData })
         end
     end
-
-    -- Ch2 技能书（闪避/恢复/暴击 ×3，各 1000G）
-    local CH2_BOOKS = { "book_evade_1", "book_regen_1", "book_crit_1" }
     for _, bookId in ipairs(CH2_BOOKS) do
         local bookData = PetSkillData.SKILL_BOOKS[bookId]
         if bookData then
-            table.insert(SHOP_ITEMS, {
-                slot = nil, name = bookData.name, icon = bookData.icon,
-                mainStatType = nil, mainValue = 0, statName = "",
-                price = 1000, quality = bookData.quality or "white",
-                isSpecial = false, isSkillBook = true,
-                consumableId = bookId, bookData = bookData,
-            })
+            table.insert(SHOP_ITEMS, { slot = nil, name = bookData.name, icon = GetBookIcon(bookId), mainStatType = nil, mainValue = 0, statName = "", price = 1000, quality = bookData.quality or "white", isSpecial = false, isSkillBook = true, consumableId = bookId, bookData = bookData })
         end
     end
-
-    -- Ch3 技能书（灵兽赐主 ×4，各 1000G）
-    local CH3_BOOKS = {
-        "book_wisdom_owner_1", "book_constitution_owner_1",
-        "book_physique_owner_1", "book_fortune_owner_1",
-    }
     for _, bookId in ipairs(CH3_BOOKS) do
         local bookData = PetSkillData.SKILL_BOOKS[bookId]
         if bookData then
-            table.insert(SHOP_ITEMS, {
-                slot = nil, name = bookData.name, icon = bookData.icon,
-                mainStatType = nil, mainValue = 0, statName = "",
-                price = 1000, quality = bookData.quality or "white",
-                isSpecial = false, isSkillBook = true,
-                consumableId = bookId, bookData = bookData,
-            })
+            table.insert(SHOP_ITEMS, { slot = nil, name = bookData.name, icon = GetBookIcon(bookId), mainStatType = nil, mainValue = 0, statName = "", price = 1000, quality = bookData.quality or "white", isSpecial = false, isSkillBook = true, consumableId = bookId, bookData = bookData })
         end
     end
-
-    -- Ch4 技能书（初级 ×10，各 50 灵韵）
-    local CH4_BOOKS = {
-        "book_atkSpd_1", "book_hpPerLv_1", "book_critDmg_1",
-        "book_dmgReduce_1", "book_defPerLv_1", "book_doubleHit_1",
-        "book_lifeSteal_1",
-        "book_atkPerLv_1", "book_bonusDmg_1", "book_ignoreDef_1",
-    }
     for _, bookId in ipairs(CH4_BOOKS) do
         local bookData = PetSkillData.SKILL_BOOKS[bookId]
         if bookData then
-            table.insert(SHOP_ITEMS, {
-                slot = nil, name = bookData.name, icon = bookData.icon,
-                mainStatType = nil, mainValue = 0, statName = "",
-                price = 0, priceLingYun = 50,
-                quality = bookData.quality or "purple",
-                isSpecial = false, isSkillBook = true,
-                consumableId = bookId, bookData = bookData,
-            })
+            table.insert(SHOP_ITEMS, { slot = nil, name = bookData.name, icon = GetBookIcon(bookId), mainStatType = nil, mainValue = 0, statName = "", price = 0, priceLingYun = 50, quality = bookData.quality or "purple", isSpecial = false, isSkillBook = true, consumableId = bookId, bookData = bookData })
         end
     end
 end
@@ -447,11 +331,11 @@ local function BuildShopItems()
     end
 end
 
---- 生成一件装备数据
----@param shopItem table
----@return table|nil
+-- ============================================================================
+-- 装备生成逻辑
+-- ============================================================================
+
 local function CreateShopEquip(shopItem)
-    -- 特殊装备走模板
     if shopItem.isSpecial and shopItem.specialId then
         local LootSystem = require("systems.LootSystem")
         return LootSystem.CreateSpecialEquipment(shopItem.specialId)
@@ -460,11 +344,9 @@ local function CreateShopEquip(shopItem)
     local slot = shopItem.slot
     local tier = shopItem.tier or 1
     local quality = shopItem.quality or "white"
-    -- 售价公式: floor(baseValue * tierMult * qualityMult)
     local qualityCfg = GameConfig.QUALITY[quality]
     local sellPrice = math.floor(10 * (EquipmentData.TIER_MULTIPLIER[tier] or 1) * (qualityCfg and qualityCfg.statMult or 1))
 
-    -- 根据品质生成副属性（绿色1条，蓝色2条，紫色及以上3条）
     local subStats = {}
     local subStatCount = qualityCfg and qualityCfg.subStatCount or 0
     if subStatCount > 0 then
@@ -486,80 +368,81 @@ local function CreateShopEquip(shopItem)
     }
 end
 
---- 创建商品行
----@param shopItem table
----@return table
-local function CreateShopRow(shopItem)
-    -- 属性描述
-    local statDesc
+-- ============================================================================
+-- UI 组件工厂
+-- ============================================================================
+
+--- 格式化属性描述
+local function FormatStatDesc(shopItem)
     if shopItem.isWine then
-        statDesc = shopItem.wineDef.brief or "美酒"
+        return shopItem.wineDef.brief or "美酒"
     elseif shopItem.isSkillBook then
-        -- 技能书：显示技能效果
         local bd = shopItem.bookData
-        local stat, value, isPercent, _, isFlat, isOwner = PetSkillData.GetSkillBonus(bd.skillId, bd.tier)
+        local stat, value, isPercent, _, _, isOwner = PetSkillData.GetSkillBonus(bd.skillId, bd.tier)
         local statName = PetSkillData.STAT_NAMES[stat] or stat
         local valueFmt = isPercent and (value .. "%") or tostring(value)
         local target = isOwner and "主人" or "宠物"
-        statDesc = target .. " " .. statName .. "+" .. valueFmt
+        return target .. " " .. statName .. "+" .. valueFmt
     elseif shopItem.mainStatType == "hpRegen" then
-        statDesc = shopItem.statName .. "+" .. string.format("%.1f/s", shopItem.mainValue)
+        return shopItem.statName .. "+" .. string.format("%.1f/s", shopItem.mainValue)
     elseif shopItem.mainStatType == "critRate" then
-        statDesc = shopItem.statName .. "+" .. string.format("%.1f", shopItem.mainValue * 100) .. "%"
+        return shopItem.statName .. "+" .. string.format("%.1f", shopItem.mainValue * 100) .. "%"
     else
-        statDesc = shopItem.statName .. "+" .. math.floor(shopItem.mainValue)
+        return shopItem.statName .. "+" .. math.floor(shopItem.mainValue)
     end
+end
 
-    local qCfg = GameConfig.QUALITY[shopItem.quality or "white"]
-    local nameColor = qCfg and qCfg.color or {200, 200, 200, 255}
+--- 创建商品图标 slot（委托 ItemSlot 组件）
+local function CreateItemIcon(shopItem)
+    local ic = shopItem.icon
+    local isImg = ic and (ic:find("%.") or ic:find("/"))
+    return ItemSlot.Create({
+        icon = isImg and ic or nil,
+        emoji = (not isImg) and (ic or "?") or nil,
+        quality = shopItem.quality or "white",
+    })
+end
 
-    local ICON_SIZE = 32
+--- 创建价格标签（委托 PriceTag 组件）
+local function CreatePriceTag(shopItem)
+    local isLY = shopItem.priceLingYun and shopItem.priceLingYun > 0
+    if isLY then
+        return PriceTag.LingYin(shopItem.priceLingYun)
+    else
+        return PriceTag.Gold(shopItem.price)
+    end
+end
+
+--- 创建商品行
+local function CreateShopRow(shopItem)
+    local nameColor = GetQualityColor(shopItem.quality)
+    local statDesc = FormatStatDesc(shopItem)
 
     return UI.Button {
         width = "100%",
+        minHeight = ROW_HEIGHT,
         flexDirection = "row",
         alignItems = "center",
-        gap = T.spacing.sm,
-        paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm,
-        paddingTop = 6, paddingBottom = 6,
-        backgroundColor = {35, 40, 55, 220},
-        borderRadius = T.radius.sm,
+        gap = T.spacing.md,
+        paddingLeft = T.spacing.sm,
+        paddingRight = T.spacing.md,
+        paddingTop = T.spacing.xs,
+        paddingBottom = T.spacing.xs,
+        -- 仙侠风: 圆角 + surface底 + 淡边框
+        borderRadius = T.radius.md,
         borderWidth = 1,
-        borderColor = {50, 55, 70, 120},
-        onClick = function(self)
+        borderColor = T.color.borderLight,
+        backgroundColor = T.color.surface,
+        onClick = function()
             EquipShopUI.ShowItemTip(shopItem)
         end,
         children = {
-            -- 装备图标
-            (function()
-                local ic = shopItem.icon
-                local isImg = ic and (ic:find("%.") or ic:find("/"))
-                if isImg then
-                    return UI.Panel {
-                        width = ICON_SIZE, height = ICON_SIZE,
-                        borderRadius = T.radius.xs,
-                        backgroundColor = {25, 28, 40, 200},
-                        backgroundImage = ic,
-                        backgroundFit = "contain",
-                    }
-                else
-                    return UI.Panel {
-                        width = ICON_SIZE, height = ICON_SIZE,
-                        borderRadius = T.radius.xs,
-                        backgroundColor = {25, 28, 40, 200},
-                        justifyContent = "center",
-                        alignItems = "center",
-                        children = {
-                            UI.Label {
-                                text = ic or "?",
-                                fontSize = 18,
-                            },
-                        },
-                    }
-                end
-            end)(),
+            -- 56px 图标（品质辉光）
+            CreateItemIcon(shopItem),
+            -- 名称 + 属性 列
             UI.Panel {
                 flexGrow = 1, flexShrink = 1, flexBasis = 0,
+                gap = 2,
                 children = {
                     UI.Label {
                         text = shopItem.name,
@@ -570,212 +453,113 @@ local function CreateShopRow(shopItem)
                     UI.Label {
                         text = statDesc,
                         fontSize = T.fontSize.xs,
-                        fontColor = {180, 180, 180, 180},
+                        fontColor = T.color.textSecondary,
                     },
                 },
             },
-            (function()
-                local isLY = shopItem.priceLingYun and shopItem.priceLingYun > 0
-                if isLY then
-                    return UI.Label {
-                        text = "💎" .. shopItem.priceLingYun,
-                        fontSize = T.fontSize.sm,
-                        fontColor = {180, 140, 255, 255},
-                    }
-                else
-                    return UI.Label {
-                        text = "💰" .. shopItem.price,
-                        fontSize = T.fontSize.sm,
-                        fontColor = {255, 215, 100, 255},
-                    }
-                end
-            end)(),
+            -- 价格
+            CreatePriceTag(shopItem),
         },
     }
 end
 
+-- ============================================================================
+-- 面板构建
+-- ============================================================================
+
 function EquipShopUI.Create(parentOverlay)
     BuildShopItems()
 
-    resultLabel_ = UI.Label {
-        text = "",
-        fontSize = T.fontSize.sm,
-        fontColor = {100, 255, 150, 255},
-        textAlign = "center",
-    }
-
+    -- NPC 头像（金色边框）
     portraitPanel_ = UI.Panel {
         width = PORTRAIT_SIZE,
         height = PORTRAIT_SIZE,
         borderRadius = T.radius.md,
-        backgroundColor = {30, 35, 50, 200},
+        backgroundColor = T.color.headerBg,
         overflow = "hidden",
     }
 
-    listPanel_ = UI.Panel {
-        width = "100%",
-        gap = T.spacing.xs,
-        paddingRight = T.spacing.xs,
-    }
+    -- 使用 PanelShell 共享组件构建面板骨架
+    shell_ = PanelShell.Create({
+        title = "装备商人",
+        subtitle = "点击商品查看详情",
+        portrait = portraitPanel_,
+        onClose = function() EquipShopUI.Hide() end,
+        parent = parentOverlay,
+    })
 
-    panel_ = UI.Panel {
-        id = "equipShopPanel",
-        position = "absolute",
-        top = 0, left = 0, right = 0, bottom = 0,
-        backgroundColor = T.color.overlay,
-        justifyContent = "center",
-        alignItems = "center",
-        paddingBottom = T.spacing.xl,
-        visible = false,
-        zIndex = 100,
-        children = {
-            UI.Panel {
-                width = "94%",
-                maxWidth = T.size.npcPanelMaxW,
-                maxHeight = "75%",
-                backgroundColor = T.color.panelBg,
-                borderRadius = T.radius.lg,
-                borderWidth = 1,
-                borderColor = {180, 160, 100, 180},
-                padding = T.spacing.md,
-                gap = T.spacing.sm,
-                children = {
-                    -- 顶部
-                    UI.Panel {
-                        width = "100%",
-                        flexDirection = "row",
-                        alignItems = "center",
-                        gap = T.spacing.md,
-                        children = {
-                            portraitPanel_,
-                            UI.Panel {
-                                flexGrow = 1, flexShrink = 1,
-                                flexDirection = "row",
-                                justifyContent = "space-between",
-                                alignItems = "center",
-                                children = {
-                                    UI.Label {
-                                        text = "🛒 装备商人",
-                                        fontSize = T.fontSize.lg,
-                                        fontWeight = "bold",
-                                        fontColor = T.color.titleText,
-                                    },
-                                    UI.Button {
-                                        text = "✕",
-                                        width = T.size.closeButton, height = T.size.closeButton,
-                                        fontSize = T.fontSize.md,
-                                        borderRadius = T.size.closeButton / 2,
-                                        backgroundColor = {60, 60, 70, 200},
-                                        onClick = function() EquipShopUI.Hide() end,
-                                    },
-                                },
-                            },
-                        },
-                    },
-                    -- 分隔线
-                    UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60} },
-                    UI.Label {
-                        text = "点击查看装备详情，可直接购买放入背包。",
-                        fontSize = T.fontSize.xs,
-                        fontColor = {180, 180, 190, 200},
-                    },
-                    -- 商品列表（可滚动）
-                    UI.ScrollView {
-                        flexGrow = 1, flexShrink = 1, flexBasis = 0,
-                        children = { listPanel_ },
-                    },
-                    -- 结果
-                    resultLabel_,
-                },
-            },
-        },
-    }
-
-    parentOverlay:AddChild(panel_)
-
-    -- 初始化 EquipTooltip 容器（如果还未初始化）
     if not EquipTooltip.IsInited() then
         EquipTooltip.Init(parentOverlay)
     end
 end
 
+-- ============================================================================
+-- 列表刷新
+-- ============================================================================
+
 function EquipShopUI.RefreshList()
-    if not listPanel_ then return end
-    listPanel_:ClearChildren()
+    if not shell_ then return end
+    shell_:ClearContent()
     for _, shopItem in ipairs(SHOP_ITEMS) do
-        listPanel_:AddChild(CreateShopRow(shopItem))
+        shell_:AddContent(CreateShopRow(shopItem))
     end
 end
 
---- 显示商品详情 tooltip（带购买按钮）
+-- ============================================================================
+-- 交互逻辑
+-- ============================================================================
+
 function EquipShopUI.ShowItemTip(shopItem)
-    -- 技能书/美酒：直接走购买流程（不走装备预览）
     if shopItem.isSkillBook or shopItem.isWine then
         EquipShopUI.DoBuy(shopItem)
         return
     end
-
-    -- 构造预览装备数据
     local previewItem = CreateShopEquip(shopItem)
     if not previewItem then return end
-
     EquipTooltip.Show(previewItem, "shop", shopItem, function()
         EquipShopUI.RefreshList()
     end)
 end
 
---- 执行购买（由 EquipTooltip 的购买按钮调用）
 function EquipShopUI.DoBuy(shopItem)
     local player = GameState.player
     if not player then return end
 
-    -- 判断货币类型：灵韵 or 金币
     local useLingYun = shopItem.priceLingYun and shopItem.priceLingYun > 0
     if useLingYun then
         if (player.lingYun or 0) < shopItem.priceLingYun then
-            resultLabel_:SetText("灵韵不足！需要 " .. shopItem.priceLingYun .. " 灵韵")
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+            shell_:SetResult("灵韵不足！需要 " .. shopItem.priceLingYun .. " 灵韵", T.color.error)
             return false
         end
     else
         if player.gold < shopItem.price then
-            resultLabel_:SetText("金币不足！需要 " .. shopItem.price .. " 金币")
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+            shell_:SetResult("金币不足！需要 " .. shopItem.price .. " 金币", T.color.error)
             return false
         end
     end
 
-    -- 美酒走一次性获得流程
+    -- 美酒
     if shopItem.isWine then
         local WineSystem = require("systems.WineSystem")
         if WineSystem.IsObtained(shopItem.wineId) then
-            resultLabel_:SetText("已拥有 " .. shopItem.name .. "，无需重复购买")
-            resultLabel_:SetStyle({ fontColor = {255, 200, 100, 255} })
+            shell_:SetResult("已拥有「" .. shopItem.name .. "」", T.color.warning)
             return false
         end
-
-        -- 扣金币
         player.gold = player.gold - shopItem.price
         WineSystem.ObtainWine(shopItem.wineId)
-
-        resultLabel_:SetText("购买成功！获得美酒「" .. shopItem.name .. "」")
-        resultLabel_:SetStyle({ fontColor = {100, 255, 150, 255} })
-
-        -- 刷新列表移除已购商品
+        shell_:SetResult("获得美酒「" .. shopItem.name .. "」", T.color.success)
         BuildShopItems()
         EquipShopUI.RefreshList()
         return true
     end
 
-    -- 技能书走消耗品流程
+    -- 技能书
     if shopItem.isSkillBook then
-        -- 检查背包空间（消耗品可堆叠，但 AddConsumable 内部会处理）
         local free = InventorySystem.GetFreeSlots()
-        -- 先检查是否已有同类消耗品可堆叠
         local mgr = InventorySystem.GetManager()
         local canStack = false
         if mgr then
-            for i = 1, require("config.GameConfig").BACKPACK_SIZE do
+            for i = 1, GameConfig.BACKPACK_SIZE do
                 local existing = mgr:GetInventoryItem(i)
                 if existing and existing.consumableId == shopItem.consumableId then
                     canStack = true
@@ -784,68 +568,58 @@ function EquipShopUI.DoBuy(shopItem)
             end
         end
         if not canStack and free <= 0 then
-            resultLabel_:SetText("背包已满！请先清理背包")
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+            shell_:SetResult("背包已满！", T.color.error)
             return false
         end
-
-        -- 扣除对应货币
         if useLingYun then
             player.lingYun = (player.lingYun or 0) - shopItem.priceLingYun
         else
             player.gold = player.gold - shopItem.price
         end
         InventorySystem.AddConsumable(shopItem.consumableId, 1)
-
-        resultLabel_:SetText("购买成功！获得 " .. shopItem.name)
-        resultLabel_:SetStyle({ fontColor = {100, 255, 150, 255} })
+        shell_:SetResult("获得 " .. shopItem.name, T.color.success)
         return true
     end
 
-    -- 装备走原有流程
+    -- 装备
     local free = InventorySystem.GetFreeSlots()
     if free <= 0 then
-        resultLabel_:SetText("背包已满！请先清理背包")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        shell_:SetResult("背包已满！", T.color.error)
         return false
     end
-
-    -- 扣金币
     player.gold = player.gold - shopItem.price
-
-    -- 生成装备并加入背包
     local item = CreateShopEquip(shopItem)
     if not item then
-        resultLabel_:SetText("生成装备失败")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        shell_:SetResult("生成装备失败", T.color.error)
         return false
     end
     InventorySystem.AddItem(item)
-
-    resultLabel_:SetText("购买成功！获得 " .. item.name)
-    resultLabel_:SetStyle({ fontColor = {100, 255, 150, 255} })
+    shell_:SetResult("获得 " .. item.name, T.color.success)
     return true
 end
 
+-- ============================================================================
+-- 显示 / 隐藏
+-- ============================================================================
+
 function EquipShopUI.Show(npc)
-    if panel_ and not visible_ then
+    if shell_ and not visible_ then
         visible_ = true
         GameState.uiOpen = "equipShop"
-        resultLabel_:SetText("")
+        shell_:SetResult("")
         if npc and npc.portrait then
-            portraitPanel_.props.backgroundImage = npc.portrait
+            portraitPanel_:SetStyle({ backgroundImage = npc.portrait })
         end
-        -- 每次打开时按当前章节重建商品列表
         BuildShopItems()
         EquipShopUI.RefreshList()
-        panel_:Show()
+        shell_:Show()
     end
 end
 
 function EquipShopUI.Hide()
-    if panel_ and visible_ then
+    if shell_ and visible_ then
         visible_ = false
-        panel_:Hide()
+        shell_:Hide()
         if GameState.uiOpen == "equipShop" then
             GameState.uiOpen = nil
         end
@@ -856,12 +630,9 @@ function EquipShopUI.IsVisible()
     return visible_
 end
 
---- 销毁面板（切换角色时调用，重置 UI 引用）
 function EquipShopUI.Destroy()
-    panel_ = nil
-    resultLabel_ = nil
+    shell_ = nil
     portraitPanel_ = nil
-    listPanel_ = nil
     visible_ = false
 end
 

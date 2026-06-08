@@ -406,6 +406,7 @@ function M.RenderBuffAuras(nvg, l, camera)
         local sx = (player.x - camera.x) * tileSize + l.w / 2 + l.x
         ---@diagnostic disable-next-line: assign-type-mismatch
         local sy = (player.y - camera.y) * tileSize + l.h / 2 + l.y
+        ---@diagnostic disable-next-line: assign-type-mismatch
         local time = GameState.gameTime or 0
         local burnRadius = tileSize * 3.0  -- 半径3格
         local breathPhase = math.sin(time * 2.5) * 0.5 + 0.5  -- 0~1 呼吸
@@ -484,6 +485,7 @@ function M.RenderBuffAuras(nvg, l, camera)
     local sx = (player.x - camera.x) * tileSize + l.w / 2 + l.x
     ---@diagnostic disable-next-line: assign-type-mismatch
     local sy = (player.y - camera.y) * tileSize + l.h / 2 + l.y
+    ---@diagnostic disable-next-line: assign-type-mismatch
     local time = GameState.gameTime or 0
 
     local c = buff.color or {60, 180, 255, 255}

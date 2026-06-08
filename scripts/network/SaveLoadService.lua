@@ -186,11 +186,9 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
                     end
                 end
 
-                -- ── [一次性修复] 宠物技能丢失补偿（已关闭） ──
-                local repairPlan = { shouldRepair = false, shouldMark = false }
-                if PetSkillRepair.ENABLED then
+                -- ── [一次性修复] 宠物技能丢失补偿 ──
                 local petRepairFlag = scores[petRepairFlagKey]
-                repairPlan = PetSkillRepair.Evaluate(saveData, petRepairFlag, slot)
+                local repairPlan = PetSkillRepair.Evaluate(saveData, petRepairFlag, slot)
 
                 if repairPlan.shouldRepair then
                     -- 执行修复：写入固定技能组合
@@ -220,11 +218,10 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
                         })
                 end
                 -- reason 日志（首次触发时记录）
-                if PetSkillRepair.ENABLED and not petRepairFlag then
+                if not petRepairFlag then
                     print("[PetSkillRepair V1] userId=" .. tostring(userId)
                         .. " slot=" .. slot .. " -> " .. repairPlan.reason)
                 end
-                end -- if PetSkillRepair.ENABLED
 
                 -- ── [回包] 发送存档数据（v11 单 key 格式） ──
                 local resultData = VariantMap()

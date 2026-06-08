@@ -153,8 +153,8 @@ function XianshiRankUI.RenderList(rankList)
         end
     end
 
-    -- 过滤黑名单玩家
-    entries = Blacklist.FilterRankList(entries)
+    -- 过滤黑名单玩家（仙石榜保留监控名单）
+    entries = Blacklist.FilterRankList(entries, nil, Blacklist.xianshiKeep)
 
     -- 按仙石数量降序
     table.sort(entries, function(a, b) return a.xianshi > b.xianshi end)

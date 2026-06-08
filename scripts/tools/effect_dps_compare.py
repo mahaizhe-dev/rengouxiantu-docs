@@ -291,9 +291,9 @@ def fabao_skill_dps_haoqiyin(s, base_dps):
 
 def fabao_skill_dps_qingyunta(s):
     """青云塔技能: qingyun_suppress (multi_zone_heavy)
-    (ATK+HH) × (1+conHeavyDmg) × 1.0(mult) → ApplyCrit → 真伤TakeDamage
+    (DEF+HH) × (1+conHeavyDmg) × 1.0(mult) → ApplyCrit → 真伤TakeDamage
     CD30s, 有连击"""
-    base_dmg = (s["atk"] + s["heavy_hit"]) * (1 + s["con_heavy_dmg"])
+    base_dmg = (s["def"] + s["heavy_hit"]) * (1 + s["con_heavy_dmg"])
     dmg_crit = base_dmg * s["crit_mult"]
     total_with_combo = dmg_crit * (1 + s["combo"])
     dps = total_with_combo / 30.0
@@ -344,8 +344,8 @@ def weapon_lifesteal_burst(s, base_dps):
     return dps_boss, dps_farm, heal_per_kill
 
 def weapon_heavy_strike(s):
-    """裂地: 每20攻必重击, (ATK+HH)×(1+conHeavyDmg) → ApplyCrit, 真伤"""
-    heavy_dmg = (s["atk"] + s["heavy_hit"]) * (1 + s["con_heavy_dmg"])
+    """裂地: 每20攻必重击, (DEF+HH)×(1+conHeavyDmg) → ApplyCrit, 真伤"""
+    heavy_dmg = (s["def"] + s["heavy_hit"]) * (1 + s["con_heavy_dmg"])
     heavy_crit = heavy_dmg * s["crit_mult"]
     interval = 20.0 / s["atk_speed"]
     dps = heavy_crit / interval
@@ -540,7 +540,7 @@ for ch in CHAPTERS:
         ("断流·裂风斩", "75%ATK→CalcDmg|20%/hit|无CD",     weapon_wind_slash),
         ("焚天·献祭光环", "5%ATK/0.5s|真伤|持续",            weapon_sacrifice_aura),
         ("噬魂·增伤", "击杀+30%buff3s|Boss≈0",              None),
-        ("裂地·重击", "每20攻必重击|(ATK+HH)×Crit|真伤",     weapon_heavy_strike),
+        ("裂地·重击", "每20攻必重击|(DEF+HH)×Crit|真伤",     weapon_heavy_strike),
         ("灭影·追击", "暴击50%|60%ATK→CalcDmg|CD2s",        weapon_shadow_strike),
         ("天蓬遗威", "15%/hit|50%ATK|真伤|CD2s",             artifact_tianpeng),
     ]
@@ -680,7 +680,7 @@ print("─" * 130)
 print("A组法宝:")
 print("  血海图: 主属性+悟性 | 技能=即时(ATK×0.6×(1+skillDmg%)→CalcDmg→Crit) + DOT(ATK×0.15×(1+skillDmg%)×5tick真伤) | CD12s+连击")
 print("  浩气印: 主属性+福缘 | 技能=BUFF(+100四维 10s/20sCD=50%覆盖) → 间接提升skillDmg%/combo/重击率等")
-print("  青云塔: 主属性+根骨 | 技能=(ATK+HH)×(1+conHeavyDmg)→Crit→真伤TakeDamage | CD30s+连击")
+print("  青云塔: 主属性+根骨 | 技能=(DEF+HH)×(1+conHeavyDmg)→Crit→真伤TakeDamage | CD30s+连击")
 print("  封魔盘: 主属性+体魄 | 技能=增伤区域(+10%最终伤害 10s/20sCD=50%覆盖) | 花费10%HP")
 print("  龙极令: 主属性+ATK  | 技能=仙缘和×2.0×(1+skillDmg%)→CalcDmg→Crit | CD15s+连击")
 print()

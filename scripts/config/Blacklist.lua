@@ -13,13 +13,19 @@ local Blacklist = {}
 -- ── 按 userId 封禁（最精确，改名/换角色无法逃避）──
 Blacklist.userIds = {
     1853807222,     -- TapTap昵称"123"，角色名：一剑纵横三界/爸爸快插我/修仙者（作弊，数据异常）
-    -- [待填入] "指上人间" userId — 通过仙石榜日志获取后补入
+    23818077,       -- 角色名"三合"，排行榜第7，太虚第一，作弊数据异常
 }
 
 -- ── 按角色名封禁（辅助兜底，命中后自动扩展为 userId 级）──
 Blacklist.charNames = {
     "一剑纵横三界",
     "爸爸快插我",
+    "三合",           -- 排行榜第7，太虚第一，作弊数据异常
+}
+
+-- ── 仙石榜保留（这些 userId 在仙石榜不过滤，仅监控）──
+Blacklist.xianshiKeep = {
+    [23818077] = true,  -- "三合"，保留仙石榜监控
 }
 
 -- ── TapTap 昵称监控（匹配后记录 userId，不直接封禁，避免误封）──
@@ -72,8 +78,9 @@ end
 ---   格式B（试炼/镇狱/仙石榜）: item.userId
 ---@param entries table 排行榜条目数组
 ---@param charNameField string|nil 角色名字段名（nil则不检查角色名）
+---@param keepSet table|nil userId集合，在此集合中的不过滤（用于仙石榜监控保留）
 ---@return table 过滤后的条目数组
-function Blacklist.FilterRankList(entries, charNameField)
+function Blacklist.FilterRankList(entries, charNameField, keepSet)
     if not entries or #entries == 0 then return entries end
 
     -- 构建封禁 userId 集合
@@ -90,6 +97,13 @@ function Blacklist.FilterRankList(entries, charNameField)
                 local uid = tonumber(e.userId)
                 if uid then bannedSet[uid] = true end
             end
+        end
+    end
+
+    -- 从封禁集合中排除 keepSet 中的 userId
+    if keepSet then
+        for uid, _ in pairs(keepSet) do
+            bannedSet[uid] = nil
         end
     end
 

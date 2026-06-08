@@ -417,8 +417,17 @@ BMConfig.RECYCLE_ENABLED = true
 BMConfig.RECYCLE_NPC_NAME = "胤"
 --- 加权随机累积概率阈值：0件25%、1件50%、2件25%（期望值 1.0 件/天/满库存商品）
 BMConfig.RECYCLE_WEIGHTS = { 0.25, 0.75, 1.0 }
---- serverCloud.money 日期键名（SYSTEM_UID=0 下存储，数值 YYYYMMDD）
+--- 单日回收硬上限（双条件熔断：任一触发即停止）
+--- 安全防线：即使其他防护全部失效，单次执行也不会超过此数
+BMConfig.RECYCLE_MAX_KINDS = 30   -- 最多回收 30 种商品
+BMConfig.RECYCLE_MAX_ITEMS = 50   -- 最多回收 50 件商品
+
+--- [已废弃-仅审计] serverCloud.money 日期键名（不再用于互斥判断，仅成功后写入供审计）
 BMConfig.RECYCLE_DATE_KEY = "bm_recycle_date"
+--- quota 占坑 key 前缀（实际 key = prefix .. bizDate，如 "bm_recycle_claim_20260607"）
+--- ⚠️ 安全关键：key 必须仅由此前缀 + bizDate 组成，禁止拼入小时/实例ID/随机数
+BMConfig.RECYCLE_QUOTA_PREFIX = "bm_recycle_claim_"
+
 --- 允许的最大日期跨度（天）。超过此值视为时间异常，仅更新日期不执行回收。
 --- 防止篡改本地时钟跳天获利。正常值 1（过天），2 兼容时区偏移。
 BMConfig.MAX_RECYCLE_GAP = 2

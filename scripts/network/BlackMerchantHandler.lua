@@ -1193,15 +1193,16 @@ function M.CheckWALOnLogin(userId, slot, saveData, onDone)
 end
 
 -- ============================================================================
--- §12 自动收购（胤）
+-- §12 自动收购（胤）—— quota 原子占坑版 v2
 -- ============================================================================
 
---- 内存：今日是否已成功执行自动回收（北京日期 YYYYMMDD 字符串）
+--- 内存：今日是否已成功执行/已确认完成自动回收（北京日期 YYYYMMDD 字符串）
 local lastRecycleDate_ = nil  -- string: "YYYYMMDD" or nil
 --- 执行锁，防止自动触发与 GM 手动触发并发
 local recycleRunning_ = false
 --- 调度：距上次检查的累计时间（秒）
-local recycleCheckAccum_ = 0
+--- 初始随机偏移防止多实例雷群同步（thundering herd）
+local recycleCheckAccum_ = -(math.random() * (BMConfig.RECYCLE_CHECK_INTERVAL or 60))
 --- 调度：上次尝试（失败）的时间戳（os.time），用于失败节流
 local recycleLastAttemptTs_ = 0
 
@@ -1215,111 +1216,6 @@ local function WeightedRecycleAmount()
     return 2
 end
 
---- 执行一次完整的自动收购流程（逐件独立提交，fire-and-forget）
---- 调用方：RecycleTick（自动）或 GM 命令（手动）
---- 每件商品只处理一次，成功或失败后不再理会。
----@param callback fun(ok: boolean, summary: string)
-function M.ExecuteRecycle(callback)
-    if recycleRunning_ then
-        callback(false, "收购正在执行中，请稍后再试")
-        return
-    end
-    recycleRunning_ = true
-
-    -- 1. 读取系统库存（强制实时，不走缓存——回收判断必须基于最新数据）
-    InvalidateSystemStockCache()
-    GetSystemStockCached(function(moneys)
-        -- pcall 保护：防止回调内部异常导致 recycleRunning_ 永久泄漏
-        local ok2, err2 = pcall(function()
-            -- 2. 筛选满库存商品 + 随机收购数量
-            local tasks = {}  -- { { itemId, amount, cfg } }
-            for _, itemId in ipairs(BMConfig.ITEM_IDS) do
-                local cfg = BMConfig.ITEMS[itemId]
-                local maxStock = cfg.max_stock or BMConfig.MAX_STOCK
-                local stockKey = BMConfig.StockKey(itemId)
-                local currentStock = moneys[stockKey] or 0
-                if currentStock >= maxStock then
-                    local amount = WeightedRecycleAmount()
-                    if amount > 0 then
-                        amount = math.min(amount, currentStock)
-                        tasks[#tasks + 1] = { itemId = itemId, amount = amount, cfg = cfg }
-                    end
-                end
-            end
-
-            -- 无符合商品
-            if #tasks == 0 then
-                recycleRunning_ = false
-                callback(true, "无满库存商品，跳过收购")
-                return
-            end
-
-            -- 3. 逐件顺序提交
-            local totalKinds = 0
-            local totalItems = 0
-            local idx = 0
-
-            local function processNext()
-                idx = idx + 1
-                if idx > #tasks then
-                    -- 全部完成
-                    InvalidateSystemStockCache()
-                    recycleRunning_ = false
-                    local summary = string.format("收购完成: %d种商品共%d件", totalKinds, totalItems)
-                    print("[BlackMerchant][Recycle] " .. summary)
-                    callback(true, summary)
-                    return
-                end
-
-                local task = tasks[idx]
-                local stockKey = BMConfig.StockKey(task.itemId)
-                local commit = serverCloud:BatchCommit("胤收购_" .. task.itemId)
-                commit:MoneyCost(BMConfig.SYSTEM_UID, stockKey, task.amount)
-                commit:Commit({
-                    ok = function()
-                        totalKinds = totalKinds + 1
-                        totalItems = totalItems + task.amount
-                        -- 写公共交易记录
-                        TradeLogger.LogPublic(
-                            BMConfig.RECYCLE_NPC_NAME,
-                            "buy",
-                            task.itemId,
-                            task.amount,
-                            task.cfg.sell_price or 0,
-                            0  -- NPC 无仙石余额
-                        )
-                        print("[BlackMerchant][Recycle] OK: " .. task.itemId
-                            .. " x" .. tostring(task.amount))
-                        processNext()
-                    end,
-                    error = function(code, reason)
-                        -- 单件失败（可能库存已被玩家买走），跳过继续，不重试
-                        print("[BlackMerchant][Recycle] SKIP: " .. task.itemId
-                            .. " err=" .. tostring(reason))
-                        processNext()
-                    end,
-                })
-            end
-
-            processNext()
-        end)
-
-        if not ok2 then
-            recycleRunning_ = false
-            local msg = "回调内部异常: " .. tostring(err2)
-            print("[BlackMerchant][Recycle] " .. msg)
-            callback(false, msg)
-        end
-    end,
-    function(code, reason)
-        -- 库存读取失败
-        recycleRunning_ = false
-        local msg = "读取库存失败: " .. tostring(reason)
-        print("[BlackMerchant][Recycle] " .. msg)
-        callback(false, msg)
-    end)
-end
-
 --- 计算当前北京时间的业务日期和小时
 ---@return string bizDate "YYYYMMDD"
 ---@return integer bizHour 0~23
@@ -1331,9 +1227,164 @@ local function GetBizDateTime()
     return bizDate, t.hour
 end
 
---- 每帧 tick：检查是否需要执行每日自动收购（午间窗口调度版）
---- 执行顺序："先占坑再干活" — 先更新云端日期，成功后才处理商品。
---- 确保即使崩溃/重启，也不会重复回收。
+--- 从库存 moneys 生成回收计划（纯函数，不产生副作用）
+---@param moneys table<string, number> 系统库存 money 快照
+---@return table[] tasks { { itemId, amount, cfg } }
+---@return integer fullStockKinds 满库存的商品种类数
+local function BuildRecyclePlan(moneys)
+    local tasks = {}
+    local fullStockKinds = 0
+    for _, itemId in ipairs(BMConfig.ITEM_IDS) do
+        local cfg = BMConfig.ITEMS[itemId]
+        local maxStock = cfg.max_stock or BMConfig.MAX_STOCK
+        local stockKey = BMConfig.StockKey(itemId)
+        local currentStock = moneys[stockKey] or 0
+        if currentStock >= maxStock then
+            fullStockKinds = fullStockKinds + 1
+            local amount = WeightedRecycleAmount()
+            if amount > 0 then
+                amount = math.min(amount, currentStock)
+                tasks[#tasks + 1] = { itemId = itemId, amount = amount, cfg = cfg }
+            end
+        end
+    end
+    return tasks, fullStockKinds
+end
+
+--- 执行回收（接收预计算的 tasks 列表）
+--- 逐件独立 BatchCommit:MoneyCost，单件失败跳过继续。
+--- 30 件硬上限：即使 tasks 总量 > 30，也最多只扣 30 件。
+--- 完成后写审计 money date（fire-and-forget）。
+---@param tasks table[] 预计算的回收计划 { { itemId, amount, cfg } }
+---@param bizDate string 当日业务日期 "YYYYMMDD"
+---@param fullStockKinds integer 满库存种类数（审计用）
+---@param callback fun(ok: boolean, summary: string)
+function M.ExecuteRecycle(tasks, bizDate, fullStockKinds, callback)
+    if recycleRunning_ then
+        callback(false, "收购正在执行中，请稍后再试")
+        return
+    end
+    recycleRunning_ = true
+
+    -- 硬上限常量（字面量，不从变量读取，确保安全）
+    local CAP_KINDS = 30   -- 最多 30 种
+    local CAP_ITEMS = 50   -- 最多 50 件
+
+    local totalKinds = 0
+    local totalItems = 0
+    local skippedItems = {}  -- 因 cap 被跳过的 itemId 列表
+    local idx = 0
+
+    local function finalize()
+        InvalidateSystemStockCache()
+        recycleRunning_ = false
+
+        -- 审计日志
+        local plannedTotal = 0
+        for _, t in ipairs(tasks) do plannedTotal = plannedTotal + t.amount end
+        local logData = string.format(
+            "[Recycle][AUDIT] bizDate=%s fullStock=%d planned=%d/%d success=%d/%d capK=%d capI=%d",
+            bizDate, fullStockKinds,
+            #tasks, plannedTotal,
+            totalKinds, totalItems,
+            CAP_KINDS, CAP_ITEMS
+        )
+        print("[BlackMerchant]" .. logData)
+
+        -- 写审计 money date（fire-and-forget，仅供后台查阅，不用于互斥判断）
+        local todayNum = tonumber(bizDate) or 0
+        serverCloud.money:Get(BMConfig.SYSTEM_UID, {
+            ok = function(moneys)
+                local cloudDate = moneys[BMConfig.RECYCLE_DATE_KEY] or 0
+                local gap = todayNum - cloudDate
+                if gap > 0 then
+                    serverCloud.money:Add(BMConfig.SYSTEM_UID, BMConfig.RECYCLE_DATE_KEY, gap, {
+                        ok = function()
+                            print("[BlackMerchant][Recycle] 审计日期已更新: " .. bizDate)
+                        end,
+                        error = function(_, r)
+                            print("[BlackMerchant][Recycle] 审计日期更新失败(可忽略): " .. tostring(r))
+                        end,
+                    })
+                end
+            end,
+            error = function() end,  -- 审计失败可忽略
+        })
+
+        local summary = string.format("收购完成: %d种%d件(计划%d种%d件,上限%d种%d件)",
+            totalKinds, totalItems, #tasks, plannedTotal, CAP_KINDS, CAP_ITEMS)
+        callback(true, summary)
+    end
+
+    local function processNext()
+        idx = idx + 1
+        if idx > #tasks then
+            finalize()
+            return
+        end
+
+        -- 🔴 双条件熔断：30 种 OR 50 件，任一触发即停
+        if totalKinds >= CAP_KINDS or totalItems >= CAP_ITEMS then
+            -- 记录剩余被跳过的
+            for i = idx, #tasks do
+                skippedItems[#skippedItems + 1] = tasks[i].itemId
+            end
+            local reason = totalKinds >= CAP_KINDS and "种类" or "件数"
+            print("[BlackMerchant][Recycle] 硬上限(" .. reason .. ")已达, kinds="
+                .. tostring(totalKinds) .. "/" .. tostring(CAP_KINDS)
+                .. " items=" .. tostring(totalItems) .. "/" .. tostring(CAP_ITEMS)
+                .. ", 跳过剩余 " .. tostring(#tasks - idx + 1) .. " 种")
+            finalize()
+            return
+        end
+
+        local task = tasks[idx]
+        -- 限制单件 amount 不超过剩余件数配额
+        local remaining = CAP_ITEMS - totalItems
+        local actualAmount = math.min(task.amount, remaining)
+
+        local stockKey = BMConfig.StockKey(task.itemId)
+        local commit = serverCloud:BatchCommit("胤收购_" .. task.itemId)
+        commit:MoneyCost(BMConfig.SYSTEM_UID, stockKey, actualAmount)
+        commit:Commit({
+            ok = function()
+                totalKinds = totalKinds + 1
+                totalItems = totalItems + actualAmount
+                -- 写公共交易记录
+                TradeLogger.LogPublic(
+                    BMConfig.RECYCLE_NPC_NAME,
+                    "buy",
+                    task.itemId,
+                    actualAmount,
+                    task.cfg.sell_price or 0,
+                    0  -- NPC 无仙石余额
+                )
+                print("[BlackMerchant][Recycle] OK: " .. task.itemId
+                    .. " x" .. tostring(actualAmount))
+                processNext()
+            end,
+            error = function(code, reason)
+                -- 单件失败（库存已被玩家买走等），跳过继续
+                print("[BlackMerchant][Recycle] SKIP: " .. task.itemId
+                    .. " err=" .. tostring(reason))
+                processNext()
+            end,
+        })
+    end
+
+    -- pcall 保护入口
+    local ok2, err2 = pcall(processNext)
+    if not ok2 then
+        recycleRunning_ = false
+        local msg = "执行异常: " .. tostring(err2)
+        print("[BlackMerchant][Recycle] " .. msg)
+        callback(false, msg)
+    end
+end
+
+--- 每帧 tick：检查是否需要执行每日自动收购
+--- 新流程：读库存→生成计划→quota 原子占坑→执行
+--- quota:Add(SYSTEM_UID, prefix+bizDate, 1, 1, "forever") 保证全局仅一次
 --- 由 server_main.lua HandleServerUpdate 调用
 ---@param dt number
 function M.RecycleTick(dt)
@@ -1372,69 +1423,102 @@ function M.RecycleTick(dt)
         return
     end
 
-    -- ⑦ 记录本次尝试时间
+    -- ⑦ 记录本次尝试时间，设置执行锁
     recycleLastAttemptTs_ = now
+    recycleRunning_ = true  -- 提前锁定，防止异步期间重入
 
-    -- ⑧ 读取云端日期，进入占坑流程
-    serverCloud.money:Get(BMConfig.SYSTEM_UID, {
-        ok = function(moneys)
-            local cloudDate = moneys[BMConfig.RECYCLE_DATE_KEY] or 0
-            local todayNum = tonumber(bizDate) or 0
-            -- BM-S4D: 用 YYYYMMDD 数值差推进云端日期值（Add 增量）
-            local numericGap = todayNum - cloudDate
-            -- BM-S4D: 用真实日差判断是否跨天 / 异常（跨月跨年不再失真）
-            local realGap = BMConfig.RealDayGap(todayNum, cloudDate)
+    -- ⑧ 先读库存，再生成计划，最后 quota 占坑
+    InvalidateSystemStockCache()
+    GetSystemStockCached(function(moneys)
+        local ok2, err2 = pcall(function()
+            -- 生成回收计划
+            local tasks, fullStockKinds = BuildRecyclePlan(moneys)
 
-            if realGap <= 0 then
-                -- 云端已是今天 → 别的进程或之前启动已占坑成功
-                lastRecycleDate_ = bizDate
-                print("[BlackMerchant][Recycle] 当日已执行 (cloud=" .. tostring(cloudDate) .. ")")
+            if #tasks == 0 then
+                recycleRunning_ = false
+                lastRecycleDate_ = bizDate  -- 无满库存 = 当日无需回收，标记完成
+                print("[BlackMerchant][Recycle] 无满库存商品(fullStock=" .. tostring(fullStockKinds)
+                    .. "), 标记当日完成 bizDate=" .. bizDate)
                 return
             end
 
-            -- 时间篡改防护：realGap > MAX_RECYCLE_GAP → 仅推进日期，不执行回收
-            if realGap > (BMConfig.MAX_RECYCLE_GAP or 2) then
-                print("[BlackMerchant][Recycle] realGap=" .. realGap .. "天 > 上限"
-                    .. tostring(BMConfig.MAX_RECYCLE_GAP) .. ", 疑似时间异常或长期停机, 仅更新日期")
-                serverCloud.money:Add(BMConfig.SYSTEM_UID, BMConfig.RECYCLE_DATE_KEY, numericGap, {
-                    ok = function()
-                        lastRecycleDate_ = bizDate
-                        print("[BlackMerchant][Recycle] 日期已跳转至: " .. bizDate .. " (无回收)")
-                    end,
-                    error = function(c, r)
-                        print("[BlackMerchant][Recycle] 日期跳转失败: " .. tostring(r))
-                    end,
-                })
-                return
-            end
-
-            -- 先占坑：更新云端日期（在处理任何商品之前）
-            serverCloud.money:Add(BMConfig.SYSTEM_UID, BMConfig.RECYCLE_DATE_KEY, numericGap, {
+            -- quota 原子占坑：prefix + bizDate，maxLimit=1，永不过期
+            -- ⚠️ 安全关键：key 仅由前缀 + bizDate 组成，maxLimit 硬编码字面量 1
+            local claimKey = BMConfig.RECYCLE_QUOTA_PREFIX .. bizDate
+            serverCloud.quota:Add(BMConfig.SYSTEM_UID, claimKey, 1, 1, "forever", {
                 ok = function()
+                    -- 占坑成功 → 本实例获得执行权
                     lastRecycleDate_ = bizDate
-                    recycleLastAttemptTs_ = 0  -- 占坑成功，清除失败节流
-                    print("[BlackMerchant][Recycle] 日期已占坑: " .. bizDate .. " (realGap=" .. realGap .. ")")
-                    -- 占坑成功后才执行回收（fire-and-forget，失败可接受）
-                    M.ExecuteRecycle(function(ok, summary)
+                    recycleLastAttemptTs_ = 0  -- 清除失败节流
+                    print("[BlackMerchant][Recycle] quota占坑成功: " .. claimKey
+                        .. " tasks=" .. tostring(#tasks))
+
+                    -- 执行回收（recycleRunning_ 由 ExecuteRecycle 内部管理）
+                    recycleRunning_ = false  -- 先释放，ExecuteRecycle 会重新获取
+                    M.ExecuteRecycle(tasks, bizDate, fullStockKinds, function(ok, summary)
                         if ok then
                             print("[BlackMerchant][Recycle] " .. summary)
                         else
-                            -- 回收失败但日期已推进，不会重试，符合预期
-                            print("[BlackMerchant][Recycle] 回收失败(日期已推进,不重试): " .. tostring(summary))
+                            print("[BlackMerchant][Recycle] 回收失败(quota已占,不重试): " .. tostring(summary))
                         end
                     end)
                 end,
-                error = function(c, r)
-                    -- 占坑失败 → 商品未动 → 等下一个 RETRY_INTERVAL 再尝试
-                    print("[BlackMerchant][Recycle] 占坑失败(商品未动,可重试): " .. tostring(r))
+                error = function(code, reason)
+                    -- 占坑失败 → 另一个实例已占坑（正常竞争），或网络异常
+                    recycleRunning_ = false
+                    lastRecycleDate_ = bizDate  -- 无论原因，标记当日完成（不重试）
+                    print("[BlackMerchant][Recycle] quota占坑失败(当日已被占): "
+                        .. claimKey .. " reason=" .. tostring(reason))
                 end,
             })
-        end,
-        error = function(code, reason)
-            -- 云端读取失败 → 等下一个 RETRY_INTERVAL 再尝试
-            print("[BlackMerchant][Recycle] 云端读取失败(可重试): " .. tostring(reason))
-        end,
-    })
+        end)
+
+        if not ok2 then
+            recycleRunning_ = false
+            print("[BlackMerchant][Recycle] 计划生成异常: " .. tostring(err2))
+        end
+    end,
+    function(code, reason)
+        -- 库存读取失败 → 释放锁，等下一个 RETRY_INTERVAL 再尝试
+        recycleRunning_ = false
+        print("[BlackMerchant][Recycle] 库存读取失败(可重试): " .. tostring(reason))
+    end)
+end
+
+--- GM 手动触发回收（跳过 quota 占坑，直接执行）
+--- 由 GMHandler "bm_recycle" 命令调用
+---@param callback fun(ok: boolean, summary: string)
+function M.GMExecuteRecycle(callback)
+    if recycleRunning_ then
+        callback(false, "收购正在执行中，请稍后再试")
+        return
+    end
+
+    local bizDate = GetBizDateTime()
+    recycleRunning_ = true
+
+    InvalidateSystemStockCache()
+    GetSystemStockCached(function(moneys)
+        local ok2, err2 = pcall(function()
+            local tasks, fullStockKinds = BuildRecyclePlan(moneys)
+            if #tasks == 0 then
+                recycleRunning_ = false
+                callback(true, "无满库存商品，跳过收购")
+                return
+            end
+            -- GM 直接执行，不走 quota 占坑
+            recycleRunning_ = false  -- ExecuteRecycle 会重新获取
+            M.ExecuteRecycle(tasks, bizDate, fullStockKinds, callback)
+        end)
+        if not ok2 then
+            recycleRunning_ = false
+            callback(false, "GM回收异常: " .. tostring(err2))
+        end
+    end,
+    function(code, reason)
+        recycleRunning_ = false
+        callback(false, "库存读取失败: " .. tostring(reason))
+    end)
 end
 
 -- ============================================================================

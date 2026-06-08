@@ -216,10 +216,10 @@ def calc_taixu(ch):
     # 6) 连击加成: 奔雷式砸击+DOT 有连击概率 (破剑式也有连击,此处简化为奔雷连击)
     combo_dps = (thunder_dps + dot_dps) * total_combo
     
-    # 重击 (from 根骨) [代码: heavyDmg = (ATK+HH)×(1+conHeavyDmg), 真伤→TakeDamage]
+    # 重击 (from 根骨) [代码: heavyDmg = (DEF+HH)×(1+conHeavyDmg), 真伤→TakeDamage]
     heavy_rate = con_heavy_rate
     heavy_hit_val = 0  # 太虚无重击值堆叠
-    heavy_dmg_raw = (total_atk + heavy_hit_val) * (1 + con_heavy_dmg)
+    heavy_dmg_raw = (total_def + heavy_hit_val) * (1 + con_heavy_dmg)
     heavy_dps = heavy_dmg_raw * crit_mult * heavy_rate * atk_speed  # 真伤无视DEF
     
     total_dps = normal_dps + sword_dps + thunder_dps + dot_dps + giant_dps + combo_dps + heavy_dps
@@ -296,8 +296,8 @@ def calc_luohan(ch):
     normal_raw = calc_damage(total_atk, m_def)
     normal_dps = normal_raw * crit_mult * atk_speed
     
-    # 2) 重击: (ATK + HeavyHit) × (1+conHeavyDmg%), 真伤无视DEF, 每次普攻判定
-    heavy_dmg_per = (total_atk + total_heavy_hit) * (1 + con_heavy_dmg) * crit_mult
+    # 2) 重击: (DEF + HeavyHit) × (1+conHeavyDmg%), 真伤无视敌方DEF, 每次普攻判定
+    heavy_dmg_per = (total_def + total_heavy_hit) * (1 + con_heavy_dmg) * crit_mult
     heavy_dps = heavy_dmg_per * total_heavy_rate * atk_speed
     
     # 3) 金刚掌: 150%ATK → CalcDmg, CD 5s, 吃skillDmg%
@@ -310,12 +310,12 @@ def calc_luohan(ch):
     fumo_dmg = calc_damage(fumo_raw, m_def) * crit_mult
     fumo_dps = fumo_dmg / 8.0
     
-    # 5) 龙象功: 普攻叠18层 → AoE真伤, (ATK+HeavyHit)×(1+conHeavyDmg%), 无额外倍率
-    #    [代码: heavyDmg = floor(ATK+HH), ×(1+conHeavyDmg), ApplyCrit, 真伤TakeDamage]
+    # 5) 龙象功: 普攻叠18层 → AoE真伤, (DEF+HeavyHit)×(1+conHeavyDmg%), 无额外倍率
+    #    [代码: heavyDmg = floor(DEF+HH), ×(1+conHeavyDmg), ApplyCrit, 真伤TakeDamage]
     # 叠层速度: atkSpeed次/秒(普攻+1,重击+2), 加权平均叠层/s = atkSpeed×(1×(1-heavyRate) + 2×heavyRate)
     effective_stacks_per_sec = atk_speed * (1 * (1 - total_heavy_rate) + 2 * total_heavy_rate)
     stack_time = 18 / effective_stacks_per_sec
-    dragon_dmg = (total_atk + total_heavy_hit) * (1 + con_heavy_dmg) * crit_mult  # 无×1.50!
+    dragon_dmg = (total_def + total_heavy_hit) * (1 + con_heavy_dmg) * crit_mult  # 无×1.50!
     dragon_dps = dragon_dmg / stack_time
     
     total_dps = normal_dps + heavy_dps + vajra_dps + fumo_dps + dragon_dps

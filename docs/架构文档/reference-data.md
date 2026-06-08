@@ -144,7 +144,7 @@ attackInterval = AUTO_ATTACK_INTERVAL(1.0s) / attackSpeed
   → 噬魂增伤buff → damage + floor(damage * buffMult)（一次性消耗）
   → monster:TakeDamage(damage)
   → 重击判定（职业被动10% + 根骨加成）
-    → heavyDmg = floor(ATK + HeavyHit) * (1 + constitutionHeavyDmgBonus)
+    → heavyDmg = floor(DEF + HeavyHit) * (1 + constitutionHeavyDmgBonus)
     → 可暴击，无视防御
   → 裂地触发（每N次攻击必定重击，与概率重击独立）
   → DOT触发（流血：概率施加，内置CD）
