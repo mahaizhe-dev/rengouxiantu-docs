@@ -607,6 +607,7 @@ function ReturnToLogin()
     PrisonTowerSystem.Init() -- 重置镇狱塔状态
     WineSystem.Init()       -- 重置美酒状态
     MinggeSystem.Init()     -- 重置命格状态
+    require("systems.AlchemySystem").ResetRuntimeState() -- 重置炼丹炉计数
 
     -- 🔴 重置副本状态（isDungeonMode_/savedPosition_ 等）
     -- 不清理则: 自动存档永久阻塞 + 后续手动存档使用陈旧 savedPosition_ 覆盖正确坐标

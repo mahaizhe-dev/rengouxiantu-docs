@@ -37,9 +37,6 @@ local TIGER_PILL = {
     material = "tiger_bone",  -- 所需材料
 }
 
--- 虎骨丹已炼制次数（运行时状态，由存档恢复）
-local tigerPillCount_ = 0
-
 -- ===== Ch2 配方 =====
 
 -- 筑基丹配置
@@ -53,9 +50,6 @@ local SNAKE_PILL = {
     material = "snake_fruit",  -- 所需材料
 }
 
--- 灵蛇丹已炼制次数（运行时状态，由存档恢复）
-local snakePillCount_ = 0
-
 -- 金刚丹配置
 local DIAMOND_PILL = {
     cost = 100,       -- 灵韵消耗
@@ -63,9 +57,6 @@ local DIAMOND_PILL = {
     maxBuy = 5,       -- 限购数量
     material = "diamond_wood",  -- 所需材料
 }
-
--- 金刚丹已炼制次数（运行时状态，由存档恢复）
-local diamondPillCount_ = 0
 
 -- ===== Ch3 配方 =====
 
@@ -82,9 +73,6 @@ local TEMPERING_PILL = {
     maxEat = 50,         -- 最多食用50颗
     material = "wind_eroded_grass",  -- 所需材料
 }
-
--- 千锤百炼丹已食用次数（运行时状态，由存档恢复）
-local temperingPillEaten_ = 0
 
 -- v13 C2S 丹药购买：待授权回调表 { [pillId] = { cb=function, t=os.clock() } }
 local pendingPillBuys_ = {}
@@ -135,9 +123,6 @@ local DRAGON_BLOOD_PILL = {
     material = "dragon_blood_herb",  -- 所需材料（龙血草）
 }
 
--- 龙血丹已炼制次数（运行时状态，由存档恢复）
-local dragonBloodPillCount_ = 0
-
 -- ===== Ch5 配方 =====
 
 -- 渡劫丹配置
@@ -151,9 +136,6 @@ local SWORD_INTENT_PILL = {
     material = "sword_intent_crystal",  -- 所需材料（剑星草）
 }
 
--- 太虚剑丹已炼制次数（运行时状态，由存档恢复）
-local swordIntentPillCount_ = 0
-
 -- 狱甲丹（防御丹）配置
 local ABYSS_SEAL_PILL = {
     cost = 1000,          -- 灵韵消耗
@@ -161,9 +143,6 @@ local ABYSS_SEAL_PILL = {
     maxBuy = 10,          -- 限购数量
     material = "abyss_seal_shard",  -- 所需材料（地狱灵芝）
 }
-
--- 狱甲丹已炼制次数（运行时状态，由存档恢复）
-local abyssSealPillCount_ = 0
 
 -- ===== 令牌盒配方（通用） =====
 local TOKEN_BOX_LINGYUN_COST = 100   -- 灵韵消耗
@@ -198,7 +177,7 @@ local function BuildCh1Content()
     local pillCount = GetPillCount()
     local canCraft = player.lingYun >= QI_PILL_COST
 
-    local remaining = TIGER_PILL.maxBuy - tigerPillCount_
+    local remaining = TIGER_PILL.maxBuy - require("systems.AlchemySystem").GetTigerPillCount()
     local tigerMatCount = InventorySystem.CountConsumable(TIGER_PILL.material)
     local canTiger = remaining > 0 and player.lingYun >= TIGER_PILL.cost and tigerMatCount >= 1
 
@@ -241,7 +220,7 @@ local function BuildCh1Content()
         },
         UI.Label {
             text = remaining > 0
-                and ("已炼制 " .. tigerPillCount_ .. "/" .. TIGER_PILL.maxBuy .. " 颗")
+                and ("已炼制 " .. require("systems.AlchemySystem").GetTigerPillCount() .. "/" .. TIGER_PILL.maxBuy .. " 颗")
                 or ("已售罄（限炼 " .. TIGER_PILL.maxBuy .. " 颗）"),
             fontSize = T.fontSize.xs,
             fontColor = remaining > 0 and {180, 180, 190, 200} or {255, 120, 100, 200},
@@ -272,11 +251,11 @@ local function BuildCh2Content()
     local zhujiCount = InventorySystem.CountConsumable("zhuji_pill")
     local canZhuji = player.lingYun >= ZHUJI_PILL_COST
 
-    local snakeRemaining = SNAKE_PILL.maxBuy - snakePillCount_
+    local snakeRemaining = SNAKE_PILL.maxBuy - require("systems.AlchemySystem").GetSnakePillCount()
     local snakeMatCount = InventorySystem.CountConsumable(SNAKE_PILL.material)
     local canSnake = snakeRemaining > 0 and player.lingYun >= SNAKE_PILL.cost and snakeMatCount >= 1
 
-    local diamondRemaining = DIAMOND_PILL.maxBuy - diamondPillCount_
+    local diamondRemaining = DIAMOND_PILL.maxBuy - require("systems.AlchemySystem").GetDiamondPillCount()
     local diamondMatCount = InventorySystem.CountConsumable(DIAMOND_PILL.material)
     local canDiamond = diamondRemaining > 0 and player.lingYun >= DIAMOND_PILL.cost and diamondMatCount >= 1
 
@@ -319,7 +298,7 @@ local function BuildCh2Content()
         },
         UI.Label {
             text = snakeRemaining > 0
-                and ("已炼制 " .. snakePillCount_ .. "/" .. SNAKE_PILL.maxBuy .. " 颗")
+                and ("已炼制 " .. require("systems.AlchemySystem").GetSnakePillCount() .. "/" .. SNAKE_PILL.maxBuy .. " 颗")
                 or ("已售罄（限炼 " .. SNAKE_PILL.maxBuy .. " 颗）"),
             fontSize = T.fontSize.xs,
             fontColor = snakeRemaining > 0 and {180, 180, 190, 200} or {255, 120, 100, 200},
@@ -354,7 +333,7 @@ local function BuildCh2Content()
         },
         UI.Label {
             text = diamondRemaining > 0
-                and ("已炼制 " .. diamondPillCount_ .. "/" .. DIAMOND_PILL.maxBuy .. " 颗")
+                and ("已炼制 " .. require("systems.AlchemySystem").GetDiamondPillCount() .. "/" .. DIAMOND_PILL.maxBuy .. " 颗")
                 or ("已售罄（限炼 " .. DIAMOND_PILL.maxBuy .. " 颗）"),
             fontSize = T.fontSize.xs,
             fontColor = diamondRemaining > 0 and {180, 180, 190, 200} or {255, 120, 100, 200},
@@ -421,7 +400,7 @@ local function BuildCh3Content()
     local yuanyingCount = InventorySystem.CountConsumable("yuanying_fruit")
     local canYuanying = player.lingYun >= YUANYING_FRUIT_COST
 
-    local temperingRemaining = TEMPERING_PILL.maxEat - temperingPillEaten_
+    local temperingRemaining = TEMPERING_PILL.maxEat - require("systems.AlchemySystem").GetTemperingPillEaten()
     local temperingMatCount = InventorySystem.CountConsumable(TEMPERING_PILL.material)
     local temperingMatName = GetMaterialName(TEMPERING_PILL.material)
     local canTempering = temperingRemaining > 0 and player.lingYun >= TEMPERING_PILL.cost and temperingMatCount >= 1
@@ -490,7 +469,7 @@ local function BuildCh3Content()
         },
         UI.Label {
             text = temperingRemaining > 0
-                and ("已食用 " .. temperingPillEaten_ .. "/" .. TEMPERING_PILL.maxEat .. " 颗")
+                and ("已食用 " .. require("systems.AlchemySystem").GetTemperingPillEaten() .. "/" .. TEMPERING_PILL.maxEat .. " 颗")
                 or ("已达上限（" .. TEMPERING_PILL.maxEat .. " 颗）"),
             fontSize = T.fontSize.xs,
             fontColor = temperingRemaining > 0 and {180, 180, 190, 200} or {255, 120, 100, 200},
@@ -602,14 +581,14 @@ local function BuildCh4Content()
             fontColor = {255, 180, 180, 200},
         },
         UI.Label {
-            text = (dragonBloodPillCount_ < DRAGON_BLOOD_PILL.maxBuy)
-                and ("已炼制 " .. dragonBloodPillCount_ .. "/" .. DRAGON_BLOOD_PILL.maxBuy .. " 颗")
+            text = (require("systems.AlchemySystem").GetDragonBloodPillCount() < DRAGON_BLOOD_PILL.maxBuy)
+                and ("已炼制 " .. require("systems.AlchemySystem").GetDragonBloodPillCount() .. "/" .. DRAGON_BLOOD_PILL.maxBuy .. " 颗")
                 or ("已售罄（限炼 " .. DRAGON_BLOOD_PILL.maxBuy .. " 颗）"),
             fontSize = T.fontSize.sm, fontWeight = "bold",
             fontColor = {255, 150, 150, 255}, textAlign = "center",
         },
         UI.Label {
-            text = (dragonBloodPillCount_ < DRAGON_BLOOD_PILL.maxBuy)
+            text = (require("systems.AlchemySystem").GetDragonBloodPillCount() < DRAGON_BLOOD_PILL.maxBuy)
                 and ("灵韵: " .. player.lingYun .. " (需要 " .. DRAGON_BLOOD_PILL.cost .. ")  "
                     .. GetMaterialName(DRAGON_BLOOD_PILL.material) .. ": " .. InventorySystem.CountConsumable(DRAGON_BLOOD_PILL.material) .. " (需要 1)")
                 or "",
@@ -618,12 +597,12 @@ local function BuildCh4Content()
                 and {130, 230, 130, 255} or {255, 130, 100, 255},
         },
         UI.Button {
-            text = (dragonBloodPillCount_ < DRAGON_BLOOD_PILL.maxBuy)
+            text = (require("systems.AlchemySystem").GetDragonBloodPillCount() < DRAGON_BLOOD_PILL.maxBuy)
                 and ("炼制龙血丹 (" .. DRAGON_BLOOD_PILL.cost .. "灵韵+" .. GetMaterialName(DRAGON_BLOOD_PILL.material) .. " → +" .. DRAGON_BLOOD_PILL.hpBonus .. "血量上限)")
                 or "已售罄",
             width = "100%", height = T.size.dialogBtnH,
             fontSize = T.fontSize.sm,
-            backgroundColor = (dragonBloodPillCount_ < DRAGON_BLOOD_PILL.maxBuy and player.lingYun >= DRAGON_BLOOD_PILL.cost and InventorySystem.CountConsumable(DRAGON_BLOOD_PILL.material) >= 1)
+            backgroundColor = (require("systems.AlchemySystem").GetDragonBloodPillCount() < DRAGON_BLOOD_PILL.maxBuy and player.lingYun >= DRAGON_BLOOD_PILL.cost and InventorySystem.CountConsumable(DRAGON_BLOOD_PILL.material) >= 1)
                 and {150, 50, 50, 220} or {80, 80, 90, 200},
             onClick = function() AlchemyUI.DoCraftDragonBlood() end,
         },
@@ -723,14 +702,14 @@ local function BuildCh5Content()
             fontColor = {255, 200, 150, 200},
         },
         UI.Label {
-            text = (swordIntentPillCount_ < SWORD_INTENT_PILL.maxBuy)
-                and ("已炼制 " .. swordIntentPillCount_ .. "/" .. SWORD_INTENT_PILL.maxBuy .. " 颗")
+            text = (require("systems.AlchemySystem").GetSwordIntentPillCount() < SWORD_INTENT_PILL.maxBuy)
+                and ("已炼制 " .. require("systems.AlchemySystem").GetSwordIntentPillCount() .. "/" .. SWORD_INTENT_PILL.maxBuy .. " 颗")
                 or ("已售罄（限炼 " .. SWORD_INTENT_PILL.maxBuy .. " 颗）"),
             fontSize = T.fontSize.sm, fontWeight = "bold",
             fontColor = {255, 180, 100, 255}, textAlign = "center",
         },
         UI.Label {
-            text = (swordIntentPillCount_ < SWORD_INTENT_PILL.maxBuy)
+            text = (require("systems.AlchemySystem").GetSwordIntentPillCount() < SWORD_INTENT_PILL.maxBuy)
                 and ("灵韵: " .. player.lingYun .. " (需要 " .. SWORD_INTENT_PILL.cost .. ")  "
                     .. GetMaterialName(SWORD_INTENT_PILL.material) .. ": " .. InventorySystem.CountConsumable(SWORD_INTENT_PILL.material) .. " (需要 1)")
                 or "",
@@ -739,12 +718,12 @@ local function BuildCh5Content()
                 and {130, 230, 130, 255} or {255, 130, 100, 255},
         },
         UI.Button {
-            text = (swordIntentPillCount_ < SWORD_INTENT_PILL.maxBuy)
+            text = (require("systems.AlchemySystem").GetSwordIntentPillCount() < SWORD_INTENT_PILL.maxBuy)
                 and ("炼制太虚剑丹 (" .. SWORD_INTENT_PILL.cost .. "灵韵+" .. GetMaterialName(SWORD_INTENT_PILL.material) .. " → +" .. SWORD_INTENT_PILL.atkBonus .. "攻击)")
                 or "已售罄",
             width = "100%", height = T.size.dialogBtnH,
             fontSize = T.fontSize.sm,
-            backgroundColor = (swordIntentPillCount_ < SWORD_INTENT_PILL.maxBuy and player.lingYun >= SWORD_INTENT_PILL.cost and InventorySystem.CountConsumable(SWORD_INTENT_PILL.material) >= 1)
+            backgroundColor = (require("systems.AlchemySystem").GetSwordIntentPillCount() < SWORD_INTENT_PILL.maxBuy and player.lingYun >= SWORD_INTENT_PILL.cost and InventorySystem.CountConsumable(SWORD_INTENT_PILL.material) >= 1)
                 and {200, 120, 40, 220} or {80, 80, 90, 200},
             onClick = function() AlchemyUI.DoCraftSwordIntent() end,
         },
@@ -767,14 +746,14 @@ local function BuildCh5Content()
             fontColor = {150, 200, 255, 200},
         },
         UI.Label {
-            text = (abyssSealPillCount_ < ABYSS_SEAL_PILL.maxBuy)
-                and ("已炼制 " .. abyssSealPillCount_ .. "/" .. ABYSS_SEAL_PILL.maxBuy .. " 颗")
+            text = (require("systems.AlchemySystem").GetAbyssSealPillCount() < ABYSS_SEAL_PILL.maxBuy)
+                and ("已炼制 " .. require("systems.AlchemySystem").GetAbyssSealPillCount() .. "/" .. ABYSS_SEAL_PILL.maxBuy .. " 颗")
                 or ("已售罄（限炼 " .. ABYSS_SEAL_PILL.maxBuy .. " 颗）"),
             fontSize = T.fontSize.sm, fontWeight = "bold",
             fontColor = {100, 180, 255, 255}, textAlign = "center",
         },
         UI.Label {
-            text = (abyssSealPillCount_ < ABYSS_SEAL_PILL.maxBuy)
+            text = (require("systems.AlchemySystem").GetAbyssSealPillCount() < ABYSS_SEAL_PILL.maxBuy)
                 and ("灵韵: " .. player.lingYun .. " (需要 " .. ABYSS_SEAL_PILL.cost .. ")  "
                     .. GetMaterialName(ABYSS_SEAL_PILL.material) .. ": " .. InventorySystem.CountConsumable(ABYSS_SEAL_PILL.material) .. " (需要 1)")
                 or "",
@@ -783,12 +762,12 @@ local function BuildCh5Content()
                 and {130, 230, 130, 255} or {255, 130, 100, 255},
         },
         UI.Button {
-            text = (abyssSealPillCount_ < ABYSS_SEAL_PILL.maxBuy)
+            text = (require("systems.AlchemySystem").GetAbyssSealPillCount() < ABYSS_SEAL_PILL.maxBuy)
                 and ("炼制狱甲丹 (" .. ABYSS_SEAL_PILL.cost .. "灵韵+" .. GetMaterialName(ABYSS_SEAL_PILL.material) .. " → +" .. ABYSS_SEAL_PILL.defBonus .. "防御)")
                 or "已售罄",
             width = "100%", height = T.size.dialogBtnH,
             fontSize = T.fontSize.sm,
-            backgroundColor = (abyssSealPillCount_ < ABYSS_SEAL_PILL.maxBuy and player.lingYun >= ABYSS_SEAL_PILL.cost and InventorySystem.CountConsumable(ABYSS_SEAL_PILL.material) >= 1)
+            backgroundColor = (require("systems.AlchemySystem").GetAbyssSealPillCount() < ABYSS_SEAL_PILL.maxBuy and player.lingYun >= ABYSS_SEAL_PILL.cost and InventorySystem.CountConsumable(ABYSS_SEAL_PILL.material) >= 1)
                 and {40, 100, 180, 220} or {80, 80, 90, 200},
             onClick = function() AlchemyUI.DoCraftAbyssSeal() end,
         },
@@ -1022,35 +1001,20 @@ end
 
 --- 炼制练气丹：消耗灵韵，产出练气丹到背包
 function AlchemyUI.DoCraft()
-    local player = GameState.player
-    if not player then return end
-
-    if player.lingYun < QI_PILL_COST then
-        resultLabel_:SetText("灵韵不足！炼制需要 " .. QI_PILL_COST .. " 灵韵")
+    local AS = require("systems.AlchemySystem")
+    local ok, errMsg = AS.CanCraftConsumable("qi_pill")
+    if not ok then
+        resultLabel_:SetText(errMsg)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
         return
     end
-
-    -- 先检查背包是否可添加（已有堆叠或有空位）
-    local canAdd = InventorySystem.CountConsumable("qi_pill") > 0 or InventorySystem.GetFreeSlots() > 0
-    if not canAdd then
-        resultLabel_:SetText("背包已满，无法炼制！")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
-    -- 扣除灵韵
-    player.lingYun = player.lingYun - QI_PILL_COST
-    -- 添加练气丹到背包
-    InventorySystem.AddConsumable("qi_pill", 1)
-
-    local newCount = GetPillCount()
-    resultLabel_:SetText("炼制成功！获得练气丹 ×1 (共 " .. newCount .. " 颗)")
+    local ok2, msg = AS.CraftConsumable("qi_pill")
+    if not ok2 then return end
+    resultLabel_:SetText(msg)
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
-    SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
+    SaveSession.MarkDirty()
     RefreshUI()
 end
 
@@ -1060,74 +1024,37 @@ end
 
 --- 炼制筑基丹：消耗灵韵，产出筑基丹到背包
 function AlchemyUI.DoCraftZhuji()
-    local player = GameState.player
-    if not player then return end
-
-    if player.lingYun < ZHUJI_PILL_COST then
-        resultLabel_:SetText("灵韵不足！炼制需要 " .. ZHUJI_PILL_COST .. " 灵韵")
+    local AS = require("systems.AlchemySystem")
+    local ok, errMsg = AS.CanCraftConsumable("zhuji_pill")
+    if not ok then
+        resultLabel_:SetText(errMsg)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
         return
     end
-
-    -- 先检查背包是否可添加（已有堆叠或有空位）
-    local canAdd = InventorySystem.CountConsumable("zhuji_pill") > 0 or InventorySystem.GetFreeSlots() > 0
-    if not canAdd then
-        resultLabel_:SetText("背包已满，无法炼制！")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
-    player.lingYun = player.lingYun - ZHUJI_PILL_COST
-    InventorySystem.AddConsumable("zhuji_pill", 1)
-
-    local newCount = InventorySystem.CountConsumable("zhuji_pill")
-    resultLabel_:SetText("炼制成功！获得筑基丹 ×1 (共 " .. newCount .. " 颗)")
+    local ok2, msg = AS.CraftConsumable("zhuji_pill")
+    if not ok2 then return end
+    resultLabel_:SetText(msg)
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
-    SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
+    SaveSession.MarkDirty()
     RefreshUI()
 end
 
 --- 炼制灵蛇丹：消耗灵韵，永久增加攻击力（C2S 授权）
 function AlchemyUI.DoCraftSnake()
-    local player = GameState.player
-    if not player then return end
-
-    if snakePillCount_ >= SNAKE_PILL.maxBuy then
-        resultLabel_:SetText("灵蛇丹已炼制完毕！限炼" .. SNAKE_PILL.maxBuy .. "颗")
+    local AS = require("systems.AlchemySystem")
+    local ok, errMsg = AS.CanCraftPermanent("snake")
+    if not ok then
+        resultLabel_:SetText(errMsg)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
         return
     end
-    if player.lingYun < SNAKE_PILL.cost then
-        resultLabel_:SetText("灵韵不足！炼制需要 " .. SNAKE_PILL.cost .. " 灵韵")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    local matName = GetMaterialName(SNAKE_PILL.material)
-    if InventorySystem.CountUnlockedConsumable(SNAKE_PILL.material) < 1 then
-        resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
     SendBuyPill("snake", function()
-        if snakePillCount_ >= SNAKE_PILL.maxBuy then return end
-        if player.lingYun < SNAKE_PILL.cost then return end
-        if InventorySystem.CountUnlockedConsumable(SNAKE_PILL.material) < 1 then return end
-
-        player.lingYun = player.lingYun - SNAKE_PILL.cost
-        local ok = InventorySystem.ConsumeConsumable(SNAKE_PILL.material, 1)
-        if not ok then player.lingYun = player.lingYun + SNAKE_PILL.cost; return end
-        snakePillCount_ = snakePillCount_ + 1
-        if player.pillCounts then player.pillCounts.snake = snakePillCount_ end
-        player.atk = player.atk + SNAKE_PILL.atkBonus
-
-        resultLabel_:SetText("炼制成功！攻击力永久 +" .. SNAKE_PILL.atkBonus .. " (已炼" .. snakePillCount_ .. "/" .. SNAKE_PILL.maxBuy .. ")")
+        local ok2, msg = AS.CraftPermanent("snake")
+        if not ok2 then return end
+        resultLabel_:SetText(msg)
         resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
         EventBus.Emit("alchemy_success")
         EventBus.Emit("save_request")
@@ -1137,42 +1064,18 @@ end
 
 --- 炼制金刚丹：消耗灵韵，永久增加防御力（C2S 授权）
 function AlchemyUI.DoCraftDiamond()
-    local player = GameState.player
-    if not player then return end
-
-    if diamondPillCount_ >= DIAMOND_PILL.maxBuy then
-        resultLabel_:SetText("金刚丹已炼制完毕！限炼" .. DIAMOND_PILL.maxBuy .. "颗")
+    local AS = require("systems.AlchemySystem")
+    local ok, errMsg = AS.CanCraftPermanent("diamond")
+    if not ok then
+        resultLabel_:SetText(errMsg)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
         return
     end
-    if player.lingYun < DIAMOND_PILL.cost then
-        resultLabel_:SetText("灵韵不足！炼制需要 " .. DIAMOND_PILL.cost .. " 灵韵")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    local matName = GetMaterialName(DIAMOND_PILL.material)
-    if InventorySystem.CountUnlockedConsumable(DIAMOND_PILL.material) < 1 then
-        resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
     SendBuyPill("diamond", function()
-        if diamondPillCount_ >= DIAMOND_PILL.maxBuy then return end
-        if player.lingYun < DIAMOND_PILL.cost then return end
-        if InventorySystem.CountUnlockedConsumable(DIAMOND_PILL.material) < 1 then return end
-
-        player.lingYun = player.lingYun - DIAMOND_PILL.cost
-        local ok = InventorySystem.ConsumeConsumable(DIAMOND_PILL.material, 1)
-        if not ok then player.lingYun = player.lingYun + DIAMOND_PILL.cost; return end
-        diamondPillCount_ = diamondPillCount_ + 1
-        if player.pillCounts then player.pillCounts.diamond = diamondPillCount_ end
-        player.def = player.def + DIAMOND_PILL.defBonus
-
-        resultLabel_:SetText("炼制成功！防御力永久 +" .. DIAMOND_PILL.defBonus .. " (已炼" .. diamondPillCount_ .. "/" .. DIAMOND_PILL.maxBuy .. ")")
+        local ok2, msg = AS.CraftPermanent("diamond")
+        if not ok2 then return end
+        resultLabel_:SetText(msg)
         resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
         EventBus.Emit("alchemy_success")
         EventBus.Emit("save_request")
@@ -1186,104 +1089,56 @@ end
 
 --- 炼制金丹沙：消耗灵韵，产出金丹沙到背包
 function AlchemyUI.DoCraftJindanSand()
-    local player = GameState.player
-    if not player then return end
-
-    if player.lingYun < JINDAN_SAND_COST then
-        resultLabel_:SetText("灵韵不足！炼制需要 " .. JINDAN_SAND_COST .. " 灵韵")
+    local AS = require("systems.AlchemySystem")
+    local ok, errMsg = AS.CanCraftConsumable("jindan_sand")
+    if not ok then
+        resultLabel_:SetText(errMsg)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
         return
     end
-
-    local canAdd = InventorySystem.CountConsumable("jindan_sand") > 0 or InventorySystem.GetFreeSlots() > 0
-    if not canAdd then
-        resultLabel_:SetText("背包已满，无法炼制！")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
-    player.lingYun = player.lingYun - JINDAN_SAND_COST
-    InventorySystem.AddConsumable("jindan_sand", 1)
-
-    local newCount = InventorySystem.CountConsumable("jindan_sand")
-    resultLabel_:SetText("炼制成功！获得金丹沙 ×1 (共 " .. newCount .. " 颗)")
+    local ok2, msg = AS.CraftConsumable("jindan_sand")
+    if not ok2 then return end
+    resultLabel_:SetText(msg)
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
-    SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
+    SaveSession.MarkDirty()
     RefreshUI()
 end
 
 --- 炼制元婴果：消耗灵韵，产出元婴果到背包
 function AlchemyUI.DoCraftYuanyingFruit()
-    local player = GameState.player
-    if not player then return end
-
-    if player.lingYun < YUANYING_FRUIT_COST then
-        resultLabel_:SetText("灵韵不足！炼制需要 " .. YUANYING_FRUIT_COST .. " 灵韵")
+    local AS = require("systems.AlchemySystem")
+    local ok, errMsg = AS.CanCraftConsumable("yuanying_fruit")
+    if not ok then
+        resultLabel_:SetText(errMsg)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
         return
     end
-
-    local canAdd = InventorySystem.CountConsumable("yuanying_fruit") > 0 or InventorySystem.GetFreeSlots() > 0
-    if not canAdd then
-        resultLabel_:SetText("背包已满，无法炼制！")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
-    player.lingYun = player.lingYun - YUANYING_FRUIT_COST
-    InventorySystem.AddConsumable("yuanying_fruit", 1)
-
-    local newCount = InventorySystem.CountConsumable("yuanying_fruit")
-    resultLabel_:SetText("炼制成功！获得元婴果 ×1 (共 " .. newCount .. " 颗)")
+    local ok2, msg = AS.CraftConsumable("yuanying_fruit")
+    if not ok2 then return end
+    resultLabel_:SetText(msg)
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
-    SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
+    SaveSession.MarkDirty()
     RefreshUI()
 end
 
 --- 炼制并服用千锤百炼丹：消耗灵韵+风蚀草，永久+1根骨（C2S 授权）
 function AlchemyUI.DoCraftTempering()
-    local player = GameState.player
-    if not player then return end
-
-    if temperingPillEaten_ >= TEMPERING_PILL.maxEat then
-        resultLabel_:SetText("已达食用上限！最多" .. TEMPERING_PILL.maxEat .. "颗")
+    local AS = require("systems.AlchemySystem")
+    local ok, errMsg = AS.CanCraftPermanent("tempering")
+    if not ok then
+        resultLabel_:SetText(errMsg)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
         return
     end
-    if player.lingYun < TEMPERING_PILL.cost then
-        resultLabel_:SetText("灵韵不足！炼制需要 " .. TEMPERING_PILL.cost .. " 灵韵")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    local matName = GetMaterialName(TEMPERING_PILL.material)
-    if InventorySystem.CountUnlockedConsumable(TEMPERING_PILL.material) < 1 then
-        resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
     SendBuyPill("tempering", function()
-        if temperingPillEaten_ >= TEMPERING_PILL.maxEat then return end
-        if player.lingYun < TEMPERING_PILL.cost then return end
-        if InventorySystem.CountUnlockedConsumable(TEMPERING_PILL.material) < 1 then return end
-
-        player.lingYun = player.lingYun - TEMPERING_PILL.cost
-        local ok = InventorySystem.ConsumeConsumable(TEMPERING_PILL.material, 1)
-        if not ok then player.lingYun = player.lingYun + TEMPERING_PILL.cost; return end
-        temperingPillEaten_ = temperingPillEaten_ + 1
-        if player.pillCounts then player.pillCounts.tempering = temperingPillEaten_ end
-        player.pillConstitution = (player.pillConstitution or 0) + TEMPERING_PILL.constitutionBonus
-
-        resultLabel_:SetText("服用成功！根骨+1 (已服" .. temperingPillEaten_ .. "/" .. TEMPERING_PILL.maxEat .. ")")
+        local ok2, msg = AS.CraftPermanent("tempering")
+        if not ok2 then return end
+        resultLabel_:SetText(msg)
         resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
         EventBus.Emit("alchemy_success")
         EventBus.Emit("save_request")
@@ -1297,32 +1152,20 @@ end
 
 --- 炼制九转金丹：消耗灵韵，产出九转金丹到背包
 function AlchemyUI.DoCraftJiuzhuanJindan()
-    local player = GameState.player
-    if not player then return end
-
-    if player.lingYun < JIUZHUAN_JINDAN_COST then
-        resultLabel_:SetText("灵韵不足！炼制需要 " .. JIUZHUAN_JINDAN_COST .. " 灵韵")
+    local AS = require("systems.AlchemySystem")
+    local ok, errMsg = AS.CanCraftConsumable("jiuzhuan_jindan")
+    if not ok then
+        resultLabel_:SetText(errMsg)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
         return
     end
-
-    local canAdd = InventorySystem.CountConsumable("jiuzhuan_jindan") > 0 or InventorySystem.GetFreeSlots() > 0
-    if not canAdd then
-        resultLabel_:SetText("背包已满，无法炼制！")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
-    player.lingYun = player.lingYun - JIUZHUAN_JINDAN_COST
-    InventorySystem.AddConsumable("jiuzhuan_jindan", 1)
-
-    local newCount = InventorySystem.CountConsumable("jiuzhuan_jindan")
-    resultLabel_:SetText("炼制成功！获得九转金丹 ×1 (共 " .. newCount .. " 颗)")
+    local ok2, msg = AS.CraftConsumable("jiuzhuan_jindan")
+    if not ok2 then return end
+    resultLabel_:SetText(msg)
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
-    SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
+    SaveSession.MarkDirty()
     RefreshUI()
 end
 
@@ -1332,29 +1175,17 @@ end
 
 --- 炼制渡劫丹：消耗灵韵，产出渡劫丹到背包
 function AlchemyUI.DoCraftDujieDan()
-    local player = GameState.player
-    if not player then return end
-
-    if player.lingYun < DUJIE_DAN_COST then
-        resultLabel_:SetText("灵韵不足！炼制需要 " .. DUJIE_DAN_COST .. " 灵韵")
+    local AS = require("systems.AlchemySystem")
+    local ok, errMsg = AS.CanCraftConsumable("dujie_dan")
+    if not ok then
+        resultLabel_:SetText(errMsg)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
         return
     end
-
-    local canAdd = InventorySystem.CountConsumable("dujie_dan") > 0 or InventorySystem.GetFreeSlots() > 0
-    if not canAdd then
-        resultLabel_:SetText("背包已满，无法炼制！")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
-    player.lingYun = player.lingYun - DUJIE_DAN_COST
-    InventorySystem.AddConsumable("dujie_dan", 1)
-
-    local newCount = InventorySystem.CountConsumable("dujie_dan")
-    resultLabel_:SetText("炼制成功！获得渡劫丹 ×1 (共 " .. newCount .. " 颗)")
+    local ok2, msg = AS.CraftConsumable("dujie_dan")
+    if not ok2 then return end
+    resultLabel_:SetText(msg)
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
     SaveSession.MarkDirty()
@@ -1369,56 +1200,20 @@ end
 ---@param tokenId string 令牌消耗品ID（如 "wubao_token"）
 ---@param boxId string   令牌盒消耗品ID（如 "wubao_token_box"）
 function AlchemyUI.DoCraftTokenBox(tokenId, boxId)
-    local player = GameState.player
-    if not player then return end
-
-    local tokenName = GameConfig.CONSUMABLES[tokenId] and GameConfig.CONSUMABLES[tokenId].name or tokenId
-    local boxName = GameConfig.CONSUMABLES[boxId] and GameConfig.CONSUMABLES[boxId].name or boxId
-
-    -- 检查灵韵
-    if player.lingYun < TOKEN_BOX_LINGYUN_COST then
-        resultLabel_:SetText("灵韵不足！炼制需要 " .. TOKEN_BOX_LINGYUN_COST .. " 灵韵")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
-    -- 检查令牌数量
-    local tokenCount = InventorySystem.CountConsumable(tokenId)
-    if tokenCount < TOKEN_BOX_TOKEN_COST then
-        resultLabel_:SetText(tokenName .. "不足！需要 " .. TOKEN_BOX_TOKEN_COST .. "，当前 " .. tokenCount)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
-    -- 检查背包空间
-    local canAdd = InventorySystem.CountConsumable(boxId) > 0 or InventorySystem.GetFreeSlots() > 0
-    if not canAdd then
-        resultLabel_:SetText("背包已满，无法炼制！")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
-    -- 原子化扣除：先扣灵韵，再扣令牌，再发放令牌盒
-    player.lingYun = player.lingYun - TOKEN_BOX_LINGYUN_COST
-    local ok = InventorySystem.ConsumeConsumable(tokenId, TOKEN_BOX_TOKEN_COST)
+    local AS = require("systems.AlchemySystem")
+    local ok, errMsg = AS.CanCraftTokenBox(tokenId, boxId)
     if not ok then
-        -- 回滚灵韵
-        player.lingYun = player.lingYun + TOKEN_BOX_LINGYUN_COST
-        resultLabel_:SetText("炼制失败：" .. tokenName .. "扣除异常")
+        resultLabel_:SetText(errMsg)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
         return
     end
-    InventorySystem.AddConsumable(boxId, 1)
-
-    local newCount = InventorySystem.CountConsumable(boxId)
-    resultLabel_:SetText("炼制成功！获得" .. boxName .. " ×1 (共 " .. newCount .. " 个)")
+    local ok2, msg = AS.CraftTokenBox(tokenId, boxId)
+    if not ok2 then return end
+    resultLabel_:SetText(msg)
     resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     EventBus.Emit("alchemy_success")
-    SaveSession.MarkDirty()  -- 会话式合并保存（P2优化）
+    SaveSession.MarkDirty()
     RefreshUI()
 end
 
@@ -1489,46 +1284,18 @@ end
 
 --- 炼制虎骨丹：消耗灵韵，永久增加血量上限（C2S 授权）
 function AlchemyUI.DoCraftTiger()
-    local player = GameState.player
-    if not player then return end
-
-    -- 前置校验（客户端）
-    if tigerPillCount_ >= TIGER_PILL.maxBuy then
-        resultLabel_:SetText("虎骨丹已炼制完毕！限炼" .. TIGER_PILL.maxBuy .. "颗")
+    local AS = require("systems.AlchemySystem")
+    local ok, errMsg = AS.CanCraftPermanent("tiger")
+    if not ok then
+        resultLabel_:SetText(errMsg)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
         return
     end
-    if player.lingYun < TIGER_PILL.cost then
-        resultLabel_:SetText("灵韵不足！炼制需要 " .. TIGER_PILL.cost .. " 灵韵")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    local matName = GetMaterialName(TIGER_PILL.material)
-    if InventorySystem.CountUnlockedConsumable(TIGER_PILL.material) < 1 then
-        resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
-    -- 发送 C2S 授权请求
     SendBuyPill("tiger", function()
-        -- 二次校验（防止授权期间状态变化）
-        if tigerPillCount_ >= TIGER_PILL.maxBuy then return end
-        if player.lingYun < TIGER_PILL.cost then return end
-        if InventorySystem.CountUnlockedConsumable(TIGER_PILL.material) < 1 then return end
-
-        player.lingYun = player.lingYun - TIGER_PILL.cost
-        local ok = InventorySystem.ConsumeConsumable(TIGER_PILL.material, 1)
-        if not ok then player.lingYun = player.lingYun + TIGER_PILL.cost; return end
-        tigerPillCount_ = tigerPillCount_ + 1
-        if player.pillCounts then player.pillCounts.tiger = tigerPillCount_ end
-        player.maxHp = player.maxHp + TIGER_PILL.hpBonus
-        player.hp = math.min(player.hp + TIGER_PILL.hpBonus, player:GetTotalMaxHp())
-
-        resultLabel_:SetText("炼制成功！血量上限永久 +" .. TIGER_PILL.hpBonus .. " (已炼" .. tigerPillCount_ .. "/" .. TIGER_PILL.maxBuy .. ")")
+        local ok2, msg = AS.CraftPermanent("tiger")
+        if not ok2 then return end
+        resultLabel_:SetText(msg)
         resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
         EventBus.Emit("alchemy_success")
         EventBus.Emit("save_request")
@@ -1538,46 +1305,18 @@ end
 
 --- 炼制龙血丹：消耗灵韵+龙血草，永久增加血量上限（C2S 授权）
 function AlchemyUI.DoCraftDragonBlood()
-    local player = GameState.player
-    if not player then return end
-
-    -- 前置校验（客户端）
-    if dragonBloodPillCount_ >= DRAGON_BLOOD_PILL.maxBuy then
-        resultLabel_:SetText("龙血丹已炼制完毕！限炼" .. DRAGON_BLOOD_PILL.maxBuy .. "颗")
+    local AS = require("systems.AlchemySystem")
+    local ok, errMsg = AS.CanCraftPermanent("dragon_blood")
+    if not ok then
+        resultLabel_:SetText(errMsg)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
         return
     end
-    if player.lingYun < DRAGON_BLOOD_PILL.cost then
-        resultLabel_:SetText("灵韵不足！炼制需要 " .. DRAGON_BLOOD_PILL.cost .. " 灵韵")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    local matName = GetMaterialName(DRAGON_BLOOD_PILL.material)
-    if InventorySystem.CountUnlockedConsumable(DRAGON_BLOOD_PILL.material) < 1 then
-        resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
-    -- 发送 C2S 授权请求
     SendBuyPill("dragon_blood", function()
-        -- 二次校验（防止授权期间状态变化）
-        if dragonBloodPillCount_ >= DRAGON_BLOOD_PILL.maxBuy then return end
-        if player.lingYun < DRAGON_BLOOD_PILL.cost then return end
-        if InventorySystem.CountUnlockedConsumable(DRAGON_BLOOD_PILL.material) < 1 then return end
-
-        player.lingYun = player.lingYun - DRAGON_BLOOD_PILL.cost
-        local ok = InventorySystem.ConsumeConsumable(DRAGON_BLOOD_PILL.material, 1)
-        if not ok then player.lingYun = player.lingYun + DRAGON_BLOOD_PILL.cost; return end
-        dragonBloodPillCount_ = dragonBloodPillCount_ + 1
-        if player.pillCounts then player.pillCounts.dragon_blood = dragonBloodPillCount_ end
-        player.maxHp = player.maxHp + DRAGON_BLOOD_PILL.hpBonus
-        player.hp = math.min(player.hp + DRAGON_BLOOD_PILL.hpBonus, player:GetTotalMaxHp())
-
-        resultLabel_:SetText("炼制成功！血量上限永久 +" .. DRAGON_BLOOD_PILL.hpBonus .. " (已炼" .. dragonBloodPillCount_ .. "/" .. DRAGON_BLOOD_PILL.maxBuy .. ")")
+        local ok2, msg = AS.CraftPermanent("dragon_blood")
+        if not ok2 then return end
+        resultLabel_:SetText(msg)
         resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
         EventBus.Emit("alchemy_success")
         EventBus.Emit("save_request")
@@ -1587,45 +1326,18 @@ end
 
 --- 炼制太虚剑丹（+攻击力）
 function AlchemyUI.DoCraftSwordIntent()
-    local player = GameState.player
-    if not player then return end
-
-    -- 前置校验（客户端）
-    if swordIntentPillCount_ >= SWORD_INTENT_PILL.maxBuy then
-        resultLabel_:SetText("太虚剑丹已炼制完毕！限炼" .. SWORD_INTENT_PILL.maxBuy .. "颗")
+    local AS = require("systems.AlchemySystem")
+    local ok, errMsg = AS.CanCraftPermanent("sword_intent")
+    if not ok then
+        resultLabel_:SetText(errMsg)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
         return
     end
-    if player.lingYun < SWORD_INTENT_PILL.cost then
-        resultLabel_:SetText("灵韵不足！炼制需要 " .. SWORD_INTENT_PILL.cost .. " 灵韵")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    local matName = GetMaterialName(SWORD_INTENT_PILL.material)
-    if InventorySystem.CountUnlockedConsumable(SWORD_INTENT_PILL.material) < 1 then
-        resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
-    -- 发送 C2S 授权请求
     SendBuyPill("sword_intent", function()
-        -- 二次校验（防止授权期间状态变化）
-        if swordIntentPillCount_ >= SWORD_INTENT_PILL.maxBuy then return end
-        if player.lingYun < SWORD_INTENT_PILL.cost then return end
-        if InventorySystem.CountUnlockedConsumable(SWORD_INTENT_PILL.material) < 1 then return end
-
-        player.lingYun = player.lingYun - SWORD_INTENT_PILL.cost
-        local ok = InventorySystem.ConsumeConsumable(SWORD_INTENT_PILL.material, 1)
-        if not ok then player.lingYun = player.lingYun + SWORD_INTENT_PILL.cost; return end
-        swordIntentPillCount_ = swordIntentPillCount_ + 1
-        if player.pillCounts then player.pillCounts.sword_intent = swordIntentPillCount_ end
-        player.atk = player.atk + SWORD_INTENT_PILL.atkBonus
-
-        resultLabel_:SetText("炼制成功！攻击力永久 +" .. SWORD_INTENT_PILL.atkBonus .. " (已炼" .. swordIntentPillCount_ .. "/" .. SWORD_INTENT_PILL.maxBuy .. ")")
+        local ok2, msg = AS.CraftPermanent("sword_intent")
+        if not ok2 then return end
+        resultLabel_:SetText(msg)
         resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
         EventBus.Emit("alchemy_success")
         EventBus.Emit("save_request")
@@ -1635,45 +1347,18 @@ end
 
 --- 炼制狱甲丹（+防御力）
 function AlchemyUI.DoCraftAbyssSeal()
-    local player = GameState.player
-    if not player then return end
-
-    -- 前置校验（客户端）
-    if abyssSealPillCount_ >= ABYSS_SEAL_PILL.maxBuy then
-        resultLabel_:SetText("狱甲丹已炼制完毕！限炼" .. ABYSS_SEAL_PILL.maxBuy .. "颗")
+    local AS = require("systems.AlchemySystem")
+    local ok, errMsg = AS.CanCraftPermanent("abyss_seal")
+    if not ok then
+        resultLabel_:SetText(errMsg)
         resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
         RefreshUI()
         return
     end
-    if player.lingYun < ABYSS_SEAL_PILL.cost then
-        resultLabel_:SetText("灵韵不足！炼制需要 " .. ABYSS_SEAL_PILL.cost .. " 灵韵")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    local matName = GetMaterialName(ABYSS_SEAL_PILL.material)
-    if InventorySystem.CountUnlockedConsumable(ABYSS_SEAL_PILL.material) < 1 then
-        resultLabel_:SetText(matName .. "不足！炼制需要 1 个" .. matName)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-
-    -- 发送 C2S 授权请求
     SendBuyPill("abyss_seal", function()
-        -- 二次校验（防止授权期间状态变化）
-        if abyssSealPillCount_ >= ABYSS_SEAL_PILL.maxBuy then return end
-        if player.lingYun < ABYSS_SEAL_PILL.cost then return end
-        if InventorySystem.CountUnlockedConsumable(ABYSS_SEAL_PILL.material) < 1 then return end
-
-        player.lingYun = player.lingYun - ABYSS_SEAL_PILL.cost
-        local ok = InventorySystem.ConsumeConsumable(ABYSS_SEAL_PILL.material, 1)
-        if not ok then player.lingYun = player.lingYun + ABYSS_SEAL_PILL.cost; return end
-        abyssSealPillCount_ = abyssSealPillCount_ + 1
-        if player.pillCounts then player.pillCounts.abyss_seal = abyssSealPillCount_ end
-        player.def = player.def + ABYSS_SEAL_PILL.defBonus
-
-        resultLabel_:SetText("炼制成功！防御力永久 +" .. ABYSS_SEAL_PILL.defBonus .. " (已炼" .. abyssSealPillCount_ .. "/" .. ABYSS_SEAL_PILL.maxBuy .. ")")
+        local ok2, msg = AS.CraftPermanent("abyss_seal")
+        if not ok2 then return end
+        resultLabel_:SetText(msg)
         resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
         EventBus.Emit("alchemy_success")
         EventBus.Emit("save_request")
@@ -1681,74 +1366,74 @@ function AlchemyUI.DoCraftAbyssSeal()
     end)
 end
 
---- 获取虎骨丹已炼制次数（供存档系统使用）
+--- 获取虎骨丹已炼制次数（薄代理 → AlchemySystem）
 function AlchemyUI.GetTigerPillCount()
-    return tigerPillCount_
+    return require("systems.AlchemySystem").GetTigerPillCount()
 end
 
---- 设置虎骨丹已炼制次数（供存档系统加载使用）
+--- 设置虎骨丹已炼制次数（薄代理 → AlchemySystem）
 function AlchemyUI.SetTigerPillCount(count)
-    tigerPillCount_ = count or 0
+    require("systems.AlchemySystem").SetTigerPillCount(count)
 end
 
---- 获取灵蛇丹已炼制次数（供存档系统使用）
+--- 获取灵蛇丹已炼制次数（薄代理 → AlchemySystem）
 function AlchemyUI.GetSnakePillCount()
-    return snakePillCount_
+    return require("systems.AlchemySystem").GetSnakePillCount()
 end
 
---- 设置灵蛇丹已炼制次数（供存档系统加载使用）
+--- 设置灵蛇丹已炼制次数（薄代理 → AlchemySystem）
 function AlchemyUI.SetSnakePillCount(count)
-    snakePillCount_ = count or 0
+    require("systems.AlchemySystem").SetSnakePillCount(count)
 end
 
---- 获取金刚丹已炼制次数（供存档系统使用）
+--- 获取金刚丹已炼制次数（薄代理 → AlchemySystem）
 function AlchemyUI.GetDiamondPillCount()
-    return diamondPillCount_
+    return require("systems.AlchemySystem").GetDiamondPillCount()
 end
 
---- 设置金刚丹已炼制次数（供存档系统加载使用）
+--- 设置金刚丹已炼制次数（薄代理 → AlchemySystem）
 function AlchemyUI.SetDiamondPillCount(count)
-    diamondPillCount_ = count or 0
+    require("systems.AlchemySystem").SetDiamondPillCount(count)
 end
 
---- 获取千锤百炼丹已食用次数（供存档系统使用）
+--- 获取千锤百炼丹已食用次数（薄代理 → AlchemySystem）
 function AlchemyUI.GetTemperingPillEaten()
-    return temperingPillEaten_
+    return require("systems.AlchemySystem").GetTemperingPillEaten()
 end
 
---- 设置千锤百炼丹已食用次数（供存档系统加载使用）
+--- 设置千锤百炼丹已食用次数（薄代理 → AlchemySystem）
 function AlchemyUI.SetTemperingPillEaten(count)
-    temperingPillEaten_ = count or 0
+    require("systems.AlchemySystem").SetTemperingPillEaten(count)
 end
 
---- 获取龙血丹已炼制次数（供存档系统使用）
+--- 获取龙血丹已炼制次数（薄代理 → AlchemySystem）
 function AlchemyUI.GetDragonBloodPillCount()
-    return dragonBloodPillCount_
+    return require("systems.AlchemySystem").GetDragonBloodPillCount()
 end
 
---- 设置龙血丹已炼制次数（供存档系统加载使用）
+--- 设置龙血丹已炼制次数（薄代理 → AlchemySystem）
 function AlchemyUI.SetDragonBloodPillCount(count)
-    dragonBloodPillCount_ = count or 0
+    require("systems.AlchemySystem").SetDragonBloodPillCount(count)
 end
 
---- 获取太虚剑丹已炼制次数（供存档系统使用）
+--- 获取太虚剑丹已炼制次数（薄代理 → AlchemySystem）
 function AlchemyUI.GetSwordIntentPillCount()
-    return swordIntentPillCount_
+    return require("systems.AlchemySystem").GetSwordIntentPillCount()
 end
 
---- 设置太虚剑丹已炼制次数（供存档系统加载使用）
+--- 设置太虚剑丹已炼制次数（薄代理 → AlchemySystem）
 function AlchemyUI.SetSwordIntentPillCount(count)
-    swordIntentPillCount_ = count or 0
+    require("systems.AlchemySystem").SetSwordIntentPillCount(count)
 end
 
---- 获取狱甲丹已炼制次数（供存档系统使用）
+--- 获取狱甲丹已炼制次数（薄代理 → AlchemySystem）
 function AlchemyUI.GetAbyssSealPillCount()
-    return abyssSealPillCount_
+    return require("systems.AlchemySystem").GetAbyssSealPillCount()
 end
 
---- 设置狱甲丹已炼制次数（供存档系统加载使用）
+--- 设置狱甲丹已炼制次数（薄代理 → AlchemySystem）
 function AlchemyUI.SetAbyssSealPillCount(count)
-    abyssSealPillCount_ = count or 0
+    require("systems.AlchemySystem").SetAbyssSealPillCount(count)
 end
 
 function AlchemyUI.Show(npc)
@@ -1792,13 +1477,7 @@ function AlchemyUI.Destroy()
     portraitPanel_ = nil
     contentPanel_ = nil
     visible_ = false
-    tigerPillCount_ = 0
-    snakePillCount_ = 0
-    diamondPillCount_ = 0
-    temperingPillEaten_ = 0
-    dragonBloodPillCount_ = 0
-    swordIntentPillCount_ = 0
-    abyssSealPillCount_ = 0
+    require("systems.AlchemySystem").ResetRuntimeState()
     pendingPillBuys_ = {}
 end
 

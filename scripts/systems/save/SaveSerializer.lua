@@ -60,34 +60,34 @@ function SaveSerializer.SerializePlayer()
         prisonTowerHpRegen = player.prisonTowerHpRegen or 0,
         daoTreeWisdom = player.daoTreeWisdom or 0,
         daoTreeWisdomPity = player.daoTreeWisdomPity or 0,
-        -- v13: 丹药计数统一存入 player
+        -- v13: 丹药计数统一存入 player（真值来源: AlchemySystem）
         tigerPillCount = (function()
-            local AlchemyUI = require("ui.AlchemyUI")
-            return AlchemyUI.GetTigerPillCount()
+            local AlchemySystem = require("systems.AlchemySystem")
+            return AlchemySystem.GetTigerPillCount()
         end)(),
         snakePillCount = (function()
-            local AlchemyUI = require("ui.AlchemyUI")
-            return AlchemyUI.GetSnakePillCount()
+            local AlchemySystem = require("systems.AlchemySystem")
+            return AlchemySystem.GetSnakePillCount()
         end)(),
         diamondPillCount = (function()
-            local AlchemyUI = require("ui.AlchemyUI")
-            return AlchemyUI.GetDiamondPillCount()
+            local AlchemySystem = require("systems.AlchemySystem")
+            return AlchemySystem.GetDiamondPillCount()
         end)(),
         temperingPillEaten = (function()
-            local AlchemyUI = require("ui.AlchemyUI")
-            return AlchemyUI.GetTemperingPillEaten()
+            local AlchemySystem = require("systems.AlchemySystem")
+            return AlchemySystem.GetTemperingPillEaten()
         end)(),
         dragonBloodPillCount = (function()
-            local AlchemyUI = require("ui.AlchemyUI")
-            return AlchemyUI.GetDragonBloodPillCount()
+            local AlchemySystem = require("systems.AlchemySystem")
+            return AlchemySystem.GetDragonBloodPillCount()
         end)(),
         swordIntentPillCount = (function()
-            local AlchemyUI = require("ui.AlchemyUI")
-            return AlchemyUI.GetSwordIntentPillCount()
+            local AlchemySystem = require("systems.AlchemySystem")
+            return AlchemySystem.GetSwordIntentPillCount()
         end)(),
         abyssSealPillCount = (function()
-            local AlchemyUI = require("ui.AlchemyUI")
-            return AlchemyUI.GetAbyssSealPillCount()
+            local AlchemySystem = require("systems.AlchemySystem")
+            return AlchemySystem.GetAbyssSealPillCount()
         end)(),
         xueshaDanCount = (function()
             local ChallengeSystem = require("systems.ChallengeSystem")
@@ -257,16 +257,16 @@ function SaveSerializer.DeserializePlayer(data)
     -- 恢复章节信息
     GameState.currentChapter = data.chapter or 1
 
-    -- v13: 恢复丹药计数到各模块
+    -- v13: 恢复丹药计数到各模块（真值写入 AlchemySystem）
     do
-        local AlchemyUI = require("ui.AlchemyUI")
-        AlchemyUI.SetTigerPillCount(data.tigerPillCount or 0)
-        AlchemyUI.SetSnakePillCount(data.snakePillCount or 0)
-        AlchemyUI.SetDiamondPillCount(data.diamondPillCount or 0)
-        AlchemyUI.SetTemperingPillEaten(data.temperingPillEaten or 0)
-        AlchemyUI.SetDragonBloodPillCount(data.dragonBloodPillCount or 0)
-        AlchemyUI.SetSwordIntentPillCount(data.swordIntentPillCount or 0)
-        AlchemyUI.SetAbyssSealPillCount(data.abyssSealPillCount or 0)
+        local AlchemySystem = require("systems.AlchemySystem")
+        AlchemySystem.SetTigerPillCount(data.tigerPillCount or 0)
+        AlchemySystem.SetSnakePillCount(data.snakePillCount or 0)
+        AlchemySystem.SetDiamondPillCount(data.diamondPillCount or 0)
+        AlchemySystem.SetTemperingPillEaten(data.temperingPillEaten or 0)
+        AlchemySystem.SetDragonBloodPillCount(data.dragonBloodPillCount or 0)
+        AlchemySystem.SetSwordIntentPillCount(data.swordIntentPillCount or 0)
+        AlchemySystem.SetAbyssSealPillCount(data.abyssSealPillCount or 0)
 
         local ChallengeSystem = require("systems.ChallengeSystem")
         ChallengeSystem.xueshaDanCount = data.xueshaDanCount or 0

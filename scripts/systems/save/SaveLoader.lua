@@ -130,7 +130,7 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
             local p = GameState.player
             local ChallengeSystem = require("systems.ChallengeSystem")
             local ChallengeConfig = require("config.ChallengeConfig")
-            local AlchemyUI = require("ui.AlchemyUI")
+            local AlchemySystem = require("systems.AlchemySystem")
 
             if p then
                 -- Step 1: 从挑战完成记录计算正确的 xuesha/haoqi 数量
@@ -222,9 +222,9 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
                         if rid == currentRealm then break end
                     end
 
-                    local tiger   = AlchemyUI.GetTigerPillCount()
-                    local snake   = AlchemyUI.GetSnakePillCount()
-                    local diamond = AlchemyUI.GetDiamondPillCount()
+                    local tiger   = AlchemySystem.GetTigerPillCount()
+                    local snake   = AlchemySystem.GetSnakePillCount()
+                    local diamond = AlchemySystem.GetDiamondPillCount()
 
                     local expectedAtk   = baseAtk   + realmAtk   + snake * 10 + correctXuesha * 8
                     local expectedMaxHp = baseMaxHp + realmMaxHp + tiger * 30 + correctHaoqi * 30
@@ -250,10 +250,10 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
                 -- Step 5: pillCounts 权威记录初始化/校验
                 do
                     local current = {
-                        tiger     = AlchemyUI.GetTigerPillCount(),
-                        snake     = AlchemyUI.GetSnakePillCount(),
-                        diamond   = AlchemyUI.GetDiamondPillCount(),
-                        tempering = AlchemyUI.GetTemperingPillEaten(),
+                        tiger     = AlchemySystem.GetTigerPillCount(),
+                        snake     = AlchemySystem.GetSnakePillCount(),
+                        diamond   = AlchemySystem.GetDiamondPillCount(),
+                        tempering = AlchemySystem.GetTemperingPillEaten(),
                         xuesha    = correctXuesha,
                         haoqi     = correctHaoqi,
                         -- 凝X丹系列（血煞盟新丹药，权威来源为 ChallengeSystem 模块字段）
@@ -264,8 +264,8 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
                         ningxi    = ChallengeSystem.ningxiDanCount or 0,
                         ganggu    = ChallengeSystem.gangguDanCount or 0,
                         -- 第五章丹药
-                        sword_intent = AlchemyUI.GetSwordIntentPillCount(),
-                        abyss_seal   = AlchemyUI.GetAbyssSealPillCount(),
+                        sword_intent = AlchemySystem.GetSwordIntentPillCount(),
+                        abyss_seal   = AlchemySystem.GetAbyssSealPillCount(),
                     }
 
                     if not p.pillCounts then

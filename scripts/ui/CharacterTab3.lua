@@ -7,7 +7,7 @@ local UI = require("urhox-libs/UI")
 local T = require("config.UITheme")
 local GameState = require("core.GameState")
 local TitleSystem = require("systems.TitleSystem")
-local AlchemyUI = require("ui.AlchemyUI")
+local AlchemySystem = require("systems.AlchemySystem")
 local IconStatRow = require("ui.components.IconStatRow")
 local SectionCard = require("ui.components.SectionCard")
 local SectionHeader = require("ui.components.SectionHeader")
@@ -20,22 +20,22 @@ local PILL_CONFIG = {
     {
         name = "虎骨丹", icon = "🦴", maxBuy = 5,
         bonusLabel = "生命上限", bonusPerPill = 30, bonusColor = {100, 255, 100, 255},
-        getCount = function() return AlchemyUI.GetTigerPillCount() end,
+        getCount = function() return AlchemySystem.GetTigerPillCount() end,
     },
     {
         name = "灵蛇丹", icon = "🐍", maxBuy = 5,
         bonusLabel = "攻击力", bonusPerPill = 10, bonusColor = {255, 150, 100, 255},
-        getCount = function() return AlchemyUI.GetSnakePillCount() end,
+        getCount = function() return AlchemySystem.GetSnakePillCount() end,
     },
     {
         name = "金刚丹", icon = "🛡️", maxBuy = 5,
         bonusLabel = "防御力", bonusPerPill = 8, bonusColor = {180, 200, 255, 255},
-        getCount = function() return AlchemyUI.GetDiamondPillCount() end,
+        getCount = function() return AlchemySystem.GetDiamondPillCount() end,
     },
     {
         name = "千锤百炼丹", icon = "⚒️", maxBuy = 50,
         bonusLabel = "根骨+1", bonusPerPill = nil, bonusColor = {255, 180, 80, 255},
-        getCount = function() return AlchemyUI.GetTemperingPillEaten() end,
+        getCount = function() return AlchemySystem.GetTemperingPillEaten() end,
     },
     {
         name = "福源果", icon = "🍀",
@@ -118,18 +118,18 @@ local PILL_CONFIG = {
     {
         name = "龙血丹", icon = "🩸", maxBuy = 10,
         bonusLabel = "生命上限", bonusPerPill = 30, bonusColor = {200, 50, 50, 255},
-        getCount = function() return AlchemyUI.GetDragonBloodPillCount() end,
+        getCount = function() return AlchemySystem.GetDragonBloodPillCount() end,
     },
     -- ── 第五章丹药 ──
     {
         name = "太虚剑丹", icon = "⚔️", maxBuy = 10,
         bonusLabel = "攻击力", bonusPerPill = 10, bonusColor = {255, 160, 80, 255},
-        getCount = function() return AlchemyUI.GetSwordIntentPillCount() end,
+        getCount = function() return AlchemySystem.GetSwordIntentPillCount() end,
     },
     {
         name = "狱甲丹", icon = "🛡️", maxBuy = 10,
         bonusLabel = "防御力", bonusPerPill = 8, bonusColor = {100, 180, 255, 255},
-        getCount = function() return AlchemyUI.GetAbyssSealPillCount() end,
+        getCount = function() return AlchemySystem.GetAbyssSealPillCount() end,
     },
 }
 
