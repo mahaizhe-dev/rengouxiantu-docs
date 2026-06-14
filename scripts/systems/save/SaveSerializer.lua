@@ -358,6 +358,7 @@ function SaveSerializer.SerializeItemFull(item)
         enchantSetId = item.enchantSetId,
         icon = item.icon,
         sellPrice = item.sellPrice,
+        sellCurrency = item.sellCurrency,
         forgeStat = item.forgeStat,
         spiritStat = item.spiritStat,
         saintStat  = item.saintStat,   -- 铸剑地炉圣器属性（dizun/daozang/cape/jiefeng四剑）

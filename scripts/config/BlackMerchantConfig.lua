@@ -419,8 +419,8 @@ BMConfig.RECYCLE_NPC_NAME = "胤"
 BMConfig.RECYCLE_WEIGHTS = { 0.25, 0.75, 1.0 }
 --- 单日回收硬上限（双条件熔断：任一触发即停止）
 --- 安全防线：即使其他防护全部失效，单次执行也不会超过此数
-BMConfig.RECYCLE_MAX_KINDS = 30   -- 最多回收 30 种商品
-BMConfig.RECYCLE_MAX_ITEMS = 50   -- 最多回收 50 件商品
+BMConfig.RECYCLE_MAX_KINDS = 50   -- 最多回收 50 种商品
+BMConfig.RECYCLE_MAX_ITEMS = 100  -- 最多回收 100 件商品
 
 --- [已废弃-仅审计] serverCloud.money 日期键名（不再用于互斥判断，仅成功后写入供审计）
 BMConfig.RECYCLE_DATE_KEY = "bm_recycle_date"

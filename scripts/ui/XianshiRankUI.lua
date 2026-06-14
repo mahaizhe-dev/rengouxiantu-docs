@@ -8,13 +8,21 @@ local UI = require("urhox-libs/UI")
 local T = require("config.UITheme")
 local CloudStorage = require("network.CloudStorage")
 local Blacklist = require("config.Blacklist")
+local PanelShell = require("ui.components.PanelShell")
 
 local XianshiRankUI = {}
 
-local panel_ = nil
+local shell_ = nil
 local listContainer_ = nil
 local parentOverlay_ = nil
 local visible_ = false
+
+-- 排名前3装饰色
+local RANK_COLORS = {
+    T.color.warning,          -- 金（#1）
+    T.color.rankSilver,       -- 银（#2）— 令牌统一
+    T.color.rankBronze,       -- 铜（#3）— 令牌统一
+}
 
 --- 初始化（NPCDialog.Create 中调用）
 function XianshiRankUI.Create(parentOverlay)
@@ -25,84 +33,30 @@ end
 function XianshiRankUI.Show()
     XianshiRankUI.Hide()
 
-    -- 构建 loading 状态的列表
+    shell_ = PanelShell.Create({
+        title = "💎 仙石榜",
+        subtitle = "记录所有拥有仙石的修仙者",
+        onClose = function() XianshiRankUI.Hide() end,
+        parent = parentOverlay_,
+        zIndex = 900,
+    })
+
+    -- 构建 loading 状态的列表容器
     listContainer_ = UI.Panel {
         width = "100%",
-        gap = 4,
-        paddingTop = 4,
-        paddingBottom = 4,
-        children = {
-            UI.Label {
-                text = "正在查询仙石榜……",
-                fontSize = T.fontSize.sm,
-                fontColor = {160, 160, 180, 200},
-                textAlign = "center",
-                width = "100%",
-            },
-        },
+        gap = T.spacing.xs,
     }
+    listContainer_:AddChild(UI.Label {
+        text = "正在查询仙石榜……",
+        fontSize = T.fontSize.sm,
+        fontColor = T.color.textMuted,
+        textAlign = "center",
+        width = "100%",
+        marginTop = T.spacing.lg,
+    })
 
-    panel_ = UI.Panel {
-        position = "absolute",
-        width = "100%", height = "100%",
-        justifyContent = "center",
-        alignItems = "center",
-        backgroundColor = {0, 0, 0, 150},
-        zIndex = 900,
-        visible = true,
-        onClick = function(self) XianshiRankUI.Hide() end,
-        children = {
-            UI.Panel {
-                width = 580, maxHeight = 600,
-                backgroundColor = {25, 28, 38, 250},
-                borderRadius = T.radius.lg,
-                borderWidth = 1,
-                borderColor = {180, 160, 80, 120},
-                paddingTop = T.spacing.lg,
-                paddingBottom = T.spacing.lg,
-                paddingLeft = T.spacing.lg,
-                paddingRight = T.spacing.lg,
-                gap = T.spacing.sm,
-                overflow = "scroll",
-                onClick = function(self) end, -- 阻止冒泡关闭
-                children = {
-                    -- 标题
-                    UI.Label {
-                        text = "仙石榜",
-                        fontSize = T.fontSize.xl,
-                        fontWeight = "bold",
-                        fontColor = {255, 215, 80, 255},
-                        textAlign = "center",
-                        width = "100%",
-                    },
-                    UI.Panel {
-                        width = "100%", height = 1,
-                        backgroundColor = {180, 160, 80, 60},
-                    },
-                    -- 描述
-                    UI.Label {
-                        text = "记录所有拥有仙石的修仙者",
-                        fontSize = T.fontSize.xs,
-                        fontColor = {140, 140, 160, 180},
-                        textAlign = "center",
-                        width = "100%",
-                    },
-                    -- 列表容器
-                    listContainer_,
-                    -- 关闭提示
-                    UI.Label {
-                        text = "点击空白处关闭",
-                        fontSize = T.fontSize.xs,
-                        fontColor = {120, 120, 140, 150},
-                        textAlign = "center",
-                        width = "100%",
-                    },
-                },
-            },
-        },
-    }
-
-    parentOverlay_:AddChild(panel_)
+    shell_:AddContent(listContainer_)
+    shell_:Show()
     visible_ = true
 
     -- 查询仙石榜数据
@@ -122,7 +76,7 @@ function XianshiRankUI.FetchRankList()
                 listContainer_:AddChild(UI.Label {
                     text = "查询失败：" .. tostring(reason),
                     fontSize = T.fontSize.sm,
-                    fontColor = {255, 120, 100, 220},
+                    fontColor = T.color.error,
                     textAlign = "center",
                     width = "100%",
                 })
@@ -163,9 +117,10 @@ function XianshiRankUI.RenderList(rankList)
         listContainer_:AddChild(UI.Label {
             text = "暂无记录",
             fontSize = T.fontSize.sm,
-            fontColor = {160, 160, 180, 200},
+            fontColor = T.color.textMuted,
             textAlign = "center",
             width = "100%",
+            marginTop = T.spacing.lg,
         })
         return
     end
@@ -176,22 +131,18 @@ function XianshiRankUI.RenderList(rankList)
         local isMe = (tostring(entry.userId) == tostring(myUserId))
 
         -- 排名颜色
-        local rankColor = {180, 180, 200, 255}
-        if i == 1 then rankColor = {255, 215, 0, 255}   -- 金
-        elseif i == 2 then rankColor = {200, 200, 220, 255} -- 银
-        elseif i == 3 then rankColor = {205, 127, 50, 255}  -- 铜
-        end
+        local rankColor = RANK_COLORS[i] or T.color.textSecondary
 
-        local bgColor = isMe and {60, 55, 30, 200} or {35, 38, 50, 180}
+        local bgColor = isMe and T.color.highlightMe or T.color.surface
 
         listContainer_:AddChild(UI.Panel {
             width = "100%", height = 36,
             flexDirection = "row",
             alignItems = "center",
             backgroundColor = bgColor,
-            borderRadius = 4,
-            paddingLeft = 8, paddingRight = 8,
-            gap = 8,
+            borderRadius = T.radius.sm,
+            paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm,
+            gap = T.spacing.sm,
             children = {
                 -- 排名
                 UI.Label {
@@ -209,12 +160,12 @@ function XianshiRankUI.RenderList(rankList)
                         UI.Label {
                             text = entry.nick .. (isMe and " (你)" or ""),
                             fontSize = T.fontSize.md,
-                            fontColor = isMe and {255, 230, 130, 255} or {210, 210, 225, 240},
+                            fontColor = isMe and T.color.gold or T.color.textPrimary,
                         },
                         UI.Label {
                             text = tostring(entry.userId),
                             fontSize = T.fontSize.xs,
-                            fontColor = {120, 120, 140, 160},
+                            fontColor = T.color.textMuted,
                         },
                     },
                 },
@@ -222,7 +173,7 @@ function XianshiRankUI.RenderList(rankList)
                 UI.Label {
                     text = tostring(entry.xianshi) .. " 仙石",
                     fontSize = T.fontSize.sm,
-                    fontColor = {160, 220, 255, 230},
+                    fontColor = T.color.info,
                     textAlign = "right",
                 },
             },
@@ -232,9 +183,12 @@ end
 
 --- 隐藏
 function XianshiRankUI.Hide()
-    if panel_ then
-        panel_:SetVisible(false)
-        panel_ = nil
+    if shell_ then
+        shell_:Hide()
+        if shell_.panel then
+            shell_.panel:Destroy()
+        end
+        shell_ = nil
     end
     listContainer_ = nil
     visible_ = false

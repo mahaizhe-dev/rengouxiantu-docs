@@ -18,10 +18,10 @@ local GameConfig = require("config.GameConfig")
 
 local CharacterUI = {}
 
--- ── 职业头像映射 ──
+-- ── 职业头像映射（必须使用精灵图，不得使用衍生图） ──
 local CLASS_PORTRAITS = {
-    monk    = "image/class_monk_20260405152912.png",
-    taixu   = "image/class_taixu_20260405152929.png",
+    monk    = "Textures/player_right.png",
+    taixu   = "Textures/class_swordsman_right.png",
     zhenyue = "image/zhenyue_sprite_v3_20260426072019.png",
 }
 

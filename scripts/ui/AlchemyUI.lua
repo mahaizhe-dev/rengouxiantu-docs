@@ -1,74 +1,119 @@
 -- ============================================================================
--- AlchemyUI.lua - 炼丹炉功能面板（按章节切换配方）
--- Ch1: 练气丹 + 虎骨丹
--- Ch2: 筑基丹 + 灵蛇丹 + 金刚丹 + 乌堡令盒
--- Ch3: 金丹沙 + 元婴果 + 千锤百炼丹 + 沙海令盒
--- Ch4: 九转金丹（500灵韵/颗） + 太虚令盒
--- Ch5: 渡劫丹（1000灵韵/颗） + 太虚剑丹（+10攻击） + 狱甲丹（+8防御） + 太虚剑令盒
--- 中洲(101): 阵营丹药（凝力丹/凝甲丹/凝元丹/凝魂丹/凝息丹）
+-- AlchemyUI.lua - 炼丹炉功能面板（v4：56px图标+蓝色矩形按钮+紧凑布局）
+-- Style: 仙侠暗金 (UITheme 规范化版)
+-- 特点: 160px大炉PNG | 56px图标+右侧双行信息+蓝色按钮 | 下行"炼制消耗：" | 分类badge
 -- ============================================================================
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 
 local UI = require("urhox-libs/UI")
 local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
 local SaveSession = require("systems.save.SaveSession")
 local T = require("config.UITheme")
-local GameConfig = require("config.GameConfig")
 local InventorySystem = require("systems.InventorySystem")
 local PillRecipes = require("config.PillRecipes")
+local PanelShell = require("ui.components.PanelShell")
+local ItemSlot = require("ui.components.ItemSlot")
+local CategoryBadge = require("ui.components.CategoryBadge")
 
 local AlchemyUI = {}
 
-local panel_ = nil
+-- ============================================================================
+-- 模块状态
+-- ============================================================================
+
+local shell_ = nil
 local visible_ = false
-local resultLabel_ = nil
 local portraitPanel_ = nil
-local contentPanel_ = nil  -- 动态内容区域
+local lingYunLabel_ = nil
+local furnacePanel_ = nil
 
 local PORTRAIT_SIZE = 64
+local ICON_SIZE = 56
+local BTN_WIDTH = 76
+local BTN_HEIGHT = 34
+local FURNACE_SIZE = 160
+
+-- 按钮配色（语义：消耗/花钱类操作）
+local BTN_BG = T.color.btnSpend
+local BTN_BG_DISABLED = T.color.btnDisabled
+local BTN_FG = T.color.btnSpendFg
+local BTN_FG_DISABLED = T.color.btnDisabledFg
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- PNG 图标映射
+-- ═══════════════════════════════════════════════════════════════════════════
+
+local PILL_ICONS = {
+    qi_pill         = "icon_qi_pill.png",
+    zhuji_pill      = "icon_zhuji_pill.png",
+    jindan_sand     = "icon_jindan_sand.png",
+    yuanying_fruit  = "icon_yuanying_fruit.png",
+    jiuzhuan_jindan = "icon_jiuzhuan_jindan.png",
+    dujie_dan       = "icon_dujie_dan.png",
+    -- 永久丹
+    tiger           = "icon_spirit_pill.png",
+    snake           = "icon_spirit_pill_2.png",
+    diamond         = "icon_spirit_pill_3.png",
+    tempering       = "icon_spirit_pill_4.png",
+    dragon_blood    = "icon_spirit_pill_5.png",
+    sword_intent    = "icon_spirit_pill_2.png",
+    abyss_seal      = "icon_spirit_pill_3.png",
+}
+
+local FURNACE_IMAGE = "Textures/npc_alchemy_furnace.png"
+local XIANXIA_BG_IMAGE = "image/bg_dark_cloud_v7_20260609154622.png"
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 配方常量（从 PillRecipes 单一数据源派生）
+-- ═══════════════════════════════════════════════════════════════════════════
+
 local QI_PILL_COST = PillRecipes.CONSUMABLES.qi_pill.cost
+local ZHUJI_PILL_COST = PillRecipes.CONSUMABLES.zhuji_pill.cost
+local JINDAN_SAND_COST = PillRecipes.CONSUMABLES.jindan_sand.cost
+local YUANYING_FRUIT_COST = PillRecipes.CONSUMABLES.yuanying_fruit.cost
+local JIUZHUAN_JINDAN_COST = PillRecipes.CONSUMABLES.jiuzhuan_jindan.cost
+local DUJIE_DAN_COST = PillRecipes.CONSUMABLES.dujie_dan.cost
 
--- ═══════════════════════════════════════════════════════════════════════════
--- 配方常量（从 PillRecipes 单一数据源派生，消除双配置）
--- ═══════════════════════════════════════════════════════════════════════════
-
--- Ch1: 虎骨丹
 local _tp = PillRecipes.PERMANENTS.tiger
 local TIGER_PILL = { cost = _tp.cost, hpBonus = _tp.bonusValue, maxBuy = _tp.maxCount, material = _tp.material }
 
--- Ch2: 筑基丹
-local ZHUJI_PILL_COST = PillRecipes.CONSUMABLES.zhuji_pill.cost
-
--- Ch2: 灵蛇丹
 local _sp = PillRecipes.PERMANENTS.snake
 local SNAKE_PILL = { cost = _sp.cost, atkBonus = _sp.bonusValue, maxBuy = _sp.maxCount, material = _sp.material }
 
--- Ch2: 金刚丹
 local _dp = PillRecipes.PERMANENTS.diamond
 local DIAMOND_PILL = { cost = _dp.cost, defBonus = _dp.bonusValue, maxBuy = _dp.maxCount, material = _dp.material }
 
--- Ch3: 金丹沙 / 元婴果
-local JINDAN_SAND_COST = PillRecipes.CONSUMABLES.jindan_sand.cost
-local YUANYING_FRUIT_COST = PillRecipes.CONSUMABLES.yuanying_fruit.cost
-
--- Ch3: 千锤百炼丹
 local _tmp = PillRecipes.PERMANENTS.tempering
 local TEMPERING_PILL = { cost = _tmp.cost, constitutionBonus = _tmp.bonusValue, maxEat = _tmp.maxCount, material = _tmp.material }
 
--- v13 C2S 丹药购买：待授权回调表 { [pillId] = { cb=function, t=os.clock() } }
-local pendingPillBuys_ = {}
-local PENDING_PILL_TIMEOUT = 15  -- 秒，超时后自动清理 pending 状态
+local _db = PillRecipes.PERMANENTS.dragon_blood
+local DRAGON_BLOOD_PILL = { cost = _db.cost, hpBonus = _db.bonusValue, maxBuy = _db.maxCount, material = _db.material }
 
---- C2S 丹药购买授权请求
----@param pillId string 丹药 ID（tiger/snake/diamond/tempering）
----@param callback function 授权成功后的回调
+local _si = PillRecipes.PERMANENTS.sword_intent
+local SWORD_INTENT_PILL = { cost = _si.cost, atkBonus = _si.bonusValue, maxBuy = _si.maxCount, material = _si.material }
+
+local _as = PillRecipes.PERMANENTS.abyss_seal
+local ABYSS_SEAL_PILL = { cost = _as.cost, defBonus = _as.bonusValue, maxBuy = _as.maxCount, material = _as.material }
+
+local TOKEN_BOX_LINGYUN_COST = PillRecipes.TOKEN_BOX_LINGYUN_COST
+local TOKEN_BOX_TOKEN_COST   = PillRecipes.TOKEN_BOX_TOKEN_COST
+local TOKEN_BOX_RECIPES      = PillRecipes.TOKEN_BOXES
+
+-- 分类标签配置已迁移到共享组件 CategoryBadge.PRESETS
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- C2S 授权机制
+-- ═══════════════════════════════════════════════════════════════════════════
+
+local pendingPillBuys_ = {}
+local PENDING_PILL_TIMEOUT = 15
+
 local function SendBuyPill(pillId, callback)
-    -- P1-UI-2 修复：防止重复点击，已有未完成请求时忽略
     if pendingPillBuys_[pillId] then
         print("[AlchemyUI] SendBuyPill: already pending for " .. pillId .. ", ignoring")
         return
     end
-    -- N1: 持续断连时阻断高风险 C2S 操作
     local NetworkStatus = require("network.NetworkStatus")
     if NetworkStatus.IsDisconnected() then
         print("[AlchemyUI] SendBuyPill blocked by sustained disconnect: " .. pillId)
@@ -77,7 +122,6 @@ local function SendBuyPill(pillId, callback)
     local SaveProtocol = require("network.SaveProtocol")
     local serverConn = network:GetServerConnection()
     if not serverConn then
-        -- 单机模式：直接执行
         callback()
         return
     end
@@ -85,715 +129,412 @@ local function SendBuyPill(pillId, callback)
     local data = VariantMap()
     data["pillId"] = Variant(pillId)
     serverConn:SendRemoteEvent(SaveProtocol.C2S_BuyPill, true, data)
-    if resultLabel_ then
-        resultLabel_:SetText("请求授权中...")
-        resultLabel_:SetStyle({ fontColor = {255, 200, 100, 255} })
+    if shell_ then
+        shell_:SetResult("请求授权中...", T.color.warning)
     end
 end
 
--- Ch4: 九转金丹
-local JIUZHUAN_JINDAN_COST = PillRecipes.CONSUMABLES.jiuzhuan_jindan.cost
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 工具函数
+-- ═══════════════════════════════════════════════════════════════════════════
 
--- Ch4: 龙血丹
-local _db = PillRecipes.PERMANENTS.dragon_blood
-local DRAGON_BLOOD_PILL = { cost = _db.cost, hpBonus = _db.bonusValue, maxBuy = _db.maxCount, material = _db.material }
-
--- Ch5: 渡劫丹
-local DUJIE_DAN_COST = PillRecipes.CONSUMABLES.dujie_dan.cost
-
--- Ch5: 太虚剑丹
-local _si = PillRecipes.PERMANENTS.sword_intent
-local SWORD_INTENT_PILL = { cost = _si.cost, atkBonus = _si.bonusValue, maxBuy = _si.maxCount, material = _si.material }
-
--- Ch5: 狱甲丹
-local _as = PillRecipes.PERMANENTS.abyss_seal
-local ABYSS_SEAL_PILL = { cost = _as.cost, defBonus = _as.bonusValue, maxBuy = _as.maxCount, material = _as.material }
-
--- 令牌盒配方（通用）
-local TOKEN_BOX_LINGYUN_COST = PillRecipes.TOKEN_BOX_LINGYUN_COST
-local TOKEN_BOX_TOKEN_COST   = PillRecipes.TOKEN_BOX_TOKEN_COST
-local TOKEN_BOX_RECIPES      = PillRecipes.TOKEN_BOXES
-
---- 获取当前练气丹数量
-local function GetPillCount()
-    return InventorySystem.CountConsumable("qi_pill")
-end
-
---- 获取材料名称
 local function GetMaterialName(materialId)
+    local GameConfig = require("config.GameConfig")
     local data = GameConfig.PET_MATERIALS[materialId] or GameConfig.PET_FOOD[materialId]
     return data and data.name or materialId
 end
 
--- ============================================================================
--- 动态内容构建（按章节切换配方）
--- ============================================================================
+local function FormatPrice(amount)
+    if amount >= 10000 then
+        return string.format("%.1fw", amount / 10000)
+    end
+    return tostring(amount)
+end
 
---- 构建 Ch1 内容（练气丹 + 虎骨丹）
+--- 创建分类标签 badge（委托给共享组件 CategoryBadge）
+local function CreateBadge(badgeKey)
+    return CategoryBadge.FromPreset(badgeKey)
+end
+
+-- 从物品注册表获取品质（进阶丹药/令牌盒等均有注册品质）
+local function GetItemQuality(itemId)
+    local GameConfig = require("config.GameConfig")
+    local data = GameConfig.PET_MATERIALS[itemId]
+    return data and data.quality or "blue"
+end
+
+--- 创建丹药图标（委托给共享组件 ItemSlot）
+--- @param iconFile string 图标文件路径
+--- @param quality string 品质 key（white/green/blue/purple/orange/red）
+local function CreatePillIcon(iconFile, quality)
+    return ItemSlot.Create({ icon = iconFile, quality = quality or "blue" })
+end
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 炉子装饰区（大 PNG，无标题文字）
+-- ═══════════════════════════════════════════════════════════════════════════
+
+local function CreateFurnaceArea()
+    lingYunLabel_ = UI.Label {
+        text = "0",
+        fontSize = T.fontSize.lg,
+        fontWeight = "bold",
+        fontColor = T.color.gold,
+    }
+
+    furnacePanel_ = UI.Panel {
+        width = "100%",
+        backgroundImage = XIANXIA_BG_IMAGE,
+        backgroundFit = "cover",
+        borderBottomWidth = 1,
+        borderColor = T.decor.dividerColor,
+        alignItems = "center",
+        justifyContent = "center",
+        paddingTop = T.spacing.md,
+        paddingBottom = T.spacing.sm,
+        gap = T.spacing.xs,
+        children = {
+            -- 炉子 PNG（大尺寸，无标题文字）
+            UI.Panel {
+                width = FURNACE_SIZE,
+                height = FURNACE_SIZE,
+                backgroundImage = FURNACE_IMAGE,
+                backgroundFit = "contain",
+            },
+            -- 统一灵韵余额
+            UI.Panel {
+                flexDirection = "row",
+                alignItems = "center",
+                gap = T.spacing.xs,
+                paddingLeft = T.spacing.md, paddingRight = T.spacing.md,
+                paddingTop = T.spacing.xs, paddingBottom = T.spacing.xs,
+                borderRadius = T.radius.sm,
+                backgroundColor = T.color.chipBg,
+                children = {
+                    UI.Label {
+                        text = "灵韵",
+                        fontSize = T.fontSize.sm,
+                        fontColor = T.color.textSecondary,
+                    },
+                    lingYunLabel_,
+                },
+            },
+        },
+    }
+
+    return furnacePanel_
+end
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- v3 卡片布局：左侧（图标+信息+拥有量） | 右侧（大按钮 + 消耗）
+-- ═══════════════════════════════════════════════════════════════════════════
+
+--- 创建消耗品丹药卡片（进阶丹药）
+local function CreateConsumableCard(cfg)
+    local player = GameState.player
+    local lingYun = player and player.lingYun or 0
+    local count = InventorySystem.CountConsumable(cfg.recipeId)
+    local canCraft = lingYun >= cfg.cost
+    local iconFile = PILL_ICONS[cfg.recipeId] or "icon_qi_pill.png"
+    local quality = GetItemQuality(cfg.recipeId)
+
+    return UI.Panel {
+        width = "100%",
+        backgroundColor = T.color.surfaceDeep,
+        borderRadius = T.radius.sm,
+        borderWidth = 1,
+        borderColor = T.color.border,
+        padding = T.spacing.sm,
+        flexDirection = "row",
+        alignItems = "center",
+        children = {
+            -- 左侧内容区（图标+信息+消耗）
+            UI.Panel {
+                flexGrow = 1, flexShrink = 1,
+                gap = T.spacing.xs,
+                children = {
+                    -- 图标 + 右侧信息
+                    UI.Panel {
+                        flexDirection = "row",
+                        alignItems = "center",
+                        children = {
+                            CreatePillIcon(iconFile, quality),
+                            UI.Panel {
+                                flexGrow = 1, flexShrink = 1,
+                                marginLeft = T.spacing.sm,
+                                gap = T.spacing.xxs,
+                                children = {
+                                    -- 第一栏：名称 / 类型
+                                    UI.Panel {
+                                        flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
+                                        children = {
+                                            UI.Label { text = cfg.name, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = T.color.nameHighlight },
+                                            CreateBadge("advance"),
+                                        },
+                                    },
+                                    -- 第二栏：描述（拥有数量：N）
+                                    UI.Label {
+                                        text = (cfg.desc or "消耗品·可叠加") .. "（拥有数量：" .. count .. "）",
+                                        fontSize = T.fontSize.xs,
+                                        fontColor = T.color.textSecondary,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    -- 炼制消耗
+                    UI.Label {
+                        text = "炼制消耗：灵韵×" .. FormatPrice(cfg.cost),
+                        fontSize = T.fontSize.xs,
+                        fontColor = canCraft and T.color.warning or T.color.error,
+                        marginLeft = ICON_SIZE + T.spacing.sm,
+                    },
+                },
+            },
+            -- 右侧按钮（卡片整体居中）
+            UI.Button {
+                text = "炼制",
+                width = BTN_WIDTH, height = BTN_HEIGHT,
+                fontSize = T.fontSize.sm, fontWeight = "bold",
+                borderRadius = T.radius.sm,
+                backgroundColor = canCraft and BTN_BG or BTN_BG_DISABLED,
+                fontColor = canCraft and BTN_FG or BTN_FG_DISABLED,
+                marginLeft = T.spacing.sm,
+                onClick = canCraft and function() AlchemyUI.DoCraftConsumable(cfg.recipeId) end or nil,
+            },
+        },
+    }
+end
+
+--- 创建永久丹药卡片（属性丹药）
+local function CreatePermanentCard(cfg)
+    local player = GameState.player
+    local lingYun = player and player.lingYun or 0
+    local AS = require("systems.AlchemySystem")
+    local used = cfg.getCount()
+    local remaining = cfg.maxCount - used
+    local matCount = InventorySystem.CountConsumable(cfg.material)
+    local matName = GetMaterialName(cfg.material)
+    local canCraft = remaining > 0 and lingYun >= cfg.cost and matCount >= 1
+    local iconFile = PILL_ICONS[cfg.pillKey] or "icon_spirit_pill.png"
+    local btnText = remaining <= 0 and "已满" or "炼制"
+
+    return UI.Panel {
+        width = "100%",
+        backgroundColor = T.color.surfaceDeep,
+        borderRadius = T.radius.sm,
+        borderWidth = 1,
+        borderColor = remaining > 0 and T.color.border or T.color.borderLight,
+        padding = T.spacing.sm,
+        flexDirection = "row",
+        alignItems = "center",
+        children = {
+            -- 左侧内容区
+            UI.Panel {
+                flexGrow = 1, flexShrink = 1,
+                gap = T.spacing.xs,
+                children = {
+                    -- 图标 + 右侧信息
+                    UI.Panel {
+                        flexDirection = "row",
+                        alignItems = "center",
+                        children = {
+                            CreatePillIcon(iconFile, "orange"),
+                            UI.Panel {
+                                flexGrow = 1, flexShrink = 1,
+                                marginLeft = T.spacing.sm,
+                                gap = T.spacing.xxs,
+                                children = {
+                                    UI.Panel {
+                                        flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
+                                        children = {
+                                            UI.Label { text = cfg.name, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = T.color.nameHighlight },
+                                            CreateBadge("attr"),
+                                        },
+                                    },
+                                    UI.Label {
+                                        text = cfg.effectText .. "（已服用：" .. used .. "/" .. cfg.maxCount .. "）",
+                                        fontSize = T.fontSize.xs,
+                                        fontColor = remaining > 0 and T.color.textSecondary or T.color.error,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    -- 炼制消耗
+                    UI.Label {
+                        text = "炼制消耗：灵韵×" .. FormatPrice(cfg.cost) .. "，" .. matName .. "×1(" .. matCount .. ")",
+                        fontSize = T.fontSize.xs,
+                        fontColor = (lingYun >= cfg.cost and matCount >= 1) and T.color.warning or T.color.error,
+                        marginLeft = ICON_SIZE + T.spacing.sm,
+                    },
+                },
+            },
+            -- 右侧按钮（卡片整体居中）
+            UI.Button {
+                text = btnText,
+                width = BTN_WIDTH, height = BTN_HEIGHT,
+                fontSize = T.fontSize.sm, fontWeight = "bold",
+                borderRadius = T.radius.sm,
+                backgroundColor = canCraft and BTN_BG or BTN_BG_DISABLED,
+                fontColor = canCraft and BTN_FG or BTN_FG_DISABLED,
+                marginLeft = T.spacing.sm,
+                onClick = canCraft and function() AlchemyUI.DoCraftPermanent(cfg.pillKey) end or nil,
+            },
+        },
+    }
+end
+
+--- 创建令牌盒卡片（物品打包）
+local function CreateTokenBoxCard(cfg)
+    local player = GameState.player
+    local lingYun = player and player.lingYun or 0
+    local tokenCount = InventorySystem.CountConsumable(cfg.tokenId)
+    local boxCount = InventorySystem.CountConsumable(cfg.boxId)
+    local canCraft = lingYun >= TOKEN_BOX_LINGYUN_COST and tokenCount >= TOKEN_BOX_TOKEN_COST
+    local quality = GetItemQuality(cfg.boxId)
+
+    return UI.Panel {
+        width = "100%",
+        backgroundColor = T.color.surfaceDeep,
+        borderRadius = T.radius.sm,
+        borderWidth = 1,
+        borderColor = T.color.border,
+        padding = T.spacing.sm,
+        flexDirection = "row",
+        alignItems = "center",
+        children = {
+            -- 左侧内容区
+            UI.Panel {
+                flexGrow = 1, flexShrink = 1,
+                gap = T.spacing.xs,
+                children = {
+                    -- 图标 + 右侧信息
+                    UI.Panel {
+                        flexDirection = "row",
+                        alignItems = "center",
+                        children = {
+                            UI.Panel {
+                                width = ICON_SIZE, height = ICON_SIZE,
+                                borderRadius = T.radius.md,
+                                borderWidth = 2,
+                                borderColor = T.qualityBorder[quality],
+                                backgroundColor = T.decor.qualitySlotBg[quality],
+                                justifyContent = "center", alignItems = "center",
+                                children = {
+                                    UI.Label { text = "📦", fontSize = T.fontSize.xl + 4 },
+                                },
+                            },
+                            UI.Panel {
+                                flexGrow = 1, flexShrink = 1,
+                                marginLeft = T.spacing.sm,
+                                gap = T.spacing.xxs,
+                                children = {
+                                    UI.Panel {
+                                        flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
+                                        children = {
+                                            UI.Label { text = cfg.name, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = T.color.nameHighlight },
+                                            CreateBadge("pack"),
+                                        },
+                                    },
+                                    UI.Label {
+                                        text = "将令牌封装为礼盒（拥有数量：" .. boxCount .. "）",
+                                        fontSize = T.fontSize.xs,
+                                        fontColor = T.color.textSecondary,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    -- 炼制消耗
+                    UI.Label {
+                        text = "炼制消耗：灵韵×" .. FormatPrice(TOKEN_BOX_LINGYUN_COST) .. "，" .. cfg.tokenName .. "×" .. TOKEN_BOX_TOKEN_COST .. "(" .. tokenCount .. ")",
+                        fontSize = T.fontSize.xs,
+                        fontColor = canCraft and T.color.warning or T.color.error,
+                        marginLeft = ICON_SIZE + T.spacing.sm,
+                    },
+                },
+            },
+            -- 右侧按钮（卡片整体居中）
+            UI.Button {
+                text = "封装",
+                width = BTN_WIDTH, height = BTN_HEIGHT,
+                fontSize = T.fontSize.sm, fontWeight = "bold",
+                borderRadius = T.radius.sm,
+                backgroundColor = canCraft and BTN_BG or BTN_BG_DISABLED,
+                fontColor = canCraft and BTN_FG or BTN_FG_DISABLED,
+                marginLeft = T.spacing.sm,
+                onClick = canCraft and function() AlchemyUI.DoCraftTokenBox(cfg.tokenId, cfg.boxId) end or nil,
+            },
+        },
+    }
+end
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 章节内容构建
+-- ═══════════════════════════════════════════════════════════════════════════
+
 local function BuildCh1Content()
-    local player = GameState.player
-    if not player then return {} end
-
-    local pillCount = GetPillCount()
-    local canCraft = player.lingYun >= QI_PILL_COST
-
-    local remaining = TIGER_PILL.maxBuy - require("systems.AlchemySystem").GetTigerPillCount()
-    local tigerMatCount = InventorySystem.CountConsumable(TIGER_PILL.material)
-    local canTiger = remaining > 0 and player.lingYun >= TIGER_PILL.cost and tigerMatCount >= 1
-
+    local AS = require("systems.AlchemySystem")
     return {
-        -- 练气丹区
-        UI.Label {
-            text = "📦 炼制练气丹",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {180, 220, 255, 240},
-        },
-        UI.Label {
-            text = "当前练气丹: " .. pillCount .. " 颗",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {200, 180, 255, 255}, textAlign = "center",
-        },
-        UI.Label {
-            text = "灵韵: " .. player.lingYun .. " (需要 " .. QI_PILL_COST .. ")",
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = canCraft and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = "炼制练气丹 (" .. QI_PILL_COST .. " 灵韵 → 1颗)",
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = canCraft and {60, 120, 80, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraft() end,
-        },
-        -- 分隔线
-        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
-        -- 虎骨丹区
-        UI.Label {
-            text = "🦴 炼制虎骨丹",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 200, 150, 240},
-        },
-        UI.Label {
-            text = "永久增加血量上限 +" .. TIGER_PILL.hpBonus .. "（限炼" .. TIGER_PILL.maxBuy .. "颗）",
-            fontSize = T.fontSize.xs,
-            fontColor = {200, 180, 150, 200},
-        },
-        UI.Label {
-            text = remaining > 0
-                and ("已炼制 " .. require("systems.AlchemySystem").GetTigerPillCount() .. "/" .. TIGER_PILL.maxBuy .. " 颗")
-                or ("已售罄（限炼 " .. TIGER_PILL.maxBuy .. " 颗）"),
-            fontSize = T.fontSize.xs,
-            fontColor = remaining > 0 and {180, 180, 190, 200} or {255, 120, 100, 200},
-        },
-        UI.Label {
-            text = remaining <= 0 and "虎骨丹已炼制完毕"
-                or ("灵韵: " .. player.lingYun .. " (需要 " .. TIGER_PILL.cost .. ")  "
-                    .. GetMaterialName(TIGER_PILL.material) .. ": " .. tigerMatCount .. " (需要 1)"),
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = canTiger and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = remaining <= 0 and "已售罄"
-                or ("炼制虎骨丹 (" .. TIGER_PILL.cost .. "灵韵+" .. GetMaterialName(TIGER_PILL.material) .. " → +" .. TIGER_PILL.hpBonus .. "血量上限)"),
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = canTiger and {120, 80, 60, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftTiger() end,
-        },
+        CreateConsumableCard({ name = "练气丹", recipeId = "qi_pill", cost = QI_PILL_COST, desc = "修炼基础丹药" }),
+        CreatePermanentCard({ name = "虎骨丹", effectText = "永久 +" .. TIGER_PILL.hpBonus .. " 血量上限", pillKey = "tiger", cost = TIGER_PILL.cost, material = TIGER_PILL.material, maxCount = TIGER_PILL.maxBuy, getCount = AS.GetTigerPillCount }),
     }
 end
 
---- 构建 Ch2 内容（筑基丹 + 灵蛇丹）
 local function BuildCh2Content()
-    local player = GameState.player
-    if not player then return {} end
-
-    local zhujiCount = InventorySystem.CountConsumable("zhuji_pill")
-    local canZhuji = player.lingYun >= ZHUJI_PILL_COST
-
-    local snakeRemaining = SNAKE_PILL.maxBuy - require("systems.AlchemySystem").GetSnakePillCount()
-    local snakeMatCount = InventorySystem.CountConsumable(SNAKE_PILL.material)
-    local canSnake = snakeRemaining > 0 and player.lingYun >= SNAKE_PILL.cost and snakeMatCount >= 1
-
-    local diamondRemaining = DIAMOND_PILL.maxBuy - require("systems.AlchemySystem").GetDiamondPillCount()
-    local diamondMatCount = InventorySystem.CountConsumable(DIAMOND_PILL.material)
-    local canDiamond = diamondRemaining > 0 and player.lingYun >= DIAMOND_PILL.cost and diamondMatCount >= 1
-
+    local AS = require("systems.AlchemySystem")
     return {
-        -- 筑基丹区
-        UI.Label {
-            text = "🔮 炼制筑基丹",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {220, 180, 255, 240},
-        },
-        UI.Label {
-            text = "当前筑基丹: " .. zhujiCount .. " 颗",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 200, 100, 255}, textAlign = "center",
-        },
-        UI.Label {
-            text = "灵韵: " .. player.lingYun .. " (需要 " .. ZHUJI_PILL_COST .. ")",
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = canZhuji and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = "炼制筑基丹 (" .. ZHUJI_PILL_COST .. " 灵韵 → 1颗)",
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = canZhuji and {100, 60, 160, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftZhuji() end,
-        },
-        -- 分隔线
-        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
-        -- 灵蛇丹区
-        UI.Label {
-            text = "🐍 炼制灵蛇丹",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {100, 255, 180, 240},
-        },
-        UI.Label {
-            text = "永久增加攻击力 +" .. SNAKE_PILL.atkBonus .. "（限炼" .. SNAKE_PILL.maxBuy .. "颗）",
-            fontSize = T.fontSize.xs,
-            fontColor = {200, 180, 150, 200},
-        },
-        UI.Label {
-            text = snakeRemaining > 0
-                and ("已炼制 " .. require("systems.AlchemySystem").GetSnakePillCount() .. "/" .. SNAKE_PILL.maxBuy .. " 颗")
-                or ("已售罄（限炼 " .. SNAKE_PILL.maxBuy .. " 颗）"),
-            fontSize = T.fontSize.xs,
-            fontColor = snakeRemaining > 0 and {180, 180, 190, 200} or {255, 120, 100, 200},
-        },
-        UI.Label {
-            text = snakeRemaining <= 0 and "灵蛇丹已炼制完毕"
-                or ("灵韵: " .. player.lingYun .. " (需要 " .. SNAKE_PILL.cost .. ")  "
-                    .. GetMaterialName(SNAKE_PILL.material) .. ": " .. snakeMatCount .. " (需要 1)"),
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = canSnake and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = snakeRemaining <= 0 and "已售罄"
-                or ("炼制灵蛇丹 (" .. SNAKE_PILL.cost .. "灵韵+" .. GetMaterialName(SNAKE_PILL.material) .. " → +" .. SNAKE_PILL.atkBonus .. "攻击力)"),
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = canSnake and {60, 140, 100, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftSnake() end,
-        },
-        -- 分隔线
-        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
-        -- 金刚丹区
-        UI.Label {
-            text = "🛡️ 炼制金刚丹",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {180, 200, 255, 240},
-        },
-        UI.Label {
-            text = "永久增加防御力 +" .. DIAMOND_PILL.defBonus .. "（限炼" .. DIAMOND_PILL.maxBuy .. "颗）",
-            fontSize = T.fontSize.xs,
-            fontColor = {200, 180, 150, 200},
-        },
-        UI.Label {
-            text = diamondRemaining > 0
-                and ("已炼制 " .. require("systems.AlchemySystem").GetDiamondPillCount() .. "/" .. DIAMOND_PILL.maxBuy .. " 颗")
-                or ("已售罄（限炼 " .. DIAMOND_PILL.maxBuy .. " 颗）"),
-            fontSize = T.fontSize.xs,
-            fontColor = diamondRemaining > 0 and {180, 180, 190, 200} or {255, 120, 100, 200},
-        },
-        UI.Label {
-            text = diamondRemaining <= 0 and "金刚丹已炼制完毕"
-                or ("灵韵: " .. player.lingYun .. " (需要 " .. DIAMOND_PILL.cost .. ")  "
-                    .. GetMaterialName(DIAMOND_PILL.material) .. ": " .. diamondMatCount .. " (需要 1)"),
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = canDiamond and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = diamondRemaining <= 0 and "已售罄"
-                or ("炼制金刚丹 (" .. DIAMOND_PILL.cost .. "灵韵+" .. GetMaterialName(DIAMOND_PILL.material) .. " → +" .. DIAMOND_PILL.defBonus .. "防御力)"),
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = canDiamond and {80, 100, 180, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftDiamond() end,
-        },
-        -- 分隔线
-        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
-        -- 乌堡令盒区
-        UI.Label {
-            text = "📦 炼制乌堡令盒",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {180, 200, 255, 240},
-        },
-        UI.Label {
-            text = "将100枚乌堡令封装为令牌盒，便于黑市交易",
-            fontSize = T.fontSize.xs,
-            fontColor = {200, 180, 150, 200},
-        },
-        UI.Label {
-            text = "当前乌堡令盒: " .. InventorySystem.CountConsumable("wubao_token_box") .. " 个",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {200, 180, 255, 255}, textAlign = "center",
-        },
-        UI.Label {
-            text = "灵韵: " .. player.lingYun .. " (需要 " .. TOKEN_BOX_LINGYUN_COST .. ")  "
-                .. "乌堡令: " .. InventorySystem.CountConsumable("wubao_token") .. " (需要 " .. TOKEN_BOX_TOKEN_COST .. ")",
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("wubao_token") >= TOKEN_BOX_TOKEN_COST)
-                and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = "炼制乌堡令盒 (" .. TOKEN_BOX_LINGYUN_COST .. "灵韵+" .. TOKEN_BOX_TOKEN_COST .. "乌堡令 → 1盒)",
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("wubao_token") >= TOKEN_BOX_TOKEN_COST)
-                and {100, 80, 160, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftTokenBox("wubao_token", "wubao_token_box") end,
-        },
+        CreateConsumableCard({ name = "筑基丹", recipeId = "zhuji_pill", cost = ZHUJI_PILL_COST, desc = "筑基境突破所需" }),
+        CreatePermanentCard({ name = "灵蛇丹", effectText = "永久 +" .. SNAKE_PILL.atkBonus .. " 攻击力", pillKey = "snake", cost = SNAKE_PILL.cost, material = SNAKE_PILL.material, maxCount = SNAKE_PILL.maxBuy, getCount = AS.GetSnakePillCount }),
+        CreatePermanentCard({ name = "金刚丹", effectText = "永久 +" .. DIAMOND_PILL.defBonus .. " 防御力", pillKey = "diamond", cost = DIAMOND_PILL.cost, material = DIAMOND_PILL.material, maxCount = DIAMOND_PILL.maxBuy, getCount = AS.GetDiamondPillCount }),
+        CreateTokenBoxCard({ name = "乌堡令盒", tokenId = "wubao_token", boxId = "wubao_token_box", tokenName = "乌堡令" }),
     }
 end
 
---- 构建 Ch3 内容（金丹沙 + 元婴果）
 local function BuildCh3Content()
-    local player = GameState.player
-    if not player then return {} end
-
-    local jindanCount = InventorySystem.CountConsumable("jindan_sand")
-    local canJindan = player.lingYun >= JINDAN_SAND_COST
-
-    local yuanyingCount = InventorySystem.CountConsumable("yuanying_fruit")
-    local canYuanying = player.lingYun >= YUANYING_FRUIT_COST
-
-    local temperingRemaining = TEMPERING_PILL.maxEat - require("systems.AlchemySystem").GetTemperingPillEaten()
-    local temperingMatCount = InventorySystem.CountConsumable(TEMPERING_PILL.material)
-    local temperingMatName = GetMaterialName(TEMPERING_PILL.material)
-    local canTempering = temperingRemaining > 0 and player.lingYun >= TEMPERING_PILL.cost and temperingMatCount >= 1
-
+    local AS = require("systems.AlchemySystem")
     return {
-        -- 金丹沙区
-        UI.Label {
-            text = "✨ 炼制金丹沙",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 215, 100, 240},
-        },
-        UI.Label {
-            text = "当前金丹沙: " .. jindanCount .. " 颗",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 200, 80, 255}, textAlign = "center",
-        },
-        UI.Label {
-            text = "灵韵: " .. player.lingYun .. " (需要 " .. JINDAN_SAND_COST .. ")",
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = canJindan and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = "炼制金丹沙 (" .. JINDAN_SAND_COST .. " 灵韵 → 1颗)",
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = canJindan and {160, 120, 40, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftJindanSand() end,
-        },
-        -- 分隔线
-        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
-        -- 元婴果区
-        UI.Label {
-            text = "🍑 炼制元婴果",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 150, 200, 240},
-        },
-        UI.Label {
-            text = "当前元婴果: " .. yuanyingCount .. " 颗",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 160, 200, 255}, textAlign = "center",
-        },
-        UI.Label {
-            text = "灵韵: " .. player.lingYun .. " (需要 " .. YUANYING_FRUIT_COST .. ")",
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = canYuanying and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = "炼制元婴果 (" .. YUANYING_FRUIT_COST .. " 灵韵 → 1颗)",
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = canYuanying and {180, 80, 140, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftYuanyingFruit() end,
-        },
-        -- 分隔线
-        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
-        -- 千锤百炼丹区
-        UI.Label {
-            text = "⚒️ 炼制千锤百炼丹",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {200, 220, 180, 240},
-        },
-        UI.Label {
-            text = "永久+1根骨（限食" .. TEMPERING_PILL.maxEat .. "颗）",
-            fontSize = T.fontSize.xs,
-            fontColor = {200, 180, 150, 200},
-        },
-        UI.Label {
-            text = temperingRemaining > 0
-                and ("已食用 " .. require("systems.AlchemySystem").GetTemperingPillEaten() .. "/" .. TEMPERING_PILL.maxEat .. " 颗")
-                or ("已达上限（" .. TEMPERING_PILL.maxEat .. " 颗）"),
-            fontSize = T.fontSize.xs,
-            fontColor = temperingRemaining > 0 and {180, 180, 190, 200} or {255, 120, 100, 200},
-        },
-        UI.Label {
-            text = temperingRemaining <= 0 and "千锤百炼丹已达食用上限"
-                or ("灵韵: " .. player.lingYun .. " (需要 " .. TEMPERING_PILL.cost .. ")  "
-                    .. temperingMatName .. ": " .. temperingMatCount .. " (需要 1)"),
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = canTempering and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = temperingRemaining <= 0 and "已达上限"
-                or ("炼制并服用 (" .. TEMPERING_PILL.cost .. "灵韵+" .. temperingMatName .. " → 根骨+1)"),
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = canTempering and {100, 120, 60, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftTempering() end,
-        },
-        -- 分隔线
-        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
-        -- 沙海令盒区
-        UI.Label {
-            text = "📦 炼制沙海令盒",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 200, 120, 240},
-        },
-        UI.Label {
-            text = "将100枚沙海令封装为令牌盒，便于黑市交易",
-            fontSize = T.fontSize.xs,
-            fontColor = {200, 180, 150, 200},
-        },
-        UI.Label {
-            text = "当前沙海令盒: " .. InventorySystem.CountConsumable("sha_hai_ling_box") .. " 个",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 200, 120, 255}, textAlign = "center",
-        },
-        UI.Label {
-            text = "灵韵: " .. player.lingYun .. " (需要 " .. TOKEN_BOX_LINGYUN_COST .. ")  "
-                .. "沙海令: " .. InventorySystem.CountConsumable("sha_hai_ling") .. " (需要 " .. TOKEN_BOX_TOKEN_COST .. ")",
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("sha_hai_ling") >= TOKEN_BOX_TOKEN_COST)
-                and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = "炼制沙海令盒 (" .. TOKEN_BOX_LINGYUN_COST .. "灵韵+" .. TOKEN_BOX_TOKEN_COST .. "沙海令 → 1盒)",
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("sha_hai_ling") >= TOKEN_BOX_TOKEN_COST)
-                and {160, 120, 40, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftTokenBox("sha_hai_ling", "sha_hai_ling_box") end,
-        },
+        CreateConsumableCard({ name = "金丹沙", recipeId = "jindan_sand", cost = JINDAN_SAND_COST, desc = "金丹境突破材料" }),
+        CreateConsumableCard({ name = "元婴果", recipeId = "yuanying_fruit", cost = YUANYING_FRUIT_COST, desc = "元婴境突破材料" }),
+        CreatePermanentCard({ name = "千锤百炼丹", effectText = "永久 +" .. TEMPERING_PILL.constitutionBonus .. " 根骨", pillKey = "tempering", cost = TEMPERING_PILL.cost, material = TEMPERING_PILL.material, maxCount = TEMPERING_PILL.maxEat, getCount = AS.GetTemperingPillEaten }),
+        CreateTokenBoxCard({ name = "沙海令盒", tokenId = "sha_hai_ling", boxId = "sha_hai_ling_box", tokenName = "沙海令" }),
     }
 end
 
---- 构建 Ch4 内容（九转金丹）
 local function BuildCh4Content()
-    local player = GameState.player
-    if not player then return {} end
-
-    local jiuzhuanCount = InventorySystem.CountConsumable("jiuzhuan_jindan")
-    local canJiuzhuan = player.lingYun >= JIUZHUAN_JINDAN_COST
-
+    local AS = require("systems.AlchemySystem")
     return {
-        -- 九转金丹区
-        UI.Label {
-            text = "🔥 炼制九转金丹",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 180, 80, 240},
-        },
-        UI.Label {
-            text = "传说中的仙丹，需九次淬炼方成，蕴含无上仙力。",
-            fontSize = T.fontSize.xs,
-            fontColor = {200, 180, 150, 200},
-        },
-        UI.Label {
-            text = "当前九转金丹: " .. jiuzhuanCount .. " 颗",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 200, 80, 255}, textAlign = "center",
-        },
-        UI.Label {
-            text = "灵韵: " .. player.lingYun .. " (需要 " .. JIUZHUAN_JINDAN_COST .. ")",
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = canJiuzhuan and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = "炼制九转金丹 (" .. JIUZHUAN_JINDAN_COST .. " 灵韵 → 1颗)",
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = canJiuzhuan and {180, 100, 40, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftJiuzhuanJindan() end,
-        },
-        -- 分隔线
-        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
-        -- 龙血丹区
-        UI.Label {
-            text = "🩸 炼制龙血丹",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 100, 100, 240},
-        },
-        UI.Label {
-            text = "以龙血草炼制的丹药，服用后永久强化血量上限。",
-            fontSize = T.fontSize.xs,
-            fontColor = {200, 180, 150, 200},
-        },
-        UI.Label {
-            text = "永久增加血量上限 +" .. DRAGON_BLOOD_PILL.hpBonus .. "（限炼" .. DRAGON_BLOOD_PILL.maxBuy .. "颗）",
-            fontSize = T.fontSize.xs,
-            fontColor = {255, 180, 180, 200},
-        },
-        UI.Label {
-            text = (require("systems.AlchemySystem").GetDragonBloodPillCount() < DRAGON_BLOOD_PILL.maxBuy)
-                and ("已炼制 " .. require("systems.AlchemySystem").GetDragonBloodPillCount() .. "/" .. DRAGON_BLOOD_PILL.maxBuy .. " 颗")
-                or ("已售罄（限炼 " .. DRAGON_BLOOD_PILL.maxBuy .. " 颗）"),
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 150, 150, 255}, textAlign = "center",
-        },
-        UI.Label {
-            text = (require("systems.AlchemySystem").GetDragonBloodPillCount() < DRAGON_BLOOD_PILL.maxBuy)
-                and ("灵韵: " .. player.lingYun .. " (需要 " .. DRAGON_BLOOD_PILL.cost .. ")  "
-                    .. GetMaterialName(DRAGON_BLOOD_PILL.material) .. ": " .. InventorySystem.CountConsumable(DRAGON_BLOOD_PILL.material) .. " (需要 1)")
-                or "",
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = (player.lingYun >= DRAGON_BLOOD_PILL.cost and InventorySystem.CountConsumable(DRAGON_BLOOD_PILL.material) >= 1)
-                and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = (require("systems.AlchemySystem").GetDragonBloodPillCount() < DRAGON_BLOOD_PILL.maxBuy)
-                and ("炼制龙血丹 (" .. DRAGON_BLOOD_PILL.cost .. "灵韵+" .. GetMaterialName(DRAGON_BLOOD_PILL.material) .. " → +" .. DRAGON_BLOOD_PILL.hpBonus .. "血量上限)")
-                or "已售罄",
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = (require("systems.AlchemySystem").GetDragonBloodPillCount() < DRAGON_BLOOD_PILL.maxBuy and player.lingYun >= DRAGON_BLOOD_PILL.cost and InventorySystem.CountConsumable(DRAGON_BLOOD_PILL.material) >= 1)
-                and {150, 50, 50, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftDragonBlood() end,
-        },
-        -- 分隔线
-        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
-        -- 太虚令盒区
-        UI.Label {
-            text = "📦 炼制太虚令盒",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {120, 200, 255, 240},
-        },
-        UI.Label {
-            text = "将100枚太虚令封装为令牌盒，便于黑市交易",
-            fontSize = T.fontSize.xs,
-            fontColor = {200, 180, 150, 200},
-        },
-        UI.Label {
-            text = "当前太虚令盒: " .. InventorySystem.CountConsumable("taixu_token_box") .. " 个",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {120, 200, 255, 255}, textAlign = "center",
-        },
-        UI.Label {
-            text = "灵韵: " .. player.lingYun .. " (需要 " .. TOKEN_BOX_LINGYUN_COST .. ")  "
-                .. "太虚令: " .. InventorySystem.CountConsumable("taixu_token") .. " (需要 " .. TOKEN_BOX_TOKEN_COST .. ")",
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("taixu_token") >= TOKEN_BOX_TOKEN_COST)
-                and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = "炼制太虚令盒 (" .. TOKEN_BOX_LINGYUN_COST .. "灵韵+" .. TOKEN_BOX_TOKEN_COST .. "太虚令 → 1盒)",
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("taixu_token") >= TOKEN_BOX_TOKEN_COST)
-                and {60, 120, 180, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftTokenBox("taixu_token", "taixu_token_box") end,
-        },
+        CreateConsumableCard({ name = "九转金丹", recipeId = "jiuzhuan_jindan", cost = JIUZHUAN_JINDAN_COST, desc = "化神境突破材料" }),
+        CreatePermanentCard({ name = "龙血丹", effectText = "永久 +" .. DRAGON_BLOOD_PILL.hpBonus .. " 血量上限", pillKey = "dragon_blood", cost = DRAGON_BLOOD_PILL.cost, material = DRAGON_BLOOD_PILL.material, maxCount = DRAGON_BLOOD_PILL.maxBuy, getCount = AS.GetDragonBloodPillCount }),
+        CreateTokenBoxCard({ name = "太虚令盒", tokenId = "taixu_token", boxId = "taixu_token_box", tokenName = "太虚令" }),
     }
 end
 
--- ============================================================================
--- Ch5 内容构建
--- ============================================================================
-
---- 构建 Ch5 内容（渡劫丹）
 local function BuildCh5Content()
-    local player = GameState.player
-    if not player then return {} end
-
-    local dujieDanCount = InventorySystem.CountConsumable("dujie_dan")
-    local canCraft = player.lingYun >= DUJIE_DAN_COST
-
+    local AS = require("systems.AlchemySystem")
     return {
-        -- 渡劫丹区
-        UI.Label {
-            text = "⚡ 炼制渡劫丹",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {180, 140, 255, 240},
-        },
-        UI.Label {
-            text = "以九天雷髓与万年灵液淬炼而成，大乘及以上境界突破必需品。",
-            fontSize = T.fontSize.xs,
-            fontColor = {200, 180, 150, 200},
-        },
-        UI.Label {
-            text = "当前渡劫丹: " .. dujieDanCount .. " 颗",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {180, 140, 255, 255}, textAlign = "center",
-        },
-        UI.Label {
-            text = "灵韵: " .. player.lingYun .. " (需要 " .. DUJIE_DAN_COST .. ")",
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = canCraft and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = "炼制渡劫丹 (" .. DUJIE_DAN_COST .. " 灵韵 → 1颗)",
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = canCraft and {120, 80, 200, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftDujieDan() end,
-        },
-        -- 分隔线
-        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
-        -- 太虚剑丹（攻击丹）区
-        UI.Label {
-            text = "⚔️ 炼制太虚剑丹",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 160, 80, 240},
-        },
-        UI.Label {
-            text = "以太虚宗遗址凝结的上古剑意结晶炼制，服用后永久强化攻击力。",
-            fontSize = T.fontSize.xs,
-            fontColor = {200, 180, 150, 200},
-        },
-        UI.Label {
-            text = "永久增加攻击力 +" .. SWORD_INTENT_PILL.atkBonus .. "（限炼" .. SWORD_INTENT_PILL.maxBuy .. "颗）",
-            fontSize = T.fontSize.xs,
-            fontColor = {255, 200, 150, 200},
-        },
-        UI.Label {
-            text = (require("systems.AlchemySystem").GetSwordIntentPillCount() < SWORD_INTENT_PILL.maxBuy)
-                and ("已炼制 " .. require("systems.AlchemySystem").GetSwordIntentPillCount() .. "/" .. SWORD_INTENT_PILL.maxBuy .. " 颗")
-                or ("已售罄（限炼 " .. SWORD_INTENT_PILL.maxBuy .. " 颗）"),
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 180, 100, 255}, textAlign = "center",
-        },
-        UI.Label {
-            text = (require("systems.AlchemySystem").GetSwordIntentPillCount() < SWORD_INTENT_PILL.maxBuy)
-                and ("灵韵: " .. player.lingYun .. " (需要 " .. SWORD_INTENT_PILL.cost .. ")  "
-                    .. GetMaterialName(SWORD_INTENT_PILL.material) .. ": " .. InventorySystem.CountConsumable(SWORD_INTENT_PILL.material) .. " (需要 1)")
-                or "",
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = (player.lingYun >= SWORD_INTENT_PILL.cost and InventorySystem.CountConsumable(SWORD_INTENT_PILL.material) >= 1)
-                and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = (require("systems.AlchemySystem").GetSwordIntentPillCount() < SWORD_INTENT_PILL.maxBuy)
-                and ("炼制太虚剑丹 (" .. SWORD_INTENT_PILL.cost .. "灵韵+" .. GetMaterialName(SWORD_INTENT_PILL.material) .. " → +" .. SWORD_INTENT_PILL.atkBonus .. "攻击)")
-                or "已售罄",
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = (require("systems.AlchemySystem").GetSwordIntentPillCount() < SWORD_INTENT_PILL.maxBuy and player.lingYun >= SWORD_INTENT_PILL.cost and InventorySystem.CountConsumable(SWORD_INTENT_PILL.material) >= 1)
-                and {200, 120, 40, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftSwordIntent() end,
-        },
-        -- 分隔线
-        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
-        -- 狱甲丹（防御丹）区
-        UI.Label {
-            text = "🛡️ 炼制狱甲丹",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {100, 180, 255, 240},
-        },
-        UI.Label {
-            text = "以深渊封印碎裂后散落的符文骨片炼制，服用后永久强化防御力。",
-            fontSize = T.fontSize.xs,
-            fontColor = {200, 180, 150, 200},
-        },
-        UI.Label {
-            text = "永久增加防御力 +" .. ABYSS_SEAL_PILL.defBonus .. "（限炼" .. ABYSS_SEAL_PILL.maxBuy .. "颗）",
-            fontSize = T.fontSize.xs,
-            fontColor = {150, 200, 255, 200},
-        },
-        UI.Label {
-            text = (require("systems.AlchemySystem").GetAbyssSealPillCount() < ABYSS_SEAL_PILL.maxBuy)
-                and ("已炼制 " .. require("systems.AlchemySystem").GetAbyssSealPillCount() .. "/" .. ABYSS_SEAL_PILL.maxBuy .. " 颗")
-                or ("已售罄（限炼 " .. ABYSS_SEAL_PILL.maxBuy .. " 颗）"),
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {100, 180, 255, 255}, textAlign = "center",
-        },
-        UI.Label {
-            text = (require("systems.AlchemySystem").GetAbyssSealPillCount() < ABYSS_SEAL_PILL.maxBuy)
-                and ("灵韵: " .. player.lingYun .. " (需要 " .. ABYSS_SEAL_PILL.cost .. ")  "
-                    .. GetMaterialName(ABYSS_SEAL_PILL.material) .. ": " .. InventorySystem.CountConsumable(ABYSS_SEAL_PILL.material) .. " (需要 1)")
-                or "",
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = (player.lingYun >= ABYSS_SEAL_PILL.cost and InventorySystem.CountConsumable(ABYSS_SEAL_PILL.material) >= 1)
-                and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = (require("systems.AlchemySystem").GetAbyssSealPillCount() < ABYSS_SEAL_PILL.maxBuy)
-                and ("炼制狱甲丹 (" .. ABYSS_SEAL_PILL.cost .. "灵韵+" .. GetMaterialName(ABYSS_SEAL_PILL.material) .. " → +" .. ABYSS_SEAL_PILL.defBonus .. "防御)")
-                or "已售罄",
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = (require("systems.AlchemySystem").GetAbyssSealPillCount() < ABYSS_SEAL_PILL.maxBuy and player.lingYun >= ABYSS_SEAL_PILL.cost and InventorySystem.CountConsumable(ABYSS_SEAL_PILL.material) >= 1)
-                and {40, 100, 180, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftAbyssSeal() end,
-        },
-        -- 分隔线
-        UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60}, marginTop = T.spacing.xs },
-        -- 太虚剑令盒区
-        UI.Label {
-            text = "📦 炼制太虚剑令盒",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {120, 200, 255, 240},
-        },
-        UI.Label {
-            text = "将100枚太虚剑令封装为令牌盒，便于黑市交易",
-            fontSize = T.fontSize.xs,
-            fontColor = {200, 180, 150, 200},
-        },
-        UI.Label {
-            text = "当前太虚剑令盒: " .. InventorySystem.CountConsumable("taixu_jianling_box") .. " 个",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {120, 200, 255, 255}, textAlign = "center",
-        },
-        UI.Label {
-            text = "灵韵: " .. player.lingYun .. " (需要 " .. TOKEN_BOX_LINGYUN_COST .. ")  "
-                .. "太虚剑令: " .. InventorySystem.CountConsumable("taixu_jianling") .. " (需要 " .. TOKEN_BOX_TOKEN_COST .. ")",
-            fontSize = T.fontSize.xs, textAlign = "center",
-            fontColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("taixu_jianling") >= TOKEN_BOX_TOKEN_COST)
-                and {130, 230, 130, 255} or {255, 130, 100, 255},
-        },
-        UI.Button {
-            text = "炼制太虚剑令盒 (" .. TOKEN_BOX_LINGYUN_COST .. "灵韵+" .. TOKEN_BOX_TOKEN_COST .. "太虚剑令 → 1盒)",
-            width = "100%", height = T.size.dialogBtnH,
-            fontSize = T.fontSize.sm,
-            backgroundColor = (player.lingYun >= TOKEN_BOX_LINGYUN_COST and InventorySystem.CountConsumable("taixu_jianling") >= TOKEN_BOX_TOKEN_COST)
-                and {60, 120, 180, 220} or {80, 80, 90, 200},
-            onClick = function() AlchemyUI.DoCraftTokenBox("taixu_jianling", "taixu_jianling_box") end,
-        },
+        CreateConsumableCard({ name = "渡劫丹", recipeId = "dujie_dan", cost = DUJIE_DAN_COST, desc = "渡劫境突破材料" }),
+        CreatePermanentCard({ name = "太虚剑丹", effectText = "永久 +" .. SWORD_INTENT_PILL.atkBonus .. " 攻击力", pillKey = "sword_intent", cost = SWORD_INTENT_PILL.cost, material = SWORD_INTENT_PILL.material, maxCount = SWORD_INTENT_PILL.maxBuy, getCount = AS.GetSwordIntentPillCount }),
+        CreatePermanentCard({ name = "狱甲丹", effectText = "永久 +" .. ABYSS_SEAL_PILL.defBonus .. " 防御力", pillKey = "abyss_seal", cost = ABYSS_SEAL_PILL.cost, material = ABYSS_SEAL_PILL.material, maxCount = ABYSS_SEAL_PILL.maxBuy, getCount = AS.GetAbyssSealPillCount }),
+        CreateTokenBoxCard({ name = "太虚剑令盒", tokenId = "taixu_jianling", boxId = "taixu_jianling_box", tokenName = "太虚剑令" }),
     }
 end
 
--- ============================================================================
--- 中洲·阵营丹药内容构建
--- ============================================================================
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 中洲·阵营丹药
+-- ═══════════════════════════════════════════════════════════════════════════
 
---- 阵营丹药炼制顺序（固定，保证 UI 展示一致）
 local CHALLENGE_PILL_ORDER = {
     "ningli_dan", "ningjia_dan", "ningyuan_dan", "ninghun_dan", "ningxi_dan", "ganggu_dan",
 }
 
---- 构建中洲内容（6种阵营丹药）
 local function BuildMidlandContent()
     local player = GameState.player
     if not player then return {} end
 
     local ChallengeSystem = require("systems.ChallengeSystem")
-    local children = {
-        UI.Label {
-            text = "🔥 阵营丹药",
-            fontSize = T.fontSize.sm, fontWeight = "bold",
-            fontColor = {255, 180, 80, 240},
-        },
-        UI.Label {
-            text = "使用阵营战场获得的精华炼制永久增益丹药。",
-            fontSize = T.fontSize.xs,
-            fontColor = {200, 180, 150, 200},
-        },
-    }
+    local children = {}
 
     for _, pillId in ipairs(CHALLENGE_PILL_ORDER) do
         local cfg = ChallengeSystem.NEW_PILL_CONFIG[pillId]
@@ -803,41 +544,82 @@ local function BuildMidlandContent()
             local lingYun = player.lingYun or 0
             local canBrew = used < cfg.maxUse and essCount >= 1 and lingYun >= cfg.lingYunCost
             local remaining = cfg.maxUse - used
-            local r, g, b = cfg.color[1], cfg.color[2], cfg.color[3]
+            local capturedPillId = pillId
+            local btnText = remaining <= 0 and "已满" or "炼制"
 
-            -- 分隔线
             table.insert(children, UI.Panel {
-                width = "100%", height = 1,
-                backgroundColor = {r, g, b, 60},
-                marginTop = T.spacing.xs,
-            })
-            -- 丹药名称 + 效果
-            table.insert(children, UI.Label {
-                text = cfg.icon .. " " .. cfg.name .. "（" .. used .. "/" .. cfg.maxUse .. "）",
-                fontSize = T.fontSize.sm, fontWeight = "bold",
-                fontColor = {r, g, b, 240},
-            })
-            table.insert(children, UI.Label {
-                text = cfg.effectDesc,
-                fontSize = T.fontSize.xs,
-                fontColor = {r, g, b, 200},
-            })
-            -- 材料显示
-            table.insert(children, UI.Label {
-                text = cfg.essenceName .. ": " .. essCount .. " | 灵韵: " .. lingYun .. "/" .. cfg.lingYunCost,
-                fontSize = T.fontSize.xs,
-                fontColor = canBrew and {130, 230, 130, 255} or {255, 130, 100, 255},
-            })
-            -- 炼制按钮
-            local btnText = remaining <= 0 and "已达上限"
-                or ("炼制" .. cfg.name .. " (1" .. cfg.essenceName .. "+" .. cfg.lingYunCost .. "灵韵)")
-            local capturedPillId = pillId  -- 闭包捕获
-            table.insert(children, UI.Button {
-                text = btnText,
-                width = "100%", height = T.size.dialogBtnH,
-                fontSize = T.fontSize.sm,
-                backgroundColor = canBrew and {r, g, b, 220} or {80, 80, 90, 200},
-                onClick = function() AlchemyUI.DoCraftChallengePill(capturedPillId) end,
+                width = "100%",
+                backgroundColor = T.color.surfaceDeep,
+                borderRadius = T.radius.sm,
+                borderWidth = 1,
+                borderColor = T.color.border,
+                padding = T.spacing.sm,
+                flexDirection = "row",
+                alignItems = "center",
+                children = {
+                    -- 左侧内容区
+                    UI.Panel {
+                        flexGrow = 1, flexShrink = 1,
+                        gap = T.spacing.xs,
+                        children = {
+                            -- 图标 + 右侧信息
+                            UI.Panel {
+                                flexDirection = "row",
+                                alignItems = "center",
+                                children = {
+                                    UI.Panel {
+                                        width = ICON_SIZE, height = ICON_SIZE,
+                                        borderRadius = T.radius.md,
+                                        borderWidth = 2,
+                                        borderColor = T.qualityBorder.orange,
+                                        backgroundColor = T.decor.qualitySlotBg.orange,
+                                        justifyContent = "center", alignItems = "center",
+                                        children = {
+                                            UI.Label { text = cfg.icon, fontSize = T.fontSize.xl + 4 },
+                                        },
+                                    },
+                                    UI.Panel {
+                                        flexGrow = 1, flexShrink = 1,
+                                        marginLeft = T.spacing.sm,
+                                        gap = T.spacing.xxs,
+                                        children = {
+                                            UI.Panel {
+                                                flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
+                                                children = {
+                                                    UI.Label { text = cfg.name, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = T.color.nameHighlight },
+                                                    CreateBadge("attr"),
+                                                },
+                                            },
+                                            UI.Label {
+                                                text = cfg.effectDesc .. "（已服用：" .. used .. "/" .. cfg.maxUse .. "）",
+                                                fontSize = T.fontSize.xs,
+                                                fontColor = remaining > 0 and T.color.textSecondary or T.color.error,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                            -- 炼制消耗
+                            UI.Label {
+                                text = "炼制消耗：灵韵×" .. FormatPrice(cfg.lingYunCost) .. "，" .. cfg.essenceName .. "×1(" .. essCount .. ")",
+                                fontSize = T.fontSize.xs,
+                                fontColor = canBrew and T.color.warning or T.color.error,
+                                marginLeft = ICON_SIZE + T.spacing.sm,
+                            },
+                        },
+                    },
+                    -- 右侧按钮（卡片整体居中）
+                    UI.Button {
+                        text = btnText,
+                        width = BTN_WIDTH, height = BTN_HEIGHT,
+                        fontSize = T.fontSize.sm, fontWeight = "bold",
+                        borderRadius = T.radius.sm,
+                        backgroundColor = canBrew and BTN_BG or BTN_BG_DISABLED,
+                        fontColor = canBrew and BTN_FG or BTN_FG_DISABLED,
+                        marginLeft = T.spacing.sm,
+                        onClick = canBrew and function() AlchemyUI.DoCraftChallengePill(capturedPillId) end or nil,
+                    },
+                },
             })
         end
     end
@@ -845,10 +627,25 @@ local function BuildMidlandContent()
     return children
 end
 
---- 刷新内容区域（重建所有子控件）
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 内容刷新
+-- ═══════════════════════════════════════════════════════════════════════════
+
 local function RefreshUI()
-    if not contentPanel_ then return end
-    contentPanel_:ClearChildren()
+    if not shell_ then return end
+    shell_:ClearContent()
+
+    -- 更新灵韵余额
+    local player = GameState.player
+    local lingYun = player and player.lingYun or 0
+    if lingYunLabel_ then
+        lingYunLabel_:SetText(FormatPrice(lingYun))
+    end
+
+    -- 炉子装饰区
+    if furnacePanel_ then
+        shell_:AddContent(furnacePanel_)
+    end
 
     local chapter = GameState.currentChapter or 1
     local children
@@ -867,322 +664,64 @@ local function RefreshUI()
     end
 
     for _, child in ipairs(children) do
-        contentPanel_:AddChild(child)
+        shell_:AddContent(child)
     end
-
-    -- 追加结果标签
-    contentPanel_:AddChild(resultLabel_)
 end
 
-function AlchemyUI.Create(parentOverlay)
-    resultLabel_ = UI.Label {
-        text = "",
-        fontSize = T.fontSize.sm,
-        fontColor = {100, 255, 150, 255},
-        textAlign = "center",
-    }
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 通用炼制函数
+-- ═══════════════════════════════════════════════════════════════════════════
 
-    portraitPanel_ = UI.Panel {
-        width = PORTRAIT_SIZE,
-        height = PORTRAIT_SIZE,
-        borderRadius = T.radius.md,
-        backgroundColor = {30, 35, 50, 200},
-        overflow = "hidden",
-    }
-
-    -- 动态内容区域（由 RefreshUI 填充）
-    contentPanel_ = UI.Panel {
-        width = "100%",
-        gap = T.spacing.sm,
-    }
-
-    panel_ = UI.Panel {
-        id = "alchemyPanel",
-        position = "absolute",
-        top = 0, left = 0, right = 0, bottom = 0,
-        backgroundColor = T.color.overlay,
-        justifyContent = "center",
-        alignItems = "center",
-        paddingBottom = T.spacing.xl,
-        visible = false,
-        zIndex = 100,
-        children = {
-            UI.Panel {
-                width = "94%",
-                maxWidth = T.size.npcPanelMaxW,
-                backgroundColor = T.color.panelBg,
-                borderRadius = T.radius.lg,
-                borderWidth = 1,
-                borderColor = {180, 160, 100, 180},
-                padding = T.spacing.md,
-                gap = T.spacing.sm,
-                children = {
-                    -- 顶部：立绘 + 标题 + 关闭
-                    UI.Panel {
-                        width = "100%",
-                        flexDirection = "row",
-                        alignItems = "center",
-                        gap = T.spacing.md,
-                        children = {
-                            UI.Button {
-                                text = "✕",
-                                width = T.size.closeButton, height = T.size.closeButton,
-                                fontSize = T.fontSize.md,
-                                borderRadius = T.size.closeButton / 2,
-                                backgroundColor = {60, 60, 70, 200},
-                                onClick = function() AlchemyUI.Hide() end,
-                            },
-                            portraitPanel_,
-                            UI.Label {
-                                text = "🔥 炼丹炉",
-                                fontSize = T.fontSize.lg,
-                                fontWeight = "bold",
-                                fontColor = T.color.titleText,
-                                flexGrow = 1, flexShrink = 1,
-                            },
-                        },
-                    },
-                    -- 分隔线
-                    UI.Panel { width = "100%", height = 1, backgroundColor = {180, 160, 100, 60} },
-                    UI.Label {
-                        text = "消耗灵韵炼制丹药，提升修为。",
-                        fontSize = T.fontSize.xs,
-                        fontColor = {180, 180, 190, 200},
-                    },
-                    -- 动态内容
-                    contentPanel_,
-                },
-            },
-        },
-    }
-
-    parentOverlay:AddChild(panel_)
-end
-
---- 炼制练气丹：消耗灵韵，产出练气丹到背包
-function AlchemyUI.DoCraft()
+function AlchemyUI.DoCraftConsumable(recipeId)
     local AS = require("systems.AlchemySystem")
-    local ok, errMsg = AS.CanCraftConsumable("qi_pill")
+    local ok, errMsg = AS.CanCraftConsumable(recipeId)
     if not ok then
-        resultLabel_:SetText(errMsg)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        if shell_ then shell_:SetResult(errMsg, T.color.error) end
         RefreshUI()
         return
     end
-    local ok2, msg = AS.CraftConsumable("qi_pill")
+    local ok2, msg = AS.CraftConsumable(recipeId)
     if not ok2 then return end
-    resultLabel_:SetText(msg)
-    resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
+    if shell_ then shell_:SetResult(msg, T.color.success) end
     EventBus.Emit("alchemy_success")
     SaveSession.MarkDirty()
     RefreshUI()
 end
 
--- ============================================================================
--- Ch2 炼制函数
--- ============================================================================
-
---- 炼制筑基丹：消耗灵韵，产出筑基丹到背包
-function AlchemyUI.DoCraftZhuji()
+function AlchemyUI.DoCraftPermanent(pillKey)
     local AS = require("systems.AlchemySystem")
-    local ok, errMsg = AS.CanCraftConsumable("zhuji_pill")
+    local ok, errMsg = AS.CanCraftPermanent(pillKey)
     if not ok then
-        resultLabel_:SetText(errMsg)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        if shell_ then shell_:SetResult(errMsg, T.color.error) end
         RefreshUI()
         return
     end
-    local ok2, msg = AS.CraftConsumable("zhuji_pill")
-    if not ok2 then return end
-    resultLabel_:SetText(msg)
-    resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
-    EventBus.Emit("alchemy_success")
-    SaveSession.MarkDirty()
-    RefreshUI()
-end
-
---- 炼制灵蛇丹：消耗灵韵，永久增加攻击力（C2S 授权）
-function AlchemyUI.DoCraftSnake()
-    local AS = require("systems.AlchemySystem")
-    local ok, errMsg = AS.CanCraftPermanent("snake")
-    if not ok then
-        resultLabel_:SetText(errMsg)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    SendBuyPill("snake", function()
-        local ok2, msg = AS.CraftPermanent("snake")
+    SendBuyPill(pillKey, function()
+        local ok2, msg = AS.CraftPermanent(pillKey)
         if not ok2 then return end
-        resultLabel_:SetText(msg)
-        resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
+        if shell_ then shell_:SetResult(msg, T.color.success) end
         EventBus.Emit("alchemy_success")
         EventBus.Emit("save_request")
         RefreshUI()
     end)
 end
 
---- 炼制金刚丹：消耗灵韵，永久增加防御力（C2S 授权）
-function AlchemyUI.DoCraftDiamond()
-    local AS = require("systems.AlchemySystem")
-    local ok, errMsg = AS.CanCraftPermanent("diamond")
-    if not ok then
-        resultLabel_:SetText(errMsg)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    SendBuyPill("diamond", function()
-        local ok2, msg = AS.CraftPermanent("diamond")
-        if not ok2 then return end
-        resultLabel_:SetText(msg)
-        resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
-        EventBus.Emit("alchemy_success")
-        EventBus.Emit("save_request")
-        RefreshUI()
-    end)
-end
-
--- ============================================================================
--- Ch3 炼制函数
--- ============================================================================
-
---- 炼制金丹沙：消耗灵韵，产出金丹沙到背包
-function AlchemyUI.DoCraftJindanSand()
-    local AS = require("systems.AlchemySystem")
-    local ok, errMsg = AS.CanCraftConsumable("jindan_sand")
-    if not ok then
-        resultLabel_:SetText(errMsg)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    local ok2, msg = AS.CraftConsumable("jindan_sand")
-    if not ok2 then return end
-    resultLabel_:SetText(msg)
-    resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
-    EventBus.Emit("alchemy_success")
-    SaveSession.MarkDirty()
-    RefreshUI()
-end
-
---- 炼制元婴果：消耗灵韵，产出元婴果到背包
-function AlchemyUI.DoCraftYuanyingFruit()
-    local AS = require("systems.AlchemySystem")
-    local ok, errMsg = AS.CanCraftConsumable("yuanying_fruit")
-    if not ok then
-        resultLabel_:SetText(errMsg)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    local ok2, msg = AS.CraftConsumable("yuanying_fruit")
-    if not ok2 then return end
-    resultLabel_:SetText(msg)
-    resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
-    EventBus.Emit("alchemy_success")
-    SaveSession.MarkDirty()
-    RefreshUI()
-end
-
---- 炼制并服用千锤百炼丹：消耗灵韵+风蚀草，永久+1根骨（C2S 授权）
-function AlchemyUI.DoCraftTempering()
-    local AS = require("systems.AlchemySystem")
-    local ok, errMsg = AS.CanCraftPermanent("tempering")
-    if not ok then
-        resultLabel_:SetText(errMsg)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    SendBuyPill("tempering", function()
-        local ok2, msg = AS.CraftPermanent("tempering")
-        if not ok2 then return end
-        resultLabel_:SetText(msg)
-        resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
-        EventBus.Emit("alchemy_success")
-        EventBus.Emit("save_request")
-        RefreshUI()
-    end)
-end
-
--- ============================================================================
--- Ch4 炼制函数
--- ============================================================================
-
---- 炼制九转金丹：消耗灵韵，产出九转金丹到背包
-function AlchemyUI.DoCraftJiuzhuanJindan()
-    local AS = require("systems.AlchemySystem")
-    local ok, errMsg = AS.CanCraftConsumable("jiuzhuan_jindan")
-    if not ok then
-        resultLabel_:SetText(errMsg)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    local ok2, msg = AS.CraftConsumable("jiuzhuan_jindan")
-    if not ok2 then return end
-    resultLabel_:SetText(msg)
-    resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
-    EventBus.Emit("alchemy_success")
-    SaveSession.MarkDirty()
-    RefreshUI()
-end
-
--- ============================================================================
--- Ch5 炼制函数
--- ============================================================================
-
---- 炼制渡劫丹：消耗灵韵，产出渡劫丹到背包
-function AlchemyUI.DoCraftDujieDan()
-    local AS = require("systems.AlchemySystem")
-    local ok, errMsg = AS.CanCraftConsumable("dujie_dan")
-    if not ok then
-        resultLabel_:SetText(errMsg)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    local ok2, msg = AS.CraftConsumable("dujie_dan")
-    if not ok2 then return end
-    resultLabel_:SetText(msg)
-    resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
-    EventBus.Emit("alchemy_success")
-    SaveSession.MarkDirty()
-    RefreshUI()
-end
-
--- ============================================================================
--- 令牌盒炼制函数（通用）
--- ============================================================================
-
---- 炼制令牌盒：消耗100令牌+100灵韵 → 1个令牌盒
----@param tokenId string 令牌消耗品ID（如 "wubao_token"）
----@param boxId string   令牌盒消耗品ID（如 "wubao_token_box"）
 function AlchemyUI.DoCraftTokenBox(tokenId, boxId)
     local AS = require("systems.AlchemySystem")
     local ok, errMsg = AS.CanCraftTokenBox(tokenId, boxId)
     if not ok then
-        resultLabel_:SetText(errMsg)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        if shell_ then shell_:SetResult(errMsg, T.color.error) end
         RefreshUI()
         return
     end
     local ok2, msg = AS.CraftTokenBox(tokenId, boxId)
     if not ok2 then return end
-    resultLabel_:SetText(msg)
-    resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
+    if shell_ then shell_:SetResult(msg, T.color.success) end
     EventBus.Emit("alchemy_success")
     SaveSession.MarkDirty()
     RefreshUI()
 end
 
--- ============================================================================
--- 中洲·阵营丹药炼制函数
--- ============================================================================
-
---- 炼制阵营丹药：精华+灵韵 → 永久属性（C2S 授权）
----@param pillId string e.g. "ningli_dan"
 function AlchemyUI.DoCraftChallengePill(pillId)
     local player = GameState.player
     if not player then return end
@@ -1191,216 +730,92 @@ function AlchemyUI.DoCraftChallengePill(pillId)
     local cfg = ChallengeSystem.NEW_PILL_CONFIG[pillId]
     if not cfg then return end
 
-    -- 前置校验
     local used = ChallengeSystem[cfg.countField] or 0
     if used >= cfg.maxUse then
-        resultLabel_:SetText(cfg.name .. "已达上限！（" .. cfg.maxUse .. "/" .. cfg.maxUse .. "）")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        if shell_ then shell_:SetResult(cfg.name .. "已达上限！", T.color.error) end
         RefreshUI()
         return
     end
 
     local essCount = InventorySystem.CountConsumable(cfg.essenceId) or 0
     if essCount < 1 then
-        resultLabel_:SetText(cfg.essenceName .. "不足！（需要 1，当前 " .. essCount .. "）")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        if shell_ then shell_:SetResult(cfg.essenceName .. "不足！", T.color.error) end
         RefreshUI()
         return
     end
 
     local lingYun = player.lingYun or 0
     if lingYun < cfg.lingYunCost then
-        resultLabel_:SetText("灵韵不足！（需要 " .. cfg.lingYunCost .. "，当前 " .. lingYun .. "）")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        if shell_ then shell_:SetResult("灵韵不足！（需要 " .. cfg.lingYunCost .. "）", T.color.error) end
         RefreshUI()
         return
     end
 
-    -- C2S 授权后执行炼制
     SendBuyPill(pillId, function()
-        -- 二次校验（防止授权期间状态变化）
         local used2 = ChallengeSystem[cfg.countField] or 0
         if used2 >= cfg.maxUse then return end
         if (InventorySystem.CountUnlockedConsumable(cfg.essenceId) or 0) < 1 then return end
         if (GameState.player and GameState.player.lingYun or 0) < cfg.lingYunCost then return end
 
-        -- 委托 ChallengeSystem 执行（扣材料 + 加属性 + 存档）
         local ok, msg = ChallengeSystem.BrewPill(pillId)
         if ok then
-            resultLabel_:SetText(msg)
-            resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
+            if shell_ then shell_:SetResult(msg, T.color.success) end
             EventBus.Emit("alchemy_success")
         else
-            resultLabel_:SetText(msg or "炼制失败")
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+            if shell_ then shell_:SetResult(msg or "炼制失败", T.color.error) end
         end
         RefreshUI()
     end)
 end
 
--- ============================================================================
--- Ch1 炼制函数
--- ============================================================================
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 兼容旧接口的 DoCraft 别名
+-- ═══════════════════════════════════════════════════════════════════════════
 
---- 炼制虎骨丹：消耗灵韵，永久增加血量上限（C2S 授权）
-function AlchemyUI.DoCraftTiger()
-    local AS = require("systems.AlchemySystem")
-    local ok, errMsg = AS.CanCraftPermanent("tiger")
-    if not ok then
-        resultLabel_:SetText(errMsg)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    SendBuyPill("tiger", function()
-        local ok2, msg = AS.CraftPermanent("tiger")
-        if not ok2 then return end
-        resultLabel_:SetText(msg)
-        resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
-        EventBus.Emit("alchemy_success")
-        EventBus.Emit("save_request")
-        RefreshUI()
-    end)
-end
+function AlchemyUI.DoCraft() AlchemyUI.DoCraftConsumable("qi_pill") end
+function AlchemyUI.DoCraftZhuji() AlchemyUI.DoCraftConsumable("zhuji_pill") end
+function AlchemyUI.DoCraftJindanSand() AlchemyUI.DoCraftConsumable("jindan_sand") end
+function AlchemyUI.DoCraftYuanyingFruit() AlchemyUI.DoCraftConsumable("yuanying_fruit") end
+function AlchemyUI.DoCraftJiuzhuanJindan() AlchemyUI.DoCraftConsumable("jiuzhuan_jindan") end
+function AlchemyUI.DoCraftDujieDan() AlchemyUI.DoCraftConsumable("dujie_dan") end
+function AlchemyUI.DoCraftTiger() AlchemyUI.DoCraftPermanent("tiger") end
+function AlchemyUI.DoCraftSnake() AlchemyUI.DoCraftPermanent("snake") end
+function AlchemyUI.DoCraftDiamond() AlchemyUI.DoCraftPermanent("diamond") end
+function AlchemyUI.DoCraftTempering() AlchemyUI.DoCraftPermanent("tempering") end
+function AlchemyUI.DoCraftDragonBlood() AlchemyUI.DoCraftPermanent("dragon_blood") end
+function AlchemyUI.DoCraftSwordIntent() AlchemyUI.DoCraftPermanent("sword_intent") end
+function AlchemyUI.DoCraftAbyssSeal() AlchemyUI.DoCraftPermanent("abyss_seal") end
 
---- 炼制龙血丹：消耗灵韵+龙血草，永久增加血量上限（C2S 授权）
-function AlchemyUI.DoCraftDragonBlood()
-    local AS = require("systems.AlchemySystem")
-    local ok, errMsg = AS.CanCraftPermanent("dragon_blood")
-    if not ok then
-        resultLabel_:SetText(errMsg)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    SendBuyPill("dragon_blood", function()
-        local ok2, msg = AS.CraftPermanent("dragon_blood")
-        if not ok2 then return end
-        resultLabel_:SetText(msg)
-        resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
-        EventBus.Emit("alchemy_success")
-        EventBus.Emit("save_request")
-        RefreshUI()
-    end)
-end
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 面板生命周期
+-- ═══════════════════════════════════════════════════════════════════════════
 
---- 炼制太虚剑丹（+攻击力）
-function AlchemyUI.DoCraftSwordIntent()
-    local AS = require("systems.AlchemySystem")
-    local ok, errMsg = AS.CanCraftPermanent("sword_intent")
-    if not ok then
-        resultLabel_:SetText(errMsg)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    SendBuyPill("sword_intent", function()
-        local ok2, msg = AS.CraftPermanent("sword_intent")
-        if not ok2 then return end
-        resultLabel_:SetText(msg)
-        resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
-        EventBus.Emit("alchemy_success")
-        EventBus.Emit("save_request")
-        RefreshUI()
-    end)
-end
+function AlchemyUI.Create(parentOverlay)
+    portraitPanel_ = UI.Panel {
+        width = PORTRAIT_SIZE,
+        height = PORTRAIT_SIZE,
+        borderRadius = T.radius.md,
+        backgroundColor = T.color.headerBg,
+        overflow = "hidden",
+    }
 
---- 炼制狱甲丹（+防御力）
-function AlchemyUI.DoCraftAbyssSeal()
-    local AS = require("systems.AlchemySystem")
-    local ok, errMsg = AS.CanCraftPermanent("abyss_seal")
-    if not ok then
-        resultLabel_:SetText(errMsg)
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
-        RefreshUI()
-        return
-    end
-    SendBuyPill("abyss_seal", function()
-        local ok2, msg = AS.CraftPermanent("abyss_seal")
-        if not ok2 then return end
-        resultLabel_:SetText(msg)
-        resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
-        EventBus.Emit("alchemy_success")
-        EventBus.Emit("save_request")
-        RefreshUI()
-    end)
-end
+    shell_ = PanelShell.Create({
+        title = "炼丹炉",
+        subtitle = "消耗灵韵炼制丹药",
+        portrait = portraitPanel_,
+        maxHeight = "76%",
+        onClose = function() AlchemyUI.Hide() end,
+        parent = parentOverlay,
+    })
 
---- 获取虎骨丹已炼制次数（薄代理 → AlchemySystem）
-function AlchemyUI.GetTigerPillCount()
-    return require("systems.AlchemySystem").GetTigerPillCount()
-end
-
---- 设置虎骨丹已炼制次数（薄代理 → AlchemySystem）
-function AlchemyUI.SetTigerPillCount(count)
-    require("systems.AlchemySystem").SetTigerPillCount(count)
-end
-
---- 获取灵蛇丹已炼制次数（薄代理 → AlchemySystem）
-function AlchemyUI.GetSnakePillCount()
-    return require("systems.AlchemySystem").GetSnakePillCount()
-end
-
---- 设置灵蛇丹已炼制次数（薄代理 → AlchemySystem）
-function AlchemyUI.SetSnakePillCount(count)
-    require("systems.AlchemySystem").SetSnakePillCount(count)
-end
-
---- 获取金刚丹已炼制次数（薄代理 → AlchemySystem）
-function AlchemyUI.GetDiamondPillCount()
-    return require("systems.AlchemySystem").GetDiamondPillCount()
-end
-
---- 设置金刚丹已炼制次数（薄代理 → AlchemySystem）
-function AlchemyUI.SetDiamondPillCount(count)
-    require("systems.AlchemySystem").SetDiamondPillCount(count)
-end
-
---- 获取千锤百炼丹已食用次数（薄代理 → AlchemySystem）
-function AlchemyUI.GetTemperingPillEaten()
-    return require("systems.AlchemySystem").GetTemperingPillEaten()
-end
-
---- 设置千锤百炼丹已食用次数（薄代理 → AlchemySystem）
-function AlchemyUI.SetTemperingPillEaten(count)
-    require("systems.AlchemySystem").SetTemperingPillEaten(count)
-end
-
---- 获取龙血丹已炼制次数（薄代理 → AlchemySystem）
-function AlchemyUI.GetDragonBloodPillCount()
-    return require("systems.AlchemySystem").GetDragonBloodPillCount()
-end
-
---- 设置龙血丹已炼制次数（薄代理 → AlchemySystem）
-function AlchemyUI.SetDragonBloodPillCount(count)
-    require("systems.AlchemySystem").SetDragonBloodPillCount(count)
-end
-
---- 获取太虚剑丹已炼制次数（薄代理 → AlchemySystem）
-function AlchemyUI.GetSwordIntentPillCount()
-    return require("systems.AlchemySystem").GetSwordIntentPillCount()
-end
-
---- 设置太虚剑丹已炼制次数（薄代理 → AlchemySystem）
-function AlchemyUI.SetSwordIntentPillCount(count)
-    require("systems.AlchemySystem").SetSwordIntentPillCount(count)
-end
-
---- 获取狱甲丹已炼制次数（薄代理 → AlchemySystem）
-function AlchemyUI.GetAbyssSealPillCount()
-    return require("systems.AlchemySystem").GetAbyssSealPillCount()
-end
-
---- 设置狱甲丹已炼制次数（薄代理 → AlchemySystem）
-function AlchemyUI.SetAbyssSealPillCount(count)
-    require("systems.AlchemySystem").SetAbyssSealPillCount(count)
+    CreateFurnaceArea()
 end
 
 function AlchemyUI.Show(npc)
-    if panel_ and not visible_ then
+    if shell_ and not visible_ then
         visible_ = true
         GameState.uiOpen = "alchemy"
-        resultLabel_:SetText("")
+        shell_:SetResult("")
         if npc and npc.portrait then
             portraitPanel_:ClearChildren()
             portraitPanel_:AddChild(UI.Panel {
@@ -1411,15 +826,15 @@ function AlchemyUI.Show(npc)
             })
         end
         RefreshUI()
-        panel_:Show()
+        shell_:Show()
     end
 end
 
 function AlchemyUI.Hide()
-    if panel_ and visible_ then
-        SaveSession.Flush()  -- 关闭 UI 时收口会话脏数据（P2优化）
+    if shell_ and visible_ then
+        SaveSession.Flush()
         visible_ = false
-        panel_:Hide()
+        shell_:Hide()
         if GameState.uiOpen == "alchemy" then
             GameState.uiOpen = nil
         end
@@ -1430,34 +845,52 @@ function AlchemyUI.IsVisible()
     return visible_
 end
 
---- 销毁面板（切换角色时调用，重置 UI 引用和游戏状态）
 function AlchemyUI.Destroy()
-    panel_ = nil
-    resultLabel_ = nil
+    shell_ = nil
     portraitPanel_ = nil
-    contentPanel_ = nil
+    lingYunLabel_ = nil
+    furnacePanel_ = nil
     visible_ = false
     require("systems.AlchemySystem").ResetRuntimeState()
     pendingPillBuys_ = {}
 end
 
---- 清理超时的 pending 丹药请求（由外部定时调用或 Update 驱动）
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Get/Set 薄代理（兼容层）
+-- ═══════════════════════════════════════════════════════════════════════════
+
+function AlchemyUI.GetTigerPillCount() return require("systems.AlchemySystem").GetTigerPillCount() end
+function AlchemyUI.SetTigerPillCount(c) require("systems.AlchemySystem").SetTigerPillCount(c) end
+function AlchemyUI.GetSnakePillCount() return require("systems.AlchemySystem").GetSnakePillCount() end
+function AlchemyUI.SetSnakePillCount(c) require("systems.AlchemySystem").SetSnakePillCount(c) end
+function AlchemyUI.GetDiamondPillCount() return require("systems.AlchemySystem").GetDiamondPillCount() end
+function AlchemyUI.SetDiamondPillCount(c) require("systems.AlchemySystem").SetDiamondPillCount(c) end
+function AlchemyUI.GetTemperingPillEaten() return require("systems.AlchemySystem").GetTemperingPillEaten() end
+function AlchemyUI.SetTemperingPillEaten(c) require("systems.AlchemySystem").SetTemperingPillEaten(c) end
+function AlchemyUI.GetDragonBloodPillCount() return require("systems.AlchemySystem").GetDragonBloodPillCount() end
+function AlchemyUI.SetDragonBloodPillCount(c) require("systems.AlchemySystem").SetDragonBloodPillCount(c) end
+function AlchemyUI.GetSwordIntentPillCount() return require("systems.AlchemySystem").GetSwordIntentPillCount() end
+function AlchemyUI.SetSwordIntentPillCount(c) require("systems.AlchemySystem").SetSwordIntentPillCount(c) end
+function AlchemyUI.GetAbyssSealPillCount() return require("systems.AlchemySystem").GetAbyssSealPillCount() end
+function AlchemyUI.SetAbyssSealPillCount(c) require("systems.AlchemySystem").SetAbyssSealPillCount(c) end
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 其他导出接口
+-- ═══════════════════════════════════════════════════════════════════════════
+
 function AlchemyUI.CleanupTimeoutPending()
     local now = os.clock()
     for pillId, entry in pairs(pendingPillBuys_) do
         if now - entry.t >= PENDING_PILL_TIMEOUT then
             print("[AlchemyUI] Pending pill buy timeout: " .. pillId)
             pendingPillBuys_[pillId] = nil
-            if resultLabel_ then
-                resultLabel_:SetText("请求超时，请重试")
-                resultLabel_:SetStyle({ fontColor = {255, 160, 80, 255} })
+            if shell_ then
+                shell_:SetResult("请求超时，请重试", T.color.warning)
             end
         end
     end
 end
 
---- 获取商店丹药配置（供存档系统反推校验使用）
----@return table {tiger: TIGER_PILL, snake: SNAKE_PILL, diamond: DIAMOND_PILL}
 function AlchemyUI.GetShopPillConfigs()
     return {
         tiger = TIGER_PILL,
@@ -1469,9 +902,9 @@ function AlchemyUI.GetShopPillConfigs()
     }
 end
 
--- ============================================================================
--- C2S 丹药购买回调 handler（全局函数，供事件系统调用）
--- ============================================================================
+-- ═══════════════════════════════════════════════════════════════════════════
+-- C2S 回调 handlers
+-- ═══════════════════════════════════════════════════════════════════════════
 
 function AlchemyUI_HandleBuyPillResult(eventType, eventData)
     local ok = eventData["ok"]:GetBool()
@@ -1485,45 +918,38 @@ function AlchemyUI_HandleBuyPillResult(eventType, eventData)
     if ok and callback then
         callback()
     elseif not ok then
-        if resultLabel_ then
-            resultLabel_:SetText("购买被拒: " .. pillId .. " - " .. msg)
-            resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        if shell_ then
+            shell_:SetResult("购买被拒: " .. msg, T.color.error)
         end
         print("[AlchemyUI] BuyPill rejected: " .. pillId .. " - " .. msg)
     end
 end
 
--- 连接丢失时清理所有 pending 丹药请求
 function AlchemyUI_HandleConnectionLost()
     if next(pendingPillBuys_) then
-        print("[AlchemyUI] Connection lost, clearing " .. #pendingPillBuys_ .. " pending pill buys")
+        print("[AlchemyUI] Connection lost, clearing pending pill buys")
         pendingPillBuys_ = {}
-        if resultLabel_ then
-            resultLabel_:SetText("连接中断，请重试")
-            resultLabel_:SetStyle({ fontColor = {255, 160, 80, 255} })
+        if shell_ then
+            shell_:SetResult("连接中断，请重试", T.color.warning)
         end
     end
 end
 
--- 限流时清理 pending 丹药请求（BuyPill 被限流不会收到 BuyPillResult）
 function AlchemyUI_HandleRateLimited(eventType, eventData)
     local originEvent = eventData["EventName"]:GetString()
     if originEvent == "C2S_BuyPill" and next(pendingPillBuys_) then
         print("[AlchemyUI] BuyPill rate-limited, clearing pending")
         pendingPillBuys_ = {}
-        if resultLabel_ then
-            resultLabel_:SetText("操作过快，请稍后再试")
-            resultLabel_:SetStyle({ fontColor = {255, 160, 80, 255} })
+        if shell_ then
+            shell_:SetResult("操作过快，请稍后再试", T.color.warning)
         end
     end
 end
 
--- 注册 S2C 回调（模块加载时自动注册）
 do
     local SaveProtocol = require("network.SaveProtocol")
     SubscribeToEvent(SaveProtocol.S2C_BuyPillResult, "AlchemyUI_HandleBuyPillResult")
     SubscribeToEvent(SaveProtocol.S2C_RateLimited, "AlchemyUI_HandleRateLimited")
-
     EventBus.On("connection_lost", AlchemyUI_HandleConnectionLost)
 end
 

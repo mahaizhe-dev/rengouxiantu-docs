@@ -1067,6 +1067,36 @@ local MIGRATIONS = {
         data.version = 27
         return data
     end,
+
+    -- v27 → v28: 补偿 v18 遗漏 — 仓库中 T9+ 葫芦补 spiritStat
+    [28] = function(data)
+        if not data.warehouse or not data.warehouse.items then
+            data.version = 28
+            return data
+        end
+
+        local GOURD_SPIRIT = {
+            [9]  = { stat = "wisdom", name = "悟性", value = 8 },
+            [10] = { stat = "wisdom", name = "悟性", value = 9 },
+            [11] = { stat = "wisdom", name = "悟性", value = 9 },
+        }
+
+        local count = 0
+        for slotStr, item in pairs(data.warehouse.items) do
+            if item and item.slot == "treasure" then
+                local tier = item.tier or 1
+                local spiritDef = GOURD_SPIRIT[tier]
+                if spiritDef and not item.spiritStat then
+                    item.spiritStat = { stat = spiritDef.stat, name = spiritDef.name, value = spiritDef.value }
+                    count = count + 1
+                end
+            end
+        end
+
+        print("[SaveSystem] v27→v28 migration: warehouse gourd spiritStat fix, " .. count .. " gourd(s) patched")
+        data.version = 28
+        return data
+    end,
 }
 
 -- ============================================================================

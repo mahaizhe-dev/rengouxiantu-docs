@@ -562,7 +562,7 @@ function CS.UpdateJadeShield(dt)
 end
 
 --- 获取当前玉甲回响BOSS信息（供渲染用）
----@return table|nil boss, table|nil config, boolean isShieldActive, number remainingDuration
+---@return table|nil boss, table|nil config, boolean isShieldActive, number|integer|nil remainingDuration
 function CS.GetJadeShieldInfo()
     local boss = CS.activeJadeShieldBoss
     if not boss then return nil, nil, false, 0 end

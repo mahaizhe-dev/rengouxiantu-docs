@@ -617,6 +617,23 @@ function Player:GetPhysiqueHpBonus()
     return math.floor(self:GetTotalPhysique() / 5) * 0.01
 end
 
+--- 获取总生命回复/秒（所有来源汇总，唯一权威公式）
+--- 新增回血来源时只改这里即可
+---@return number
+function Player:GetTotalHpRegen()
+    return (self.hpRegen or 0)
+        + (self.equipHpRegen or 0)
+        + (self.skillBonusHpRegen or 0)
+        + (self.collectionHpRegen or 0)
+        + (self.seaPillarHpRegen or 0)
+        + (self.swordPoolHpRegen or 0)
+        + (self.medalHpRegen or 0)
+        + (self.artifactTiandiHpRegen or 0)
+        + (self.prisonTowerHpRegen or 0)
+        + (self.minggeHpRegen or 0)
+        + self:GetPhysiqueHealEfficiency()
+end
+
 --- 体魄 → 固定生命回复加成（每1点体魄+0.3点回复/秒）
 ---@return number
 function Player:GetPhysiqueHealEfficiency()
@@ -704,9 +721,7 @@ function Player:Update(dt, gameMap)
     -- HP 自然回复（含体魄回血效率加成）
     local totalMaxHp = self:GetTotalMaxHp()
     if self.hp < totalMaxHp then
-        local totalRegen = self.hpRegen + self.equipHpRegen + (self.skillBonusHpRegen or 0) + (self.collectionHpRegen or 0) + (self.seaPillarHpRegen or 0) + (self.swordPoolHpRegen or 0) + (self.medalHpRegen or 0) + (self.artifactTiandiHpRegen or 0) + (self.prisonTowerHpRegen or 0) + (self.minggeHpRegen or 0)
-        local physiqueRegen = self:GetPhysiqueHealEfficiency()
-        totalRegen = totalRegen + physiqueRegen
+        local totalRegen = self:GetTotalHpRegen()
         self.hp = math.min(totalMaxHp, self.hp + totalRegen * dt)
     end
 

@@ -13,15 +13,15 @@ local PetPanelForms = {}
 
 -- 形态按钮颜色方案
 local FORM_COLORS = {
-    normal = { bg = {60, 60, 70, 220}, border = {100, 100, 120, 150}, icon_bg = {50, 50, 60, 255} },
-    battle = { bg = {50, 35, 25, 220}, border = {200, 120, 60, 150}, icon_bg = {70, 40, 20, 255} },
-    guard  = { bg = {25, 40, 50, 220}, border = {80, 160, 220, 150}, icon_bg = {20, 50, 70, 255} },
-    rage   = { bg = {50, 25, 25, 220}, border = {220, 80, 80, 150}, icon_bg = {70, 20, 20, 255} },
+    normal = { bg = T.color.petFormNormalBg, border = T.color.petFormNormalBd, icon_bg = T.color.petFormNormalIcon },
+    battle = { bg = T.color.petFormBattleBg, border = T.color.petFormBattleBd, icon_bg = T.color.petFormBattleIcon },
+    guard  = { bg = T.color.petFormGuardBg, border = T.color.petFormGuardBd, icon_bg = T.color.petFormGuardIcon },
+    rage   = { bg = T.color.petFormRageBg, border = T.color.petFormRageBd, icon_bg = T.color.petFormRageIcon },
 }
 
-local ACTIVE_GLOW = {255, 200, 80, 255}    -- 激活态边框金色
-local LOCKED_FONT = {100, 100, 100, 150}
-local CD_FONT = {200, 150, 80, 255}
+local ACTIVE_GLOW = T.color.petFormActiveGlow
+local LOCKED_FONT = T.color.petFormLockedFont
+local CD_FONT = T.color.petFormCdFont
 
 --- 构建形态卡片行（插入到 Skills Tab 中固有技能和主动技能之间）
 ---@return table|nil UI panel element
@@ -94,20 +94,20 @@ function PetPanelForms.BuildFormRow()
                     text = cfg.name,
                     fontSize = T.fontSize.xs,
                     fontWeight = isActive and "bold" or "normal",
-                    fontColor = isActive and ACTIVE_GLOW or (isUnlocked and {220, 220, 230, 255} or LOCKED_FONT),
+                    fontColor = isActive and ACTIVE_GLOW or (isUnlocked and T.color.petFormNameUnlocked or LOCKED_FONT),
                     textAlign = "center",
                 },
                 UI.Label {
                     text = statDesc,
                     fontSize = 9,
-                    fontColor = {180, 200, 160, 200},
+                    fontColor = T.color.petFormStatDesc,
                     textAlign = "center",
                 },
                 UI.Label {
                     id = "form_cd_" .. formId,
                     text = cdText or "",
                     fontSize = 10,
-                    fontColor = isActive and {180, 220, 120, 255} or CD_FONT,
+                    fontColor = isActive and T.color.petFormCdActive or CD_FONT,
                     textAlign = "center",
                 },
             },
@@ -119,10 +119,10 @@ function PetPanelForms.BuildFormRow()
 
     -- 外层容器
     return UI.Panel {
-        backgroundColor = {35, 35, 45, 200},
+        backgroundColor = T.color.petFormContainerBg,
         borderRadius = T.radius.sm,
         borderWidth = 1,
-        borderColor = {100, 80, 60, 80},
+        borderColor = T.color.petFormContainerBd,
         padding = T.spacing.sm,
         gap = T.spacing.xs,
         children = {
@@ -135,12 +135,12 @@ function PetPanelForms.BuildFormRow()
                         text = "形态",
                         fontSize = T.fontSize.sm,
                         fontWeight = "bold",
-                        fontColor = {255, 200, 100, 255},
+                        fontColor = T.color.petFormTitle,
                     },
                     UI.Label {
                         text = PetFormConfig.Get(currentFormId).desc or "",
                         fontSize = 10,
-                        fontColor = {160, 160, 170, 180},
+                        fontColor = T.color.petFormDesc,
                     },
                 },
             },
@@ -173,10 +173,10 @@ function PetPanelForms.GetBerserkEnhancementRow()
 
     local isGuard = (formId == "guard")
     return UI.Panel {
-        backgroundColor = isGuard and {20, 50, 60, 180} or {60, 45, 20, 180},
+        backgroundColor = isGuard and T.color.petFormEnhGuardBg or T.color.petFormEnhRageBg,
         borderRadius = 4,
         borderWidth = 1,
-        borderColor = isGuard and {80, 180, 200, 100} or {200, 160, 60, 100},
+        borderColor = isGuard and T.color.petFormEnhGuardBd or T.color.petFormEnhRageBd,
         paddingLeft = T.spacing.sm,
         paddingRight = T.spacing.sm,
         paddingTop = 3,
@@ -186,7 +186,7 @@ function PetPanelForms.GetBerserkEnhancementRow()
             UI.Label {
                 text = text,
                 fontSize = T.fontSize.xs,
-                fontColor = isGuard and {100, 220, 200, 255} or {255, 200, 80, 255},
+                fontColor = isGuard and T.color.petFormEnhGuardFg or T.color.petFormEnhRageFg,
             },
         },
     }
@@ -204,10 +204,10 @@ function PetPanelForms.GetSpiritDevourEnhancementRow()
     if formId ~= "battle" then return nil end
 
     return UI.Panel {
-        backgroundColor = {60, 45, 20, 180},
+        backgroundColor = T.color.petFormEnhRageBg,
         borderRadius = 4,
         borderWidth = 1,
-        borderColor = {200, 160, 60, 100},
+        borderColor = T.color.petFormEnhRageBd,
         paddingLeft = T.spacing.sm,
         paddingRight = T.spacing.sm,
         paddingTop = 3,
@@ -217,7 +217,7 @@ function PetPanelForms.GetSpiritDevourEnhancementRow()
             UI.Label {
                 text = "[战斗形态] 易伤持续时间 4s → 8s",
                 fontSize = T.fontSize.xs,
-                fontColor = {255, 200, 80, 255},
+                fontColor = T.color.petFormEnhRageFg,
             },
         },
     }
@@ -296,7 +296,7 @@ function CombatSystem_AddFloatingHint(text)
     if ok and CombatSystem and CombatSystem.AddFloatingText then
         local player = GameState.player
         if player then
-            CombatSystem.AddFloatingText(player.x, player.y - 0.5, text, {255, 200, 80, 255}, 1.5)
+            CombatSystem.AddFloatingText(player.x, player.y - 0.5, text, T.color.petFormActiveGlow, 1.5)
         end
     end
 end

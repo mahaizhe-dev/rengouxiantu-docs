@@ -1267,8 +1267,8 @@ function M.ExecuteRecycle(tasks, bizDate, fullStockKinds, callback)
     recycleRunning_ = true
 
     -- 硬上限常量（字面量，不从变量读取，确保安全）
-    local CAP_KINDS = 30   -- 最多 30 种
-    local CAP_ITEMS = 50   -- 最多 50 件
+    local CAP_KINDS = 50   -- 最多 50 种
+    local CAP_ITEMS = 100  -- 最多 100 件
 
     local totalKinds = 0
     local totalItems = 0

@@ -749,8 +749,8 @@ function BottomBar.Update(root)
                 end
             end
         else
-            -- 死亡：复活读条
-            local reviveTime = pet.reviveTime or GameConfig.PET_REVIVE_TIME
+            -- 死亡：复活读条（使用快照值，与实际复活逻辑一致）
+            local reviveTime = pet._snapshotReviveTime or pet.reviveTime or GameConfig.PET_REVIVE_TIME
             local elapsed = pet.deathTimer or 0
             local remaining = math.max(0, reviveTime - elapsed)
             local ratio = reviveTime > 0 and (elapsed / reviveTime) or 0

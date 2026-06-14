@@ -546,16 +546,8 @@ SkillData.Skills = {
             end
             state._burnTimer = state._burnTimer - skill.burnInterval
 
-            -- 计算总生命回复（与 Player:Update 中的公式保持一致）
-            local totalRegen = (player.hpRegen or 0)
-                + (player.equipHpRegen or 0)
-                + (player.skillBonusHpRegen or 0)
-                + (player.collectionHpRegen or 0)
-                + (player.seaPillarHpRegen or 0)
-                + (player.medalHpRegen or 0)
-                + (player.artifactTiandiHpRegen or 0)
-            local physiqueRegen = player.GetPhysiqueHealEfficiency and player:GetPhysiqueHealEfficiency() or 0
-            totalRegen = totalRegen + physiqueRegen
+            -- 统一调用 Player:GetTotalHpRegen()，避免公式重复
+            local totalRegen = player:GetTotalHpRegen()
 
             -- 每跳伤害 = 总回复/秒 × burnRegenRatio × burnInterval
             local tickDmg = totalRegen * skill.burnRegenRatio * skill.burnInterval
@@ -708,6 +700,49 @@ function SkillData.GetDynamicDescription(skillId, maxHp, gourdTier)
 
     -- 兜底：返回静态描述
     return skill.description or ""
+end
+
+-- ============================================================================
+-- 境界技能强化表（每个大境界初期可强化已有技能/新增被动效果）
+-- 格式: RealmEnhancements[realmId][classId] = { name, icon, description, enhancedSkill? }
+-- enhancedSkill 可选：指向被强化的 SkillData.Skills[id]，用于 UI 关联
+-- ============================================================================
+
+SkillData.RealmEnhancements = {
+    -- ===== 金丹初期：解锁属性转化被动 =====
+    jindan_1 = {
+        monk = {
+            name = "金刚不坏体",
+            icon = "🛡️",
+            description = "被动：每100点根骨额外+40防御",
+            enhancedSkill = "golden_bell",
+        },
+        taixu = {
+            name = "剑意凝神",
+            icon = "🗡️",
+            description = "被动：每100点悟性额外+50攻击",
+            enhancedSkill = "sword_shield",
+        },
+        zhenyue = {
+            name = "血肉铸体",
+            icon = "💪",
+            description = "被动：每100点体魄额外+300生命",
+            enhancedSkill = "blood_burn",
+        },
+    },
+    -- ===== 后续境界可继续在此扩展 =====
+    -- yuanying_1 = { ... },
+    -- huashen_1 = { ... },
+}
+
+--- 获取指定境界对指定职业的技能强化信息
+---@param realmId string 境界 ID
+---@param classId string 职业 ID
+---@return table|nil 强化信息 { name, icon, description, enhancedSkill? }
+function SkillData.GetRealmEnhancement(realmId, classId)
+    local realmEnhance = SkillData.RealmEnhancements[realmId]
+    if not realmEnhance then return nil end
+    return realmEnhance[classId]
 end
 
 return SkillData

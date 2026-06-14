@@ -21,6 +21,12 @@ local SafeSend  = Session.SafeSend
 
 local M = {}
 
+-- 修仙榜复合分数时间基数（与试炼榜/镇狱榜一致，10^10）
+-- composite = rawScore * RANK2_TIME_BASE + (RANK2_TIME_BASE - 1 - os.time())
+-- 同分时，先达成者的 (TIME_BASE - 1 - t) 更大 → 服务端降序排列即为先到先前
+local RANK2_TIME_BASE = 10000000000
+M.RANK2_TIME_BASE = RANK2_TIME_BASE
+
 -- ============================================================================
 -- ComputeRankFromSaveData — 存档→排行分数（服务端权威计算）
 -- ============================================================================
@@ -115,8 +121,11 @@ local function RebuildRankOnLogin(userId, slotsIndex, getSlotData, taptapNick)
                     rankInfo.charName = slotMeta.name
                 end
 
-                -- 顶层 SetInt 写排行分数（确保排行索引更新）
-                serverCloud:SetInt(userId, "rank2_score_" .. slot, rankInfo.rankScore, {
+                -- 顶层 SetInt 写排行复合分数（rawScore * TIME_BASE + 时间倒序）
+                -- 同分时先达成者的时间分量更大 → 服务端降序排序自然实现"先到先前"
+                local rank2Composite = rankInfo.rankScore * RANK2_TIME_BASE
+                    + (RANK2_TIME_BASE - 1 - os.time())
+                serverCloud:SetInt(userId, "rank2_score_" .. slot, rank2Composite, {
                     error = function(code, reason)
                         print("[Server] RankV2 login SetInt rank2_score FAILED: userId=" .. tostring(userId)
                             .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
@@ -125,12 +134,6 @@ local function RebuildRankOnLogin(userId, slotsIndex, getSlotData, taptapNick)
                 serverCloud:SetInt(userId, "rank2_kills_" .. slot, rankInfo.bossKills, {
                     error = function(code, reason)
                         print("[Server] RankV2 login SetInt rank2_kills FAILED: userId=" .. tostring(userId)
-                            .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
-                    end,
-                })
-                serverCloud:SetInt(userId, "rank2_time_" .. slot, os.time(), {
-                    error = function(code, reason)
-                        print("[Server] RankV2 login SetInt rank2_time FAILED: userId=" .. tostring(userId)
                             .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
                     end,
                 })

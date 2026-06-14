@@ -441,11 +441,8 @@ function GameEvents.Register(refs)
     RegisterEvent("pet_death", function()
         local player = GameState.player
         if player and player.alive then
-            -- PA-3: 宠物死亡时清除给主人的属性加成，防止死后残留
-            if next(player.petOwnerBonuses or {}) then
-                player.petOwnerBonuses = {}
-                player._statsCacheFrame = nil  -- 失效属性缓存
-            end
+            -- PA-3: 灵兽赐主技能（targetOwner）死后仍生效，不清除 petOwnerBonuses
+            -- 复活时 RecalcStats 会重新计算，保持一致性
 
             -- PB-4: 按宠物形态分支犬魂狂暴
             local pet = GameState.pet

@@ -368,9 +368,20 @@ function WarehouseSystem.Deserialize(data)
     }
 
     if data.items then
+        local SaveSerializer = require("systems.save.SaveSerializer")
+        local SaveMigrations = require("systems.save.SaveMigrations")
+        local NormalizePercentStats = SaveMigrations.NormalizePercentStats
         for slotStr, itemData in pairs(data.items) do
             local slotIdx = tonumber(slotStr)
             if slotIdx and slotIdx >= 1 and slotIdx <= WarehouseConfig.MAX_SLOTS then
+                -- 与背包反序列化一致：百分比属性归一化 + tier 补全 + 字段补全
+                NormalizePercentStats(itemData)
+                if itemData.slot and not itemData.tier then
+                    itemData.tier = 1
+                end
+                if itemData.slot and SaveSerializer.fillEquipFields then
+                    SaveSerializer.fillEquipFields(itemData)
+                end
                 GameState.warehouse.items[slotIdx] = itemData
             end
         end

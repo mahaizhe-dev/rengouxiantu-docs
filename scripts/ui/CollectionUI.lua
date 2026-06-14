@@ -1,6 +1,7 @@
 -- ============================================================================
 -- CollectionUI.lua - 神兵图录 UI 面板
 -- 展示所有独特装备图鉴，支持上交收录
+-- 使用 PanelShell 标准面板骨架 + ImageItemSlot 规范装备图标
 -- ============================================================================
 
 local UI = require("urhox-libs/UI")
@@ -12,22 +13,17 @@ local CollectionSystem = require("systems.CollectionSystem")
 local CombatSystem = require("systems.CombatSystem")
 local T = require("config.UITheme")
 local StatNames = require("utils.StatNames")
+local PanelShell = require("ui.components.PanelShell")
+local ImageItemSlot = require("ui.ImageItemSlot")
 
 local CollectionUI = {}
 
-local panel_ = nil
+local shell_ = nil       -- PanelShell 实例
 local visible_ = false
 local entryWidgets_ = {}  -- { [equipId] = entryPanel }
 local currentChapter_ = 1  -- 当前选中的章节索引
 local collTabBtns_ = {}    -- 章节标签按钮引用
-local collScrollContent_ = nil  -- 图录列表滚动内容容器
-
--- 装备槽位 emoji 映射
-local SLOT_EMOJI = {
-    weapon = "⚔️", helmet = "🪖", armor = "🛡️", shoulder = "🦺",
-    belt = "🎗️", boots = "👢", ring1 = "💍", ring2 = "💍",
-    necklace = "📿", cape = "🧣", treasure = "🏺", exclusive = "✨",
-}
+local collScrollContent_ = nil  -- 章节列表内容容器（shell contentPanel 内部）
 
 -- 属性名映射（来自共享模块）
 local STAT_LABELS = StatNames.SHORT_NAMES
@@ -75,20 +71,67 @@ local function CreateEntryWidget(equipId)
     local statusText, statusColor
     if isCollected then
         statusText = "已收录"
-        statusColor = {100, 255, 150, 255}
+        statusColor = T.color.success
     else
         local hasInBag = CollectionSystem.FindInBackpack(equipId) ~= nil
         if hasInBag then
             statusText = "可收录"
-            statusColor = {255, 220, 100, 255}
+            statusColor = T.color.warning
         else
             statusText = "未获得"
-            statusColor = {120, 120, 120, 200}
+            statusColor = T.color.disabled
         end
     end
 
     -- 装备名区域
-    local nameColor = isCollected and qualityColor or {120, 120, 120, 200}
+    local nameColor = isCollected and qualityColor or T.color.disabled
+
+    -- 右侧状态/操作区域
+    local statusWidget
+    if isCollected then
+        statusWidget = UI.Label {
+            text = statusText,
+            fontSize = T.fontSize.xs,
+            fontColor = statusColor,
+        }
+    elseif statusText == "可收录" then
+        statusWidget = UI.Button {
+            id = "coll_btn_" .. equipId,
+            text = statusText,
+            width = T.size.inlineBtnW,
+            height = T.size.inlineBtnH,
+            fontSize = T.fontSize.xs,
+            borderRadius = T.radius.sm,
+            backgroundColor = T.color.btnSpend,
+            fontColor = statusColor,
+            onClick = function(self)
+                CollectionUI.DoSubmit(equipId)
+            end,
+        }
+    else
+        -- 未获得：用 Label 而非按钮（不可操作）
+        statusWidget = UI.Label {
+            text = statusText,
+            fontSize = T.fontSize.xs,
+            fontColor = statusColor,
+        }
+    end
+
+    -- 构造 item 数据供 ImageItemSlot 渲染（无论是否收录都显示图标）
+    -- 法宝条目没有 icon 字段，需从 FabaoTemplates.iconByTier 查找
+    local iconPath = template.icon
+    if not iconPath and template.isFabaoCollection then
+        local fabaoTpl = EquipmentData.FabaoTemplates
+            and EquipmentData.FabaoTemplates[template.fabaoTemplateId]
+        if fabaoTpl and fabaoTpl.iconByTier then
+            iconPath = fabaoTpl.iconByTier[template.fabaoTier]
+        end
+    end
+    local slotItem = {
+        icon = iconPath,
+        quality = template.quality,
+        name = template.name,
+    }
 
     local entryPanel = UI.Panel {
         id = "coll_entry_" .. equipId,
@@ -96,35 +139,23 @@ local function CreateEntryWidget(equipId)
         alignItems = "center",
         gap = T.spacing.sm,
         padding = T.spacing.sm,
-        backgroundColor = isCollected and {35, 45, 40, 220} or {30, 30, 35, 200},
+        backgroundColor = isCollected and T.color.collectedBg or T.color.surfaceDeep,
         borderRadius = T.radius.sm,
         borderWidth = 1,
-        borderColor = isCollected and {80, 180, 100, 120} or {60, 60, 70, 100},
+        borderColor = isCollected and T.color.collectedBorder or T.color.borderLight,
         children = {
-            -- 装备图标（emoji + 品质边框）
-            UI.Panel {
-                width = 44,
-                height = 44,
-                backgroundColor = {20, 22, 30, 255},
-                borderRadius = T.radius.sm,
-                borderWidth = 2,
-                borderColor = isCollected and qualityColor or {60, 60, 70, 150},
-                justifyContent = "center",
-                alignItems = "center",
-                children = {
-                    ---@diagnostic disable-next-line: param-type-mismatch
-                    UI.Label {
-                        text = SLOT_EMOJI[template.slot] or "?",
-                        fontSize = 22,
-                    },
-                },
+            -- 装备图标（使用 ImageItemSlot 规范组件）
+            ImageItemSlot {
+                size = T.size.slotSize,
+                item = slotItem,
+                pointerEvents = "none",
             },
             -- 装备信息
             UI.Panel {
                 flexGrow = 1,
                 flexShrink = 1,
                 flexBasis = 0,
-                gap = 2,
+                gap = T.spacing.xxs,
                 children = {
                     -- 第一行：名称 + 品质
                     UI.Panel {
@@ -142,7 +173,7 @@ local function CreateEntryWidget(equipId)
                             UI.Label {
                                 text = "[" .. qualityName .. "]",
                                 fontSize = T.fontSize.xs,
-                                fontColor = isCollected and qualityColor or {100, 100, 100, 180},
+                                fontColor = isCollected and qualityColor or T.color.textMuted,
                             },
                         },
                     },
@@ -150,17 +181,17 @@ local function CreateEntryWidget(equipId)
                     UI.Panel {
                         flexDirection = "row",
                         alignItems = "center",
-                        gap = 2,
+                        gap = T.spacing.xxs,
                         children = {
                             UI.Label {
                                 text = "收集奖励：",
                                 fontSize = T.fontSize.xs,
-                                fontColor = isCollected and {160, 180, 140, 220} or {100, 100, 100, 180},
+                                fontColor = isCollected and T.color.bonusLabel or T.color.textMuted,
                             },
                             UI.Label {
                                 text = FormatBonus(entry.bonus),
                                 fontSize = T.fontSize.xs,
-                                fontColor = isCollected and {200, 220, 180, 255} or {100, 100, 100, 180},
+                                fontColor = isCollected and T.color.bonusValue or T.color.textMuted,
                             },
                         },
                     },
@@ -169,36 +200,16 @@ local function CreateEntryWidget(equipId)
                     UI.Label {
                         text = isCollected and entry.desc or "收录后解锁详情",
                         fontSize = T.fontSize.xs,
-                        fontColor = {140, 140, 140, 180},
+                        fontColor = T.color.textMuted,
                     },
                 },
             },
-            -- 状态/操作按钮
+            -- 状态/操作
             UI.Panel {
                 width = 64,
                 alignItems = "center",
                 justifyContent = "center",
-                children = {
-                    isCollected and UI.Label {
-                        text = statusText,
-                        fontSize = T.fontSize.xs,
-                        fontColor = statusColor,
-                    } or UI.Button {
-                        id = "coll_btn_" .. equipId,
-                        text = statusText,
-                        width = 60,
-                        height = 28,
-                        fontSize = T.fontSize.xs,
-                        borderRadius = T.radius.sm,
-                        backgroundColor = (statusText == "可收录")
-                            and {160, 120, 30, 255}
-                            or {50, 50, 55, 180},
-                        fontColor = statusColor,
-                        onClick = function(self)
-                            CollectionUI.DoSubmit(equipId)
-                        end,
-                    },
-                },
+                children = { statusWidget },
             },
         },
     }
@@ -206,7 +217,6 @@ local function CreateEntryWidget(equipId)
     return entryPanel
 end
 
---- 格式化单个属性值
 --- 格式化属性值（来自共享模块）
 local FormatStatValue = StatNames.FormatValue
 
@@ -233,10 +243,10 @@ local function CreateBonusSummaryPanel()
     if #activeStats == 0 then
         return UI.Panel {
             id = "coll_summary",
-            backgroundColor = {25, 35, 30, 220},
+            backgroundColor = T.color.summaryBg,
             borderRadius = T.radius.sm,
             borderWidth = 1,
-            borderColor = {80, 150, 100, 100},
+            borderColor = T.color.summaryBorder,
             padding = T.spacing.sm,
             gap = T.spacing.xs,
             children = {
@@ -249,20 +259,20 @@ local function CreateBonusSummaryPanel()
                             text = "图录总加成",
                             fontSize = T.fontSize.sm,
                             fontWeight = "bold",
-                            fontColor = {180, 255, 200, 255},
+                            fontColor = T.color.titleText,
                         },
                         UI.Label {
                             id = "coll_progress",
                             text = collected .. "/" .. total,
                             fontSize = T.fontSize.xs,
-                            fontColor = {180, 180, 180, 220},
+                            fontColor = T.color.textSecondary,
                         },
                     },
                 },
                 UI.Label {
                     text = "暂无加成",
                     fontSize = T.fontSize.xs,
-                    fontColor = {120, 120, 120, 180},
+                    fontColor = T.color.textMuted,
                 },
             },
         }
@@ -292,7 +302,7 @@ local function CreateBonusSummaryPanel()
                 UI.Label {
                     text = leftVal,
                     fontSize = T.fontSize.xs,
-                    fontColor = {220, 220, 220, 255},
+                    fontColor = T.color.textPrimary,
                 },
             },
         }
@@ -316,7 +326,7 @@ local function CreateBonusSummaryPanel()
                     UI.Label {
                         text = rightVal,
                         fontSize = T.fontSize.xs,
-                        fontColor = {220, 220, 220, 255},
+                        fontColor = T.color.textPrimary,
                     },
                 },
             }
@@ -333,10 +343,10 @@ local function CreateBonusSummaryPanel()
 
     return UI.Panel {
         id = "coll_summary",
-        backgroundColor = {25, 35, 30, 220},
+        backgroundColor = T.color.summaryBg,
         borderRadius = T.radius.sm,
         borderWidth = 1,
-        borderColor = {80, 150, 100, 100},
+        borderColor = T.color.summaryBorder,
         padding = T.spacing.sm,
         gap = T.spacing.xs,
         children = {
@@ -349,13 +359,13 @@ local function CreateBonusSummaryPanel()
                         text = "图录总加成",
                         fontSize = T.fontSize.sm,
                         fontWeight = "bold",
-                        fontColor = {180, 255, 200, 255},
+                        fontColor = T.color.titleText,
                     },
                     UI.Label {
                         id = "coll_progress",
                         text = collected .. "/" .. total,
                         fontSize = T.fontSize.xs,
-                        fontColor = collected >= total and {255, 215, 0, 255} or {180, 180, 180, 220},
+                        fontColor = collected >= total and T.color.gold or T.color.textSecondary,
                     },
                 },
             },
@@ -398,9 +408,9 @@ local function RefreshCollectionContent()
     -- 更新标签按钮样式
     for i, btn in ipairs(collTabBtns_) do
         if i == currentChapter_ then
-            btn:SetStyle({ backgroundColor = {100, 140, 255, 220} })
+            btn:SetStyle({ backgroundColor = T.color.tabActiveBg })
         else
-            btn:SetStyle({ backgroundColor = {55, 58, 70, 200} })
+            btn:SetStyle({ backgroundColor = T.color.tabInactiveBg })
         end
     end
 end
@@ -408,6 +418,7 @@ end
 --- 创建章节标签栏
 ---@return table Widget
 local function BuildCollectionTabs()
+    collTabBtns_ = {}
     local tabChildren = {}
     local chapters = EquipmentData.Collection.chapters
     for i, ch in ipairs(chapters) do
@@ -419,7 +430,7 @@ local function BuildCollectionTabs()
             height = 32,
             flexGrow = 1,
             borderRadius = T.radius.sm,
-            backgroundColor = isActive and {100, 140, 255, 220} or {55, 58, 70, 200},
+            backgroundColor = isActive and T.color.tabActiveBg or T.color.tabInactiveBg,
             onClick = function(self)
                 if currentChapter_ == i then return end
                 currentChapter_ = i
@@ -440,102 +451,40 @@ end
 -- 公共接口
 -- ============================================================================
 
---- 创建图录面板
+--- 创建图录面板（基于 PanelShell 标准骨架）
 ---@param parentOverlay table
 function CollectionUI.Create(parentOverlay)
-    panel_ = UI.Panel {
-        id = "collectionPanel",
-        position = "absolute",
-        top = 0, left = 0, right = 0, bottom = 0,
-        zIndex = 100,
-        backgroundColor = {0, 0, 0, 150},
-        justifyContent = "center",
-        alignItems = "center",
-        visible = false,
-        onClick = function(self) end,  -- 阻止穿透
-        children = {
-            -- 内容卡片
-            UI.Panel {
-                id = "collectionCard",
-                width = "94%",
-                maxWidth = 500,
-                maxHeight = "85%",
-                backgroundColor = T.color.panelBg,
-                borderRadius = T.radius.lg,
-                padding = T.spacing.lg,
-                gap = T.spacing.md,
-                children = {
-                    -- 标题栏
-                    UI.Panel {
-                        flexDirection = "row",
-                        justifyContent = "space-between",
-                        alignItems = "center",
-                        children = {
-                            UI.Button {
-                                text = "✕",
-                                width = T.size.closeButton,
-                                height = T.size.closeButton,
-                                fontSize = T.fontSize.md,
-                                borderRadius = T.size.closeButton / 2,
-                                backgroundColor = {60, 60, 70, 200},
-                                onClick = function(self)
-                                    CollectionUI.Hide()
-                                end,
-                            },
-                            UI.Panel {
-                                flexDirection = "row",
-                                alignItems = "center",
-                                gap = T.spacing.sm,
-                                children = {
-                                    UI.Label {
-                                        text = "📜",
-                                        fontSize = T.fontSize.xl,
-                                    },
-                                    UI.Label {
-                                        text = "神兵图录",
-                                        fontSize = T.fontSize.lg,
-                                        fontWeight = "bold",
-                                        fontColor = T.color.titleText,
-                                    },
-                                },
-                            },
-                        },
-                    },
-                    -- 副标题说明
-                    UI.Label {
-                        text = "上交独特装备，获得永久属性加成",
-                        fontSize = T.fontSize.xs,
-                        fontColor = {150, 150, 150, 200},
-                        textAlign = "center",
-                    },
-                    -- 总加成面板
-                    UI.Panel {
-                        id = "coll_summary_container",
-                    },
-                    -- 章节切换标签
-                    BuildCollectionTabs(),
-                    -- 图录列表（可滚动）
-                    (function()
-                        collScrollContent_ = UI.Panel {
-                            id = "coll_list",
-                            gap = T.spacing.xs,
-                            paddingRight = T.spacing.xs,
-                            children = BuildChapterEntries(),
-                        }
-                        return UI.ScrollView {
-                            id = "coll_scroll",
-                            flexGrow = 1,
-                            flexShrink = 1,
-                            flexBasis = 0,
-                            children = { collScrollContent_ },
-                        }
-                    end)(),
-                },
-            },
-        },
+    local PORTRAIT_SIZE = 64
+    local portraitPanel = UI.Panel {
+        width = PORTRAIT_SIZE,
+        height = PORTRAIT_SIZE,
+        borderRadius = T.radius.md,
+        backgroundColor = T.color.headerBg,
+        overflow = "hidden",
+        backgroundImage = "book_atk.png",
+        backgroundFit = "cover",
     }
 
-    parentOverlay:AddChild(panel_)
+    shell_ = PanelShell.Create({
+        title = "神兵图录",
+        subtitle = "上交独特装备，获得永久属性加成",
+        portrait = portraitPanel,
+        onClose = function() CollectionUI.Hide() end,
+        parent = parentOverlay,
+    })
+
+    -- 向 shell 内容区添加：总加成面板 + 章节标签 + 列表
+    local summaryContainer = UI.Panel { id = "coll_summary_container" }
+    shell_:AddContent(summaryContainer)
+    shell_:AddContent(BuildCollectionTabs())
+
+    -- 图录列表容器（手动管理子节点刷新）
+    collScrollContent_ = UI.Panel {
+        id = "coll_list",
+        gap = T.spacing.xs,
+        children = BuildChapterEntries(),
+    }
+    shell_:AddContent(collScrollContent_)
 
     -- 监听收录事件刷新
     EventBus.On("collection_submitted", function()
@@ -547,18 +496,18 @@ end
 
 --- 显示图录面板
 function CollectionUI.Show()
-    if not panel_ or visible_ then return end
+    if not shell_ or visible_ then return end
     visible_ = true
-    panel_:Show()
+    shell_:Show()
     GameState.uiOpen = "collection"
     CollectionUI.Refresh()
 end
 
 --- 隐藏图录面板
 function CollectionUI.Hide()
-    if not panel_ or not visible_ then return end
+    if not shell_ or not visible_ then return end
     visible_ = false
-    panel_:Hide()
+    shell_:Hide()
     if GameState.uiOpen == "collection" then
         GameState.uiOpen = nil
     end
@@ -577,10 +526,10 @@ end
 
 --- 刷新整个面板（重建列表）
 function CollectionUI.Refresh()
-    if not panel_ then return end
+    if not shell_ then return end
 
     -- 刷新总加成
-    local summaryContainer = panel_:FindById("coll_summary_container")
+    local summaryContainer = shell_.contentPanel:FindById("coll_summary_container")
     if summaryContainer then
         summaryContainer:ClearChildren()
         summaryContainer:AddChild(CreateBonusSummaryPanel())

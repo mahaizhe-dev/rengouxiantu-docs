@@ -11,6 +11,7 @@ local CombatSystem = shared.CombatSystem
 local PetAppearanceConfig = shared.PetAppearanceConfig
 local getRealmColorGroup = shared.getRealmColorGroup
 local getHpColor = shared.getHpColor
+local PlayerAnimator = require("rendering.PlayerAnimator")
 
 local M = {}
 function M.RenderPlayer(nvg, l, camera)
@@ -28,16 +29,20 @@ function M.RenderPlayer(nvg, l, camera)
     local spriteSize = ts * 1.5
     local halfSize = spriteSize / 2
 
-    -- 统一使用右朝向图片，左朝向通过水平翻转实现
-    local CLASS_SPRITES = {
-        taixu   = "Textures/class_swordsman_right.png",
-        zhenyue = "Textures/class_body_cultivator_right.png",
-    }
-    local spritePath = CLASS_SPRITES[player.classId] or "Textures/player_right.png"
+    -- 帧动画系统：根据状态返回当前帧精灵路径
+    local spritePath = PlayerAnimator.Update(player)
     local imgHandle = RenderUtils.GetCachedImage(nvg, spritePath)
 
     if imgHandle then
         nvgSave(nvg)
+
+        -- 程序化动画修饰
+        local vfx = PlayerAnimator.GetVisualFX()
+        local fxOffsetY = vfx.offsetY or 0
+        local fxScaleX = vfx.scaleX or 1.0
+        local fxScaleY = vfx.scaleY or 1.0
+        local fxRotation = vfx.rotation or 0
+
         -- 左朝向时水平翻转
         if not player.facingRight then
             nvgTranslate(nvg, sx, 0)
@@ -45,8 +50,16 @@ function M.RenderPlayer(nvg, l, camera)
             nvgTranslate(nvg, -sx, 0)
         end
 
+        -- 应用程序化变换（以角色脚底为中心缩放/旋转）
+        local pivotX = sx
+        local pivotY = sy + halfSize * 0.4  -- 脚底附近作为变换锚点
+        nvgTranslate(nvg, pivotX, pivotY)
+        nvgRotate(nvg, fxRotation)
+        nvgScale(nvg, fxScaleX, fxScaleY)
+        nvgTranslate(nvg, -pivotX, -pivotY)
+
         local imgX = sx - halfSize
-        local imgY = sy - halfSize * 1.1
+        local imgY = sy - halfSize * 1.1 + fxOffsetY
 
         -- 受伤闪烁：交替显示原图和纯白剪影（贴合角色轮廓）
         local imgPaint = nvgImagePattern(nvg, imgX, imgY, spriteSize, spriteSize, 0, imgHandle, 1.0)

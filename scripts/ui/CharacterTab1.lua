@@ -60,11 +60,7 @@ function CharacterTab1.Build(refreshFn)
     table.insert(sec, StatRow.Create("攻击力", fmtVal(player:GetTotalAtk()), {255, 150, 100, 255}))
     table.insert(sec, StatRow.Create("防御力", fmtVal(player:GetTotalDef()), {100, 200, 255, 255}))
     table.insert(sec, StatRow.Create("生命上限", fmtVal(player:GetTotalMaxHp()), {100, 255, 100, 255}))
-    table.insert(sec, StatRow.Create("生命回复", fmtVal(
-        (player.hpRegen or 0) + (player.equipHpRegen or 0) + (player.skillBonusHpRegen or 0)
-        + (player.collectionHpRegen or 0) + (player.seaPillarHpRegen or 0) + (player.medalHpRegen or 0)
-        + (player.artifactTiandiHpRegen or 0) + (player.minggeHpRegen or 0)
-        + player:GetPhysiqueHealEfficiency(), "%.1f/s"), {150, 255, 200, 255}))
+    table.insert(sec, StatRow.Create("生命回复", fmtVal(player:GetTotalHpRegen(), "%.1f/s"), {150, 255, 200, 255}))
     table.insert(sec, StatRow.Create("暴击率", fmtVal(player:GetTotalCritRate() * 100, "%.1f%%"), {255, 220, 100, 255}))
     table.insert(sec, StatRow.Create("暴击伤害", fmtVal(player:GetTotalCritDmg() * 100, "%.0f%%"), {255, 200, 80, 255}))
     table.insert(sec, StatRow.Create("击杀回血", fmtVal(

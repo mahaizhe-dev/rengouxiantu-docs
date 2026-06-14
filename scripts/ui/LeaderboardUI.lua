@@ -59,16 +59,29 @@ local BLACKLIST = Blacklist  -- 兼容下方已有代码中的 BLACKLIST.xxx 引
 
 -- 排行榜排名前3的装饰
 local RANK_MEDALS = { "🥇", "🥈", "🥉" }
-local RANK_COLORS = {
-    {255, 215, 0, 255},    -- 金
-    {200, 200, 210, 255},  -- 银
-    {205, 127, 50, 255},   -- 铜
-}
+local COLOR_GOLD   = T.color.warning       -- 金
+local COLOR_SILVER = T.color.rankSilver    -- 银
+local COLOR_BRONZE = T.color.rankBronze    -- 铜
+local RANK_COLORS = { COLOR_GOLD, COLOR_SILVER, COLOR_BRONZE }
 
--- 从排行分数还原境界和等级
-local function DecodeRankScore(score)
-    local realmOrder = math.floor(score / 1000)
-    local level = score % 1000
+-- 修仙榜复合分数时间基数（与试炼榜/镇狱榜一致）
+-- composite = rawScore * TIME_BASE + timePart
+local RANK2_TIME_BASE = 10000000000
+
+--- 从排行复合分数还原境界和等级
+--- 新格式: composite = (realmOrder * 1000 + level) * TIME_BASE + (TIME_BASE - 1 - achieveTime)
+--- 兼容旧格式: rawScore = realmOrder * 1000 + level（无时间编码，值 < TIME_BASE * 最大分数阈值）
+local function DecodeRankScore(compositeScore)
+    local rawScore
+    if compositeScore > RANK2_TIME_BASE then
+        -- 新格式：除以 TIME_BASE 得到原始分数
+        rawScore = math.floor(compositeScore / RANK2_TIME_BASE)
+    else
+        -- 兼容旧格式（未编码时间的历史数据）
+        rawScore = compositeScore
+    end
+    local realmOrder = math.floor(rawScore / 1000)
+    local level = rawScore % 1000
     return realmOrder, level
 end
 
@@ -94,10 +107,10 @@ end
 -- Tab 样式（与 CharacterUI 统一）
 -- ============================================================================
 
-local TAB_ACTIVE_BG = {70, 80, 120, 255}
-local TAB_INACTIVE_BG = {40, 45, 60, 200}
-local TAB_ACTIVE_COLOR = {240, 240, 255, 255}
-local TAB_INACTIVE_COLOR = {140, 140, 160, 200}
+local TAB_ACTIVE_BG = T.color.tabActiveBg
+local TAB_INACTIVE_BG = T.color.tabInactiveBg
+local TAB_ACTIVE_COLOR = T.color.tabActiveText
+local TAB_INACTIVE_COLOR = T.color.tabInactiveText
 
 local TAB_NAMES = { "⚔ 修仙榜", "🏆 试炼榜", "🏯 镇狱榜" }
 local TAB_IDS   = { "xiuxian", "trial", "prison" }
@@ -113,18 +126,64 @@ local function UpdateTabStyles()
 end
 
 -- ============================================================================
--- 排行榜规则说明面板
+-- 排行榜规则说明面板（数据驱动）
 -- ============================================================================
+
+--- 修仙榜规则数据
+local RULES_DATA = {
+    title = "📜 修仙榜规则",
+    rules = {
+        "等级达到 5 级以上自动上榜",
+        "每个角色独立上榜，最多 4 个角色",
+        "优先按境界排序，境界相同按等级排序",
+        "每次存档自动更新排行数据",
+        "排行榜显示前 50 名修仙者",
+    },
+    motto = "努力修炼，登顶修仙榜！",
+}
+
+--- 构建单条规则行（序号金色 + 内容灰蓝）
+local function BuildRuleLine(index, text)
+    return UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        gap = T.spacing.xs,
+        alignItems = "baseline",
+        children = {
+            UI.Label {
+                text = tostring(index) .. ".",
+                fontSize = T.fontSize.sm,
+                fontColor = T.color.goldDark,
+                fontWeight = "bold",
+            },
+            UI.Label {
+                text = text,
+                fontSize = T.fontSize.sm,
+                fontColor = T.color.textSecondary,
+                flexShrink = 1,
+            },
+        },
+    }
+end
 
 local function ShowRules()
     if rulesVisible_ then return end
+    if activeTab_ ~= "xiuxian" then return end -- 仅修仙榜有规则
     rulesVisible_ = true
+
+    local data = RULES_DATA
+
+    -- 构建规则行列表
+    local ruleLines = {}
+    for i, rule in ipairs(data.rules) do
+        ruleLines[#ruleLines + 1] = BuildRuleLine(i, rule)
+    end
 
     rulesPanel_ = UI.Panel {
         position = "absolute",
         top = 0, left = 0, right = 0, bottom = 0,
         zIndex = 1200,
-        backgroundColor = {0, 0, 0, 160},
+        backgroundColor = T.color.overlay,
         justifyContent = "center",
         alignItems = "center",
         onClick = function()
@@ -137,69 +196,47 @@ local function ShowRules()
                 backgroundColor = T.color.panelBg,
                 borderRadius = T.radius.lg,
                 borderWidth = 1,
-                borderColor = {100, 140, 200, 150},
-                padding = T.spacing.md,
+                borderColor = T.color.cardBorderInfo,
+                padding = T.spacing.lg,
                 gap = T.spacing.sm,
                 onClick = function() end, -- 阻止穿透
                 children = {
+                    -- 标题
                     UI.Label {
-                        text = "📜 排行榜规则",
+                        text = data.title,
                         fontSize = T.fontSize.lg,
                         fontWeight = "bold",
                         fontColor = T.color.titleText,
                         textAlign = "center",
                     },
-                    UI.Panel { width = "100%", height = 1, backgroundColor = {80, 85, 100, 120} },
-                    UI.Label {
-                        text = activeTab_ == "xiuxian"
-                            and "1. 等级达到 5 级以上自动上榜"
-                            or "1. 通关试炼塔任意层即可上榜",
-                        fontSize = T.fontSize.sm,
-                        fontColor = {200, 200, 220, 230},
+                    -- 分隔线
+                    UI.Panel { width = "100%", height = 1, backgroundColor = T.decor.dividerColor },
+                    -- 规则区域（surfaceDeep 底色，增强分层感）
+                    UI.Panel {
+                        width = "100%",
+                        backgroundColor = T.color.surfaceDeep,
+                        borderRadius = T.radius.sm,
+                        padding = T.spacing.sm,
+                        gap = T.spacing.xs,
+                        children = ruleLines,
                     },
+                    -- 下分隔线
+                    UI.Panel { width = "100%", height = 1, backgroundColor = T.decor.dividerColor },
+                    -- 鼓励语
                     UI.Label {
-                        text = activeTab_ == "xiuxian"
-                            and "2. 每个角色独立上榜，最多 4 个角色"
-                            or "2. 按通关层数排名，层数相同按用时排序",
+                        text = data.motto,
                         fontSize = T.fontSize.sm,
-                        fontColor = {200, 200, 220, 230},
-                    },
-                    UI.Label {
-                        text = activeTab_ == "xiuxian"
-                            and "3. 优先按境界排序，境界相同按等级排序"
-                            or "3. 每次通关自动更新最佳记录",
-                        fontSize = T.fontSize.sm,
-                        fontColor = {200, 200, 220, 230},
-                    },
-                    UI.Label {
-                        text = activeTab_ == "xiuxian"
-                            and "4. 每次存档自动更新排行数据"
-                            or "4. 排行榜显示前 50 名修仙者",
-                        fontSize = T.fontSize.sm,
-                        fontColor = {200, 200, 220, 230},
-                    },
-                    UI.Label {
-                        text = activeTab_ == "xiuxian"
-                            and "5. 排行榜显示前 50 名修仙者"
-                            or "5. 努力攀登，挑战更高层数！",
-                        fontSize = T.fontSize.sm,
-                        fontColor = {200, 200, 220, 230},
-                    },
-                    UI.Panel { width = "100%", height = 1, backgroundColor = {80, 85, 100, 120}, marginTop = T.spacing.xs },
-                    UI.Label {
-                        text = activeTab_ == "xiuxian"
-                            and "努力修炼，登顶修仙榜！"
-                            or "勇闯青云试炼塔！",
-                        fontSize = T.fontSize.sm,
-                        fontColor = {180, 220, 130, 200},
+                        fontColor = T.color.jade,
                         textAlign = "center",
+                        marginTop = T.spacing.xs,
                     },
+                    -- 关闭按钮
                     UI.Button {
                         text = "知道了",
-                        variant = "primary",
+                        variant = "secondary",
                         alignSelf = "center",
                         width = 120,
-                        marginTop = T.spacing.xs,
+                        marginTop = T.spacing.sm,
                         onClick = function()
                             LeaderboardUI.HideRules()
                         end,
@@ -230,9 +267,9 @@ end
 local function CreateRankRow(rank, charName, nickname, realmName, level, isMe, bossKills, classId)
     local medal = RANK_MEDALS[rank] or ""
     local rankText = medal ~= "" and medal or ("#" .. rank)
-    local rankColor = RANK_COLORS[rank] or {160, 160, 180, 255}
-    local nameColor = isMe and {100, 220, 255, 255} or {220, 220, 230, 255}
-    local bgColor = isMe and {40, 60, 90, 180} or (rank <= 3 and {40, 40, 55, 150} or {30, 32, 42, 120})
+    local rankColor = RANK_COLORS[rank] or T.color.textMuted
+    local nameColor = isMe and T.color.gold or T.color.textPrimary
+    local bgColor = isMe and T.color.highlightMe or (rank <= 3 and T.color.surfaceLight or T.color.surfaceDeep)
 
     -- 职业图标
     local classData = GameConfig.CLASS_DATA[classId or "monk"] or GameConfig.CLASS_DATA.monk
@@ -244,7 +281,7 @@ local function CreateRankRow(rank, charName, nickname, realmName, level, isMe, b
         UI.Panel {
             flexDirection = "row",
             alignItems = "center",
-            gap = 4,
+            gap = T.spacing.xs,
             children = {
                 UI.Label {
                     text = classIcon,
@@ -264,7 +301,7 @@ local function CreateRankRow(rank, charName, nickname, realmName, level, isMe, b
         table.insert(nameChildren, UI.Label {
             text = nickname,
             fontSize = T.fontSize.xs - 1,
-            fontColor = {140, 160, 200, 180},
+            fontColor = T.color.textMuted,
         })
     end
 
@@ -297,7 +334,7 @@ local function CreateRankRow(rank, charName, nickname, realmName, level, isMe, b
             UI.Label {
                 text = realmName,
                 fontSize = T.fontSize.xs,
-                fontColor = {200, 180, 130, 220},
+                fontColor = T.color.goldSoft,
                 width = 70,
                 textAlign = "center",
             },
@@ -306,7 +343,7 @@ local function CreateRankRow(rank, charName, nickname, realmName, level, isMe, b
                 text = "Lv." .. level,
                 fontSize = T.fontSize.xs,
                 fontWeight = "bold",
-                fontColor = {180, 200, 160, 255},
+                fontColor = T.color.jade,
                 width = 40,
                 textAlign = "right",
             },
@@ -314,7 +351,7 @@ local function CreateRankRow(rank, charName, nickname, realmName, level, isMe, b
             UI.Label {
                 text = (bossKills and bossKills > 0) and tostring(bossKills) or "-",
                 fontSize = T.fontSize.xs,
-                fontColor = (bossKills and bossKills > 0) and {255, 140, 100, 230} or {100, 100, 120, 140},
+                fontColor = (bossKills and bossKills > 0) and T.color.error or T.color.textMuted,
                 width = 50,
                 textAlign = "right",
             },
@@ -328,10 +365,10 @@ end
 
 --- 试炼榜排名颜色
 local function GetTrialRankColor(rank)
-    if rank == 1 then return {255, 215, 0, 255} end   -- 金
-    if rank == 2 then return {200, 200, 210, 255} end  -- 银
-    if rank == 3 then return {205, 127, 50, 255} end   -- 铜
-    return {200, 200, 200, 255}
+    if rank == 1 then return COLOR_GOLD end
+    if rank == 2 then return COLOR_SILVER end
+    if rank == 3 then return COLOR_BRONZE end
+    return T.color.textSecondary
 end
 
 --- 试炼榜排名徽章
@@ -343,25 +380,28 @@ local function GetTrialRankBadge(rank)
 end
 
 --- 构建试炼榜单行条目
-local function BuildTrialRankRow(rank, displayName, floor, realmName, level, taptapNick, classId)
+local function BuildTrialRankRow(rank, displayName, floor, realmName, level, taptapNick, classId, isMe)
     local rankColor = GetTrialRankColor(rank)
     local isTop3 = rank <= 3
     local classData = GameConfig.CLASS_DATA[classId or "monk"] or GameConfig.CLASS_DATA.monk
     local classIcon = classData and classData.icon or "🥊"
 
-    local nameText = displayName or "修仙者"
-    if taptapNick and taptapNick ~= "" and taptapNick ~= nameText then
+    local nameText = (displayName or "修仙者") .. (isMe and " (我)" or "")
+    if taptapNick and taptapNick ~= "" and taptapNick ~= displayName then
         nameText = nameText .. " (" .. taptapNick .. ")"
     end
+
+    -- 背景：isMe > top3 > nil
+    local bgColor = isMe and T.color.highlightMe or (isTop3 and T.color.rankTop3Bg or nil)
 
     return UI.Panel {
         flexDirection = "row",
         alignItems = "center",
         paddingLeft = T.spacing.sm,
         paddingRight = T.spacing.sm,
-        paddingTop = 6,
-        paddingBottom = 6,
-        backgroundColor = isTop3 and {255, 255, 255, 15} or {0, 0, 0, 0},
+        paddingTop = T.spacing.sm,
+        paddingBottom = T.spacing.sm,
+        backgroundColor = bgColor,
         borderRadius = T.radius.sm,
         gap = T.spacing.sm,
         children = {
@@ -378,12 +418,12 @@ local function BuildTrialRankRow(rank, displayName, floor, realmName, level, tap
             UI.Panel {
                 flexGrow = 1,
                 flexShrink = 1,
-                gap = 2,
+                gap = T.spacing.xxs,
                 children = {
                     UI.Panel {
                         flexDirection = "row",
                         alignItems = "center",
-                        gap = 4,
+                        gap = T.spacing.xs,
                         children = {
                             UI.Label {
                                 text = classIcon,
@@ -392,15 +432,15 @@ local function BuildTrialRankRow(rank, displayName, floor, realmName, level, tap
                             UI.Label {
                                 text = nameText,
                                 fontSize = T.fontSize.sm,
-                                fontColor = isTop3 and rankColor or {230, 230, 230, 255},
-                                fontWeight = isTop3 and "bold" or "normal",
+                                fontColor = isMe and T.color.gold or (isTop3 and rankColor or T.color.textPrimary),
+                                fontWeight = (isMe or isTop3) and "bold" or "normal",
                             },
                         },
                     },
                     UI.Label {
                         text = realmName .. " · Lv." .. tostring(level),
                         fontSize = T.fontSize.xs,
-                        fontColor = {160, 160, 180, 200},
+                        fontColor = T.color.textMuted,
                     },
                 },
             },
@@ -408,23 +448,23 @@ local function BuildTrialRankRow(rank, displayName, floor, realmName, level, tap
             UI.Panel {
                 flexDirection = "row",
                 alignItems = "center",
-                gap = 4,
+                gap = T.spacing.xs,
                 children = {
                     UI.Label {
                         text = "第",
                         fontSize = T.fontSize.xs,
-                        fontColor = {160, 160, 180, 200},
+                        fontColor = T.color.textMuted,
                     },
                     UI.Label {
                         text = tostring(floor),
                         fontSize = T.fontSize.md,
                         fontWeight = "bold",
-                        fontColor = {255, 200, 100, 255},
+                        fontColor = T.color.warning,
                     },
                     UI.Label {
                         text = "层",
                         fontSize = T.fontSize.xs,
-                        fontColor = {160, 160, 180, 200},
+                        fontColor = T.color.textMuted,
                     },
                 },
             },
@@ -444,7 +484,7 @@ local function BuildTrialStatusRow(text)
             UI.Label {
                 text = text,
                 fontSize = T.fontSize.md,
-                fontColor = {160, 160, 180, 200},
+                fontColor = T.color.textMuted,
             },
         },
     }
@@ -633,17 +673,11 @@ local function LoadLeaderboard()
             return
         end
 
-        -- 按分数降序排列（同分时先达成者排前，无时间戳的老数据排最后）
+        -- 按复合分数降序排列
+        -- 新格式已将时间编码到分数中，服务端排序即为最终排序
+        -- 此处 sort 确保客户端合并4个槽位后顺序正确
         table.sort(allEntries, function(a, b)
             if a.score ~= b.score then return a.score > b.score end
-            -- 同分：有达成时间的优先于没有的
-            if (a.achieveTime > 0) ~= (b.achieveTime > 0) then
-                return a.achieveTime > 0
-            end
-            -- 都有时间：先达成者排前（时间戳小的在前）
-            if a.achieveTime ~= b.achieveTime then
-                return a.achieveTime < b.achieveTime
-            end
             return a.userId < b.userId
         end)
 
@@ -788,6 +822,8 @@ local function PopulateTrialList(rankList)
         return
     end
 
+    local myUserId = CloudStorage.GetUserId()
+
     for i, item in ipairs(rankList) do
         -- 解析复合分数 → 层数
         local compositeScore = item.value or 0
@@ -816,7 +852,8 @@ local function PopulateTrialList(rankList)
             end
         end
 
-        trialListContainer_:AddChild(BuildTrialRankRow(i, displayName, floor, realmName, level, taptapNick, classId))
+        local isMe = (tostring(item.userId) == tostring(myUserId))
+        trialListContainer_:AddChild(BuildTrialRankRow(i, displayName, floor, realmName, level, taptapNick, classId, isMe))
     end
 end
 
@@ -871,6 +908,8 @@ local function PopulatePrisonList(rankList)
         return
     end
 
+    local myUserId = CloudStorage.GetUserId()
+
     for i, item in ipairs(rankList) do
         local compositeScore = item.value or 0
         local floor = math.floor(compositeScore / PRISON_TIME_BASE)
@@ -894,7 +933,8 @@ local function PopulatePrisonList(rankList)
             end
         end
 
-        prisonListContainer_:AddChild(BuildTrialRankRow(i, displayName, floor, realmName, level, taptapNick, classId))
+        local isMe = (tostring(item.userId) == tostring(myUserId))
+        prisonListContainer_:AddChild(BuildTrialRankRow(i, displayName, floor, realmName, level, taptapNick, classId, isMe))
     end
 end
 
@@ -939,9 +979,9 @@ local function UpdateClassSubTabStyles()
     for i, btn in ipairs(classSubTabBtns_) do
         local isActive = (SUB_TAB_IDS[i] == xiuxianClassFilter_)
         btn:SetStyle({
-            backgroundColor = isActive and {60, 70, 110, 255} or {35, 38, 50, 180},
-            fontColor = isActive and {240, 240, 255, 255} or {130, 130, 150, 200},
-            borderColor = isActive and {100, 130, 200, 200} or {60, 60, 80, 100},
+            backgroundColor = isActive and T.color.tabActiveBg or T.color.tabInactiveBg,
+            fontColor = isActive and T.color.tabActiveText or T.color.tabInactiveText,
+            borderColor = isActive and T.color.cardBorderInfo or T.color.borderLight,
         })
     end
 end
@@ -969,7 +1009,7 @@ local function BuildXiuxianTabContent()
         id = "lb_status",
         text = "",
         fontSize = T.fontSize.sm,
-        fontColor = {140, 140, 160, 180},
+        fontColor = T.color.tabInactiveText,
         textAlign = "center",
         alignSelf = "center",
         marginTop = T.spacing.lg,
@@ -990,9 +1030,9 @@ local function BuildXiuxianTabContent()
             fontWeight = "bold",
             borderRadius = T.radius.sm,
             borderWidth = 1,
-            borderColor = isActive and {100, 130, 200, 200} or {60, 60, 80, 100},
-            backgroundColor = isActive and {60, 70, 110, 255} or {35, 38, 50, 180},
-            fontColor = isActive and {240, 240, 255, 255} or {130, 130, 150, 200},
+            borderColor = isActive and T.color.cardBorderInfo or T.color.borderLight,
+            backgroundColor = isActive and T.color.tabActiveBg or T.color.tabInactiveBg,
+            fontColor = isActive and T.color.tabActiveText or T.color.tabInactiveText,
             onClick = function()
                 SwitchClassSubTab(SUB_TAB_IDS[i])
             end,
@@ -1015,14 +1055,14 @@ local function BuildXiuxianTabContent()
         height = 24,
         gap = T.spacing.sm,
         children = {
-            UI.Label { text = "排名", fontSize = T.fontSize.xs, fontColor = {120, 120, 140, 160}, width = 36, textAlign = "center" },
-            UI.Label { text = "角色名", fontSize = T.fontSize.xs, fontColor = {120, 120, 140, 160}, width = 200 },
-            UI.Label { text = "境界", fontSize = T.fontSize.xs, fontColor = {120, 120, 140, 160}, width = 70, textAlign = "center" },
-            UI.Label { text = "等级", fontSize = T.fontSize.xs, fontColor = {120, 120, 140, 160}, width = 40, textAlign = "right" },
-            UI.Label { text = "击杀BOSS", fontSize = T.fontSize.xs, fontColor = {120, 120, 140, 160}, textAlign = "right" },
+            UI.Label { text = "排名", fontSize = T.fontSize.xs, fontColor = T.color.textMuted, width = 36, textAlign = "center" },
+            UI.Label { text = "角色名", fontSize = T.fontSize.xs, fontColor = T.color.textMuted, width = 200 },
+            UI.Label { text = "境界", fontSize = T.fontSize.xs, fontColor = T.color.textMuted, width = 70, textAlign = "center" },
+            UI.Label { text = "等级", fontSize = T.fontSize.xs, fontColor = T.color.textMuted, width = 40, textAlign = "right" },
+            UI.Label { text = "击杀BOSS", fontSize = T.fontSize.xs, fontColor = T.color.textMuted, textAlign = "right" },
         },
     })
-    tabContent_:AddChild(UI.Panel { width = "100%", height = 1, backgroundColor = {80, 85, 100, 100} })
+    tabContent_:AddChild(UI.Panel { width = "100%", height = 1, backgroundColor = T.decor.dividerColor })
     -- 滚动列表
     tabContent_:AddChild(UI.ScrollView {
         flexGrow = 1,
@@ -1038,7 +1078,7 @@ end
 local function BuildTrialTabContent()
     trialListContainer_ = UI.Panel {
         width = "100%",
-        gap = 4,
+        gap = T.spacing.xs,
     }
 
     -- 表头
@@ -1049,12 +1089,12 @@ local function BuildTrialTabContent()
         paddingRight = T.spacing.sm,
         height = 24,
         children = {
-            UI.Label { text = "排名", fontSize = T.fontSize.xs, fontColor = {120, 120, 140, 160}, width = 36, textAlign = "center" },
-            UI.Label { text = "修仙者", fontSize = T.fontSize.xs, fontColor = {120, 120, 140, 160}, flexGrow = 1 },
-            UI.Label { text = "试炼层数", fontSize = T.fontSize.xs, fontColor = {120, 120, 140, 160} },
+            UI.Label { text = "排名", fontSize = T.fontSize.xs, fontColor = T.color.textMuted, width = 36, textAlign = "center" },
+            UI.Label { text = "修仙者", fontSize = T.fontSize.xs, fontColor = T.color.textMuted, flexGrow = 1 },
+            UI.Label { text = "试炼层数", fontSize = T.fontSize.xs, fontColor = T.color.textMuted },
         },
     })
-    tabContent_:AddChild(UI.Panel { width = "100%", height = 1, backgroundColor = {80, 85, 100, 100} })
+    tabContent_:AddChild(UI.Panel { width = "100%", height = 1, backgroundColor = T.decor.dividerColor })
     -- 滚动列表
     tabContent_:AddChild(UI.ScrollView {
         flexGrow = 1,
@@ -1069,7 +1109,7 @@ end
 local function BuildPrisonTabContent()
     prisonListContainer_ = UI.Panel {
         width = "100%",
-        gap = 4,
+        gap = T.spacing.xs,
     }
 
     -- 表头
@@ -1080,12 +1120,12 @@ local function BuildPrisonTabContent()
         paddingRight = T.spacing.sm,
         height = 24,
         children = {
-            UI.Label { text = "排名", fontSize = T.fontSize.xs, fontColor = {120, 120, 140, 160}, width = 36, textAlign = "center" },
-            UI.Label { text = "修仙者", fontSize = T.fontSize.xs, fontColor = {120, 120, 140, 160}, flexGrow = 1 },
-            UI.Label { text = "镇狱层数", fontSize = T.fontSize.xs, fontColor = {120, 120, 140, 160} },
+            UI.Label { text = "排名", fontSize = T.fontSize.xs, fontColor = T.color.textMuted, width = 36, textAlign = "center" },
+            UI.Label { text = "修仙者", fontSize = T.fontSize.xs, fontColor = T.color.textMuted, flexGrow = 1 },
+            UI.Label { text = "镇狱层数", fontSize = T.fontSize.xs, fontColor = T.color.textMuted },
         },
     })
-    tabContent_:AddChild(UI.Panel { width = "100%", height = 1, backgroundColor = {80, 85, 100, 100} })
+    tabContent_:AddChild(UI.Panel { width = "100%", height = 1, backgroundColor = T.decor.dividerColor })
     tabContent_:AddChild(UI.ScrollView {
         flexGrow = 1,
         flexShrink = 1,
@@ -1205,7 +1245,7 @@ function LeaderboardUI.Create(uiRoot)
         position = "absolute",
         top = 0, left = 0, right = 0, bottom = 0,
         zIndex = 1100,
-        backgroundColor = {0, 0, 0, 180},
+        backgroundColor = T.color.overlay,
         justifyContent = "center",
         alignItems = "center",
         visible = false,
@@ -1213,11 +1253,11 @@ function LeaderboardUI.Create(uiRoot)
             UI.Panel {
                 width = "94%",
                 maxWidth = 520,
-                height = "85%",
+                height = "76%",
                 backgroundColor = T.color.panelBg,
                 borderRadius = T.radius.lg,
                 borderWidth = 1,
-                borderColor = {120, 100, 60, 150},
+                borderColor = T.color.cardBorderGold,
                 padding = T.spacing.md,
                 gap = T.spacing.sm,
                 children = {
@@ -1233,7 +1273,7 @@ function LeaderboardUI.Create(uiRoot)
                                 width = 32, height = 32,
                                 fontSize = T.fontSize.md,
                                 borderRadius = T.radius.sm,
-                                backgroundColor = {50, 55, 70, 200},
+                                backgroundColor = T.color.tipBg,
                                 onClick = function() ShowRules() end,
                             },
                             -- 标题
@@ -1251,7 +1291,7 @@ function LeaderboardUI.Create(uiRoot)
                                     UI.Label {
                                         text = "交流群 1054419838",
                                         fontSize = T.fontSize.xs,
-                                        fontColor = {140, 160, 200, 180},
+                                        fontColor = T.color.textMuted,
                                         textAlign = "center",
                                     },
                                 },
@@ -1262,7 +1302,7 @@ function LeaderboardUI.Create(uiRoot)
                                 width = 32, height = 32,
                                 fontSize = T.fontSize.md,
                                 borderRadius = T.radius.sm,
-                                backgroundColor = {60, 60, 70, 200},
+                                backgroundColor = T.color.closeBtn,
                                 onClick = function() LeaderboardUI.Hide() end,
                             },
                         },

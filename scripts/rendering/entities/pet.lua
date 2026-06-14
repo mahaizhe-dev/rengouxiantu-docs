@@ -5,6 +5,7 @@ local GameState = shared.GameState
 local RenderUtils = shared.RenderUtils
 local PetAppearanceConfig = shared.PetAppearanceConfig
 local PET_TIER_TEXTURES = shared.PET_TIER_TEXTURES
+local PetAnimator = require("rendering.PetAnimator")
 
 local M = {}
 
@@ -48,8 +49,17 @@ function M.RenderPet(nvg, l, camera)
             nvgTranslate(nvg, -sx, 0)
         end
 
-        local imgX = sx - halfSize
-        local imgY = sy - halfSize * 0.9
+        -- 程序化动画变换（呼吸/攻击）
+        local vfx = PetAnimator.GetVisualFX()
+        local pivotX = sx
+        local pivotY = sy + halfSize * 0.3  -- 底部附近作为锚点
+        nvgTranslate(nvg, pivotX, pivotY)
+        nvgRotate(nvg, vfx.rotation)
+        nvgScale(nvg, vfx.scaleX, vfx.scaleY)
+        nvgTranslate(nvg, -pivotX, -pivotY)
+
+        local imgX = sx - halfSize + vfx.offsetX
+        local imgY = sy - halfSize * 0.9 + vfx.offsetY
 
         -- 正常绘制宠物图片
         local imgPaint = nvgImagePattern(nvg, imgX, imgY, spriteSize, spriteSize, 0, imgHandle, 1.0)

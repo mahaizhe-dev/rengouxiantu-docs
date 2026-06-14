@@ -132,9 +132,9 @@ function PanelShell.Create(cfg)
                         borderColor = T.decor.headerBorderBottom,
                         children = headerChildren,
                     },
-                    -- 可滚动内容区
+                    -- 可滚动内容区（flexShrink=1 确保内容多时被 maxHeight 约束可滚动）
                     UI.ScrollView {
-                        flexGrow = 1, flexShrink = 1, flexBasis = 0,
+                        flexShrink = 1,
                         paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm,
                         paddingTop = T.spacing.sm, paddingBottom = T.spacing.sm,
                         children = { shell.contentPanel },

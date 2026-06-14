@@ -160,7 +160,7 @@ function CloudStorage.SetNetworkUserId(uid)
 end
 
 --- 获取当前用户 ID
----@return string|integer|nil
+---@return string|integer|number|nil
 function CloudStorage.GetUserId()
     if _networkUserId then return _networkUserId end
     return clientScore and clientScore.userId

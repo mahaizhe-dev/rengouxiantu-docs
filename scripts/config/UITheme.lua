@@ -7,6 +7,7 @@ local UITheme = {}
 
 -- ── 字号阶梯 ──
 UITheme.fontSize = {
+    xxs  = 10,   -- 微标签（badge、角标）
     xs   = 12,   -- 辅助说明（等级百分比、副属性）
     sm   = 14,   -- 正文、标签、条内文字
     md   = 16,   -- 按钮文字、次要标题
@@ -18,6 +19,7 @@ UITheme.fontSize = {
 
 -- ── 间距阶梯 ──
 UITheme.spacing = {
+    xxs = 2,   -- 极紧凑间距（名称与描述行间、badge 内边距）
     xs = 4,
     sm = 8,
     md = 12,
@@ -35,6 +37,9 @@ UITheme.radius = {
 
 -- ── 统一颜色 ──
 UITheme.color = {
+    -- 通用
+    transparent = {0, 0, 0, 0},          -- 透明（无色边框/背景占位）
+
     -- 基础（已有，保留）
     panelBg    = {25, 28, 38, 245},    -- 面板内容卡片背景
     titleText  = {255, 220, 150, 255}, -- 面板标题文字（金色）
@@ -94,6 +99,10 @@ UITheme.color = {
     nameHighlight   = {255, 255, 200, 255}, -- 解锁技能/丹药名称高亮（暖白）
     goldSoft        = {255, 225, 140, 220}, -- 金丹/解锁值（柔金）
     goldBgSubtle    = {255, 200, 80, 60},   -- 金丹解锁底色（微透明金）
+    highlightMe     = {60, 55, 30, 200},   -- "我的行"高亮底色（暖金深底，排行榜/列表通用）
+    rankSilver      = {200, 200, 210, 255}, -- 排名银色（#2）
+    rankBronze      = {205, 127, 50, 255},  -- 排名铜色（#3）
+    rankTop3Bg      = {255, 255, 255, 25},  -- 排名前3行微白底
     bonusActive     = {180, 230, 80, 255},  -- 区域加成激活（黄绿）
 
     -- ▼ 神器卡片背景 ──────────────────────────────
@@ -101,6 +110,273 @@ UITheme.color = {
     artifactBgPurple = {35, 20, 55, 230},   -- 神器被动卡片（紫系）
     artifactBgBlue   = {20, 35, 55, 230},   -- 神器被动卡片（蓝系）
     infoLight        = {180, 220, 255, 255}, -- 已解锁/已修复状态（亮冰蓝）
+
+    -- ▼ 按钮色 — 5 类语义 ─────────────────────────────
+    btnSpend         = {180, 140, 50, 255},  -- 琥珀金（花钱：购买/炼制/解锁/突破）
+    btnSpendFg       = {255, 245, 220, 255}, -- 暖白
+    btnDanger        = {200, 60, 60, 255},   -- 朱砂红（战斗/危险/不可逆）
+    btnDangerFg      = {255, 230, 230, 255}, -- 浅粉白
+    btnSuccess       = {45, 140, 80, 255},   -- 翠绿（正向确认/激活/收益）
+    btnSuccessFg     = {220, 255, 230, 255}, -- 浅绿白
+    btnSecondary     = {70, 70, 80, 220},    -- 中灰（次要/取消/帮助）
+    btnSecondaryFg   = {200, 200, 210, 255}, -- 亮灰
+    btnDisabled      = {50, 50, 55, 255},    -- 深灰（禁用态）
+    btnDisabledFg    = {120, 115, 110, 255}, -- 暗灰
+
+    -- ── 向后兼容别名（迁移期保留，全量迁移后可移除） ──
+    btnPrimary       = {45, 100, 200, 255},  -- [废弃]
+    btnPrimaryFg     = {255, 255, 255, 255}, -- [废弃]
+    btnAlchemy       = {180, 130, 50, 255},  -- [别名→btnSpend]
+    btnAlchemyFg     = {255, 245, 220, 255}, -- [别名→btnSpendFg]
+
+    -- ▼ 宠物面板专用 ─────────────────────────────────
+    -- Tab 4色方案
+    petTabInfo          = {80, 100, 140, 255},   -- 属性·喂食 tab
+    petTabBreakthrough  = {120, 80, 180, 255},   -- 突破 tab
+    petTabSkills        = {60, 140, 120, 255},   -- 技能 tab
+    petTabAppearance    = {180, 120, 60, 255},   -- 外观 tab
+
+    -- HP/EXP 条
+    petHpBarBg          = {50, 20, 20, 220},     -- HP 条底色（暗红）
+    petHpBarFill        = {80, 200, 80, 255},    -- HP 条填充（绿）
+    petExpBarBg         = {30, 40, 60, 220},     -- EXP 条底色（暗蓝）
+    petExpBarFill       = {100, 180, 255, 255},  -- EXP 条填充（亮蓝）
+
+    -- 阶级徽章
+    petTierBadgeBg      = {80, 60, 140, 160},    -- 阶级 badge 底
+    petTierBadgeFg      = {180, 160, 255, 230},  -- 阶级 badge 文字
+
+    -- 固有技能区
+    petSkillInnateBg      = {45, 30, 30, 200},   -- 固有技能卡背景（暗红底）
+    petSkillInnateBorder  = {200, 80, 80, 80},   -- 固有技能边框
+    petSkillInnateTitle   = {255, 120, 120, 255},-- 固有技能标题
+    petSkillInnateRowBg   = {35, 25, 25, 220},   -- 固有技能行背景
+
+    -- 主动技能区
+    petSkillActiveBg      = {30, 30, 50, 200},   -- 主动技能卡背景（解锁态）
+    petSkillActiveBorder  = {140, 100, 255, 100},-- 主动技能边框（解锁态）
+    petSkillActiveTitle   = {180, 140, 255, 255},-- 主动技能标题
+    petSkillActiveRowBg   = {25, 20, 40, 220},   -- 主动技能行背景
+    petSkillLockedBg      = {40, 40, 40, 150},   -- 主动技能未解锁底
+    petSkillLockedBorder  = {80, 80, 80, 60},    -- 主动技能未解锁边框
+
+    -- 突破下阶预览卡
+    petBreakthroughBg     = {40, 35, 50, 200},   -- 突破预览卡底
+    petBreakthroughBorder = {120, 90, 200, 100}, -- 突破预览卡边框
+    petBreakthroughTitle  = {180, 160, 255, 255},-- 突破预览标题
+    petBreakthroughGain   = {150, 255, 180, 255},-- 突破增益文字（绿）
+
+    -- 皮肤卡片三态
+    petSkinEquippedBg     = {40, 32, 15, 240},   -- 装备中卡底（暗金）
+    petSkinEquippedBorder = {220, 170, 50, 220}, -- 装备中卡边框（金）
+    petSkinOwnedBg        = {28, 28, 45, 220},   -- 已拥有卡底（暗蓝）
+    petSkinOwnedBorder    = {100, 110, 180, 120},-- 已拥有卡边框
+    petSkinLockedBg       = {35, 35, 35, 160},   -- 未解锁卡底（灰）
+    petSkinLockedBorder   = {60, 60, 60, 80},    -- 未解锁卡边框
+    petSkinPreviewBg      = {20, 18, 30, 255},   -- 贴图预览底
+    petSkinEquipBtn       = {50, 120, 200, 255}, -- 装备按钮底
+
+    -- 形态卡片区
+    petFormContainerBg     = {35, 35, 45, 200},  -- 形态容器底
+    petFormContainerBorder = {100, 80, 60, 80},  -- 形态容器边框
+    petFormTitleColor      = {255, 200, 100, 255},-- 形态标题（金）
+    petFormActiveGlow      = {255, 200, 80, 255},-- 激活态辉光边框
+    petFormCdColor         = {200, 150, 80, 255},-- CD 文字色
+    petFormLockedColor     = {100, 100, 100, 150},-- 未解锁形态文字
+
+    -- 形态增强行（暖色=攻击/怒/通用，冷色=防御/守护）
+    petEnhanceWarmBg       = {60, 45, 20, 180},  -- 暖色增强底
+    petEnhanceWarmBorder   = {200, 160, 60, 100},-- 暖色增强边框
+    petEnhanceWarmText     = {255, 200, 80, 255},-- 暖色增强文字
+    petEnhanceCoolBg       = {20, 50, 60, 180},  -- 冷色增强底
+    petEnhanceCoolBorder   = {80, 180, 200, 100},-- 冷色增强边框
+    petEnhanceCoolText     = {100, 220, 200, 255},-- 冷色增强文字
+
+    -- ▼ 技能弹窗 ─────────────────────────────────
+    -- 弹窗外壳
+    popupOverlay         = {0, 0, 0, 160},       -- 弹窗遮罩
+    popupBg              = {30, 33, 45, 250},    -- 弹窗卡底
+    popupBorder          = {100, 180, 160, 120}, -- 弹窗卡边框（青系）
+    popupBorderBlue      = {100, 150, 200, 120}, -- 弹窗卡边框（蓝系）
+    popupBorderInfo      = {100, 160, 220, 120}, -- 弹窗卡边框（信息色）
+    -- 技能格
+    petSlotEmptyBg       = {40, 43, 55, 200},    -- 空格底
+    petSlotEmptyBorder   = {70, 70, 90, 100},    -- 空格边框
+    petSlotEmptyIcon     = {100, 100, 120, 180}, -- 空格"+"文字
+    petSlotFilledBg      = {45, 48, 60, 230},    -- 已装备格底
+    -- 技能阶边框色
+    petSkillTierBorder1  = {100, 100, 130, 120}, -- 初级
+    petSkillTierBorder2  = {100, 200, 100, 180}, -- 中级
+    petSkillTierBorder3  = {255, 180, 60, 200},  -- 高级
+    petSkillTierBorder4  = {255, 50, 50, 200},   -- 特级
+    -- 技能阶标文字色
+    petSkillTierLabel1   = {200, 200, 200, 200}, -- 初级
+    petSkillTierLabel2   = {100, 255, 100, 255}, -- 中级
+    petSkillTierLabel3   = {255, 200, 80, 255},  -- 高级
+    petSkillTierLabel4   = {255, 80, 80, 255},   -- 特级
+    -- 学习弹窗
+    petLearnItemBg       = {40, 45, 60, 220},    -- 技能书列表项底
+    petLearnItemSelected = {60, 90, 130, 255},   -- 选中态底
+    petLearnItemSelBorder= {100, 180, 255, 200}, -- 选中态边框
+    -- 升级路径卡
+    petUpgradePathABg    = {50, 80, 120, 255},   -- 路径A激活底
+    petUpgradePathABorder= {80, 140, 200, 150},  -- 路径A激活边框
+    petUpgradePathBBg    = {60, 45, 100, 255},   -- 路径B激活底
+    petUpgradePathBBorder= {140, 100, 220, 150}, -- 路径B激活边框
+    petUpgradeDisabledBg = {40, 42, 55, 255},    -- 路径禁用底
+    petUpgradeDisabledBd = {60, 60, 70, 100},    -- 路径禁用边框
+    petRateNormal        = {255, 180, 80, 255},  -- 普通成功率色
+    petRateHigh          = {100, 230, 100, 255}, -- 高成功率色
+    -- 弹窗动作按钮
+    petBtnUpgradeA       = {60, 120, 180, 255},  -- 普通升级按钮
+    petBtnUpgradeB       = {120, 80, 200, 255},  -- 深度学习按钮
+    petDeleteBtnBg       = {80, 40, 40, 120},    -- 删除按钮底
+    petDeleteBtnFg       = {180, 120, 120, 200}, -- 删除按钮文字
+    petDeleteConfirmBg   = {200, 40, 40, 255},   -- 删除确认态底
+    -- 弹窗确认/取消
+    petConfirmBg         = {60, 160, 120, 255},  -- 确认按钮底
+    petCancelBg          = {80, 80, 90, 220},    -- 取消按钮底
+    petCancelFg          = {180, 180, 180, 255}, -- 取消按钮文字
+    -- 信息头
+    petInfoHeadBg        = {35, 38, 50, 220},    -- 技能信息头底
+    -- 名称色（按阶级）
+    petNameTier1         = {200, 200, 200, 255}, -- 初级技能名
+    petNameTier2         = {100, 200, 100, 255}, -- 中级技能名
+    petNameTier3         = {255, 200, 80, 255},  -- 高级技能名
+    petNameTier4         = {255, 80, 80, 255},   -- 特级技能名
+    -- 规则弹窗
+    petRulesTitle        = {140, 200, 255, 255}, -- 规则标题色
+    petRulesText         = {210, 215, 225, 255}, -- 规则正文色
+    petRulesBtn          = {60, 120, 180, 255},  -- "知道了"按钮底
+    -- 满级文字
+    petMaxTierText       = {255, 215, 100, 230}, -- "已满级"文字
+    -- 材料检查色（复用语义色）
+    petMaterialOk        = {100, 200, 100, 255}, -- 材料充足（绿）
+    petMaterialLack      = {255, 100, 100, 255}, -- 材料不足（红）
+    -- 描述性文字
+    petDescText          = {170, 170, 180, 255}, -- 描述/消耗文字
+    petUpgradeHintText   = {150, 180, 220, 200}, -- 升级后提示文字
+    -- 属性面板（PetPanelInfo）
+    petStatHpRegen       = {150, 255, 200, 255}, -- 生命回复（绿色）
+    petStatEvade         = {180, 220, 255, 255}, -- 闪避率（蓝色）
+    petStatCrit          = {255, 220, 100, 255}, -- 暴击率（金色）
+    petStatSync          = {150, 130, 255, 255}, -- 同步率（紫色）
+    petStatSyncHint      = {130, 120, 170, 200}, -- 同步率说明
+    petFoodBtnBg         = {50, 55, 70, 220},    -- 食物按钮底色
+    -- 突破面板（PetPanelBreakthrough）
+    petBreakNextBg       = {40, 35, 50, 200},    -- "突破后"卡底（紫调）
+    petBreakNextBorder   = {120, 90, 200, 100},  -- "突破后"卡边框
+    petBreakNextTitle    = {180, 160, 255, 255}, -- "突破后"标题（亮紫）
+    petBreakSyncUp       = {150, 255, 180, 255}, -- 同步率提升数值（绿）
+    petBreakBtnActive    = {160, 100, 30, 255},  -- 突破按钮可用（金橙）
+    petBreakBtnDisabled  = {60, 60, 70, 180},    -- 突破按钮禁用底
+    petBreakBtnDisFg     = {140, 140, 140, 255}, -- 突破按钮禁用文字
+    petBreakMaxBg        = {60, 60, 70, 120},    -- 已满阶按钮底
+    petBreakMaxFg        = {100, 100, 100, 255}, -- 已满阶按钮文字
+    -- 技能面板（PetPanelSkills）
+    petInnateBg          = {45, 30, 30, 200},    -- 固有技能区底色（暗红）
+    petInnateBorder      = {200, 80, 80, 80},    -- 固有技能区边框
+    petInnateTitle       = {255, 120, 120, 255}, -- 固有技能标题
+    petInnateCardBg      = {35, 25, 25, 220},    -- 固有技能卡底
+    petInnateName        = {255, 100, 100, 255}, -- 固有技能名称
+    petInnateDesc        = {200, 180, 180, 200}, -- 固有技能描述
+    petInnateExtra       = {255, 180, 100, 200}, -- 固有技能额外数值
+    petActiveUnlockBg    = {30, 30, 50, 200},    -- 主动技能解锁底
+    petActiveLockedBg    = {40, 40, 40, 150},    -- 主动技能未解锁底
+    petActiveUnlockBd    = {140, 100, 255, 100}, -- 主动技能解锁边框
+    petActiveLockedBd    = {80, 80, 80, 60},     -- 主动技能未解锁边框
+    petActiveTitle       = {180, 140, 255, 255}, -- 主动技能标题（解锁）
+    petActiveCardBg      = {25, 20, 40, 220},    -- 主动技能卡底（解锁）
+    petActiveLockedCard  = {30, 30, 30, 150},    -- 主动技能卡底（未解锁）
+    petActiveName        = {200, 160, 255, 255}, -- 主动技能名称（解锁）
+    petActiveDesc        = {180, 170, 200, 200}, -- 主动技能描述（解锁）
+    petActiveStat        = {255, 200, 130, 200}, -- 主动技能数值（解锁）
+    petLockedText        = {120, 120, 120, 200}, -- 未解锁通用灰文字
+    petLockedDim         = {100, 100, 100, 150}, -- 未解锁更暗灰
+    petDivider           = {80, 80, 100, 80},    -- 分隔线
+    petRulesBtnSmall     = {60, 80, 120, 200},   -- "?"按钮底色
+    petRulesBtnSmallFg   = {200, 220, 255, 255}, -- "?"按钮文字
+    petSlotCount         = {150, 150, 150, 255}, -- 技能槽计数
+    -- 外观面板（PetPanelAppearance）
+    petSkinResetBg       = {70, 70, 80, 200},     -- "恢复默认"按钮底
+    petSkinResetFg       = {180, 180, 190, 255},  -- "恢复默认"按钮文字
+    petSkinEquipBg       = {40, 32, 15, 240},     -- 装备中卡底（暖金底）
+    petSkinEquipBd       = {220, 170, 50, 220},   -- 装备中卡边框（金）
+    petSkinOwnedBg       = {28, 28, 45, 220},     -- 已拥有卡底
+    petSkinOwnedBd       = {100, 110, 180, 120},  -- 已拥有卡边框
+    petSkinLockedBg      = {35, 35, 35, 160},     -- 未解锁卡底
+    petSkinLockedBd      = {60, 60, 60, 80},      -- 未解锁卡边框
+    petSkinPreviewOwned  = {20, 18, 30, 255},     -- 预览区底（已拥有）
+    petSkinPreviewLocked = {25, 25, 25, 200},     -- 预览区底（未解锁）
+    petSkinLockedTint    = {140, 140, 140, 255},  -- 未解锁贴图染灰
+    petSkinBadgeEquipFg  = {255, 230, 130, 255},  -- 装备中角标"✦"文字
+    petSkinBadgeEquipBg  = {120, 80, 0, 200},     -- 装备中角标底
+    petSkinBadgePremFg   = {255, 200, 80, 255},   -- 高级角标"★"（已拥有）
+    petSkinBadgePremDim  = {120, 100, 60, 180},   -- 高级角标"★"（未解锁）
+    petSkinBadgePremBg   = {100, 50, 0, 180},     -- 高级角标底
+    petSkinNamePrem      = {255, 190, 80, 255},   -- 高级皮肤名（已拥有）
+    petSkinNamePremDim   = {130, 100, 50, 180},   -- 高级皮肤名（未解锁）
+    petSkinNameBase      = {220, 225, 240, 255},  -- 基础皮肤名（已拥有）
+    petSkinNameBaseDim   = {110, 110, 110, 180},  -- 基础皮肤名（未解锁）
+    petSkinBonusOwned    = {80, 230, 80, 220},    -- 属性加成（已拥有绿）
+    petSkinBonusLocked   = {90, 90, 90, 150},     -- 属性加成（未解锁灰）
+    petSkinEquipLabel    = {220, 185, 60, 255},   -- "使用中"文字
+    petSkinEquipBtn      = {50, 120, 200, 255},   -- "装备"按钮底
+    petSkinSourceText    = {100, 100, 100, 160},  -- 来源说明文字
+    petSkinSectionBase   = {160, 170, 200, 200},  -- 基础外观分栏标
+    petSkinSectionPrem   = {220, 180, 80, 220},   -- 高级外观分栏标
+    -- 形态面板（PetPanelForms）
+    petFormNormalBg      = {60, 60, 70, 220},     -- 普通形态按钮底
+    petFormNormalBd      = {100, 100, 120, 150},  -- 普通形态边框
+    petFormNormalIcon    = {50, 50, 60, 255},     -- 普通形态图标底
+    petFormBattleBg      = {50, 35, 25, 220},     -- 战斗形态按钮底
+    petFormBattleBd      = {200, 120, 60, 150},   -- 战斗形态边框
+    petFormBattleIcon    = {70, 40, 20, 255},     -- 战斗形态图标底
+    petFormGuardBg       = {25, 40, 50, 220},     -- 守护形态按钮底
+    petFormGuardBd       = {80, 160, 220, 150},   -- 守护形态边框
+    petFormGuardIcon     = {20, 50, 70, 255},     -- 守护形态图标底
+    petFormRageBg        = {50, 25, 25, 220},     -- 狂暴形态按钮底
+    petFormRageBd        = {220, 80, 80, 150},    -- 狂暴形态边框
+    petFormRageIcon      = {70, 20, 20, 255},     -- 狂暴形态图标底
+    petFormActiveGlow    = {255, 200, 80, 255},   -- 激活态边框金色
+    petFormLockedFont    = {100, 100, 100, 150},  -- 形态锁定文字
+    petFormCdFont        = {200, 150, 80, 255},   -- CD 文字
+    petFormNameUnlocked  = {220, 220, 230, 255},  -- 形态名（解锁）
+    petFormStatDesc      = {180, 200, 160, 200},  -- 属性变更简述
+    petFormCdActive      = {180, 220, 120, 255},  -- 当前形态CD文字
+    petFormContainerBg   = {35, 35, 45, 200},     -- 形态容器底色
+    petFormContainerBd   = {100, 80, 60, 80},     -- 形态容器边框
+    petFormTitle         = {255, 200, 100, 255},  -- "形态"标题
+    petFormDesc          = {160, 160, 170, 180},  -- 形态描述文字
+    petFormEnhRageBg     = {60, 45, 20, 180},     -- 形态增强底（狂暴/战斗）
+    petFormEnhRageBd     = {200, 160, 60, 100},   -- 形态增强边框（狂暴/战斗）
+    petFormEnhRageFg     = {255, 200, 80, 255},   -- 形态增强文字（狂暴/战斗）
+    petFormEnhGuardBg    = {20, 50, 60, 180},     -- 形态增强底（守护）
+    petFormEnhGuardBd    = {80, 180, 200, 100},   -- 形态增强边框（守护）
+    petFormEnhGuardFg    = {100, 220, 200, 255},  -- 形态增强文字（守护）
+
+    -- ▼ 图录/收集面板色 ─────────────────────────────
+    collectedBg     = {35, 45, 40, 220},    -- 已收录条目底色（绿底）
+    collectedBorder = {80, 180, 100, 120},  -- 已收录条目边框（绿边）
+    summaryBg       = {25, 35, 30, 220},    -- 总加成面板底色
+    summaryBorder   = {80, 150, 100, 100},  -- 总加成面板边框
+    bonusLabel      = {160, 180, 140, 220}, -- 奖励标签文字（灰绿）
+    bonusValue      = {200, 220, 180, 255}, -- 奖励值文字（亮绿）
+
+    -- ▼ 标签/徽章色 ──────────────────────────────
+    badgeAdvanceBg   = {15, 70, 75, 200},    -- 进阶丹药 badge 底（青）
+    badgeAdvanceFg   = {100, 230, 220, 255}, -- 进阶丹药 badge 文字（青）
+    badgeAttrBg      = {90, 50, 15, 200},    -- 属性丹药 badge 底（橙）
+    badgeAttrFg      = {255, 185, 80, 255},  -- 属性丹药 badge 文字（橙）
+    badgePackBg      = {55, 30, 80, 200},    -- 物品打包 badge 底（紫）
+    badgePackFg      = {200, 150, 255, 255}, -- 物品打包 badge 文字（紫）
+
+    -- ▼ 芯片/小容器色 ────────────────────────────
+    chipBg           = {40, 45, 60, 180},    -- 行内小信息容器底色（灵韵余额等）
+
+    -- ▼ 卡片边框色（半透明，用于公告/活动/奖励区块） ────
+    cardBorderGold   = {255, 200, 80, 120},  -- 金色半透明（公告/福利/奖励/补偿）
+    cardBorderInfo   = {100, 140, 200, 100}, -- 蓝色半透明（信息/社群卡片）
 }
 
 -- ── 品质辉光边框色（带透明度，用于图标边框） ──
@@ -157,6 +433,10 @@ UITheme.size = {
     -- 标签宽度
     levelLabelW    = 120,  -- 等级标签宽度（容纳"练气初期 Lv.XX"）
     resInfoW       = 86,   -- 底栏左侧资源信息面板宽度
+
+    -- 行内操作按钮
+    inlineBtnH     = 28,   -- 列表行内小按钮高度（收录/购买/解锁等）
+    inlineBtnW     = 60,   -- 列表行内小按钮默认宽度
 
     -- Tab / StatRow
     statValueMinW  = 72,   -- StatRow 值列最小宽度（右对齐）

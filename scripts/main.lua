@@ -26,6 +26,8 @@ local Spawner = require("world.Spawner")
 local ZoneManager = require("world.ZoneManager")
 local WorldRenderer = require("rendering.WorldRenderer")
 local CombatSystem = require("systems.CombatSystem")
+local PlayerAnimator = require("rendering.PlayerAnimator")
+local PetAnimator = require("rendering.PetAnimator")
 local LootSystem = require("systems.LootSystem")
 local InventorySystem = require("systems.InventorySystem")
 local SkillSystem = require("systems.SkillSystem")
@@ -82,6 +84,7 @@ local XianyuanChestUI = require("ui.XianyuanChestUI")
 local WineSystem = require("systems.WineSystem")
 local BlackMerchantEntry = require("ui.BlackMerchantEntry")
 local TownReturnEntry = require("ui.TownReturnEntry")
+local BulletinFloatingIcon = require("ui.BulletinFloatingIcon")
 local TownReturnSystem = require("systems.TownReturnSystem")
 local DPSTracker = require("ui.DPSTracker")
 local PerfMonitor = require("systems.PerfMonitor")
@@ -892,6 +895,8 @@ function InitGame(classId)
 
     -- 初始化各子系统
     CombatSystem.Init()
+    PlayerAnimator.Init()
+    PetAnimator.Init()
     InventorySystem.Init()
     SkillSystem.Init()
     CollectionSystem.Init()
@@ -1252,6 +1257,9 @@ function CreateUI()
 
     -- 创建快捷回城入口按钮（挂载到小地图容器下方）
     TownReturnEntry.Create(overlay)
+
+    -- 创建福利浮标图标（有未领取福利时显示，回城入口之后）
+    BulletinFloatingIcon.Create(overlay)
 
     -- 创建系统菜单
     SystemMenu.Create(overlay, {

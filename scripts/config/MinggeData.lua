@@ -402,7 +402,7 @@ MinggeData.BOSS_TO_MINGGE = {
     ch5_sword_xian      = "sword_xian",
     ch5_sword_lu        = "sword_lu",
     ch5_sword_jue       = "sword_jue",
-    ch5_blood_general   = "blood_general",
+    ch5_abyss_marshal   = "blood_general",
     ch5_marshal_shugu   = "marshal_shugu",
     ch5_marshal_liesoul = "marshal_liesoul",
 }

@@ -1098,7 +1098,7 @@ function SystemMenu.Create(parentOverlay, callbacks)
                                         "收集食物喂养宠物提升等级",
                                         "消耗灵韵和灵兽丹可突破宠物阶级",
                                     }),
-                                    SystemMenu._RuleSection("境界修炼", {
+                                    SystemMenu._RuleSection("境界突破", {
                                         "每个境界有等级上限，达到后需突破",
                                         "突破需要消耗金币和对应材料",
                                         "突破成功后提升等级上限和基础属性",

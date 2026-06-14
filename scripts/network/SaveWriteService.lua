@@ -209,8 +209,14 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
     end
 
     -- ── [排行旁路] SetInt（独立写，不依赖 batch:Save） ──
+    -- 复合分数 = rawScore * TIME_BASE + (TIME_BASE - 1 - achieveTime)
+    -- 同分时先达成者排前（与试炼榜/镇狱榜一致的方案）
     if rankInfo then
-        serverCloud:SetInt(userId, "rank2_score_" .. slot, rankInfo.rankScore, {
+        local RANK2_TIME_BASE = 10000000000
+        local achieveTime = (ok5 and rankData and rankData.achieveTime) or os.time()
+        local rank2Composite = rankInfo.rankScore * RANK2_TIME_BASE
+            + (RANK2_TIME_BASE - 1 - achieveTime)
+        serverCloud:SetInt(userId, "rank2_score_" .. slot, rank2Composite, {
             error = function(code, reason)
                 Logger.error("SaveGame", "RankV2 SetInt rank2_score FAILED: userId=" .. tostring(userId)
                     .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
@@ -222,14 +228,6 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
                     .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
             end,
         })
-        if ok5 and rankData and rankData.achieveTime then
-            serverCloud:SetInt(userId, "rank2_time_" .. slot, rankData.achieveTime, {
-                error = function(code, reason)
-                    Logger.error("SaveGame", "RankV2 SetInt rank2_time FAILED: userId=" .. tostring(userId)
-                        .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
-                end,
-            })
-        end
     end
 
     -- ════════════════════════════════════════════════════════════════
