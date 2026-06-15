@@ -125,6 +125,13 @@ local _visualFX = {
 -- 连续计时器（用于sin波动）
 local _phaseTimer = 0
 
+-- ── 位移驱动步态 ──
+local _lastPlayerX = nil
+local _lastPlayerY = nil
+local _movePhase = 0           -- 0~1 循环相位
+local STRIDE_LENGTH = 1.8      -- 一个完整步伐循环对应的世界单位距离(格)
+local TELEPORT_THRESHOLD = 3.0 -- 超过此距离视为传送，不累计
+
 -- ═══════════════════════════════════════════
 -- 初始化 & 事件订阅
 -- ═══════════════════════════════════════════
@@ -136,6 +143,9 @@ function PlayerAnimator.Init()
     _animState.frameTimer = 0
     _animState.attackFinished = false
     _lastGameTime = -1
+    _lastPlayerX = nil
+    _lastPlayerY = nil
+    _movePhase = 0
 
     -- 重新注册事件监听（EventBus.Clear 后必须重新订阅）
     EventBus.On("player_attack", function(player, monster, damage)
@@ -207,6 +217,23 @@ function PlayerAnimator.Update(player)
         end
     end
 
+    -- ── 位移驱动步态相位（move 专用） ──
+    local px, py = player.x or 0, player.y or 0
+    if _lastPlayerX == nil then
+        _lastPlayerX = px
+        _lastPlayerY = py
+    end
+    local dx = px - _lastPlayerX
+    local dy = py - _lastPlayerY
+    local moveDist = math.sqrt(dx * dx + dy * dy)
+    _lastPlayerX = px
+    _lastPlayerY = py
+
+    -- 仅在合理范围内累加（排除传送/击退）
+    if moveDist > 0 and moveDist < TELEPORT_THRESHOLD then
+        _movePhase = (_movePhase + moveDist / STRIDE_LENGTH) % 1.0
+    end
+
     -- ── 帧推进 ──
     local clip = animData[_animState.state]
     if not clip or not clip.frames or #clip.frames == 0 then
@@ -216,7 +243,12 @@ function PlayerAnimator.Update(player)
     local frameCount = #clip.frames
     local frameDuration = 1.0 / (clip.fps or 6)
 
-    if dt > 0 then
+    if _animState.state == "move" then
+        -- ★ 位移驱动：phase → 帧索引
+        _animState.frameIndex = math.floor(_movePhase * frameCount) + 1
+        if _animState.frameIndex > frameCount then _animState.frameIndex = frameCount end
+    elseif dt > 0 then
+        -- idle/attack 仍用时间驱动
         _animState.frameTimer = _animState.frameTimer + dt
 
         while _animState.frameTimer >= frameDuration do
@@ -248,14 +280,17 @@ function PlayerAnimator.Update(player)
         _visualFX.rotation = 0
 
     elseif _animState.state == "move" then
-        -- 行走弹跳：每步一个sin周期（fps=6, 4帧=一步，对应频率）
-        local bouncePhase = _animState.frameTimer / frameDuration + (_animState.frameIndex - 1)
-        local bounce = math.abs(math.sin(bouncePhase * math.pi))
-        _visualFX.offsetY = -bounce * 0.4  -- 向上弹跳0.4px（极轻微）
-        -- 身体微倾：随步伐左右轻摆
-        _visualFX.rotation = math.sin(bouncePhase * math.pi) * 0.006  -- ±0.3°
-        _visualFX.scaleX = 1.0
-        _visualFX.scaleY = 1.0
+        -- ★ 位移驱动：用 movePhase 驱动弹跳和身体摆动
+        -- 每步两次触地（phase 0→0.5 左脚，0.5→1 右脚），用 2π 映射一个完整步伐
+        local phaseRad = _movePhase * math.pi * 2
+        -- 重心弹跳：每半步一次触地（abs sin → 双峰），最高点在 0.25 和 0.75 相位
+        local bounce = math.abs(math.sin(phaseRad))
+        _visualFX.offsetY = -bounce * 1.2  -- 向上弹跳 1.2px
+        -- 身体左右摆动：单周期 sin，左脚右倾/右脚左倾
+        _visualFX.rotation = math.sin(phaseRad) * 0.012  -- ±0.7°
+        -- 纵向压缩（触地帧轻微 squash）
+        _visualFX.scaleX = 1.0 + bounce * 0.01
+        _visualFX.scaleY = 1.0 - bounce * 0.008
 
     elseif _animState.state == "attack" then
         local fi = _animState.frameIndex

@@ -14,7 +14,7 @@ local EventConfig = {}
 -- ═══════════════════════════════════════
 EventConfig.ACTIVE_EVENT = {
     eventId = "childrensday_2026",
-    enabled = true,
+    enabled = false,
     name = "六一童趣",
     npcName = "天官赐福",
     npcSubtitle = "六一活动宝箱",

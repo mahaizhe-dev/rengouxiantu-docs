@@ -15,7 +15,7 @@ GameConfig.DUNGEON_ENABLED = false
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
 GameConfig.CODE_VERSION = 6
-GameConfig.DISPLAY_VERSION = "v1.12.6"
+GameConfig.DISPLAY_VERSION = "v1.12.7"
 
 -- 地图设置
 GameConfig.TILE_SIZE = 128         -- 每个瓦片的逻辑像素大小（基准值，不要直接用于渲染）
@@ -721,19 +721,19 @@ GameConfig.EVENT_ITEMS = {
         desc = "活动已结束，可以出售换金币。",
         category = "event", eventId = "mayday_2026",
     },
-    -- ── 六一活动物品（当期） ──
+    -- ── 六一活动物品（已结束） ──
     childday_rattle = {
         name = "童趣拨浪鼓", icon = "🥁",
         image = "Textures/event/childday_rattle.png",
         sellPrice = 1000, quality = "purple",
-        desc = "开启小宝箱，获得随机奖励。击败各章节BOSS掉落。",
+        desc = "活动已结束，可以出售换金币。",
         category = "event", eventId = "childrensday_2026",
     },
     childday_pinwheel = {
         name = "流光风车", icon = "🎡",
         image = "Textures/event/childday_pinwheel.png",
         sellPrice = 1000, quality = "orange",
-        desc = "开启大宝箱，获得丰厚奖励。稀有掉落，不可错过！",
+        desc = "活动已结束，可以出售换金币。",
         category = "event", eventId = "childrensday_2026",
     },
 }

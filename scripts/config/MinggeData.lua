@@ -365,7 +365,7 @@ MinggeData.PORTRAITS = {
     sword_xian      = "image/monster_sword_xian_20260517104710.png",
     sword_lu        = "image/edited_monster_sword_lu_20260517105112.png",
     sword_jue       = "image/monster_sword_jue_20260517104750.png",
-    blood_general   = "Textures/monster_blood_general.png",
+    blood_general   = "Textures/monster_abyss_marshal.png",
     marshal_shugu   = "Textures/monster_marshal_shugu.png",
     marshal_liesoul = "Textures/monster_marshal_liesoul.png",
 }
