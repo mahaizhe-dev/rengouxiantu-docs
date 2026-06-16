@@ -224,6 +224,8 @@ function Start()
         RateLimitedSubscribe(SaveProtocol.C2S_EventOpenFudai, "HandleEventOpenFudai")
         RateLimitedSubscribe(SaveProtocol.C2S_EventGetRankList, "HandleEventGetRankList")
         RateLimitedSubscribe(SaveProtocol.C2S_EventGetPullRecords, "HandleEventGetPullRecords")
+        RateLimitedSubscribe(SaveProtocol.C2S_EventQueryBossMilestones, "HandleEventQueryBossMilestones")
+        RateLimitedSubscribe(SaveProtocol.C2S_EventClaimBossMilestone, "HandleEventClaimBossMilestone")
     end
     -- 多人副本（四兽岛）—— Kill Switch 守卫
     if GameConfig.DUNGEON_ENABLED and DungeonHandler then
@@ -1006,6 +1008,14 @@ end
 
 function HandleEventGetPullRecords(eventType, eventData)
     if EventHandler then EventHandler.HandleGetPullRecords(eventType, eventData) end
+end
+
+function HandleEventQueryBossMilestones(eventType, eventData)
+    if EventHandler then EventHandler.HandleQueryBossMilestones(eventType, eventData) end
+end
+
+function HandleEventClaimBossMilestone(eventType, eventData)
+    if EventHandler then EventHandler.HandleClaimBossMilestone(eventType, eventData) end
 end
 
 -- ============================================================================

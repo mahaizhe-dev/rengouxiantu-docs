@@ -53,11 +53,13 @@ SaveProtocol.C2S_BlackMerchantBuy      = "C2S_BMBuy"            -- 从黑商购�
 SaveProtocol.C2S_BlackMerchantSell     = "C2S_BMSell"           -- 向黑商出售物品
 SaveProtocol.C2S_BlackMerchantExchange = "C2S_BMExchange"       -- 灵韵↔仙石兑换
 SaveProtocol.C2S_BlackMerchantHistory  = "C2S_BMHistory"        -- 查询交易记录
--- 五一世界掉落活动
+-- 世界掉落活动（端午/六一等）
 SaveProtocol.C2S_EventExchange       = "C2S_EvtExchange"       -- 活动兑换请求
 SaveProtocol.C2S_EventOpenFudai      = "C2S_EvtOpenFudai"      -- 开启宝箱（BoxType=small/big, Count=1或5）
 SaveProtocol.C2S_EventGetRankList    = "C2S_EvtGetRank"        -- 查询福袋排行榜
 SaveProtocol.C2S_EventGetPullRecords = "C2S_EvtGetPull"        -- 查询全服抽取记录
+SaveProtocol.C2S_EventQueryBossMilestones = "C2S_EvtBossMileQ"  -- 查询BOSS里程碑状态
+SaveProtocol.C2S_EventClaimBossMilestone  = "C2S_EvtBossMile"   -- 领取BOSS里程碑奖励
 -- 仙缘宝箱
 SaveProtocol.C2S_XianyuanChest_StartOpen    = "C2S_XCStart"      -- 请求开始解封
 SaveProtocol.C2S_XianyuanChest_CancelOpen   = "C2S_XCCancel"     -- 取消读条
@@ -101,11 +103,13 @@ SaveProtocol.S2C_BlackMerchantData           = "S2C_BMData"           -- 商品�
 SaveProtocol.S2C_BlackMerchantResult         = "S2C_BMResult"         -- 买/卖交易结果
 SaveProtocol.S2C_BlackMerchantExchangeResult = "S2C_BMExchangeResult" -- 兑换结果
 SaveProtocol.S2C_BlackMerchantHistory        = "S2C_BMHistory"        -- 交易记录列表
--- 五一世界掉落活动
+-- 世界掉落活动（端午/六一等）
 SaveProtocol.S2C_EventExchangeResult  = "S2C_EvtExResult"      -- 兑换结果
 SaveProtocol.S2C_EventOpenFudaiResult = "S2C_EvtFudaiResult"   -- 福袋奖励结果 (+SpecialRewards JSON, +NewPullRecords JSON)
 SaveProtocol.S2C_EventRankListData    = "S2C_EvtRankData"      -- 排行榜数据
 SaveProtocol.S2C_EventPullRecordsData = "S2C_EvtPullData"      -- 全服抽取记录列表
+SaveProtocol.S2C_EventBossMilestonesData      = "S2C_EvtBossMileData"   -- BOSS里程碑状态数据
+SaveProtocol.S2C_EventBossMilestoneResult     = "S2C_EvtBossMileResult" -- BOSS里程碑领取结果
 -- 仙缘宝箱
 SaveProtocol.S2C_XianyuanChest_StartResult = "S2C_XCStartResult"  -- 解封校验结果
 SaveProtocol.S2C_XianyuanChest_Reward      = "S2C_XCReward"       -- 3 选 1 奖励下发
@@ -200,15 +204,19 @@ SaveProtocol.ALL_EVENTS = {
     SaveProtocol.S2C_BlackMerchantResult,
     SaveProtocol.S2C_BlackMerchantExchangeResult,
     SaveProtocol.S2C_BlackMerchantHistory,
-    -- 五一世界掉落活动
+    -- 世界掉落活动（端午/六一等）
     SaveProtocol.C2S_EventExchange,
     SaveProtocol.C2S_EventOpenFudai,
     SaveProtocol.C2S_EventGetRankList,
     SaveProtocol.C2S_EventGetPullRecords,
+    SaveProtocol.C2S_EventQueryBossMilestones,
+    SaveProtocol.C2S_EventClaimBossMilestone,
     SaveProtocol.S2C_EventExchangeResult,
     SaveProtocol.S2C_EventOpenFudaiResult,
     SaveProtocol.S2C_EventRankListData,
     SaveProtocol.S2C_EventPullRecordsData,
+    SaveProtocol.S2C_EventBossMilestonesData,
+    SaveProtocol.S2C_EventBossMilestoneResult,
     -- 仙缘宝箱
     SaveProtocol.C2S_XianyuanChest_StartOpen,
     SaveProtocol.C2S_XianyuanChest_CancelOpen,

@@ -60,7 +60,7 @@ function M.RollEventDrops(dropResult, monster)
     -- ═══ 第二段：稀有开启物（仅 BOSS 生效）═══
     -- 优先级：monsterOverrides（按 typeId 精确匹配）> realmDropRates（按境界阶梯）
     if not BOSS_CATEGORIES[monster.category] then
-        return  -- 非 BOSS 不参与稀有掉落
+        return  -- 非 BOSS 不参与稀有掉落和独立掉落
     end
 
     if event.monsterOverrides and event.monsterOverrides[monster.typeId] then
@@ -71,10 +71,8 @@ function M.RollEventDrops(dropResult, monster)
                 dropResult.consumables[itemId] = (dropResult.consumables[itemId] or 0) + 1
             end
         end
-        return  -- override 和 realmDropRates 互斥，不双重判定
-    end
-
-    if event.realmDropRates and monster.realm then
+        -- override 和 realmDropRates 互斥，不双重判定（但不 return，继续第三段）
+    elseif event.realmDropRates and monster.realm then
         local realmRates = event.realmDropRates[monster.realm]
         if realmRates then
             for itemId, chance in pairs(realmRates) do
@@ -82,6 +80,17 @@ function M.RollEventDrops(dropResult, monster)
                     dropResult.consumables[itemId] = (dropResult.consumables[itemId] or 0) + 1
                 end
             end
+        end
+    end
+
+    -- ═══ 第三段：仙界精品粽独立掉落（与第一、二段互不排斥）═══
+    -- 仅 BOSS + realm >= yuanying_1 参与；四仙剑走 typeId 覆盖
+    if event.premiumZongDropRates then
+        local rate = event.premiumZongDropRates[monster.typeId]
+            or event.premiumZongDropRates[monster.realm]
+        if rate and Utils.Roll(rate) then
+            dropResult.consumables["xianjie_premium_zong"] =
+                (dropResult.consumables["xianjie_premium_zong"] or 0) + 1
         end
     end
 end

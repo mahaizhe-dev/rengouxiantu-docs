@@ -69,7 +69,7 @@ end
 -- ============================================================================
 
 --- 本测试涉及的所有消耗品 ID
-local ALL_TEST_IDS = { "gold_bar", "gold_brick", "lingyun_fruit", "exp_pill" }
+local ALL_TEST_IDS = { "gold_bar", "gold_brick", "lingyun_fruit", "exp_pill", "xianjie_premium_zong" }
 
 --- 清空所有测试用消耗品（释放背包空间）
 local function clearAllTestItems()
@@ -338,6 +338,173 @@ function TestBatch.T6_LingyunFruitEvent()
 end
 
 -- ============================================================================
+-- T7: 仙界精品粽批量使用（§11.2）
+-- ============================================================================
+function TestBatch.T7_PremiumZong()
+    log("=== T7: 仙界精品粽批量使用 ===")
+    local player = GameState.player
+    if not player then log("  SKIP: 无玩家"); skipCount = skipCount + 1; return end
+
+    clearAllTestItems()
+    if not hasFreeSlot() then log("  SKIP: 背包已满"); skipCount = skipCount + 1; return end
+
+    -- 保存并重置前置状态
+    local origEaten = player.premiumZongEaten or 0
+    local origFortune = player.pillFortune or 0
+    local origPillCounts = player.pillCounts and player.pillCounts.zong or 0
+
+    -- 重置到 0 以便完整测试
+    player.premiumZongEaten = 0
+    player.pillFortune = 0
+    if not player.pillCounts then player.pillCounts = {} end
+    player.pillCounts.zong = 0
+
+    -- 给满 15 个精品粽（超过上限 10，便于测试夹紧）
+    if not give("xianjie_premium_zong", 15) then
+        log("  SKIP: 无法添加仙界精品粽")
+        skipCount = skipCount + 1
+        -- 恢复原状态
+        player.premiumZongEaten = origEaten
+        player.pillFortune = origFortune
+        player.pillCounts.zong = origPillCounts
+        return
+    end
+    assert_eq("初始精品粽数量", InventorySystem.CountConsumable("xianjie_premium_zong"), 15)
+
+    -- 7a: 食用 1 个成功
+    local ok, msg, actual = InventorySystem.UseBatchConsumable("xianjie_premium_zong", 1)
+    assert_true("7a 食用×1成功", ok)
+    assert_eq("7a 实际使用数=1", actual, 1)
+    assert_eq("7a premiumZongEaten=1", player.premiumZongEaten, 1)
+    assert_eq("7a pillFortune=1", player.pillFortune, 1)
+    assert_eq("7a pillCounts.zong=1", player.pillCounts.zong, 1)
+
+    -- 7b: 食用 N=5 个
+    ok, msg, actual = InventorySystem.UseBatchConsumable("xianjie_premium_zong", 5)
+    assert_true("7b 食用×5成功", ok)
+    assert_eq("7b 实际使用数=5", actual, 5)
+    assert_eq("7b premiumZongEaten=6", player.premiumZongEaten, 6)
+    assert_eq("7b pillFortune=6", player.pillFortune, 6)
+    assert_eq("7b pillCounts.zong=6", player.pillCounts.zong, 6)
+
+    -- 7c: 请求 20 个，实际夹紧到剩余可吃数量（10-6=4）
+    ok, msg, actual = InventorySystem.UseBatchConsumable("xianjie_premium_zong", 20)
+    assert_true("7c 超额请求夹紧成功", ok)
+    assert_eq("7c 实际使用数=4 (10-6)", actual, 4)
+    assert_eq("7c premiumZongEaten=10", player.premiumZongEaten, 10)
+    assert_eq("7c pillFortune=10", player.pillFortune, 10)
+    assert_eq("7c pillCounts.zong=10", player.pillCounts.zong, 10)
+
+    -- 7d: 已达 10/10 时拒绝
+    ok, msg = InventorySystem.UseBatchConsumable("xianjie_premium_zong", 1)
+    assert_false("7d 10/10时拒绝", ok)
+    -- 确认物品不丢失（还剩 15-1-5-4=5 个）
+    assert_eq("7d 物品未丢失", InventorySystem.CountConsumable("xianjie_premium_zong"), 5)
+    assert_eq("7d premiumZongEaten仍=10", player.premiumZongEaten, 10)
+
+    -- 7e: 重复请求不会突破 10
+    ok = InventorySystem.UseBatchConsumable("xianjie_premium_zong", 1)
+    assert_false("7e 重复请求仍拒绝", ok)
+    assert_eq("7e premiumZongEaten仍=10", player.premiumZongEaten, 10)
+    assert_eq("7e pillFortune仍=10", player.pillFortune, 10)
+
+    -- 7f: 失败时不丢物（确认剩余数量未变）
+    assert_eq("7f 失败后物品数量不变", InventorySystem.CountConsumable("xianjie_premium_zong"), 5)
+
+    -- 清理：恢复原始状态
+    clearAllTestItems()
+    player.premiumZongEaten = origEaten
+    player.pillFortune = origFortune
+    player.pillCounts.zong = origPillCounts
+
+    log("")
+end
+
+-- ============================================================================
+-- T8: 黑商锁定回归 — 精品粽 BM-S4A 保护（§11.3）
+-- ============================================================================
+function TestBatch.T8_PremiumZong_BlackMarketLock()
+    log("=== T8: 精品粽黑商锁定回归 ===")
+    local player = GameState.player
+    if not player then log("  SKIP: 无玩家"); skipCount = skipCount + 1; return end
+
+    clearAllTestItems()
+    if not hasFreeSlot() then log("  SKIP: 背包已满"); skipCount = skipCount + 1; return end
+
+    -- 保存并重置前置状态
+    local origEaten = player.premiumZongEaten or 0
+    local origFortune = player.pillFortune or 0
+    local origPillCounts = player.pillCounts and player.pillCounts.zong or 0
+    player.premiumZongEaten = 0
+    player.pillFortune = 0
+    if not player.pillCounts then player.pillCounts = {} end
+    player.pillCounts.zong = 0
+
+    -- 8a: 全部锁定时无法食用
+    log("  --- 8a: 全部锁定时无法食用 ---")
+    local lockOk = InventorySystem.AddConsumableLockedNewStack("xianjie_premium_zong", 5, "BM_TEST_001", 3600)
+    if not lockOk then
+        log("  SKIP: AddConsumableLockedNewStack 不可用")
+        skipCount = skipCount + 1
+        player.premiumZongEaten = origEaten
+        player.pillFortune = origFortune
+        player.pillCounts.zong = origPillCounts
+        return
+    end
+    -- 验证总数有 5 但解锁数为 0
+    assert_eq("8a 总数=5", InventorySystem.CountConsumable("xianjie_premium_zong"), 5)
+    assert_eq("8a 解锁数=0", InventorySystem.CountUnlockedConsumable("xianjie_premium_zong"), 0)
+    -- 尝试食用 → 应该失败
+    local ok, msg = InventorySystem.UseBatchConsumable("xianjie_premium_zong", 1)
+    assert_false("8a 全锁定时食用被拒绝", ok)
+    assert_eq("8a 物品未消耗", InventorySystem.CountConsumable("xianjie_premium_zong"), 5)
+    assert_eq("8a premiumZongEaten仍=0", player.premiumZongEaten, 0)
+
+    -- 8b: 混合场景 — 解锁的可以吃，锁定的不被扣除
+    log("  --- 8b: 混合锁定/解锁场景 ---")
+    -- 添加 3 个解锁的精品粽
+    give("xianjie_premium_zong", 3)
+    local totalCount = InventorySystem.CountConsumable("xianjie_premium_zong")
+    local unlockedCount = InventorySystem.CountUnlockedConsumable("xianjie_premium_zong")
+    assert_eq("8b 总数=8 (5锁+3解)", totalCount, 8)
+    assert_eq("8b 解锁数=3", unlockedCount, 3)
+
+    -- 食用 2 个 → 只从解锁堆叠扣除
+    local actual
+    ok, msg, actual = InventorySystem.UseBatchConsumable("xianjie_premium_zong", 2)
+    assert_true("8b 食用×2成功", ok)
+    assert_eq("8b 实际使用数=2", actual, 2)
+    assert_eq("8b premiumZongEaten=2", player.premiumZongEaten, 2)
+    -- 总数减少 2，锁定数不变
+    assert_eq("8b 总数=6 (5锁+1解)", InventorySystem.CountConsumable("xianjie_premium_zong"), 6)
+    assert_eq("8b 解锁数=1", InventorySystem.CountUnlockedConsumable("xianjie_premium_zong"), 1)
+
+    -- 8c: 请求超过解锁数时夹紧到解锁可用量
+    log("  --- 8c: 请求超过解锁数夹紧 ---")
+    -- 当前解锁 1 个，请求 5 个 → 实际只消耗 1 个
+    ok, msg, actual = InventorySystem.UseBatchConsumable("xianjie_premium_zong", 5)
+    assert_true("8c 夹紧到解锁数成功", ok)
+    assert_eq("8c 实际使用数=1", actual, 1)
+    assert_eq("8c premiumZongEaten=3", player.premiumZongEaten, 3)
+    -- 只有锁定的 5 个保留
+    assert_eq("8c 总数=5 (全锁定)", InventorySystem.CountConsumable("xianjie_premium_zong"), 5)
+    assert_eq("8c 解锁数=0", InventorySystem.CountUnlockedConsumable("xianjie_premium_zong"), 0)
+
+    -- 再次尝试食用 → 被拒
+    ok = InventorySystem.UseBatchConsumable("xianjie_premium_zong", 1)
+    assert_false("8c 解锁耗尽后拒绝", ok)
+    assert_eq("8c 锁定物品仍=5", InventorySystem.CountConsumable("xianjie_premium_zong"), 5)
+
+    -- 清理：恢复原始状态
+    clearAllTestItems()
+    player.premiumZongEaten = origEaten
+    player.pillFortune = origFortune
+    player.pillCounts.zong = origPillCounts
+
+    log("")
+end
+
+-- ============================================================================
 -- 运行入口
 -- ============================================================================
 function TestBatch.RunAll()
@@ -359,6 +526,8 @@ function TestBatch.RunAll()
     TestBatch.T4_Security()
     TestBatch.T5_Unsupported()
     TestBatch.T6_LingyunFruitEvent()
+    TestBatch.T7_PremiumZong()
+    TestBatch.T8_PremiumZong_BlackMarketLock()
 
     -- 最终清理
     clearAllTestItems()

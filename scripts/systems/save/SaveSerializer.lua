@@ -46,6 +46,9 @@ function SaveSerializer.SerializePlayer()
         pillConstitution = player.pillConstitution or 0,
         gangguConstitution = player.gangguConstitution or 0,
         fruitFortune = player.fruitFortune or 0,
+        pillFortune = player.pillFortune or 0,
+        premiumZongEaten = player.premiumZongEaten or 0,
+        pillCounts = player.pillCounts or { zong = 0 },
         seaPillarDef = player.seaPillarDef or 0,
         seaPillarAtk = player.seaPillarAtk or 0,
         seaPillarMaxHp = player.seaPillarMaxHp or 0,
@@ -145,6 +148,13 @@ function SaveSerializer.DeserializePlayer(data)
     player.pillConstitution = data.pillConstitution or 0
     player.gangguConstitution = data.gangguConstitution or 0
     player.fruitFortune = data.fruitFortune or 0
+    -- 仙界精品粽（端午丹药）三字段加载 + 一致性校验
+    do
+        local eaten = math.max(0, math.min(10, data.premiumZongEaten or 0))
+        player.premiumZongEaten = eaten
+        player.pillFortune = eaten  -- 强制以 premiumZongEaten 为权威
+        player.pillCounts = { zong = eaten }
+    end
     player.seaPillarDef = data.seaPillarDef or 0
     player.seaPillarAtk = data.seaPillarAtk or 0
     player.seaPillarMaxHp = data.seaPillarMaxHp or 0

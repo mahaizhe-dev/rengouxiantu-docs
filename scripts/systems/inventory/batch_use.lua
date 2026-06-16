@@ -42,6 +42,8 @@ function M.UseBatchConsumable(IS, consumableId, count)
         return M._UseBatchLingyunFruit(IS, count)
     elseif consumableId == "lingyun_fruit_superior" then
         return M._UseBatchLingyunFruitSuperior(IS, count)
+    elseif consumableId == "xianjie_premium_zong" then
+        return M._UseBatchPremiumZong(IS, count)
     elseif consumableId == "gold_bar" or consumableId == "gold_brick"
         or (cfgData and cfgData.category == "event") then
         return M._SellBatchConsumable(IS, consumableId, count)
@@ -325,6 +327,55 @@ function M._UseTokenBox(IS, boxId, tokenId)
     local msg = "使用 " .. boxData.name .. "，获得 " .. TOKEN_PER_BOX .. " 个" .. tokenData.name .. "！"
     print("[InventorySystem] " .. msg)
     return true, msg, 1
+end
+
+-- ============================================================================
+-- 仙界精品粽 — 独立使用分支（端午活动丹药，永久+福缘，上限10）
+-- ============================================================================
+
+local PREMIUM_ZONG_MAX = 10  -- 终身食用上限
+
+--- 批量使用仙界精品粽（每颗永久+1福缘，终身上限10颗）
+---@param IS table InventorySystem facade
+---@param count number 期望使用数量
+---@return boolean success, string|nil message, number|nil actualCount
+function M._UseBatchPremiumZong(IS, count)
+    local player = GameState.player
+    if not player then return false, "玩家不存在" end
+
+    -- 已食用数量（权威字段）
+    local eaten = player.premiumZongEaten or 0
+
+    -- 检查是否已达上限
+    if eaten >= PREMIUM_ZONG_MAX then
+        return false, "已达食用上限（" .. PREMIUM_ZONG_MAX .. "颗）"
+    end
+
+    -- 计算本次最多可食用数量
+    local maxCanEat = PREMIUM_ZONG_MAX - eaten
+    local actualCount = math.min(count, maxCanEat)
+
+    -- 再次夹紧到未锁定库存（BM-S4A 保护）
+    local unlocked = IS.CountUnlockedConsumable("xianjie_premium_zong")
+    actualCount = math.min(actualCount, unlocked)
+    if actualCount <= 0 then return false, "物品不足" end
+
+    -- 原子扣除
+    local ok = IS.ConsumeConsumable("xianjie_premium_zong", actualCount)
+    if not ok then return false, "消耗失败" end
+
+    -- 成功：更新三个字段
+    player.premiumZongEaten = eaten + actualCount
+    player.pillFortune = (player.pillFortune or 0) + actualCount
+    if not player.pillCounts then player.pillCounts = {} end
+    player.pillCounts.zong = player.premiumZongEaten
+
+    -- 缓存按帧自动重算（_statsCacheFrame），下帧 GetTotalFortune() 即刻生效
+
+    EventBus.Emit("premium_zong_used", actualCount)
+    local msg = "食用 " .. actualCount .. " 颗仙界精品粽，福缘永久+" .. actualCount .. "！（已食用 " .. player.premiumZongEaten .. "/" .. PREMIUM_ZONG_MAX .. "）"
+    print("[InventorySystem] " .. msg)
+    return true, msg, actualCount
 end
 
 return M

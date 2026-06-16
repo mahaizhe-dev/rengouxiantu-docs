@@ -128,7 +128,7 @@ PetAppearanceConfig.premium = {
         texture     = "Textures/pet_skin_wuxing.png",
         sourceType  = "activity",
         bonus       = { wisdom = 10 },
-        hidden      = true,  -- 暂未开放
+        hidden      = false, -- 端午活动开放
     },
     {
         id          = "pet_premium_gengu",

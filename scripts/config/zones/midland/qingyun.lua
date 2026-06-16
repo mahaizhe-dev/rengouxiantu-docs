@@ -56,13 +56,13 @@ qingyun.npcs = {
         interactType = "alchemy", zone = "mz_qingyun",
         dialog = "古炉灵火不灭，可将阵营战场的精华炼制成永久增益丹药。",
     },
-    -- 六一活动 NPC：天官赐福 — 传送阵北侧
+    -- 端午活动 NPC：粽仙使者 — 传送阵北侧
     {
-        id = "npc_event_exchange", name = "天官赐福", subtitle = "六一活动宝箱",
-        x = 40, y = 58, icon = "🎡",
-        portrait = "Textures/npc_toy_chest.png", iconScale = 2,
+        id = "npc_event_exchange", name = "粽仙使者", subtitle = "端午活动宝箱",
+        x = 40, y = 58, icon = "🐉",
+        portrait = "Textures/npc_zongxian.png", iconScale = 2,
         interactType = "event_exchange", zone = "mz_qingyun",
-        dialog = "六一童趣，天庭赐宝箱与灵韵！\n击败BOSS掉落拨浪鼓开小宝箱，\n高境界BOSS还会掉落风车开大宝箱！",
+        dialog = "端午仙粽，天庭赐宝箱与灵韵！\n击败BOSS掉落彩绳开小宝箱，\n高境界BOSS还会掉落香囊开大宝箱！",
         eventBound = true,
     },
     -- 镇狱塔入口 NPC — 青云塔贴图上

@@ -309,6 +309,31 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
         end
 
         -- ================================================================
+        -- 仙界精品粽三字段对齐校验（§10.14）
+        -- 权威来源：premiumZongEaten，上限 10
+        -- ================================================================
+        do
+            local p = GameState.player
+            if p then
+                local MAX_ZONG = 10
+                local eaten = math.min(p.premiumZongEaten or 0, MAX_ZONG)
+                p.premiumZongEaten = eaten
+                -- pillFortune 必须等于 eaten
+                if (p.pillFortune or 0) ~= eaten then
+                    print("[ZongValidation] pillFortune drift: " .. (p.pillFortune or 0) .. " -> " .. eaten)
+                    p.pillFortune = eaten
+                end
+                -- pillCounts.zong 必须等于 eaten
+                if p.pillCounts then
+                    if (p.pillCounts.zong or 0) ~= eaten then
+                        print("[ZongValidation] pillCounts.zong drift: " .. (p.pillCounts.zong or 0) .. " -> " .. eaten)
+                        p.pillCounts.zong = eaten
+                    end
+                end
+            end
+        end
+
+        -- ================================================================
         -- 钢筋铁骨丹根骨补算（修复历史 bug：丹药计数存在但属性未写入）
         -- 权威来源：ChallengeSystem.gangguDanCount（丹药面板计数）
         -- 每次加载自愈，补齐 gangguConstitution

@@ -1,23 +1,26 @@
 -- scripts/tests/test_event_system.lua
 -- GM命令触发: "活动自测"
 --
--- 测试目标（六一童趣版）：
--- 1. EventConfig 完整性（openBoxes, smallBoxPool, bigBoxPool, dropRates, realmDropRates）
+-- 测试目标（端午龙舟版）：
+-- 1. EventConfig 完整性（eventId, openBoxes, smallBoxPool, bigBoxPool, dropRates, realmDropRates）
 -- 2. EventSystem.RollFudaiReward 双奖池权重分布合理性
 -- 3. EventSystem.Serialize / Deserialize 往返正确性
 -- 4. EventSystem.GetExchangedCount / SetExchangedCount 状态管理
--- 5. 六一不启用兑换 — exchanges 允许为空
--- 6. SaveProtocol 活动事件名已注册
--- 7. GameConfig EVENT_ITEMS 验证（六一物品）
+-- 5. 端午不启用兑换 — exchanges 允许为空
+-- 6. SaveProtocol 活动事件名已注册（含里程碑协议）
+-- 7. GameConfig EVENT_ITEMS 验证（端午物品：彩绳、香囊、精品粽）
 -- 8. 掉落模拟（章节+category / realmDropRates / monsterOverrides）
 -- 9. 开箱模拟（小宝箱+大宝箱各1000次，稀有度分布验证）
 -- 10. 大宝箱皮肤项存在性与重复补偿验证
--- 11. 旧 mayday_fudai 不在六一开启白名单
+-- 11. 旧 childday_* 不在端午开启白名单
+-- 12. 排行榜 key 已切到端午专用
 -- 13. SpecialRewards 协议验证（legendary 触发 special、非 legendary 不触发）
 -- 14. NewPullRecords 合并与竞态防护验证
 -- 15. 皮肤重复补偿路径验证（dupe skin → dupLingYun 补偿）
 -- 16. 保底 Pity 系统配置与 UpdatePityCount 验证
--- 12. 排行榜 key 已切到六一专用
+-- 17. bossMilestones 10 档配置存在性
+-- 18. premiumZongDropRates 第三段掉落配置存在
+-- 19. 皮肤商店配置包含 pet_premium_wuxing
 
 local M = {}
 
@@ -61,22 +64,22 @@ function M.RunAll()
     end
 
     -- ========================================================================
-    -- T1: EventConfig 完整性（六一版）
+    -- T1: EventConfig 完整性（端午版）
     -- ========================================================================
     local EventConfig = require("config.EventConfig")
     local ev = EventConfig.ACTIVE_EVENT
 
     assert_true("T1.1 ACTIVE_EVENT exists", ev ~= nil)
-    assert_true("T1.2 eventId is string", type(ev.eventId) == "string")
+    assert_eq("T1.2 eventId == dragonboat_2026", ev.eventId, "dragonboat_2026")
     assert_true("T1.3 enabled", ev.enabled == true)
-    -- 六一允许兑换为空
-    assert_true("T1.4 exchanges is table (may be empty)", type(ev.exchanges) == "table")
+    -- 端午不启用兑换
+    assert_true("T1.4 exchanges is table (empty for dragonboat)", type(ev.exchanges) == "table")
     -- 双宝箱定义
     assert_true("T1.5 openBoxes exists", ev.openBoxes ~= nil)
     assert_true("T1.6 openBoxes.small exists", ev.openBoxes.small ~= nil)
     assert_true("T1.7 openBoxes.big exists", ev.openBoxes.big ~= nil)
-    assert_true("T1.8 small.itemId", ev.openBoxes.small.itemId ~= nil)
-    assert_true("T1.9 big.itemId", ev.openBoxes.big.itemId ~= nil)
+    assert_eq("T1.8 small.itemId = dragonboat_colored_rope", ev.openBoxes.small.itemId, "dragonboat_colored_rope")
+    assert_eq("T1.9 big.itemId = dragonboat_sachet", ev.openBoxes.big.itemId, "dragonboat_sachet")
     assert_true("T1.10 small.score > 0", (ev.openBoxes.small.score or 0) > 0)
     assert_true("T1.11 big.score > 0", (ev.openBoxes.big.score or 0) > 0)
     assert_true("T1.12 small.poolKey -> pool exists", ev[ev.openBoxes.small.poolKey] ~= nil)
@@ -104,6 +107,70 @@ function M.RunAll()
         for _ in pairs(ev.realmDropRates) do realmCount = realmCount + 1 end
     end
     assert_gt("T1.17 realmDropRates non-empty", realmCount, 0)
+
+    -- ========================================================================
+    -- T1B: 端午专属断言 — §11.1 第 3-6 项
+    -- ========================================================================
+    -- §11.1-3: dragonboat_colored_rope / dragonboat_sachet 物品存在
+    local GameConfig = require("config.GameConfig")
+    assert_true("T1B.1 EVENT_ITEMS has dragonboat_colored_rope",
+        GameConfig.EVENT_ITEMS["dragonboat_colored_rope"] ~= nil)
+    assert_true("T1B.2 EVENT_ITEMS has dragonboat_sachet",
+        GameConfig.EVENT_ITEMS["dragonboat_sachet"] ~= nil)
+
+    -- §11.1-4: 小宝箱大奖为 xianjie_premium_zong
+    local smallHasZong = false
+    for _, entry in ipairs(smallPool) do
+        if entry.rewards and entry.rewards[1] and entry.rewards[1].id == "xianjie_premium_zong" then
+            smallHasZong = true
+            break
+        end
+    end
+    assert_true("T1B.3 smallPool has xianjie_premium_zong", smallHasZong)
+
+    -- §11.1-5: 大宝箱存在 xianjie_premium_zong
+    local bigHasZong = false
+    for _, entry in ipairs(bigPool) do
+        if entry.rewards and entry.rewards[1] and entry.rewards[1].id == "xianjie_premium_zong" then
+            bigHasZong = true
+            break
+        end
+    end
+    assert_true("T1B.4 bigPool has xianjie_premium_zong", bigHasZong)
+
+    -- §11.1-6: 大宝箱大奖皮肤为 pet_premium_wuxing
+    local bigHasSkin = false
+    for _, entry in ipairs(bigPool) do
+        if entry.rewards and entry.rewards[1] and entry.rewards[1].type == "petSkin"
+            and entry.rewards[1].id == "pet_premium_wuxing" then
+            bigHasSkin = true
+            break
+        end
+    end
+    assert_true("T1B.5 bigPool legendary skin = pet_premium_wuxing", bigHasSkin)
+
+    -- §11.1-7: bossMilestones 10 档
+    assert_true("T1B.6 bossMilestones exists", ev.bossMilestones ~= nil)
+    assert_eq("T1B.7 bossMilestones has 10 tiers", ev.bossMilestones and #ev.bossMilestones or 0, 10)
+
+    -- §11.1-9: premiumZongDropRates 第三段掉落配置存在
+    assert_true("T1B.8 premiumZongDropRates exists", ev.premiumZongDropRates ~= nil)
+    local pzdrCount = 0
+    if ev.premiumZongDropRates then
+        for _ in pairs(ev.premiumZongDropRates) do pzdrCount = pzdrCount + 1 end
+    end
+    assert_gt("T1B.9 premiumZongDropRates non-empty", pzdrCount, 0)
+
+    -- §11.1-11: 皮肤商店配置包含 pet_premium_wuxing
+    local SkinShopConfig = require("config.SkinShopConfig")
+    local shopHasWuxing = false
+    for _, skinId in ipairs(SkinShopConfig.SKIN_IDS) do
+        if skinId == "pet_premium_wuxing" then
+            shopHasWuxing = true
+            break
+        end
+    end
+    assert_true("T1B.10 SkinShopConfig has pet_premium_wuxing", shopHasWuxing)
 
     -- ========================================================================
     -- T2: RollFudaiReward 双奖池统计验证
@@ -156,28 +223,34 @@ function M.RunAll()
     assert_true("T4.3 Deserialize({}) no crash", ok4b)
 
     -- ========================================================================
-    -- T5: 六一不启用兑换 — FindExchange 应返回 nil
+    -- T5: 端午不启用兑换 — FindExchange 应返回 nil
     -- ========================================================================
     local exNone = EventConfig.FindExchange("NONEXISTENT_XXXXX")
     assert_true("T5.1 FindExchange(unknown) returns nil", exNone == nil)
-    -- 旧五一兑换项不应存在
-    local exOld = EventConfig.FindExchange("mayday_ex_a1")
-    assert_true("T5.2 mayday_ex_a1 not in childday exchanges", exOld == nil)
+    -- 旧六一/五一兑换项不应存在
+    local exOldChild = EventConfig.FindExchange("childday_ex_a1")
+    assert_true("T5.2 childday_ex_a1 not in dragonboat exchanges", exOldChild == nil)
+    local exOldMay = EventConfig.FindExchange("mayday_ex_a1")
+    assert_true("T5.3 mayday_ex_a1 not in dragonboat exchanges", exOldMay == nil)
 
     -- ========================================================================
-    -- T6: SaveProtocol 活动事件已注册
+    -- T6: SaveProtocol 活动事件已注册（含里程碑协议）
     -- ========================================================================
     local SaveProtocol = require("network.SaveProtocol")
     assert_true("T6.1 C2S_EventOpenFudai defined", SaveProtocol.C2S_EventOpenFudai ~= nil)
     assert_true("T6.2 S2C_EventOpenFudaiResult defined", SaveProtocol.S2C_EventOpenFudaiResult ~= nil)
     assert_true("T6.3 S2C_EventRankListData defined", SaveProtocol.S2C_EventRankListData ~= nil)
     assert_true("T6.4 S2C_EventPullRecordsData defined", SaveProtocol.S2C_EventPullRecordsData ~= nil)
+    -- 端午里程碑协议
+    assert_true("T6.5 C2S_EventQueryBossMilestones defined", SaveProtocol.C2S_EventQueryBossMilestones ~= nil)
+    assert_true("T6.6 C2S_EventClaimBossMilestone defined", SaveProtocol.C2S_EventClaimBossMilestone ~= nil)
+    assert_true("T6.7 S2C_EventBossMilestonesData defined", SaveProtocol.S2C_EventBossMilestonesData ~= nil)
+    assert_true("T6.8 S2C_EventBossMilestoneResult defined", SaveProtocol.S2C_EventBossMilestoneResult ~= nil)
 
     -- ========================================================================
-    -- T7: GameConfig EVENT_ITEMS 验证（六一物品）
+    -- T7: GameConfig EVENT_ITEMS 验证（端午物品）
     -- ========================================================================
-    local GameConfig = require("config.GameConfig")
-    local expectedItems = { "childday_rattle", "childday_pinwheel" }
+    local expectedItems = { "dragonboat_colored_rope", "dragonboat_sachet", "xianjie_premium_zong" }
     for _, itemId in ipairs(expectedItems) do
         local item = GameConfig.EVENT_ITEMS[itemId]
         assert_true("T7.1 EVENT_ITEMS[" .. itemId .. "] exists", item ~= nil)
@@ -237,8 +310,8 @@ function M.RunAll()
     assert_gt("T8.1 dropRate combos tested", totalDropCombos, 0)
     assert_eq("T8.2 all combos have rates", validDropCombos, totalDropCombos)
 
-    -- realmDropRates 模拟
-    table.insert(dropLog, "  ── T8 realm掉落(风车) ──")
+    -- realmDropRates 模拟（香囊）
+    table.insert(dropLog, "  ── T8 realm掉落(香囊) ──")
     local realmTested = 0
     if ev.realmDropRates then
         for realm, rates in pairs(ev.realmDropRates) do
@@ -350,31 +423,43 @@ function M.RunAll()
     assert_true("T10.1 bigPool has petSkin entry", skinEntry ~= nil)
     if skinEntry then
         local skinReward = skinEntry.rewards[1]
-        assert_true("T10.2 skin has id", skinReward.id ~= nil)
-        assert_true("T10.3 skin has dupLingYun", skinReward.dupLingYun ~= nil and skinReward.dupLingYun > 0)
+        assert_eq("T10.2 skin id = pet_premium_wuxing", skinReward.id, "pet_premium_wuxing")
+        assert_true("T10.3 skin has dupLingYun > 0", skinReward.dupLingYun ~= nil and skinReward.dupLingYun > 0)
     end
 
     -- ========================================================================
-    -- T11: 旧 mayday_fudai 不在六一开启白名单
+    -- T11: 旧 childday_* 不在端午开启白名单
     -- ========================================================================
     local smallItemId = ev.openBoxes.small.itemId
     local bigItemId = ev.openBoxes.big.itemId
-    assert_true("T11.1 small box is not mayday_fudai", smallItemId ~= "mayday_fudai")
-    assert_true("T11.2 big box is not mayday_fudai", bigItemId ~= "mayday_fudai")
-    assert_eq("T11.3 small box is childday_rattle", smallItemId, "childday_rattle")
-    assert_eq("T11.4 big box is childday_pinwheel", bigItemId, "childday_pinwheel")
+    assert_true("T11.1 small box is not childday_rattle", smallItemId ~= "childday_rattle")
+    assert_true("T11.2 big box is not childday_pinwheel", bigItemId ~= "childday_pinwheel")
+    assert_true("T11.3 small box is not mayday_fudai", smallItemId ~= "mayday_fudai")
+    assert_eq("T11.4 small box = dragonboat_colored_rope", smallItemId, "dragonboat_colored_rope")
+    assert_eq("T11.5 big box = dragonboat_sachet", bigItemId, "dragonboat_sachet")
+
+    -- 旧物品不在 eventItemIds 中
+    local eventItemIds = ev.eventItemIds or {}
+    local hasOldChildday = false
+    for _, id in ipairs(eventItemIds) do
+        if id:find("childday") then hasOldChildday = true; break end
+    end
+    assert_true("T11.6 no childday_* in eventItemIds", not hasOldChildday)
 
     -- ========================================================================
-    -- T12: 排行榜 key 已切到六一专用
+    -- T12: 排行榜 key 已切到端午专用
     -- ========================================================================
     local lb = ev.leaderboard
     assert_true("T12.1 leaderboard exists", lb ~= nil)
     if lb then
-        assert_true("T12.2 rankKey contains childday", lb.rankKey and lb.rankKey:find("childday"))
-        assert_true("T12.3 infoKey contains childday", lb.infoKey and lb.infoKey:find("childday"))
-        assert_true("T12.4 recordsKey contains childday", lb.recordsKey and lb.recordsKey:find("childday"))
+        assert_true("T12.2 rankKey contains dragonboat", lb.rankKey and lb.rankKey:find("dragonboat"))
+        assert_true("T12.3 infoKey contains dragonboat", lb.infoKey and lb.infoKey:find("dragonboat"))
+        assert_true("T12.4 recordsKey contains dragonboat", lb.recordsKey and lb.recordsKey:find("dragonboat"))
         assert_true("T12.5 rewardHint has QQ群", lb.rewardHint and lb.rewardHint:find("1054419838"))
         assert_true("T12.6 rewardHint mentions 前3", lb.rewardHint and lb.rewardHint:find("前3"))
+        -- 确认不含旧 key
+        assert_true("T12.7 rankKey not childday", not lb.rankKey:find("childday"))
+        assert_true("T12.8 infoKey not childday", not lb.infoKey:find("childday"))
     end
 
     -- ========================================================================
@@ -418,7 +503,6 @@ function M.RunAll()
 
     -- ========================================================================
     -- T14: NewPullRecords 合并与竞态防护验证
-    -- 模拟 HandlePullRecordsData 的 merge 逻辑
     -- ========================================================================
     table.insert(dropLog, "  ── T14 NewPullRecords 竞态合并 ──")
 
@@ -464,12 +548,12 @@ function M.RunAll()
     assert_eq("T14.2 merged has 1 record (no dup)", #mergedA, 1)
 
     -- Case B: 服务端尚未包含本地记录 → pending 保留在头部
-    local pendingB = {{ ts = nowTs, name = "福缘皮肤" }}
+    local pendingB = {{ ts = nowTs, name = "仙界精品粽×1" }}
     local serverB = {{ ts = nowTs - 60, name = "灵韵×200", displayName = "其他玩家" }}
     local mergedB, stillB = SimulateMerge(pendingB, serverB)
     assert_eq("T14.3 unconfirmed record stays in pending", #stillB, 1)
     assert_eq("T14.4 merged=2 (pending + server)", #mergedB, 2)
-    assert_eq("T14.5 pending record is first", mergedB[1].name, "福缘皮肤")
+    assert_eq("T14.5 pending record is first", mergedB[1].name, "仙界精品粽×1")
 
     -- Case C: 过期记录被过滤
     local pendingC = {}
@@ -482,7 +566,6 @@ function M.RunAll()
 
     -- ========================================================================
     -- T15: 皮肤重复补偿路径验证
-    -- 验证当所有皮肤按 dupe 处理时，dupLingYun 累计正确
     -- ========================================================================
     table.insert(dropLog, "  ── T15 皮肤重复补偿路径 ──")
 
@@ -498,7 +581,7 @@ function M.RunAll()
         end
     end
 
-    -- 模拟 "全部按重复处理" 逻辑（P1 修复的 error callback 逻辑）
+    -- 模拟 "全部按重复处理" 逻辑
     local dupLingYunTotal = 0
     local skinSpecials = {}
     for _, skin in ipairs(skinRewards) do
@@ -516,7 +599,6 @@ function M.RunAll()
     if #skinRewards > 0 then
         assert_gt("T15.2 total dupLingYun > 0", dupLingYunTotal, 0)
         assert_eq("T15.3 skinSpecials count matches skinRewards", #skinSpecials, #skinRewards)
-        -- 验证 kind 字段
         assert_eq("T15.4 skinSpecials[1].kind = skin_dup", skinSpecials[1].kind, "skin_dup")
         table.insert(dropLog, string.format("  dupLingYun total=%d from %d skin(s)",
             dupLingYunTotal, #skinRewards))
@@ -589,7 +671,7 @@ function M.RunAll()
     EventSystem.Reset()
 
     print("============================================")
-    print("  六一活动系统自测结果")
+    print("  端午活动系统自测结果")
     print("============================================")
     for _, r in ipairs(results) do
         print("  " .. r)

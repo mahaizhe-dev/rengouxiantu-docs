@@ -724,13 +724,17 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         local _isEventItem = _cfgItem and _cfgItem.category == "event"
         if item.consumableId == "lingyun_fruit" or item.consumableId == "exp_pill"
             or item.consumableId == "lingyun_fruit_superior" or item.consumableId == "exp_pill_superior"
-            or item.consumableId == "gold_bar" or item.consumableId == "gold_brick" then
+            or item.consumableId == "gold_bar" or item.consumableId == "gold_brick"
+            or item.consumableId == "xianjie_premium_zong" then
             -- 批量使用/出售 UI：×1 / ×10 / ×50 / 全部
             local cId = item.consumableId
             local totalCount = InventorySystem.CountConsumable(cId)
-            local actionLabel = (cId == "gold_bar" or cId == "gold_brick") and "出售" or "使用"
+            local actionLabel = (cId == "gold_bar" or cId == "gold_brick") and "出售"
+                or (cId == "xianjie_premium_zong") and "食用"
+                or "使用"
             local actionIcon = (cId == "lingyun_fruit" or cId == "lingyun_fruit_superior") and "🍇"
                 or (cId == "exp_pill" or cId == "exp_pill_superior") and "💊"
+                or (cId == "xianjie_premium_zong") and "🥟"
                 or "💰"
             local batchAmounts = { 1, 10, 50, totalCount }
             local batchLabels = { "×1", "×10", "×50", "全部(" .. totalCount .. ")" }
@@ -804,11 +808,12 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
                 end,
             })
         end
-        -- 修炼果、灵韵果（含上品）、守护者证明不可出售，金条/金砖已有批量出售UI
+        -- 修炼果、灵韵果（含上品）、守护者证明不可出售，金条/金砖已有批量出售UI，精品粽走批量使用
         if item.consumableId ~= "exp_pill" and item.consumableId ~= "exp_pill_superior"
             and item.consumableId ~= "lingyun_fruit" and item.consumableId ~= "lingyun_fruit_superior"
             and item.consumableId ~= "item_guardian_token"
             and item.consumableId ~= "gold_bar" and item.consumableId ~= "gold_brick"
+            and item.consumableId ~= "xianjie_premium_zong"
             and item.consumableId ~= "wubao_token_box" and item.consumableId ~= "sha_hai_ling_box" and item.consumableId ~= "taixu_token_box" and item.consumableId ~= "taixu_jianling_box" then
             table.insert(btnChildren, UI.Button {
                 text = "出售", variant = "warning", flexGrow = 1,

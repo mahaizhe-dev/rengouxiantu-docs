@@ -5,7 +5,7 @@
 local GameConfig = {}
 
 -- GM 调试开关（发布正式版前改为 false）
-GameConfig.GM_ENABLED = false
+GameConfig.GM_ENABLED = true
 GameConfig.GM_SHOW_COORDS = false  -- GM：鼠标悬停显示瓦片坐标
 
 -- 多人副本功能总开关（Kill Switch）
@@ -735,6 +735,28 @@ GameConfig.EVENT_ITEMS = {
         sellPrice = 1000, quality = "orange",
         desc = "活动已结束，可以出售换金币。",
         category = "event", eventId = "childrensday_2026",
+    },
+    -- ── 端午活动物品 ──
+    dragonboat_colored_rope = {
+        name = "端午彩绳", icon = "🧵",
+        image = "Textures/event/dragonboat_colored_rope.png",
+        sellPrice = 1000, quality = "purple",
+        desc = "五彩丝线编织的吉祥彩绳，蕴含驱邪纳福之力。\n用途：开启彩绳宝箱。",
+        category = "event", eventId = "dragonboat_2026",
+    },
+    dragonboat_sachet = {
+        name = "辟邪香囊", icon = "🎒",
+        image = "Textures/event/dragonboat_sachet.png",
+        sellPrice = 1000, quality = "orange",
+        desc = "以艾草、菖蒲等仙草填充的香囊，散发清幽灵气。\n用途：开启香囊宝箱 / BOSS击杀里程碑奖励。",
+        category = "event", eventId = "dragonboat_2026",
+    },
+    xianjie_premium_zong = {
+        name = "仙界精品粽", icon = "🍙",
+        image = "Textures/event/xianjie_premium_zong.png",
+        sellPrice = 1000, quality = "red",
+        desc = "以仙界灵米与九天玄粽叶包裹而成的极品粽子，食用后可永久提升福缘。\n用途：食用后永久+1福缘（单角色上限10个）。\n获取：彩绳/香囊宝箱稀有奖励。",
+        category = "usable_pill", eventId = "dragonboat_2026",
     },
 }
 

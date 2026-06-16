@@ -443,6 +443,8 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
             { field = "seaPillarAtk",     max = 30, name = "海神柱攻击" },
             { field = "seaPillarMaxHp",   max = 300, name = "海神柱生命" },
             { field = "seaPillarHpRegen", max = 30, name = "海神柱恢复" },
+            { field = "premiumZongEaten", max = 10, name = "仙界精品粽" },
+            { field = "pillFortune",      max = 10, name = "福缘(精品粽)" },
         }
         for _, pill in ipairs(playerPillLimits) do
             local v = coreData.player[pill.field]
@@ -451,6 +453,22 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
                     .. v .. " -> " .. pill.max
                     .. " userId=" .. tostring(userId))
                 coreData.player[pill.field] = pill.max
+            end
+        end
+
+        -- V5d: 仙界精品粽三字段对齐（§10.15）
+        local cp = coreData.player
+        local eaten = cp.premiumZongEaten or 0
+        if cp.pillFortune and cp.pillFortune ~= eaten then
+            Logger.warn("SaveGame", "[V5d] pillFortune realigned: " .. cp.pillFortune .. " -> " .. eaten
+                .. " userId=" .. tostring(userId))
+            cp.pillFortune = eaten
+        end
+        if cp.pillCounts and type(cp.pillCounts) == "table" then
+            if (cp.pillCounts.zong or 0) ~= eaten then
+                Logger.warn("SaveGame", "[V5d] pillCounts.zong realigned: " .. (cp.pillCounts.zong or 0) .. " -> " .. eaten
+                    .. " userId=" .. tostring(userId))
+                cp.pillCounts.zong = eaten
             end
         end
     end

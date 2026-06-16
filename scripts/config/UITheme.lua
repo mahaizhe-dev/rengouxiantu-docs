@@ -374,6 +374,77 @@ UITheme.color = {
     -- ▼ 芯片/小容器色 ────────────────────────────
     chipBg           = {40, 45, 60, 180},    -- 行内小信息容器底色（灵韵余额等）
 
+    -- ▼ 活动面板色（EventExchangeUI，前缀 evt） ────────
+    evtRarityCommon    = {200, 200, 210, 255},  -- 普通物品文字
+    evtRarityRare      = {100, 200, 255, 255},  -- 稀有物品文字
+    evtRarityLegendary = {255, 215, 0, 255},    -- 传说物品文字
+    evtBoxSmallTag     = {80, 140, 220, 255},   -- 小宝箱标签色
+    evtBoxBigTag       = {220, 180, 40, 255},   -- 大宝箱标签色
+    evtBoxSmallBg      = {35, 40, 55, 200},     -- 小宝箱区底色
+    evtBoxSmallBd      = {80, 140, 220, 80},    -- 小宝箱区边框
+    evtBoxBigBg        = {45, 40, 30, 200},     -- 大宝箱区底色
+    evtBoxBigBd        = {220, 180, 40, 80},    -- 大宝箱区边框
+    evtFiveOpenBg      = {180, 80, 200, 255},   -- 五连开按钮底色
+    evtPoolBg          = {30, 33, 45, 220},     -- 奖池展开区底色
+    evtPoolBd          = {80, 90, 110, 120},    -- 奖池展开区边框
+    evtDescBg          = {30, 35, 50, 180},     -- 道具说明区底色
+    evtDescTitle       = {200, 200, 220, 220},  -- 道具说明标题
+    evtDescSmall       = {140, 180, 220, 200},  -- 道具说明小宝箱文字
+    evtDescBig         = {220, 180, 100, 200},  -- 道具说明大宝箱文字
+    evtPity            = {255, 200, 80, 200},   -- 保底进度文字
+    evtScoreGreen      = {140, 200, 140, 200},  -- 积分加成文字（绿）
+    evtOwnHave         = {255, 220, 100, 255},  -- 持有数量（有道具）
+    evtOwnEmpty        = {120, 120, 140, 200},  -- 持有数量（无道具）
+    evtDivider         = {80, 90, 110, 80},     -- 内容分隔线
+    evtRecordTime      = {120, 120, 140, 150},  -- 记录时间文字
+    evtEmptyHint       = {120, 120, 140, 150},  -- 空数据提示
+    evtPoolToggleBg    = {50, 55, 70, 200},     -- 奖池展开按钮底
+    evtPoolToggleFg    = {160, 160, 180, 220},  -- 奖池展开按钮文字
+    evtResultTitle     = {200, 200, 210, 255},  -- 开启结果标题
+    -- 排行页
+    evtRankHintBg      = {60, 50, 30, 200},     -- 奖励提示条底色
+    evtRankHintBd      = {200, 160, 40, 100},   -- 奖励提示条边框
+    evtRankHintFg      = {255, 220, 100, 255},  -- 奖励提示条文字
+    evtRankHeader      = {140, 140, 155, 200},  -- 排行表头文字
+    evtRankGold        = {255, 215, 0, 255},    -- 第1名名字色
+    evtRankSilver      = {200, 200, 220, 255},  -- 第2名名字色
+    evtRankBronze      = {200, 150, 80, 255},   -- 第3名名字色
+    evtRankNormal      = {200, 200, 210, 255},  -- 其他名次名字色
+    evtRankScore       = {255, 220, 100, 255},  -- 积分数字色
+    evtRankRowAlt      = {40, 43, 55, 120},     -- 排行行交替底色
+    evtRankSelfBg      = {50, 45, 30, 180},     -- 自己排名区底色
+    evtRankTapNick     = {140, 160, 200, 180},  -- TapTap昵称文字
+    evtRankTotal       = {120, 120, 140, 150},  -- 参与人数文字
+    evtLockHintBg      = {45, 35, 30, 200},     -- 锁榜提示底色
+    evtLockHintBd      = {200, 100, 60, 100},   -- 锁榜提示边框
+    evtLockHintFg      = {255, 180, 100, 255},  -- 锁榜提示文字
+    -- 弹窗
+    evtPopupBg         = {30, 32, 45, 250},     -- 弹窗底色
+    evtPopupBorderGold = {255, 200, 50, 200},   -- 弹窗金边
+    evtPopupBorderDim  = {160, 160, 180, 150},  -- 弹窗灰边（重复）
+    evtPopupDivider    = {255, 215, 0, 60},     -- 弹窗内分割线
+    evtPopupSkinName   = {255, 230, 150, 255},  -- 弹窗皮肤名
+    evtPopupSkinBg     = {40, 42, 55, 200},     -- 弹窗皮肤图底
+    evtPopupBonusGreen = {150, 230, 150, 255},  -- 弹窗加成文字绿
+    evtPopupSubtext    = {180, 180, 195, 220},  -- 弹窗副文字
+    evtPopupItemName   = {255, 180, 50, 255},   -- 弹窗传说物品名
+    evtPopupItemDesc   = {180, 180, 200, 200},  -- 弹窗传说物品描述
+    -- 里程碑
+    evtMsClaimedBg     = {30, 38, 35, 160},     -- 已领取行底色
+    evtMsCanClaimBg    = {50, 45, 25, 220},     -- 可领取行底色
+    evtMsClaimedBadge  = {50, 120, 70, 180},    -- 已领取徽章底
+    evtMsProgressBg    = {50, 55, 70, 180},     -- 进度条底色
+    -- Tab栏（活动面板内专用，沿用通用 tab token 即可，此处仅备注）
+    evtTabActiveBg     = {200, 160, 40, 255},   -- Tab激活底
+    evtTabActiveFg     = {30, 25, 15, 255},     -- Tab激活文字
+    evtTabInactiveBg   = {60, 65, 80, 200},     -- Tab未激活底
+    evtTabInactiveFg   = {180, 180, 190, 255},  -- Tab未激活文字
+    -- NPC头部
+    evtNpcBg           = {60, 50, 80, 200},     -- NPC头像底色
+    evtNpcSubtitle     = {140, 140, 160, 200},  -- NPC副标题
+    evtNpcDialog       = {180, 180, 200, 220},  -- NPC对话文字
+    evtStatusText      = {180, 220, 255, 200},  -- 状态提示文字
+
     -- ▼ 卡片边框色（半透明，用于公告/活动/奖励区块） ────
     cardBorderGold   = {255, 200, 80, 120},  -- 金色半透明（公告/福利/奖励/补偿）
     cardBorderInfo   = {100, 140, 200, 100}, -- 蓝色半透明（信息/社群卡片）

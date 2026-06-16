@@ -93,6 +93,11 @@ function Player.New(x, y, opts)
     -- 福源果加成（一次性交互物永久+1）
     self.fruitFortune = init.fruitFortune or 0
 
+    -- 仙界精品粽加成（端午活动丹药，上限10）
+    self.pillFortune = init.pillFortune or 0
+    self.premiumZongEaten = init.premiumZongEaten or 0
+    self.pillCounts = init.pillCounts or { zong = 0 }
+
     -- 技能列表（阶段4实现）
     self.skills = {}
 
@@ -350,7 +355,7 @@ function Player:_RecalcStatsCache()
     -- GetTotalFortune
     local petBonusFort = self.petOwnerBonuses and self.petOwnerBonuses.fortune or 0
     local buffFort = (cs and cs.GetBuffFortuneFlat) and cs.GetBuffFortuneFlat() or 0
-    self._cachedTotalFortune = (self.equipFortune or 0) + (self.collectionFortune or 0) + (self.artifactCh4Fortune or 0) + (self.fruitFortune or 0) + petBonusFort + (self.wineFortune or 0) + (self.medalFuyuan or 0) + buffFort + (self.daoFortune or 0) + (skinBonuses.fortune or 0) + (self.minggeFortune or 0)
+    self._cachedTotalFortune = (self.equipFortune or 0) + (self.collectionFortune or 0) + (self.artifactCh4Fortune or 0) + (self.fruitFortune or 0) + (self.pillFortune or 0) + petBonusFort + (self.wineFortune or 0) + (self.medalFuyuan or 0) + buffFort + (self.daoFortune or 0) + (skinBonuses.fortune or 0) + (self.minggeFortune or 0)
 
     -- GetTotalWisdom（含职业每级悟性加成）
     local classWisdom = 0

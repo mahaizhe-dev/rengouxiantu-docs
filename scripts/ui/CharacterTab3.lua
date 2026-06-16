@@ -131,6 +131,15 @@ local PILL_CONFIG = {
         bonusLabel = "防御力", bonusPerPill = 8, bonusColor = {100, 180, 255, 255},
         getCount = function() return AlchemySystem.GetAbyssSealPillCount() end,
     },
+    -- ── 活动丹药 ──
+    {
+        name = "仙界精品粽", icon = "🥟", maxBuy = 10,
+        bonusLabel = "福缘+1", bonusPerPill = nil, bonusColor = {255, 215, 0, 255},
+        getCount = function()
+            local player = require("core.GameState").player
+            return player and player.premiumZongEaten or 0
+        end,
+    },
 }
 
 --- 构建 Tab3 内容

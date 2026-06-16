@@ -1,14 +1,14 @@
 -- ============================================================================
--- EventHandler.lua — 六一活动服务端 Handler
+-- EventHandler.lua — 端午活动服务端 Handler
 --
 -- 职责：处理 4 个 C2S 协议
---   1. HandleExchange   — 活动兑换（六一不启用）
+--   1. HandleExchange   — 活动兑换（端午不启用）
 --   2. HandleOpenFudai  — 开启宝箱（小宝箱/大宝箱, ×1 / ×5）
 --   3. HandleGetRankList — 查询积分排行榜
 --   4. HandleGetPullRecords — 查询全服稀有抽取记录
 --
 -- 模式：完全复刻 BlackMerchantHandler 的模块结构
--- 设计文档：docs/六一世界掉落活动（代码执行文档）.md v1.2
+-- 设计文档：docs/端午世界掉落活动（代码执行文档）.md v1.2
 -- ============================================================================
 
 local Session = require("network.ServerSession")
@@ -168,7 +168,7 @@ local function WritePullRecords(charName, rollResults, recordsKey, boxType, reco
 end
 
 -- ============================================================================
--- HandleExchange — 活动兑换（六一不启用，保留接口兼容）
+-- HandleExchange — 活动兑换（端午不启用，保留接口兼容）
 -- ============================================================================
 
 function M.HandleExchange(eventType, eventData)
@@ -284,7 +284,7 @@ end
 
 -- ============================================================================
 -- HandleOpenFudai — 开启宝箱（双宝箱：小宝箱/大宝箱, ×1 / ×5）
--- 设计文档：docs/六一世界掉落活动（代码执行文档）.md §4.4
+-- 设计文档：docs/端午世界掉落活动（代码执行文档）.md §4.4
 -- ============================================================================
 
 function M.HandleOpenFudai(eventType, eventData)
@@ -346,7 +346,7 @@ function M.HandleOpenFudai(eventType, eventData)
 
             if heldCount <= 0 then
                 releaseLocks()
-                local itemName = (boxType == "big") and "流光风车" or "童趣拨浪鼓"
+                local itemName = (boxType == "big") and "辟邪香囊" or "端午彩绳"
                 SendError(connection, SaveProtocol.S2C_EventOpenFudaiResult, "没有" .. itemName)
                 return
             end
@@ -469,10 +469,12 @@ function M.HandleOpenFudai(eventType, eventData)
                 end
             end
 
-            -- ════ 组装 SpecialRewards（非皮肤类传说物品）════
+            -- ════ 组装 SpecialRewards（大奖弹窗：jackpotIds 配置 或 传说物品）════
+            local jackpotIds = event.jackpotIds or {}
             local baseSpecialRewards = {}
             for _, r in ipairs(rollResults) do
-                if r.rarity == "legendary" and r.id ~= nil then
+                local isJackpot = (r.id ~= nil) and (jackpotIds[r.id] or r.rarity == "legendary")
+                if isJackpot then
                     -- 检查是否属于皮肤奖励（用 rollEntryId 匹配外层条目ID）
                     local isSkinReward = false
                     for _, skin in ipairs(skinRewards) do
@@ -921,12 +923,213 @@ function M.HandleGetPullRecords(eventType, eventData)
 end
 
 -- ============================================================================
+-- HandleQueryBossMilestones — 查询 BOSS 里程碑状态
+-- 设计文档：docs/端午世界掉落活动（代码执行文档）.md §7
+-- ============================================================================
+
+function M.HandleQueryBossMilestones(eventType, eventData)
+    if not EventConfig.IsActive() then return end
+
+    local connKey, userId, connection = ExtractContext(eventData)
+    if not userId then return end
+
+    local currentSlot = Session.connSlots_[connKey]
+    if not currentSlot then return end
+
+    local eventId = EventConfig.GetEventId()
+    local saveKey = "save_" .. currentSlot
+
+    serverCloud:Get(userId, saveKey, {
+        ok = function(scores)
+            local saveData = scores[saveKey] or {}
+            local bossKills = saveData.bossKills or 0
+            local evtAllData = saveData.event_data or {}
+            local evtData = evtAllData[eventId] or {}
+            local milestoneData = evtData.bossMilestones or {}
+            local claimed = milestoneData.claimed or {}
+
+            -- 活动击杀 = 全局击杀 - 活动开始时快照
+            -- 首次查询时记录快照（baselineKills）
+            local needSave = false
+            if milestoneData.baselineKills == nil then
+                milestoneData.baselineKills = bossKills
+                evtData.bossMilestones = milestoneData
+                evtAllData[eventId] = evtData
+                saveData.event_data = evtAllData
+                needSave = true
+            end
+            local eventKills = math.max(0, bossKills - (milestoneData.baselineKills or 0))
+
+            -- 如果需要保存 baselineKills 快照
+            if needSave then
+                saveData.timestamp = os.time()
+                local commit = serverCloud:BatchCommit("event_milestone_baseline")
+                commit:ScoreSet(userId, saveKey, saveData)
+                commit:Commit({})
+            end
+
+            local reply = VariantMap()
+            reply["ok"] = Variant(true)
+            reply["EventId"] = Variant(eventId)
+            reply["BossKills"] = Variant(eventKills)
+            reply["Claimed"] = Variant(cjson.encode(claimed))
+            Session.SafeSend(connection, SaveProtocol.S2C_EventBossMilestonesData, reply)
+        end,
+        error = function()
+            SendError(connection, SaveProtocol.S2C_EventBossMilestonesData, "查询失败")
+        end,
+    })
+end
+
+-- ============================================================================
+-- HandleClaimBossMilestone — 领取 BOSS 里程碑奖励
+-- 设计文档：docs/端午世界掉落活动（代码执行文档）.md §7.3
+-- ============================================================================
+
+local milestoneLocks_ = {}  -- key = userId
+
+function M.HandleClaimBossMilestone(eventType, eventData)
+    -- 1. 校验活动开启
+    if not EventConfig.IsActive() then return end
+
+    -- 2. 校验连接、用户
+    local connKey, userId, connection = ExtractContext(eventData)
+    if not userId then return end
+
+    -- 内存锁
+    if milestoneLocks_[userId] then return end
+    milestoneLocks_[userId] = true
+
+    local milestoneTarget = eventData["Milestone"]:GetInt()
+
+    -- 校验目标档位是否存在于配置
+    local event = EventConfig.ACTIVE_EVENT
+    local milestones = event.bossMilestones
+    local targetCfg = nil
+    for _, m in ipairs(milestones) do
+        if m.target == milestoneTarget then
+            targetCfg = m
+            break
+        end
+    end
+
+    if not targetCfg then
+        milestoneLocks_[userId] = nil
+        SendError(connection, SaveProtocol.S2C_EventBossMilestoneResult, "无效的里程碑档位")
+        return
+    end
+
+    -- 3. 槽位锁
+    local currentSlot = Session.connSlots_[connKey]
+    if not Session.AcquireSlotLock(userId, currentSlot) then
+        milestoneLocks_[userId] = nil
+        SendError(connection, SaveProtocol.S2C_EventBossMilestoneResult, "操作中，请稍后")
+        return
+    end
+
+    local function releaseLocks()
+        milestoneLocks_[userId] = nil
+        Session.ReleaseSlotLock(userId, currentSlot)
+    end
+
+    -- 4. 读取存档
+    local eventId = EventConfig.GetEventId()
+    local saveKey = "save_" .. currentSlot
+
+    serverCloud:Get(userId, saveKey, {
+        ok = function(scores)
+            local saveData = scores[saveKey] or {}
+            local backpack = saveData.backpack or {}
+
+            -- 5. 读取 bossKills，计算活动击杀数
+            local bossKills = saveData.bossKills or 0
+
+            -- 6. 读取已领取记录
+            local evtAllData = saveData.event_data or {}
+            local evtData = evtAllData[eventId] or {}
+            local milestoneData = evtData.bossMilestones or {}
+            local claimed = milestoneData.claimed or {}
+
+            -- 活动击杀 = 全局击杀 - 活动开始时快照
+            if milestoneData.baselineKills == nil then
+                milestoneData.baselineKills = bossKills
+            end
+            local eventKills = math.max(0, bossKills - (milestoneData.baselineKills or 0))
+
+            -- 8. 判断是否达标（使用活动击杀数）
+            if eventKills < milestoneTarget then
+                releaseLocks()
+                SendError(connection, SaveProtocol.S2C_EventBossMilestoneResult,
+                    "击杀数不足（需要 " .. milestoneTarget .. "，当前 " .. eventKills .. "）")
+                return
+            end
+
+            -- 9. 判断是否已领取
+            local claimKey = tostring(milestoneTarget)
+            if claimed[claimKey] then
+                releaseLocks()
+                SendError(connection, SaveProtocol.S2C_EventBossMilestoneResult, "已领取过该档位")
+                return
+            end
+
+            -- 10. 发放奖励
+            for _, r in ipairs(targetCfg.reward) do
+                if r.type == "consumable" then
+                    AddToBackpack(backpack, r.id, r.count)
+                elseif r.type == "lingYun" then
+                    saveData.player = saveData.player or {}
+                    saveData.player.lingYun = (saveData.player.lingYun or 0) + r.count
+                end
+            end
+
+            -- 11. 标记已领取
+            claimed[claimKey] = true
+            milestoneData.claimed = claimed
+            evtData.bossMilestones = milestoneData
+            evtAllData[eventId] = evtData
+            saveData.event_data = evtAllData
+
+            -- 12. 持久化
+            saveData.timestamp = os.time()
+            local commit = serverCloud:BatchCommit("event_boss_milestone")
+            commit:ScoreSet(userId, saveKey, saveData)
+            commit:Commit({
+                ok = function()
+                    local reply = VariantMap()
+                    reply["ok"] = Variant(true)
+                    reply["EventId"] = Variant(eventId)
+                    reply["Milestone"] = Variant(milestoneTarget)
+                    reply["BossKills"] = Variant(bossKills)
+                    reply["Claimed"] = Variant(true)
+                    reply["Rewards"] = Variant(cjson.encode(targetCfg.reward))
+                    Session.SafeSend(connection, SaveProtocol.S2C_EventBossMilestoneResult, reply)
+                    releaseLocks()
+                    print("[EventHandler] BossMilestone claimed: target=" .. milestoneTarget
+                        .. " kills=" .. bossKills .. " user=" .. tostring(userId))
+                end,
+                error = function(code, reason)
+                    releaseLocks()
+                    SendError(connection, SaveProtocol.S2C_EventBossMilestoneResult, "领取失败，请重试")
+                    print("[EventHandler] BossMilestone FAILED: " .. tostring(code)
+                        .. " " .. tostring(reason))
+                end,
+            })
+        end,
+        error = function()
+            releaseLocks()
+            SendError(connection, SaveProtocol.S2C_EventBossMilestoneResult, "服务器忙，请稍后")
+        end,
+    })
+end
+
+-- ============================================================================
 -- 断连清理
 -- ============================================================================
 
 function M.OnDisconnect(userId)
     exchangeLocks_[userId] = nil
     fudaiLocks_[userId] = nil
+    milestoneLocks_[userId] = nil
 end
 
 return M

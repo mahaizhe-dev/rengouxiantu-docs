@@ -193,6 +193,10 @@ function CharacterTab1.Build(refreshFn)
     -- ── Card 3: 福缘 ──
     local fortune = player:GetTotalFortune()
     table.insert(sec, StatRow.Create("福缘", tostring(fortune), {255, 215, 0, 255}))
+    local pillFort = player.pillFortune or 0
+    if pillFort > 0 then
+        table.insert(sec, StatRow.Create("  仙界精品粽", "+" .. pillFort, {255, 215, 0, 180}))
+    end
     local guar, ch = player:GetFortuneLingYunBonus()
     local lyText
     if guar > 0 and ch > 0 then
