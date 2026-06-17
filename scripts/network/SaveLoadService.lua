@@ -20,6 +20,7 @@ local RedeemHandler     = require("network.RedeemHandler")
 -- ※ BM-01A 边界冻结：仅 require 以调用 CheckWALOnLogin，不修改该模块
 local BlackMerchantHandler = require("network.BlackMerchantHandler")
 local PetSkillRepair    = require("network.PetSkillRepairService")
+local EventHandler      = require("network.EventHandler")
 local Logger            = require("utils.Logger")
 
 ---@diagnostic disable-next-line: undefined-global
@@ -235,6 +236,10 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
                 -- ── [BM 边界冻结] WAL 补偿检查（异步，不阻塞回包） ──
                 -- ※ 此调用保持原有语义，不修改 BlackMerchantHandler 模块
                 BlackMerchantHandler.CheckWALOnLogin(userId, slot, saveData)
+
+                -- ── [活动里程碑] 一次性初始化/迁移基线（独立权威 key，异步，不阻塞回包） ──
+                -- 在登录加载时确定基线，避免"先打怪后开面板"被清零；幂等，重复登录不覆盖
+                EventHandler.EnsureMilestoneStateOnLoad(userId, slot, saveData)
             end,
             error = function(code, reason)
                 print("[Server] LoadGame ERROR: " .. tostring(code) .. " " .. tostring(reason))

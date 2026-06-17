@@ -64,6 +64,13 @@ local MAX_STACK          = BackpackUtils.MAX_STACK
 local CountEquipmentItem          = BackpackUtils.CountEquipmentItem
 local AddEquipmentToBackpack      = BackpackUtils.AddEquipmentToBackpack
 local RemoveEquipmentFromBackpack = BackpackUtils.RemoveEquipmentFromBackpack
+-- BM-NORESELL: 可回售统计/扣除（黑市卖出专用，永久排除黑市买入来源）
+local CountResellableBackpackItem           = BackpackUtils.CountResellableBackpackItem
+local CountNoResellBackpackItem             = BackpackUtils.CountNoResellBackpackItem
+local RemoveResellableFromBackpack          = BackpackUtils.RemoveResellableFromBackpack
+local CountResellableEquipmentItem          = BackpackUtils.CountResellableEquipmentItem
+local CountNoResellEquipmentItem            = BackpackUtils.CountNoResellEquipmentItem
+local RemoveResellableEquipmentFromBackpack = BackpackUtils.RemoveResellableEquipmentFromBackpack
 
 --- 判断商品是否为装备类
 ---@param itemId string
@@ -73,7 +80,7 @@ local function IsEquipmentItem(itemId)
     return cfg and cfg.itemType == "equipment"
 end
 
---- 统计玩家背包中该商品的持有量（自动区分消耗品/装备）
+--- 统计玩家背包中该商品的总持有量（自动区分消耗品/装备）
 ---@param backpack table
 ---@param itemId string
 ---@return integer
@@ -83,6 +90,32 @@ local function CountItemHeld(backpack, itemId)
         return CountEquipmentItem(backpack, cfg.equipId or itemId)
     else
         return CountBackpackItem(backpack, itemId)
+    end
+end
+
+--- BM-NORESELL: 统计该商品的【可回售】持有量（排除黑市买入来源，自动区分消耗品/装备）
+---@param backpack table
+---@param itemId string
+---@return integer
+local function CountItemResellable(backpack, itemId)
+    if IsEquipmentItem(itemId) then
+        local cfg = BMConfig.ITEMS[itemId]
+        return CountResellableEquipmentItem(backpack, cfg.equipId or itemId)
+    else
+        return CountResellableBackpackItem(backpack, itemId)
+    end
+end
+
+--- BM-NORESELL: 统计该商品的【黑市买入不可回售】持有量（用于日志/拒绝文案，自动区分消耗品/装备）
+---@param backpack table
+---@param itemId string
+---@return integer
+local function CountItemNoResell(backpack, itemId)
+    if IsEquipmentItem(itemId) then
+        local cfg = BMConfig.ITEMS[itemId]
+        return CountNoResellEquipmentItem(backpack, cfg.equipId or itemId)
+    else
+        return CountNoResellBackpackItem(backpack, itemId)
     end
 end
 
@@ -275,11 +308,15 @@ function M._SendQueryResponse(connection, realmOk, playerMoneys, systemMoneys, w
     local items = {}
     for _, id in ipairs(BMConfig.ITEM_IDS) do
         local cfg = BMConfig.ITEMS[id]
+        -- BM-NORESELL: held 改为【可回售数量】（黑市买入来源不计入）
+        -- heldTotal=总持有，heldNoResell=黑市买入不可回售，供 UI 显示"可卖 X / 持有 Y"
         items[id] = {
             stock = systemMoneys[BMConfig.StockKey(id)] or 0,
             buy_price = cfg.buy_price,
             sell_price = cfg.sell_price,
-            held = CountItemHeld(backpack, id),
+            held = CountItemResellable(backpack, id),
+            heldTotal = CountItemHeld(backpack, id),
+            heldNoResell = CountItemNoResell(backpack, id),
         }
     end
     local encOk, itemsJson = pcall(cjson.encode, items)
@@ -420,6 +457,8 @@ function M.HandleBuy(eventType, eventData)
                                     for _ = 1, amount do
                                         local newEquip = LootSystem.CreateSpecialEquipment(cfg.equipId)
                                         if newEquip then
+                                            -- BM-NORESELL: 黑市买入装备 → 写入永久禁回售来源标记
+                                            TradeLock.MarkNoResell(newEquip, cfg.equipId)
                                             AddEquipmentToBackpack(backpack, newEquip)
                                         end
                                     end
@@ -554,6 +593,15 @@ function M.HandleSell(eventType, eventData)
         return
     end
 
+    -- 2.1 BM-NORESELL fail-closed: 未知商品类型默认拒绝出售
+    -- 仅 nil(消耗品) 与 "equipment"(装备) 经过完整的来源标记/可回售校验链路；
+    -- 新增任何 itemType 必须先补齐 来源标记+可回售统计+扣除+测试 后才放行
+    if cfg.itemType ~= nil and cfg.itemType ~= "equipment" then
+        sellActive_[connKey] = nil
+        SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "该商品类型暂不支持出售")
+        return
+    end
+
     -- 2.5 BM-S4A: 卖出前置白名单校验（SellGuard 保留为后备，优先使用锁态检查）
     -- SellGuard 的全拦截已被 BM-S4A 锁机制替代，此处不再调用
     -- 实际的锁态校验在读取存档后进行（见下方 §4.5）
@@ -579,20 +627,30 @@ function M.HandleSell(eventType, eventData)
 
         local backpack = saveData.backpack or {}
         local isEquip = cfg.itemType == "equipment"
-        local held = CountItemHeld(backpack, consumableId)
+        -- BM-NORESELL: 以"可回售数量"为权威校验，黑市买入来源永久不可回售
+        local resellableHeld = CountItemResellable(backpack, consumableId)
+        local noResellHeld = CountItemNoResell(backpack, consumableId)
 
-        -- BM-S4C: 服务端整类禁售 — 消耗品存在任意锁堆则整类拒绝卖出
+        -- BM-S4C: 服务端整类禁售 — 消耗品存在任意锁堆则整类拒绝卖出（保护期体验，保留）
         if not isEquip and BackpackUtils.HasAnyLockedItem(backpack, consumableId) then
             sellActive_[connKey] = nil
             SendError(connection, SaveProtocol.S2C_BlackMerchantResult,
-                "该商品处于黑市交易保护期，请稍后再试")
+                TradeLock.LOCK_MESSAGE)
             return
         end
 
-        -- 持有量校验（装备不参与锁机制，消耗品已过锁门，用总持有量判断即可）
-        if held < amount then
+        -- BM-NORESELL: 可回售数量不足则拒绝（区分"黑市购入不可回售" vs "持有量不足"）
+        if resellableHeld < amount then
             sellActive_[connKey] = nil
-            SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "持有量不足")
+            if noResellHeld > 0 then
+                print("[BlackMerchant][Sell] REJECT no-resell: userId=" .. tostring(userId)
+                    .. " id=" .. consumableId .. " resellable=" .. resellableHeld
+                    .. " noResell=" .. noResellHeld .. " want=" .. tostring(amount))
+                SendError(connection, SaveProtocol.S2C_BlackMerchantResult,
+                    TradeLock.NO_RESELL_MESSAGE)
+            else
+                SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "持有量不足")
+            end
             return
         end
 
@@ -608,11 +666,12 @@ function M.HandleSell(eventType, eventData)
                     return
                 end
 
-                -- 6. 从 backpack 扣除物品并写回存档（装备按 equipId 移除，不论附魔/洗练）
+                -- 6. BM-NORESELL: 只扣除【可回售】物品，永不扣黑市买入来源
+                -- （装备按 equipId 移除，不论附魔/洗练；黑市买入来源 bmNoResell=true 被跳过）
                 if isEquip then
-                    RemoveEquipmentFromBackpack(backpack, cfg.equipId or consumableId, amount)
+                    RemoveResellableEquipmentFromBackpack(backpack, cfg.equipId or consumableId, amount)
                 else
-                    RemoveFromBackpack(backpack, consumableId, amount)
+                    RemoveResellableFromBackpack(backpack, consumableId, amount)
                 end
                 saveData.backpack = backpack
 
@@ -634,7 +693,7 @@ function M.HandleSell(eventType, eventData)
                                         sellActive_[connKey] = nil
                                         local newXianshi = playerMoneys.xianshi or 0
                                         local newStock = stock + amount
-                                        local newHeld = held - amount
+                                        local newHeld = resellableHeld - amount
 
                                         TradeLogger.LogPublic(charName, "sell", consumableId,
                                             amount, cfg.buy_price, newXianshi)
@@ -659,7 +718,7 @@ function M.HandleSell(eventType, eventData)
                                     error = function(code, reason)
                                         sellActive_[connKey] = nil
                                         -- 存档已扣、仙石已加，但读余额失败，用估算值
-                                        local newHeld = held - amount
+                                        local newHeld = resellableHeld - amount
 
                                         TradeLogger.LogPublic(charName, "sell", consumableId,
                                             amount, cfg.buy_price, total)

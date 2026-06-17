@@ -69,6 +69,9 @@ function M.UpdatePityCount(boxType, count)
     _lastLoadedEventData[eventId].pity[boxType] = count
 end
 
+-- 注：BOSS 里程碑（baseline/claimed）已迁移为服务端独立权威 key（evt_ms_<eventId>_<slot>），
+-- 不再经客户端 event_data 回写，故移除旧的 UpdateMilestoneCache 客户端缓存逻辑。
+
 --- 重置状态（切换角色 / 退出登录时调用）
 function M.Reset()
     exchangedData_ = {}
@@ -121,7 +124,17 @@ function M.Serialize()
     if _lastLoadedEventData then
         result = {}
         for k, v in pairs(_lastLoadedEventData) do
-            result[k] = v
+            -- 剔除 bossMilestones：里程碑已由服务端独立权威 key 管理，
+            -- 客户端不得回写（否则旧字段会污染 save_{slot}.event_data）
+            if type(v) == "table" and v.bossMilestones ~= nil then
+                local copy = {}
+                for ek, ev in pairs(v) do
+                    if ek ~= "bossMilestones" then copy[ek] = ev end
+                end
+                result[k] = copy
+            else
+                result[k] = v
+            end
         end
     end
 

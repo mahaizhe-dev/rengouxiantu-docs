@@ -431,9 +431,10 @@ local function SwitchTab(tabKey)
     elseif tabKey == "fudai" then
         SendToServer(SaveProtocol.C2S_EventGetPullRecords)
     elseif tabKey == "milestone" then
-        local SavePersistence = require("systems.save.SavePersistence")
-        SavePersistence.Save()
-        SendToServer(SaveProtocol.C2S_EventQueryBossMilestones)
+        -- 查询完全基于服务端权威基线 + 客户端实时击杀，无需先存档（消除异步竞态）
+        SendToServer(SaveProtocol.C2S_EventQueryBossMilestones, {
+            [SaveProtocol.MS_F_ClientBossKills] = GameState.bossKills or 0,
+        })
     end
 end
 
@@ -570,10 +571,10 @@ function EventExchangeUI.Show(npc)
     visible_ = true
 
     RebuildContent()
-    -- 初始加载：任务页默认先保存再查询里程碑
-    local SavePersistence = require("systems.save.SavePersistence")
-    SavePersistence.Save()
-    SendToServer(SaveProtocol.C2S_EventQueryBossMilestones)
+    -- 初始加载：查询里程碑（服务端权威基线 + 客户端实时击杀，无需先存档）
+    SendToServer(SaveProtocol.C2S_EventQueryBossMilestones, {
+        [SaveProtocol.MS_F_ClientBossKills] = GameState.bossKills or 0,
+    })
 
     print("[EventExchangeUI] Show")
 end
@@ -870,9 +871,9 @@ end
 function EventExchangeUI.HandleMilestonesData(eventType, eventData)
     local ok = eventData["ok"]:GetBool()
     if ok then
-        milestoneBossKills_ = eventData["BossKills"]:GetInt()
-        milestoneEventId_ = eventData["EventId"]:GetString()
-        local claimedJson = eventData["Claimed"]:GetString()
+        milestoneBossKills_ = eventData[SaveProtocol.MS_F_BossKills]:GetInt()
+        milestoneEventId_ = eventData[SaveProtocol.MS_F_EventId]:GetString()
+        local claimedJson = eventData[SaveProtocol.MS_F_Claimed]:GetString()
         milestoneClaimed_ = cjson.decode(claimedJson) or {}
         print("[EventExchangeUI] MilestonesData: kills=" .. milestoneBossKills_ .. " claimed=" .. claimedJson)
     else
@@ -890,11 +891,12 @@ function EventExchangeUI.HandleMilestoneResult(eventType, eventData)
     pendingRequest_ = false
     local ok = eventData["ok"]:GetBool()
     if ok then
-        local target = eventData["Target"]:GetInt()
+        -- 统一字段名：服务端回包使用 Milestone（历史上误用 Target 导致 claimKey 永远为 "0"）
+        local target = eventData[SaveProtocol.MS_F_Milestone]:GetInt()
         local claimKey = tostring(target)
         milestoneClaimed_[claimKey] = true
 
-        local rewardsJson = eventData["Rewards"] and eventData["Rewards"]:GetString() or "[]"
+        local rewardsJson = eventData[SaveProtocol.MS_F_Rewards] and eventData[SaveProtocol.MS_F_Rewards]:GetString() or "[]"
         local rewards = cjson.decode(rewardsJson) or {}
         for _, rw in ipairs(rewards) do
             if rw.id and rw.count then
@@ -904,9 +906,7 @@ function EventExchangeUI.HandleMilestoneResult(eventType, eventData)
 
         SetStatus("领取成功！", 3)
         print("[EventExchangeUI] MilestoneClaimed: target=" .. target)
-
-        local SavePersistence = require("systems.save.SavePersistence")
-        SavePersistence.Save()
+        -- 里程碑已领取状态由服务端独立 key 权威存储，客户端无需回写存档
     else
         local reason = eventData["reason"] and eventData["reason"]:GetString() or "领取失败"
         SetStatus(reason, 3)

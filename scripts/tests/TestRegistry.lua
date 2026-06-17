@@ -420,6 +420,21 @@ TestRegistry.tests = {
     },
 
     ---------------------------------------------------------------------------
+    -- BM-NORESELL: 黑市买入永久禁回售（阶段1 线A）
+    -- 纯函数测试，本地构造 backpack，不碰全局单例；全量遍历 ITEM_IDS
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "bm_noresell",
+        group         = "system",
+        path          = "scripts/tests/test_bm_noresell.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
     -- engine_required: 依赖引擎运行时，第一版标记 skip
     ---------------------------------------------------------------------------
 
@@ -431,7 +446,7 @@ TestRegistry.tests = {
         entry         = "tests.test_event_system",
         enabled       = true,
         gate          = "non_blocking",
-        note          = "GM命令'活动自测'触发; 依赖: config.EventConfig, systems.EventSystem, systems.LootSystem",
+        note          = "GM命令'活动自测'触发; 依赖: config.EventConfig, systems.EventSystem, systems.LootSystem, systems.MilestoneLogic; 覆盖里程碑协议一致性/计数/基线迁移/领取(T17-T23)",
     },
 
     {

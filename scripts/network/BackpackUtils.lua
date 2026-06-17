@@ -48,8 +48,8 @@ function BackpackUtils.AddToBackpack(backpack, consumableId, amount, itemName)
         local key = tostring(i)
         local item = backpack[key]
         if item and item.category == "consumable" and item.consumableId == consumableId then
-            -- BM-S4A: 锁定堆叠不接受新的未锁定物品合并
-            if not TradeLock.IsLockedServerSide(item) then
+            -- BM-S4A/BM-NORESELL: 跳过锁定堆叠 + 黑市买入来源堆叠（防普通物品并入被洗白）
+            if not TradeLock.IsLockedServerSide(item) and not TradeLock.IsNoResell(item) then
                 local cur = item.count or 1
                 if cur < BackpackUtils.MAX_STACK then
                     local space = BackpackUtils.MAX_STACK - cur
@@ -133,6 +133,72 @@ function BackpackUtils.CountUnlockedItem(backpack, consumableId)
     return total
 end
 
+--- BM-NORESELL: 统计指定消耗品的【可回售】数量（排除黑市买入来源）
+--- 黑市卖出只能扣可回售数量，黑市买入来源永久不计入
+---@param backpack table|nil
+---@param consumableId string
+---@return integer resellable 可回售总数量（bmNoResell ~= true）
+function BackpackUtils.CountResellableBackpackItem(backpack, consumableId)
+    if not backpack then return 0 end
+    local total = 0
+    for _, item in pairs(backpack) do
+        if type(item) == "table"
+            and item.category == "consumable"
+            and item.consumableId == consumableId
+            and not TradeLock.IsNoResell(item) then
+            total = total + (item.count or 1)
+        end
+    end
+    return total
+end
+
+--- BM-NORESELL: 统计指定消耗品的【黑市买入不可回售】数量（仅用于日志/UI 文案）
+---@param backpack table|nil
+---@param consumableId string
+---@return integer noResell 不可回售总数量（bmNoResell == true）
+function BackpackUtils.CountNoResellBackpackItem(backpack, consumableId)
+    if not backpack then return 0 end
+    local total = 0
+    for _, item in pairs(backpack) do
+        if type(item) == "table"
+            and item.category == "consumable"
+            and item.consumableId == consumableId
+            and TradeLock.IsNoResell(item) then
+            total = total + (item.count or 1)
+        end
+    end
+    return total
+end
+
+--- BM-NORESELL: 从存档 backpack 中扣除【可回售】消耗品（永不扣黑市买入来源）
+--- 黑市卖出专用扣除函数，替代会误扣黑市来源的 RemoveFromBackpack
+---@param backpack table
+---@param consumableId string
+---@param amount integer
+---@return integer remaining 未能扣除的剩余数量（0 = 全部扣除）
+function BackpackUtils.RemoveResellableFromBackpack(backpack, consumableId, amount)
+    local remaining = amount
+    for i = 1, BackpackUtils.MAX_BACKPACK_SLOTS do
+        if remaining <= 0 then break end
+        local key = tostring(i)
+        local item = backpack[key]
+        if item and item.category == "consumable" and item.consumableId == consumableId then
+            -- BM-NORESELL: 永不扣除黑市买入来源（永久禁回售硬边界）
+            if not TradeLock.IsNoResell(item) then
+                local cur = item.count or 1
+                if cur <= remaining then
+                    backpack[key] = nil
+                    remaining = remaining - cur
+                else
+                    item.count = cur - remaining
+                    remaining = 0
+                end
+            end
+        end
+    end
+    return remaining
+end
+
 --- BM-S4C: 判断指定消耗品是否存在任何锁定堆叠（服务端整类禁售判定）
 --- 只要有一个堆叠被锁，整个 consumableId 禁止卖出
 ---@param backpack table|nil
@@ -169,7 +235,7 @@ function BackpackUtils.AddLockedNewStack(backpack, consumableId, amount, itemNam
             local key = tostring(i)
             if not backpack[key] then
                 local addCount = remaining > BackpackUtils.MAX_STACK and BackpackUtils.MAX_STACK or remaining
-                backpack[key] = {
+                local newStack = {
                     category = "consumable",
                     consumableId = consumableId,
                     count = addCount,
@@ -178,6 +244,9 @@ function BackpackUtils.AddLockedNewStack(backpack, consumableId, amount, itemNam
                     bmLockSource = TradeLock.SOURCE_BLACK_MARKET,
                     bmLockBatchId = batchId,
                 }
+                -- BM-NORESELL: 黑市买入 → 写入永久禁回售来源标记（落盘，永不清除）
+                TradeLock.MarkNoResell(newStack, consumableId)
+                backpack[key] = newStack
                 remaining = remaining - addCount
                 placed = true
                 break
@@ -242,6 +311,65 @@ function BackpackUtils.RemoveEquipmentFromBackpack(backpack, equipId, amount)
         if item and type(item) == "table"
             and item.category ~= "consumable"
             and item.equipId == equipId then
+            backpack[key] = nil
+            remaining = remaining - 1
+        end
+    end
+    return remaining
+end
+
+--- BM-NORESELL: 统计指定装备的【可回售】数量（排除黑市买入来源）
+---@param backpack table|nil
+---@param equipId string
+---@return integer resellable 可回售件数（bmNoResell ~= true）
+function BackpackUtils.CountResellableEquipmentItem(backpack, equipId)
+    if not backpack then return 0 end
+    local total = 0
+    for _, item in pairs(backpack) do
+        if type(item) == "table"
+            and item.category ~= "consumable"
+            and item.equipId == equipId
+            and not TradeLock.IsNoResell(item) then
+            total = total + 1
+        end
+    end
+    return total
+end
+
+--- BM-NORESELL: 统计指定装备的【黑市买入不可回售】件数（仅用于日志/UI 文案）
+---@param backpack table|nil
+---@param equipId string
+---@return integer noResell 不可回售件数（bmNoResell == true）
+function BackpackUtils.CountNoResellEquipmentItem(backpack, equipId)
+    if not backpack then return 0 end
+    local total = 0
+    for _, item in pairs(backpack) do
+        if type(item) == "table"
+            and item.category ~= "consumable"
+            and item.equipId == equipId
+            and TradeLock.IsNoResell(item) then
+            total = total + 1
+        end
+    end
+    return total
+end
+
+--- BM-NORESELL: 从存档 backpack 中移除【可回售】装备（永不移除黑市买入来源）
+--- 黑市卖出装备专用扣除函数，替代会误扣黑市来源的 RemoveEquipmentFromBackpack
+---@param backpack table
+---@param equipId string
+---@param amount integer
+---@return integer remaining 未能移除的剩余数量（0 = 全部移除）
+function BackpackUtils.RemoveResellableEquipmentFromBackpack(backpack, equipId, amount)
+    local remaining = amount
+    for i = 1, BackpackUtils.MAX_BACKPACK_SLOTS do
+        if remaining <= 0 then break end
+        local key = tostring(i)
+        local item = backpack[key]
+        if item and type(item) == "table"
+            and item.category ~= "consumable"
+            and item.equipId == equipId
+            and not TradeLock.IsNoResell(item) then
             backpack[key] = nil
             remaining = remaining - 1
         end

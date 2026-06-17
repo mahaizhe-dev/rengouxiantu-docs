@@ -18,9 +18,14 @@
 -- 14. NewPullRecords 合并与竞态防护验证
 -- 15. 皮肤重复补偿路径验证（dupe skin → dupLingYun 补偿）
 -- 16. 保底 Pity 系统配置与 UpdatePityCount 验证
--- 17. bossMilestones 10 档配置存在性
--- 18. premiumZongDropRates 第三段掉落配置存在
--- 19. 皮肤商店配置包含 pet_premium_wuxing
+-- 1B. bossMilestones 10 档配置 / premiumZongDropRates / 皮肤商店 pet_premium_wuxing
+-- 17. 里程碑协议字段一致性（防 Target/Milestone 错位回归）
+-- 18. 活动击杀数计算（竞态 max + 先打怪后开面板不清零）
+-- 19. 基线初始化与迁移（登录建基线 / 老玩家 claimed 迁移）
+-- 20. 领取校验（达标/未达标/重复领取一次性）
+-- 21. 全 10 档逐档达成可领
+-- 22. 普通存档不再污染里程碑（Serialize 剔除 bossMilestones）
+-- 23. 异常回包字段防护
 
 local M = {}
 
@@ -664,6 +669,153 @@ function M.RunAll()
         local curAt, _ = EventSystem.GetPityProgress("big")
         assert_eq("T16.14 pity at threshold", curAt, pityCfg.big.threshold)
     end
+
+    -- ========================================================================
+    -- T17: 里程碑协议字段一致性（防止 Target/Milestone 错位回归）
+    -- 模拟"前端构建请求 → 后端读取 → 后端构建回包 → 前端读取"全链路，
+    -- 用普通 Lua 表模拟 VariantMap，锁定字段名单一数据源（SaveProtocol.MS_F_*）。
+    -- ========================================================================
+    local SaveProtocol = require("network.SaveProtocol")
+    table.insert(dropLog, "  ── T17 里程碑协议字段一致性 ──")
+
+    assert_true("T17.1 MS_F_Milestone defined", SaveProtocol.MS_F_Milestone ~= nil)
+    assert_true("T17.2 MS_F_ClientBossKills defined", SaveProtocol.MS_F_ClientBossKills ~= nil)
+    assert_true("T17.3 MS_F_BossKills defined", SaveProtocol.MS_F_BossKills ~= nil)
+    assert_true("T17.4 MS_F_Claimed defined", SaveProtocol.MS_F_Claimed ~= nil)
+    assert_true("T17.5 MS_F_Rewards defined", SaveProtocol.MS_F_Rewards ~= nil)
+    assert_true("T17.6 MS_F_EventId defined", SaveProtocol.MS_F_EventId ~= nil)
+
+    -- 领取请求往返：前端写 MS_F_Milestone → 后端用同一常量读
+    local claimReq = {}
+    claimReq[SaveProtocol.MS_F_Milestone] = 300
+    claimReq[SaveProtocol.MS_F_ClientBossKills] = 350
+    assert_eq("T17.7 server reads Milestone target", claimReq[SaveProtocol.MS_F_Milestone], 300)
+    assert_eq("T17.8 server reads ClientBossKills", claimReq[SaveProtocol.MS_F_ClientBossKills], 350)
+
+    -- 领取回包往返：后端写 MS_F_Milestone → 前端用同一常量读（历史 bug：前端读 Target → 永远 0）
+    local claimReply = {}
+    claimReply[SaveProtocol.MS_F_Milestone] = 300
+    claimReply[SaveProtocol.MS_F_BossKills] = 50   -- 活动击杀数，非全局
+    local frontTarget = claimReply[SaveProtocol.MS_F_Milestone]
+    assert_eq("T17.9 front reads claim reply Milestone (not 0)", frontTarget, 300)
+    assert_true("T17.10 claim reply BossKills is eventKills not nil", claimReply[SaveProtocol.MS_F_BossKills] ~= nil)
+
+    -- ========================================================================
+    -- T18: 活动击杀数计算（竞态 + 先打怪后开面板）
+    -- ========================================================================
+    local MilestoneLogic = require("systems.MilestoneLogic")
+    table.insert(dropLog, "  ── T18 活动击杀数计算 ──")
+
+    -- 竞态：存档值落后(旧)，客户端实时值领先 → 取较大值
+    assert_eq("T18.1 race: max(saved,client)", MilestoneLogic.ResolveCurrentKills(100, 150), 150)
+    assert_eq("T18.2 race: saved newer", MilestoneLogic.ResolveCurrentKills(200, 150), 200)
+    assert_eq("T18.3 nil safe", MilestoneLogic.ResolveCurrentKills(nil, nil), 0)
+
+    -- 先打怪后开面板：登录建基线1000，打300后开面板 → eventKills=300（核心修复点）
+    local baseAtLogin = 1000
+    local afterKills = 1300
+    assert_eq("T18.4 kill-then-open shows 300 (not 0)",
+        MilestoneLogic.ComputeEventKills(afterKills, baseAtLogin), 300)
+    -- 立即开面板（刚打完）：竞态下用客户端实时值，仍正确
+    local current = MilestoneLogic.ResolveCurrentKills(1000 --[[存档未刷新]], 1300 --[[客户端实时]])
+    assert_eq("T18.5 immediate open uses client realtime", MilestoneLogic.ComputeEventKills(current, baseAtLogin), 300)
+    -- 非负保护
+    assert_eq("T18.6 eventKills non-negative", MilestoneLogic.ComputeEventKills(500, 1000), 0)
+
+    -- ========================================================================
+    -- T19: 基线初始化与迁移（禁止首次查询建基线 → 改为登录建基线）
+    -- ========================================================================
+    table.insert(dropLog, "  ── T19 基线初始化与迁移 ──")
+
+    -- 新角色（无旧 bossMilestones）：以登录时 bossKills 为基线
+    local fresh = MilestoneLogic.BuildInitialState(nil, 800)
+    assert_eq("T19.1 fresh baseline = login bossKills", fresh.baseline, 800)
+    assert_eq("T19.2 fresh claimed empty", MilestoneLogic.CountClaimed(fresh.claimed), 0)
+    assert_eq("T19.3 fresh not migrated", fresh.migrated, false)
+
+    -- 受影响老玩家（有旧 baselineKills + claimed）：迁移保留，防止重复领取
+    local legacy = { baselineKills = 1200, claimed = { ["300"] = true, ["600"] = true } }
+    local migrated = MilestoneLogic.BuildInitialState(legacy, 5000)
+    assert_eq("T19.4 migrated baseline preserved", migrated.baseline, 1200)
+    assert_eq("T19.5 migrated claimed preserved count", MilestoneLogic.CountClaimed(migrated.claimed), 2)
+    assert_true("T19.6 migrated 300 claimed kept", migrated.claimed["300"] == true)
+    assert_eq("T19.7 migrated flag true", migrated.migrated, true)
+
+    -- ========================================================================
+    -- T20: 领取校验（达标 / 未达标 / 重复领取一次性）
+    -- ========================================================================
+    table.insert(dropLog, "  ── T20 领取校验 ──")
+
+    local claimedState = {}
+    -- 未达标
+    local ok20a, reason20a = MilestoneLogic.CheckClaim(250, 300, claimedState)
+    assert_true("T20.1 below target rejected", not ok20a)
+    assert_true("T20.2 below target reason", reason20a ~= nil and reason20a:find("不足") ~= nil)
+    -- 达标可领
+    local ok20b = MilestoneLogic.CheckClaim(300, 300, claimedState)
+    assert_true("T20.3 at target claimable", ok20b)
+    local ok20c = MilestoneLogic.CheckClaim(900, 300, claimedState)
+    assert_true("T20.4 over target claimable", ok20c)
+    -- 标记后重复领取被拒（一次性）
+    claimedState["300"] = true
+    local ok20d, reason20d = MilestoneLogic.CheckClaim(900, 300, claimedState)
+    assert_true("T20.5 duplicate claim rejected", not ok20d)
+    assert_true("T20.6 duplicate reason", reason20d ~= nil and reason20d:find("已领取") ~= nil)
+
+    -- ========================================================================
+    -- T21: 全 10 档逐档达成可领（300/600/.../3000）
+    -- ========================================================================
+    table.insert(dropLog, "  ── T21 全档位达成校验 ──")
+    local msCfg = ev.bossMilestones
+    local claimedAll = {}
+    local allDachieved = true
+    for _, m in ipairs(msCfg) do
+        -- 模拟刚好达到该档击杀数
+        local okT = MilestoneLogic.CheckClaim(m.target, m.target, claimedAll)
+        if not okT then allDachieved = false end
+        claimedAll[tostring(m.target)] = true
+        -- 领取后重复领取应被拒
+        local okDup = MilestoneLogic.CheckClaim(3000, m.target, claimedAll)
+        if okDup then allDachieved = false end
+    end
+    assert_true("T21.1 all 10 tiers claimable once each", allDachieved)
+    assert_eq("T21.2 all tiers marked claimed", MilestoneLogic.CountClaimed(claimedAll), #msCfg)
+
+    -- ========================================================================
+    -- T22: 普通存档不再污染里程碑（Serialize 剔除 bossMilestones）
+    -- 模拟云端加载的 event_data 含 bossMilestones（老存档残留），
+    -- Serialize 后不应再包含 bossMilestones。
+    -- ========================================================================
+    table.insert(dropLog, "  ── T22 存档剔除 bossMilestones ──")
+    local evId = EventConfig.GetEventId()
+    EventSystem.Reset()
+    EventSystem.Deserialize({
+        [evId] = {
+            exchanged = {},
+            pity = { small = 5 },
+            bossMilestones = { baselineKills = 1200, claimed = { ["300"] = true } },
+        },
+    })
+    local serialized = EventSystem.Serialize()
+    assert_true("T22.1 serialize result not nil", serialized ~= nil)
+    if serialized and serialized[evId] then
+        assert_true("T22.2 bossMilestones stripped from save", serialized[evId].bossMilestones == nil)
+        assert_true("T22.3 pity preserved (server field)", serialized[evId].pity ~= nil)
+    end
+    EventSystem.Reset()
+
+    -- ========================================================================
+    -- T23: 异常回包防护（前端读到错误/缺失字段不应崩溃，应判失败）
+    -- ========================================================================
+    table.insert(dropLog, "  ── T23 异常回包防护 ──")
+    -- 模拟旧错位回包：只有 Target 没有 Milestone → 用 MS_F_Milestone 读取得 nil
+    local badReply = { Target = 300 }  -- 历史错误字段
+    assert_true("T23.1 wrong field (Target) not read by Milestone key",
+        badReply[SaveProtocol.MS_F_Milestone] == nil)
+    -- 正确回包能读到
+    local goodReply = {}
+    goodReply[SaveProtocol.MS_F_Milestone] = 600
+    assert_eq("T23.2 correct field readable", goodReply[SaveProtocol.MS_F_Milestone], 600)
 
     -- ========================================================================
     -- 清理 & 输出

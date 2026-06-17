@@ -111,17 +111,18 @@ local function BuildBoxSection(boxType)
         },
     })
 
-    -- 大奖概率提示
+    -- 大奖概率提示（展示掉率最低的 legendary 物品）
     do
         local jackpotName, jackpotProb
         if pool then
             local totalWeight = 0
             for _, entry in ipairs(pool) do totalWeight = totalWeight + entry.weight end
+            local minWeight = math.huge
             for _, entry in ipairs(pool) do
-                if entry.rarity == "legendary" then
+                if entry.rarity == "legendary" and entry.weight < minWeight then
+                    minWeight = entry.weight
                     jackpotName = entry.name
                     jackpotProb = string.format("%.1f%%", entry.weight / totalWeight * 100)
-                    break
                 end
             end
         end

@@ -27,9 +27,10 @@ function M.AddConsumable(IS, consumableId, amount)
     for i = 1, GameConfig.BACKPACK_SIZE do
         local item = manager_:GetInventoryItem(i)
         if item and item.category == "consumable" and item.consumableId == consumableId then
-            -- BM-S4A: 锁定堆叠不接受新的未锁定物品合并
-            if TradeLock.IsLocked(item) then
-                -- skip locked stack
+            -- BM-S4A/BM-NORESELL: 锁定堆叠 / 黑市买入来源堆叠不接受普通物品合并
+            -- （AddConsumable 仅用于普通入库；黑市买入走 AddConsumableLockedNewStack）
+            if TradeLock.IsLocked(item) or TradeLock.IsNoResell(item) then
+                -- skip locked / no-resell stack
             else
                 local cur = item.count or 1
                 if cur < MAX_STACK then
@@ -146,6 +147,8 @@ function M.AddConsumableLockedNewStack(IS, consumableId, amount, batchId, durati
             bmLockSource = TradeLock.SOURCE_BLACK_MARKET,
             bmLockBatchId = batchId,
         }
+        -- BM-NORESELL: 黑市买入 → 永久禁回售来源标记（客户端本地与服务端存档保持一致）
+        TradeLock.MarkNoResell(item, consumableId)
         local success, idx = manager_:AddToInventory(item)
         if success then
             EventBus.Emit("inventory_item_added", item, idx)

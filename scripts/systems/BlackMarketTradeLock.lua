@@ -31,6 +31,12 @@ M.SOURCE_BLACK_MARKET = "black_market"
 --- 保护期内统一提示文案
 M.LOCK_MESSAGE = "该商品处于黑市交易保护期，请稍后再试"
 
+--- BM-NORESELL: 永久禁回售来源标识（黑市买入物专用，永不可卖回黑市）
+M.NO_RESELL_SOURCE = "black_market_buy"
+
+--- 黑市购入不可回售统一提示文案
+M.NO_RESELL_MESSAGE = "黑市购入商品不能回售"
+
 -- ============================================================================
 -- 锁状态判定
 -- ============================================================================
@@ -147,6 +153,36 @@ function M.ClearAllOnSaveSuccess(getItemFn, maxSlots)
         print("[BlackMarketTradeLock] Save success → cleared " .. cleared .. " lock(s)")
     end
     return cleared
+end
+
+-- ============================================================================
+-- 永久禁回售来源标记（BM-NORESELL）
+--
+-- 与临时锁（bmLock*）完全独立：
+--   - 临时锁 5 分钟过期、存档成功即清除，仅作 UI 保护期体验
+--   - 永久来源标记 bmNoResell 落盘、永不清除，是"黑市买入物不可回售"的硬边界
+-- 字段为一组语义整体（rules §3.4），写入/读取必须成组：
+--   bmNoResell / bmSource / bmBuyAt / bmBuyItemId
+-- ============================================================================
+
+--- 为物品写入永久"黑市买入来源"标记（原地修改，两端通用）
+--- 旧存档/普通来源物品无此标记 → 默认可回售
+---@param item table 物品对象（消耗品堆叠或装备对象）
+---@param buyItemId string|nil 黑市商品 ID（装备可存 equipId，用于审计）
+function M.MarkNoResell(item, buyItemId)
+    if not item then return end
+    item.bmNoResell  = true
+    item.bmSource    = M.NO_RESELL_SOURCE
+    item.bmBuyAt     = os.time()
+    item.bmBuyItemId = buyItemId
+end
+
+--- 判断物品是否为永久禁回售来源（黑市买入）
+--- 内存物品与存档物品字段一致，故两端通用
+---@param item table|nil
+---@return boolean
+function M.IsNoResell(item)
+    return item ~= nil and item.bmNoResell == true
 end
 
 -- ============================================================================

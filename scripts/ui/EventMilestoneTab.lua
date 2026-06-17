@@ -8,6 +8,7 @@
 local UI = require("urhox-libs/UI")
 local T = require("config.UITheme")
 local GameConfig = require("config.GameConfig")
+local GameState = require("core.GameState")
 local EventConfig = require("config.EventConfig")
 local SaveProtocol = require("network.SaveProtocol")
 
@@ -160,10 +161,10 @@ function M.Build(parent, buildOpts)
                     if opts_.getState().pendingRequest then return end
                     opts_.getState().pendingRequest = true
                     self:SetDisabled(true)
-                    local SavePersistence = require("systems.save.SavePersistence")
-                    SavePersistence.Save()
+                    -- 领取完全基于服务端权威基线 + 客户端实时击杀，无需先存档（消除异步竞态）
                     local sent = opts_.sendToServer(SaveProtocol.C2S_EventClaimBossMilestone, {
-                        Target = target,
+                        [SaveProtocol.MS_F_Milestone] = target,
+                        [SaveProtocol.MS_F_ClientBossKills] = GameState.bossKills or 0,
                     })
                     if not sent then
                         opts_.getState().pendingRequest = false

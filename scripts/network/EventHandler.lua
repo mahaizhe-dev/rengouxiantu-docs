@@ -16,6 +16,7 @@ local SaveProtocol = require("network.SaveProtocol")
 local EventConfig = require("config.EventConfig")
 local EventSystem = require("systems.EventSystem")
 local BackpackUtils = require("network.BackpackUtils")
+local MilestoneLogic = require("systems.MilestoneLogic")
 
 local cjson = cjson ---@diagnostic disable-line: undefined-global
 
@@ -923,6 +924,61 @@ function M.HandleGetPullRecords(eventType, eventData)
 end
 
 -- ============================================================================
+-- 里程碑独立权威存储（独立 key，不再嵌套在 save_{slot}.event_data 下，
+-- 因此普通存档整包写入无法覆盖/重置里程碑状态）
+-- key 结构：evt_ms_<eventId>_<slot>，值 = { baseline, claimed }
+-- ============================================================================
+
+local function MilestoneKey(eventId, slot)
+    return "evt_ms_" .. eventId .. "_" .. slot
+end
+
+-- ============================================================================
+-- EnsureMilestoneStateOnLoad — 角色登录加载时一次性初始化里程碑基线
+-- 由 SaveLoadService.Execute 在读到 saveData 后调用。
+-- 禁止在查询/领取时初始化基线（避免"先打怪后开面板"被清零）。
+-- 幂等：独立 key 已存在则不覆盖；不存在则迁移旧 event_data 或以登录 bossKills 建基线。
+-- ============================================================================
+---@param userId integer
+---@param slot integer|string
+---@param saveData table  已加载存档（读取 bossKills 与迁移旧 bossMilestones）
+function M.EnsureMilestoneStateOnLoad(userId, slot, saveData)
+    if not EventConfig.IsActive() then return end
+    if not userId or not slot then return end
+    local eventId = EventConfig.GetEventId()
+    if not eventId then return end
+    local msKey = MilestoneKey(eventId, slot)
+
+    serverCloud:Get(userId, msKey, {
+        ok = function(scores)
+            local existing = scores[msKey]
+            if existing and type(existing) == "table" and existing.baseline ~= nil then
+                return  -- 已初始化/已迁移，幂等返回
+            end
+
+            -- 迁移旧 save_{slot}.event_data[eventId].bossMilestones，或以登录时 bossKills 建基线
+            local legacy = saveData and saveData.event_data
+                and saveData.event_data[eventId]
+                and saveData.event_data[eventId].bossMilestones
+            local state = MilestoneLogic.BuildInitialState(legacy, saveData and saveData.bossKills)
+
+            local commit = serverCloud:BatchCommit("event_milestone_init")
+            commit:ScoreSet(userId, msKey, { baseline = state.baseline, claimed = state.claimed })
+            commit:Commit({})
+
+            print("[EventHandler] Milestone " .. (state.migrated and "MIGRATED" or "INIT")
+                .. " baseline=" .. state.baseline
+                .. " claimedN=" .. MilestoneLogic.CountClaimed(state.claimed)
+                .. " user=" .. tostring(userId) .. " slot=" .. tostring(slot))
+        end,
+        error = function(code, reason)
+            print("[EventHandler] Milestone init GET ERROR: code=" .. tostring(code)
+                .. " reason=" .. tostring(reason) .. " user=" .. tostring(userId))
+        end,
+    })
+end
+
+-- ============================================================================
 -- HandleQueryBossMilestones — 查询 BOSS 里程碑状态
 -- 设计文档：docs/端午世界掉落活动（代码执行文档）.md §7
 -- ============================================================================
@@ -936,49 +992,49 @@ function M.HandleQueryBossMilestones(eventType, eventData)
     local currentSlot = Session.connSlots_[connKey]
     if not currentSlot then return end
 
+    -- 客户端附带的实时 bossKills（活动击杀以客户端实时值为准，消除存档写入竞态）
+    local clientBossKills = 0
+    pcall(function() clientBossKills = eventData[SaveProtocol.MS_F_ClientBossKills]:GetInt() end)
+
     local eventId = EventConfig.GetEventId()
     local saveKey = "save_" .. currentSlot
+    local msKey = MilestoneKey(eventId, currentSlot)
 
-    serverCloud:Get(userId, saveKey, {
-        ok = function(scores)
-            local saveData = scores[saveKey] or {}
-            local bossKills = saveData.bossKills or 0
-            local evtAllData = saveData.event_data or {}
-            local evtData = evtAllData[eventId] or {}
-            local milestoneData = evtData.bossMilestones or {}
-            local claimed = milestoneData.claimed or {}
+    -- 同时读取主存档（取 savedBossKills）与独立里程碑 key（取 baseline/claimed）
+    serverCloud:BatchGet(userId)
+        :Key(saveKey)
+        :Key(msKey)
+        :Fetch({
+            ok = function(scores)
+                local saveData = scores[saveKey] or {}
+                local msData = scores[msKey]
+                local currentKills = MilestoneLogic.ResolveCurrentKills(saveData.bossKills, clientBossKills)
 
-            -- 活动击杀 = 全局击杀 - 活动开始时快照
-            -- 首次查询时记录快照（baselineKills）
-            local needSave = false
-            if milestoneData.baselineKills == nil then
-                milestoneData.baselineKills = bossKills
-                evtData.bossMilestones = milestoneData
-                evtAllData[eventId] = evtData
-                saveData.event_data = evtAllData
-                needSave = true
-            end
-            local eventKills = math.max(0, bossKills - (milestoneData.baselineKills or 0))
+                local baseline, claimed
+                if msData and type(msData) == "table" and msData.baseline ~= nil then
+                    baseline = msData.baseline
+                    claimed = msData.claimed or {}
+                else
+                    -- 防御：登录初始化尚未就绪（正常流程不应发生）。临时以当前值为基准，不持久化基线。
+                    baseline = currentKills
+                    claimed = {}
+                    print("[EventHandler] WARNING: milestone state missing at query, user=" .. tostring(userId)
+                        .. " slot=" .. tostring(currentSlot))
+                end
 
-            -- 如果需要保存 baselineKills 快照
-            if needSave then
-                saveData.timestamp = os.time()
-                local commit = serverCloud:BatchCommit("event_milestone_baseline")
-                commit:ScoreSet(userId, saveKey, saveData)
-                commit:Commit({})
-            end
+                local eventKills = MilestoneLogic.ComputeEventKills(currentKills, baseline)
 
-            local reply = VariantMap()
-            reply["ok"] = Variant(true)
-            reply["EventId"] = Variant(eventId)
-            reply["BossKills"] = Variant(eventKills)
-            reply["Claimed"] = Variant(cjson.encode(claimed))
-            Session.SafeSend(connection, SaveProtocol.S2C_EventBossMilestonesData, reply)
-        end,
-        error = function()
-            SendError(connection, SaveProtocol.S2C_EventBossMilestonesData, "查询失败")
-        end,
-    })
+                local reply = VariantMap()
+                reply["ok"] = Variant(true)
+                reply[SaveProtocol.MS_F_EventId] = Variant(eventId)
+                reply[SaveProtocol.MS_F_BossKills] = Variant(eventKills)
+                reply[SaveProtocol.MS_F_Claimed] = Variant(cjson.encode(claimed))
+                Session.SafeSend(connection, SaveProtocol.S2C_EventBossMilestonesData, reply)
+            end,
+            error = function()
+                SendError(connection, SaveProtocol.S2C_EventBossMilestonesData, "查询失败")
+            end,
+        })
 end
 
 -- ============================================================================
@@ -996,11 +1052,15 @@ function M.HandleClaimBossMilestone(eventType, eventData)
     local connKey, userId, connection = ExtractContext(eventData)
     if not userId then return end
 
+    -- 客户端附带的实时 bossKills（活动击杀以客户端实时值为准，消除存档写入竞态）
+    local clientBossKills = 0
+    pcall(function() clientBossKills = eventData[SaveProtocol.MS_F_ClientBossKills]:GetInt() end)
+
     -- 内存锁
     if milestoneLocks_[userId] then return end
     milestoneLocks_[userId] = true
 
-    local milestoneTarget = eventData["Milestone"]:GetInt()
+    local milestoneTarget = eventData[SaveProtocol.MS_F_Milestone]:GetInt()
 
     -- 校验目标档位是否存在于配置
     local event = EventConfig.ACTIVE_EVENT
@@ -1032,80 +1092,88 @@ function M.HandleClaimBossMilestone(eventType, eventData)
         Session.ReleaseSlotLock(userId, currentSlot)
     end
 
-    -- 4. 读取存档
+    -- 4. 读取存档（主存档取 backpack/bossKills）+ 独立里程碑 key（取 baseline/claimed）
     local eventId = EventConfig.GetEventId()
     local saveKey = "save_" .. currentSlot
+    local msKey = MilestoneKey(eventId, currentSlot)
 
-    serverCloud:Get(userId, saveKey, {
+    serverCloud:BatchGet(userId)
+        :Key(saveKey)
+        :Key(msKey)
+        :Fetch({
         ok = function(scores)
             local saveData = scores[saveKey] or {}
             local backpack = saveData.backpack or {}
+            local msData = scores[msKey]
 
-            -- 5. 读取 bossKills，计算活动击杀数
-            local bossKills = saveData.bossKills or 0
+            -- 5. 计算活动击杀数（当前击杀取存档值与客户端实时值的较大值）
+            local currentKills = MilestoneLogic.ResolveCurrentKills(saveData.bossKills, clientBossKills)
 
-            -- 6. 读取已领取记录
-            local evtAllData = saveData.event_data or {}
-            local evtData = evtAllData[eventId] or {}
-            local milestoneData = evtData.bossMilestones or {}
-            local claimed = milestoneData.claimed or {}
-
-            -- 活动击杀 = 全局击杀 - 活动开始时快照
-            if milestoneData.baselineKills == nil then
-                milestoneData.baselineKills = bossKills
-            end
-            local eventKills = math.max(0, bossKills - (milestoneData.baselineKills or 0))
-
-            -- 8. 判断是否达标（使用活动击杀数）
-            if eventKills < milestoneTarget then
+            -- 6. 读取里程碑权威状态（独立 key）
+            local baseline, claimed
+            if msData and type(msData) == "table" and msData.baseline ~= nil then
+                baseline = msData.baseline
+                claimed = msData.claimed or {}
+            else
+                -- 防御：登录初始化尚未就绪（正常流程不应发生）。不在此处建基线，直接拒绝领取。
                 releaseLocks()
-                SendError(connection, SaveProtocol.S2C_EventBossMilestoneResult,
-                    "击杀数不足（需要 " .. milestoneTarget .. "，当前 " .. eventKills .. "）")
+                SendError(connection, SaveProtocol.S2C_EventBossMilestoneResult, "里程碑数据未就绪，请重新进入活动面板")
+                print("[EventHandler] WARNING: milestone state missing at claim, user=" .. tostring(userId)
+                    .. " slot=" .. tostring(currentSlot))
                 return
             end
+            local eventKills = MilestoneLogic.ComputeEventKills(currentKills, baseline)
 
-            -- 9. 判断是否已领取
+            -- 7. 达标 + 未领取校验（纯逻辑）
             local claimKey = tostring(milestoneTarget)
-            if claimed[claimKey] then
+            local canClaim, reason = MilestoneLogic.CheckClaim(eventKills, milestoneTarget, claimed)
+            if not canClaim then
                 releaseLocks()
-                SendError(connection, SaveProtocol.S2C_EventBossMilestoneResult, "已领取过该档位")
+                SendError(connection, SaveProtocol.S2C_EventBossMilestoneResult, reason)
                 return
             end
 
-            -- 10. 发放奖励
+            -- 8. 发放奖励（先检查背包空间，避免标记已领但奖品丢失）
+            local allPlaced = true
             for _, r in ipairs(targetCfg.reward) do
                 if r.type == "consumable" then
-                    AddToBackpack(backpack, r.id, r.count)
+                    local remaining = AddToBackpack(backpack, r.id, r.count)
+                    if remaining > 0 then
+                        allPlaced = false
+                    end
                 elseif r.type == "lingYun" then
                     saveData.player = saveData.player or {}
                     saveData.player.lingYun = (saveData.player.lingYun or 0) + r.count
                 end
             end
 
-            -- 11. 标记已领取
-            claimed[claimKey] = true
-            milestoneData.claimed = claimed
-            evtData.bossMilestones = milestoneData
-            evtAllData[eventId] = evtData
-            saveData.event_data = evtAllData
+            if not allPlaced then
+                releaseLocks()
+                SendError(connection, SaveProtocol.S2C_EventBossMilestoneResult, "背包已满，请清理后再领取")
+                return
+            end
 
-            -- 12. 持久化
+            -- 9. 标记已领取（写入独立 key）
+            claimed[claimKey] = true
+
+            -- 10. 原子持久化：主存档（背包/灵韵奖励）+ 独立里程碑 key（已领取状态）
             saveData.timestamp = os.time()
             local commit = serverCloud:BatchCommit("event_boss_milestone")
             commit:ScoreSet(userId, saveKey, saveData)
+            commit:ScoreSet(userId, msKey, { baseline = baseline, claimed = claimed })
             commit:Commit({
                 ok = function()
                     local reply = VariantMap()
                     reply["ok"] = Variant(true)
-                    reply["EventId"] = Variant(eventId)
-                    reply["Milestone"] = Variant(milestoneTarget)
-                    reply["BossKills"] = Variant(bossKills)
-                    reply["Claimed"] = Variant(true)
-                    reply["Rewards"] = Variant(cjson.encode(targetCfg.reward))
+                    reply[SaveProtocol.MS_F_EventId] = Variant(eventId)
+                    reply[SaveProtocol.MS_F_Milestone] = Variant(milestoneTarget)
+                    reply[SaveProtocol.MS_F_BossKills] = Variant(eventKills)
+                    reply[SaveProtocol.MS_F_Claimed] = Variant(true)
+                    reply[SaveProtocol.MS_F_Rewards] = Variant(cjson.encode(targetCfg.reward))
                     Session.SafeSend(connection, SaveProtocol.S2C_EventBossMilestoneResult, reply)
                     releaseLocks()
                     print("[EventHandler] BossMilestone claimed: target=" .. milestoneTarget
-                        .. " kills=" .. bossKills .. " user=" .. tostring(userId))
+                        .. " eventKills=" .. eventKills .. " user=" .. tostring(userId))
                 end,
                 error = function(code, reason)
                     releaseLocks()

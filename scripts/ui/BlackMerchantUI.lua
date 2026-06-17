@@ -312,9 +312,10 @@ local function ShowConfirmDialog(action, itemId)
         and (cfg.name .. " ×1\n花费 " .. price .. " 仙石")
         or  (cfg.name .. " ×1\n获得 " .. price .. " 仙石")
     local itemMaxStock = cfg.max_stock or BMConfig.MAX_STOCK
+    -- BM-NORESELL: 出售确认显示"可卖"数量（held 已是可回售量，黑市买入来源不计入）
     local infoText = isBuy
         and ("商店库存 " .. stock .. "/" .. itemMaxStock .. "\n余额 " .. xianshi_ .. " 仙石")
-        or  ("背包持有 " .. held .. "\n余额 " .. xianshi_ .. " 仙石")
+        or  ("可卖 " .. held .. "\n余额 " .. xianshi_ .. " 仙石")
 
     -- BM-S4C1: 先构建弹窗内容列表，避免 nil 截断 children 数组
     local dialogContent = {
@@ -476,7 +477,9 @@ local function BuildItemCard(itemId)
 
     local data = items_[itemId] or {}
     local stock = data.stock or 0
-    local held = data.held or 0
+    local held = data.held or 0   -- BM-NORESELL: held=可回售量（黑市买入来源不计入）
+    local heldTotal = data.heldTotal or held       -- 总持有量
+    local heldNoResell = data.heldNoResell or 0     -- 黑市买入不可回售量
     local buyPrice = cfg.sell_price   -- 玩家购买价 = 黑商出售价
     local sellPrice = cfg.buy_price   -- 玩家出售价 = 黑商收购价
 
@@ -565,7 +568,9 @@ local function BuildItemCard(itemId)
                         fontColor = StockColor(stock),
                     },
                     UI.Label {
-                        text = "背包 " .. held,
+                        -- BM-NORESELL: 默认显示可卖量；持有黑市购入物时显示"可卖X/持有Y"
+                        text = heldNoResell > 0 and ("可卖" .. held .. "/持有" .. heldTotal)
+                            or ("背包 " .. held),
                         fontSize = 10,
                         fontColor = held > 0 and {200, 200, 255, 255} or C.textMuted,
                     },
@@ -631,11 +636,16 @@ local function BuildItemCard(itemId)
                             end
                             -- HOTFIX-SELL-01: global_unsync(L2) 不再阻止卖出按钮，仅 locked_item(L1) 拦截
                             local d = items_[itemId] or {}
-                            local curHeld = d.held or 0
+                            local curHeld = d.held or 0          -- 可回售量
+                            local curNoResell = d.heldNoResell or 0
                             local curStock = d.stock or 0
                             if not realmOk_ then
                                 SetStatus("境界不足", C.textError); return
                             elseif curHeld <= 0 then
+                                -- BM-NORESELL: 区分"黑市购入不可回售" vs "未持有"
+                                if curNoResell > 0 then
+                                    SetStatus(TradeLock.NO_RESELL_MESSAGE, C.textError, 3); return
+                                end
                                 SetStatus("未持有此物品", C.textError); return
                             elseif curStock >= maxStock then
                                 SetStatus("黑商仓库已满", C.textError); return
@@ -1632,11 +1642,14 @@ function BlackMerchantUI_HandleBMResult(eventType, eventData)
             for _ = 1, amount do
                 local newEquip = LootSystem.CreateSpecialEquipment(cfg.equipId)
                 if newEquip then
+                    -- BM-NORESELL: 客户端本地装备同样写入永久禁回售标记（与服务端存档一致）
+                    TradeLock.MarkNoResell(newEquip, cfg.equipId)
                     InventorySystem.AddItem(newEquip)
                 end
             end
         else
             -- BM-S4AR: 强制新建锁定堆叠，绝不合并到已有堆叠
+            -- （AddConsumableLockedNewStack 内部已写入 bmNoResell 永久标记）
             local batchId = TradeLock.GenerateBatchId()
             InventorySystem.AddConsumableLockedNewStack(itemId, amount, batchId)
         end

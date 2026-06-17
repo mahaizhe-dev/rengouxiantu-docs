@@ -385,6 +385,12 @@ function SaveSerializer.SerializeItemFull(item)
         -- BM-S4B: 交易保护锁字段不落盘（锁为临时态，存档成功即清除）
         -- bmLockUntil / bmLockSource / bmLockBatchId 故意省略
         -- 见 BlackMarketTradeLock.ClearAllOnSaveSuccess()
+        -- BM-NORESELL: 永久禁回售来源标记必须落盘（与临时锁相反）
+        -- 一组语义整体（rules §3.4），旧存档无此组字段时默认可回售
+        bmNoResell  = item.bmNoResell,
+        bmSource    = item.bmSource,
+        bmBuyAt     = item.bmBuyAt,
+        bmBuyItemId = item.bmBuyItemId,
     }
 end
 

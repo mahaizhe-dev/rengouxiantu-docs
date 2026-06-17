@@ -19,6 +19,16 @@ M._sorting = false
 --------------------------------------------------------------------
 function M.GetMergeKey(item)
     local cId = item.consumableId
+    -- BM-NORESELL: 黑市买入来源永久独立分组，绝不与普通来源合并（防洗白）
+    -- 即使临时锁过期（IsLocked=false），bmNoResell 仍把它隔离在 |noresell 系列键
+    if TradeLock.IsNoResell(item) then
+        if TradeLock.IsLocked(item) then
+            local batch = item.bmLockBatchId or "_nobatch_"
+            return cId .. "|noresell|locked|" .. batch
+        else
+            return cId .. "|noresell"
+        end
+    end
     if TradeLock.IsLocked(item) then
         local batch = item.bmLockBatchId or "_nobatch_"
         return cId .. "|locked|" .. batch
