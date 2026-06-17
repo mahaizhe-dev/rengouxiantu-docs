@@ -96,12 +96,14 @@ function M.AddConsumable(IS, consumableId, amount)
     return true, originalAmount
 end
 
---- BM-S4AR: 强制新建锁定堆叠（黑市买入专用，绝不合并已有堆叠）
+--- BM-NORESELL(P1): 黑市买入写入背包 —— 临时锁(BM-S4A)已退役，不再写 bmLock*
+--- 只写永久禁回售标记 bmNoResell；可合并到【同 ID 且 bmNoResell】堆叠（解决"买几次几堆"），
+--- 绝不合并到普通来源堆叠（防洗白）。买入物立即可用（无锁冻结）。
 ---@param IS table InventorySystem facade
 ---@param consumableId string
 ---@param amount number
----@param batchId string 批次 ID（由 TradeLock.GenerateBatchId() 生成）
----@param duration number|nil 锁时长秒数（默认 TradeLock.LOCK_DURATION）
+---@param batchId string|nil  兼容旧签名：临时锁退役后不再使用
+---@param duration number|nil 兼容旧签名：临时锁退役后不再使用
 ---@return boolean allSuccess
 ---@return number addedCount
 function M.AddConsumableLockedNewStack(IS, consumableId, amount, batchId, duration)
@@ -111,8 +113,6 @@ function M.AddConsumableLockedNewStack(IS, consumableId, amount, batchId, durati
     local originalAmount = amount
 
     local MAX_STACK = GameConfig.MAX_STACK_COUNT  -- 9999
-    local dur = duration or TradeLock.LOCK_DURATION
-    local lockUntil = os.time() + dur
 
     -- 查找消耗品配置
     local foodData = GameConfig.PET_FOOD[consumableId]
@@ -124,7 +124,25 @@ function M.AddConsumableLockedNewStack(IS, consumableId, amount, batchId, durati
     local data = foodData or matData or bookData or eventData or consumableData
     if not data then return false, 0 end
 
-    -- 循环创建新堆叠（跳过所有已有堆叠，直接找空位）
+    -- 1. 先合并到已有【同 ID 且 bmNoResell】堆叠（绝不并入普通来源）
+    for i = 1, GameConfig.BACKPACK_SIZE do
+        if amount <= 0 then break end
+        local item = manager_:GetInventoryItem(i)
+        if item and item.category == "consumable" and item.consumableId == consumableId
+            and TradeLock.IsNoResell(item) then
+            local cur = item.count or 1
+            if cur < MAX_STACK then
+                local space = MAX_STACK - cur
+                local add = amount <= space and amount or space
+                item.count = cur + add
+                amount = amount - add
+                EventBus.Emit("inventory_item_added", item, i)
+            end
+        end
+    end
+    if amount <= 0 then return true, originalAmount end
+
+    -- 2. 剩余创建新 bmNoResell 堆叠
     while amount > 0 do
         local stackAmount = math.min(amount, MAX_STACK)
         local item = {
@@ -142,10 +160,6 @@ function M.AddConsumableLockedNewStack(IS, consumableId, amount, batchId, durati
             isSkillBook = bookData and true or nil,
             skillId = bookData and bookData.skillId or nil,
             bookTier = bookData and bookData.tier or nil,
-            -- BM-S4AR: 创建时即带锁元数据
-            bmLockUntil = lockUntil,
-            bmLockSource = TradeLock.SOURCE_BLACK_MARKET,
-            bmLockBatchId = batchId,
         }
         -- BM-NORESELL: 黑市买入 → 永久禁回售来源标记（客户端本地与服务端存档保持一致）
         TradeLock.MarkNoResell(item, consumableId)
@@ -206,8 +220,10 @@ function M.HasAnyLockedConsumable(IS, consumableId)
     )
 end
 
---- 消耗指定数量的消耗品
---- BM-S4A: 仅消耗未锁定的堆叠，锁定堆叠跳过
+--- 消耗指定数量的消耗品（普通使用/食用/合成/打造/金砖换金币 的统一扣除入口）
+--- BM-NORESELL(P2): 消耗优先扣【黑市买入(bmNoResell)】堆叠，保留玩家可回售流动性。
+---   bmNoResell 物品本就允许被使用，且优先被消耗，可避免玩家正常可卖物资被动消耗。
+--- 临时锁(BM-S4A)已退役，但仍跳过残留临时锁堆叠（旧存档 5 分钟内自然过期）。
 ---@param IS table InventorySystem facade
 ---@param consumableId string
 ---@param amount number
@@ -216,30 +232,41 @@ function M.ConsumeConsumable(IS, consumableId, amount)
     local manager_ = IS.GetManager()
     if not manager_ then return false end
 
-    -- BM-S4A: 检查未锁定数量是否足够（锁定堆叠不参与消耗）
+    -- 检查可消耗数量是否足够（残留临时锁堆叠不参与消耗）
     local unlocked = M.CountUnlockedConsumable(IS, consumableId)
     if unlocked < amount then
         return false
     end
 
+    -- 单堆扣除：has<=remaining 整堆移除，否则减少 count
+    local function deductSlot(i, item, remaining)
+        local has = item.count or 1
+        if has <= remaining then
+            manager_:SetInventoryItem(i, nil)  -- 全部用完，移除
+            return remaining - has
+        else
+            item.count = has - remaining
+            return 0
+        end
+    end
+
     local remaining = amount
+    -- Pass 1: 优先扣 bmNoResell 黑市买入堆叠（跳过残留临时锁）
     for i = 1, GameConfig.BACKPACK_SIZE do
         if remaining <= 0 then break end
         local item = manager_:GetInventoryItem(i)
-        if item and item.category == "consumable" and item.consumableId == consumableId then
-            -- BM-S4A: 跳过锁定堆叠
-            if TradeLock.IsLocked(item) then
-                -- skip locked stack
-            else
-                local has = item.count or 1
-                if has <= remaining then
-                    remaining = remaining - has
-                    manager_:SetInventoryItem(i, nil)  -- 全部用完，移除
-                else
-                    item.count = has - remaining
-                    remaining = 0
-                end
-            end
+        if item and item.category == "consumable" and item.consumableId == consumableId
+            and not TradeLock.IsLocked(item) and TradeLock.IsNoResell(item) then
+            remaining = deductSlot(i, item, remaining)
+        end
+    end
+    -- Pass 2: 再扣普通（可回售）堆叠（跳过残留临时锁）
+    for i = 1, GameConfig.BACKPACK_SIZE do
+        if remaining <= 0 then break end
+        local item = manager_:GetInventoryItem(i)
+        if item and item.category == "consumable" and item.consumableId == consumableId
+            and not TradeLock.IsLocked(item) and not TradeLock.IsNoResell(item) then
+            remaining = deductSlot(i, item, remaining)
         end
     end
 
@@ -256,6 +283,47 @@ function M.ConsumeConsumable(IS, consumableId, amount)
     end
 
     return true
+end
+
+--- P0.2 BM-NORESELL: 黑市卖出成功后的客户端镜像扣除 —— 只扣【可回售】堆叠
+--- 与服务端 RemoveResellableFromBackpack 来源完全一致，绝不扣黑市买入物(bmNoResell)
+--- 不发 consumable_used、不置脏（这是卖出镜像，非"使用"，服务端已扣）
+---@param IS table InventorySystem facade
+---@param consumableId string
+---@param amount number
+---@return boolean success 是否完整扣除 amount（不足则不扣，返回 false）
+function M.ConsumeResellableConsumable(IS, consumableId, amount)
+    local manager_ = IS.GetManager()
+    if not manager_ then return false end
+
+    -- 先统计可回售数量，不足则一个都不扣（避免误删黑市买入物造成不一致）
+    local resellable = 0
+    for i = 1, GameConfig.BACKPACK_SIZE do
+        local item = manager_:GetInventoryItem(i)
+        if item and item.category == "consumable" and item.consumableId == consumableId
+            and not TradeLock.IsNoResell(item) then
+            resellable = resellable + (item.count or 1)
+        end
+    end
+    if resellable < amount then return false end
+
+    local remaining = amount
+    for i = 1, GameConfig.BACKPACK_SIZE do
+        if remaining <= 0 then break end
+        local item = manager_:GetInventoryItem(i)
+        if item and item.category == "consumable" and item.consumableId == consumableId
+            and not TradeLock.IsNoResell(item) then
+            local has = item.count or 1
+            if has <= remaining then
+                remaining = remaining - has
+                manager_:SetInventoryItem(i, nil)
+            else
+                item.count = has - remaining
+                remaining = 0
+            end
+        end
+    end
+    return remaining <= 0
 end
 
 --- 获取背包中所有宠物食物列表

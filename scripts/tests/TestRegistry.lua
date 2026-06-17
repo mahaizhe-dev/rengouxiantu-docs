@@ -211,10 +211,10 @@ TestRegistry.tests = {
         id            = "bm_s4ar_force_new_stack",
         group         = "system",
         path          = "scripts/tests/test_bm_s4ar_force_new_stack.lua",
-        mode          = "run_file",
-        enabled       = true,
-        gate          = "blocking",
-        skip_reason   = nil,
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "BM-NORESELL(P1) 临时锁退役：买入不再写 bmLock*/强制分堆，改为同源合并 bmNoResell。本测试断言的'强制新堆+临时锁'模型已废弃；锁判定函数级覆盖见 test_bm_s4a_trade_lock，禁回售行为见 test_bm_noresell",
     },
 
     ---------------------------------------------------------------------------
@@ -428,6 +428,21 @@ TestRegistry.tests = {
         id            = "bm_noresell",
         group         = "system",
         path          = "scripts/tests/test_bm_noresell.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
+    -- BM-NORESELL(P2): 消耗优先扣 bmNoResell + 混合消耗(Q4)
+    -- mock IS facade + 本地 slots，不碰全局单例；隔离 EventBus/SyncState
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "bm_noresell_consume",
+        group         = "system",
+        path          = "scripts/tests/test_bm_noresell_consume.lua",
         mode          = "run_file",
         enabled       = true,
         gate          = "blocking",

@@ -217,18 +217,35 @@ function BackpackUtils.HasAnyLockedItem(backpack, consumableId)
     return false
 end
 
---- BM-S4AR: 强制新建锁定堆叠（黑市买入专用，绝不合并已有堆叠）
+--- BM-NORESELL(P1): 黑市买入写入背包 —— 临时锁(BM-S4A)已退役，不再写 bmLock*
+--- 只写永久禁回售标记 bmNoResell；可合并到【同 ID 且 bmNoResell】堆叠（解决"买几次几堆"），
+--- 绝不合并到普通来源堆叠（防洗白）。买入物立即可用（无锁冻结）。
 ---@param backpack table
 ---@param consumableId string
 ---@param amount integer
 ---@param itemName string|nil
----@param batchId string 批次 ID（由 TradeLock.GenerateBatchId() 生成）
----@param duration number|nil 锁时长秒数（默认 TradeLock.LOCK_DURATION）
+---@param batchId string|nil  兼容旧签名：临时锁退役后不再使用
+---@param duration number|nil 兼容旧签名：临时锁退役后不再使用
 ---@return integer remaining 未能放入的剩余数量（0 = 全部放入）
 function BackpackUtils.AddLockedNewStack(backpack, consumableId, amount, itemName, batchId, duration)
     local remaining = amount
-    local dur = duration or TradeLock.LOCK_DURATION
-    local lockUntil = os.time() + dur
+    -- 1. 先合并到已有【同 ID 且 bmNoResell】堆叠（绝不并入普通来源）
+    for i = 1, BackpackUtils.MAX_BACKPACK_SLOTS do
+        if remaining <= 0 then break end
+        local key = tostring(i)
+        local item = backpack[key]
+        if item and item.category == "consumable" and item.consumableId == consumableId
+            and TradeLock.IsNoResell(item) then
+            local cur = item.count or 1
+            if cur < BackpackUtils.MAX_STACK then
+                local space = BackpackUtils.MAX_STACK - cur
+                local add = remaining <= space and remaining or space
+                item.count = cur + add
+                remaining = remaining - add
+            end
+        end
+    end
+    -- 2. 剩余放入空槽，新建 bmNoResell 堆叠
     while remaining > 0 do
         local placed = false
         for i = 1, BackpackUtils.MAX_BACKPACK_SLOTS do
@@ -240,9 +257,6 @@ function BackpackUtils.AddLockedNewStack(backpack, consumableId, amount, itemNam
                     consumableId = consumableId,
                     count = addCount,
                     name = itemName,
-                    bmLockUntil = lockUntil,
-                    bmLockSource = TradeLock.SOURCE_BLACK_MARKET,
-                    bmLockBatchId = batchId,
                 }
                 -- BM-NORESELL: 黑市买入 → 写入永久禁回售来源标记（落盘，永不清除）
                 TradeLock.MarkNoResell(newStack, consumableId)

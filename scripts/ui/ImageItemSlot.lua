@@ -60,7 +60,7 @@ end
 local function ItemFingerprint(item)
     if not item then return nil end
     -- 包含影响显示的所有关键字段
-    return string.format("%s|%s|%s|%s|%d|%s|%s|%s",
+    return string.format("%s|%s|%s|%s|%d|%s|%s|%s|%s",
         tostring(item.name),
         tostring(item.image or item.icon or ""),
         tostring(item.quality or ""),
@@ -68,7 +68,8 @@ local function ItemFingerprint(item)
         item.count or item.quantity or 1,
         tostring(item.locked or false),
         tostring(item.equipped or false),
-        tostring(item.setId or "")
+        tostring(item.setId or ""),
+        tostring(item.bmNoResell or false)
     )
 end
 
@@ -197,13 +198,39 @@ function ImageItemSlot:UpdateDisplay()
         end
     end
 
-    -- BM-S4AR: 锁图标显示/隐藏（item.locked = 用户手动锁 | TradeLock = 黑市交易锁）
+    -- 锁图标显示/隐藏（item.locked = 玩家手动锁 | TradeLock.IsLocked = 旧存档残留临时锁，5 分钟内自然过期）
     if self.lockOverlay_ then
         if item and (item.locked or TradeLock.IsLocked(item)) then
             self.lockOverlay_:SetVisible(true)
         else
             self.lockOverlay_:SetVisible(false)
         end
+    end
+
+    -- BM-NORESELL(P1): 黑市购入永久角标（左下角"黑"，与右上角临时锁图标区分）
+    -- bmNoResell 永不清除 → 角标永久存在；仅标识"不可回售黑市"，不限制使用/食用/合成
+    if item and TradeLock.IsNoResell(item) then
+        if not self.noResellBadge_ then
+            local nrSize = math.max(12, math.floor(self.props.size * 0.30))
+            self.noResellBadge_ = Label {
+                text = "黑",
+                fontSize = math.max(8, nrSize - 4),
+                fontColor = {255, 230, 200, 255},
+                textAlign = "center",
+                position = "absolute",
+                bottom = 1,
+                left = 1,
+                width = nrSize,
+                height = nrSize,
+                backgroundColor = {150, 40, 40, 220},
+                borderRadius = 3,
+                pointerEvents = "none",
+            }
+            Widget.AddChild(self, self.noResellBadge_)
+        end
+        self.noResellBadge_:SetVisible(true)
+    elseif self.noResellBadge_ then
+        self.noResellBadge_:SetVisible(false)
     end
 
     -- 五行元素标识（仅命格物品显示，按需创建）

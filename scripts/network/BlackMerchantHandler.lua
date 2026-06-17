@@ -631,13 +631,8 @@ function M.HandleSell(eventType, eventData)
         local resellableHeld = CountItemResellable(backpack, consumableId)
         local noResellHeld = CountItemNoResell(backpack, consumableId)
 
-        -- BM-S4C: 服务端整类禁售 — 消耗品存在任意锁堆则整类拒绝卖出（保护期体验，保留）
-        if not isEquip and BackpackUtils.HasAnyLockedItem(backpack, consumableId) then
-            sellActive_[connKey] = nil
-            SendError(connection, SaveProtocol.S2C_BlackMerchantResult,
-                TradeLock.LOCK_MESSAGE)
-            return
-        end
+        -- BM-NORESELL(P1): 临时锁已退役 —— 不再"同类有锁堆则整类禁售"（曾误伤同类普通物）
+        -- 安全完全交给 bmNoResell：只看可回售数量，黑市买入来源永久不计入可卖
 
         -- BM-NORESELL: 可回售数量不足则拒绝（区分"黑市购入不可回售" vs "持有量不足"）
         if resellableHeld < amount then
@@ -668,10 +663,22 @@ function M.HandleSell(eventType, eventData)
 
                 -- 6. BM-NORESELL: 只扣除【可回售】物品，永不扣黑市买入来源
                 -- （装备按 equipId 移除，不论附魔/洗练；黑市买入来源 bmNoResell=true 被跳过）
+                local removeRemaining
                 if isEquip then
-                    RemoveResellableEquipmentFromBackpack(backpack, cfg.equipId or consumableId, amount)
+                    removeRemaining = RemoveResellableEquipmentFromBackpack(backpack, cfg.equipId or consumableId, amount)
                 else
-                    RemoveResellableFromBackpack(backpack, consumableId, amount)
+                    removeRemaining = RemoveResellableFromBackpack(backpack, consumableId, amount)
+                end
+                -- P0.3 二次断言：可回售扣除不足（统计与扣除函数不一致）→ 直接失败
+                -- 绝不写存档、不发仙石、不加库存，避免 remaining>0 时仍发奖造成不一致
+                if removeRemaining ~= 0 then
+                    sellActive_[connKey] = nil
+                    print("[BlackMerchant][Sell] ABORT remove mismatch: userId=" .. tostring(userId)
+                        .. " id=" .. consumableId .. " want=" .. tostring(amount)
+                        .. " remaining=" .. tostring(removeRemaining)
+                        .. " resellableHeld=" .. tostring(resellableHeld))
+                    SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "出售失败，请刷新后重试")
+                    return
                 end
                 saveData.backpack = backpack
 

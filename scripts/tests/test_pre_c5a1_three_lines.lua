@@ -188,8 +188,9 @@ do
     assert_eq(reason_after, "none", "T4b: game_saved 后 → none（解锁）")
 end
 
--- T5: HOTFIX-SELL-01 — GetSellBlockReason 底层仍返回 global_unsync（API 行为不变），
---     但 onClick/confirm 不再以此拦截卖出
+-- T5: GetSellBlockReason 底层返回 global_unsync（API 行为不变）。
+--     注：BM-NORESELL(P0.1) 已反转 HOTFIX-SELL-01 —— onClick/confirm 现在会以 L2 阻断卖出，
+--     但 SyncState 本身未改，本测试只校验底层 API 返回值。
 do
     _lockedItems = {}
     SyncState.MarkWarehouseOp("test_op")

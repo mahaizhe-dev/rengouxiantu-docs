@@ -391,8 +391,14 @@ local function ShowConfirmDialog(action, itemId)
                                                 SetStatus(TradeLock.LOCK_MESSAGE, C.textError, 3)
                                                 print("[BlackMerchantUI] CONFIRM BLOCKED (L1): " .. tostring(cfmDetail))
                                                 return
+                                            elseif cfmReason == "global_unsync" then
+                                                -- P0.1: 本地未同步 → 主动落盘，禁止用旧快照卖出
+                                                EventBus.Emit("save_request")
+                                                pcall(function() require("systems.save.SaveSession").Flush() end)
+                                                SetStatus("数据同步中，请稍后再出售", C.textError, 3)
+                                                print("[BlackMerchantUI] CONFIRM BLOCKED (L2 global_unsync): " .. tostring(cfmDetail))
+                                                return
                                             end
-                                            -- HOTFIX-SELL-01: global_unsync(L2) 不再阻止确认卖出，仅 locked_item(L1) 拦截
                                             SendSell(itemId, 1)
                                             SetStatus("出售中...", C.xianshiColor)
                                         end
@@ -633,8 +639,15 @@ local function BuildItemCard(itemId)
                                 SetStatus(TradeLock.LOCK_MESSAGE, C.textError, 3)
                                 print("[BlackMerchantUI] SELL BTN BLOCKED (L1): " .. tostring(curDetail))
                                 return
+                            elseif curReason == "global_unsync" then
+                                -- P0.1: 本地消耗/仓库/会话未同步 → 主动落盘，禁止用旧快照卖出
+                                -- 落盘(game_saved)后未同步标记自动清除，玩家稍后重试即可成功
+                                EventBus.Emit("save_request")
+                                pcall(function() require("systems.save.SaveSession").Flush() end)
+                                SetStatus("数据同步中，请稍后再出售", C.textError, 3)
+                                print("[BlackMerchantUI] SELL BTN BLOCKED (L2 global_unsync): " .. tostring(curDetail))
+                                return
                             end
-                            -- HOTFIX-SELL-01: global_unsync(L2) 不再阻止卖出按钮，仅 locked_item(L1) 拦截
                             local d = items_[itemId] or {}
                             local curHeld = d.held or 0          -- 可回售量
                             local curNoResell = d.heldNoResell or 0
@@ -1657,25 +1670,39 @@ function BlackMerchantUI_HandleBMResult(eventType, eventData)
         SetStatus("购入 " .. itemName .. " ×" .. amount, C.textSuccess)
     else
         -- HOTFIX-BM-01: 跟踪本地扣除是否成功
+        -- P0.2 BM-NORESELL: 客户端镜像扣除必须与服务端来源一致 —— 只扣可回售(bmNoResell~=true)，
+        -- 绝不扣黑市买入物，否则会"扣掉不可回售、留下可回售"再 save_request 写回造成洗白/不一致
         local localDeductOk = false
         if isEquip then
-            -- 按 equipId 匹配移除装备（不论附魔/洗练状态）
+            -- 只移除【可回售】装备（bmNoResell~=true 且 equipId 匹配），先统计够不够再扣
             local manager = InventorySystem.GetManager()
             if manager then
-                local remaining = amount
+                local resellable = 0
                 for i = 1, GameConfig.BACKPACK_SIZE do
-                    if remaining <= 0 then break end
                     local item = manager:GetInventoryItem(i)
                     if item and item.category ~= "consumable"
-                        and item.equipId == cfg.equipId then
-                        manager:SetInventoryItem(i, nil)
-                        remaining = remaining - 1
+                        and item.equipId == cfg.equipId
+                        and not TradeLock.IsNoResell(item) then
+                        resellable = resellable + 1
                     end
                 end
-                localDeductOk = (remaining <= 0)
+                if resellable >= amount then
+                    local remaining = amount
+                    for i = 1, GameConfig.BACKPACK_SIZE do
+                        if remaining <= 0 then break end
+                        local item = manager:GetInventoryItem(i)
+                        if item and item.category ~= "consumable"
+                            and item.equipId == cfg.equipId
+                            and not TradeLock.IsNoResell(item) then
+                            manager:SetInventoryItem(i, nil)
+                            remaining = remaining - 1
+                        end
+                    end
+                    localDeductOk = (remaining <= 0)
+                end
             end
         else
-            localDeductOk = InventorySystem.ConsumeConsumable(itemId, amount)
+            localDeductOk = InventorySystem.ConsumeResellableConsumable(itemId, amount)
         end
         -- HOTFIX-BM-01: 本地扣除失败 → 不请求保存（防止仓库副本覆盖服务端已扣数据）
         if localDeductOk then

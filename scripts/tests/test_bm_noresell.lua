@@ -269,6 +269,42 @@ test("T11. SerializeItemFull 保留 bmNoResell 四字段组（best-effort）", f
     assertEqual(out.bmLockUntil, nil, "临时锁不落盘")
 end)
 
+-- ============================================================================
+-- T12: P1 同源合并 — 连续买入同 ID 合并到同一 bmNoResell 堆叠（不再强制分堆）
+-- ============================================================================
+test("T12. 同源合并：连续买入同 ID 合并为单一 bmNoResell 堆叠", function()
+    local bp = {}
+    BackpackUtils.AddLockedNewStack(bp, "gold_brick", 3, "金砖", "b12a")
+    BackpackUtils.AddLockedNewStack(bp, "gold_brick", 4, "金砖", "b12b")
+    local stackCount = 0
+    for _, it in pairs(bp) do
+        if it.consumableId == "gold_brick" then stackCount = stackCount + 1 end
+    end
+    assertEqual(stackCount, 1, "同源黑市买入应合并为单堆（不再强制分堆）")
+    assertEqual(BackpackUtils.CountNoResellBackpackItem(bp, "gold_brick"), 7, "合并后不可卖=7")
+    assertEqual(BackpackUtils.CountResellableBackpackItem(bp, "gold_brick"), 0, "可卖=0")
+end)
+
+-- ============================================================================
+-- T13: P1 买入物立即可用 — 无临时锁字段（IsLocked=false），但仍是 bmNoResell
+-- ============================================================================
+test("T13. 黑市买入物无临时锁，立即可用（IsLocked=false / 无 bmLock*）", function()
+    local bp = {}
+    BackpackUtils.AddLockedNewStack(bp, "spirit_pill", 2, "灵丹", "b13")
+    local checked = 0
+    for _, it in pairs(bp) do
+        if it.consumableId == "spirit_pill" then
+            checked = checked + 1
+            assertFalse(TradeLock.IsLocked(it), "买入物不应处于临时锁")
+            assertEqual(it.bmLockUntil, nil, "无 bmLockUntil")
+            assertEqual(it.bmLockSource, nil, "无 bmLockSource")
+            assertEqual(it.bmLockBatchId, nil, "无 bmLockBatchId")
+            assertTrue(TradeLock.IsNoResell(it), "仍是 bmNoResell")
+        end
+    end
+    assertTrue(checked >= 1, "至少检查一个堆叠")
+end)
+
 print("\n[test_bm_noresell] " .. passed .. "/" .. total .. " passed, " .. failed .. " failed\n")
 
 return { passed = passed, failed = failed, total = total }

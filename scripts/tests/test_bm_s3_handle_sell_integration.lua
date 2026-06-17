@@ -155,6 +155,14 @@ function stubBackpackUtils.RemoveEquipmentFromBackpack(backpack, equipId, amount
 function stubBackpackUtils.CountUnlockedItem(backpack, consumableId) return 0 end
 -- BM-S4C: 整类锁判定，空背包返回 false（无锁堆叠）
 function stubBackpackUtils.HasAnyLockedItem(backpack, consumableId) return false end
+-- BM-NORESELL(Stage1/P0): HandleSell 在模块加载时把以下函数捕获为 local，
+-- 持有量校验走"可回售"口径，空背包统一返回 0/拒绝扣除（remaining=amount）
+function stubBackpackUtils.CountResellableBackpackItem(backpack, itemId) return 0 end
+function stubBackpackUtils.CountNoResellBackpackItem(backpack, itemId) return 0 end
+function stubBackpackUtils.RemoveResellableFromBackpack(backpack, itemId, amount) return amount end
+function stubBackpackUtils.CountResellableEquipmentItem(backpack, equipId) return 0 end
+function stubBackpackUtils.CountNoResellEquipmentItem(backpack, equipId) return 0 end
+function stubBackpackUtils.RemoveResellableEquipmentFromBackpack(backpack, equipId, amount) return amount end
 
 package.loaded["network.BackpackUtils"] = stubBackpackUtils
 

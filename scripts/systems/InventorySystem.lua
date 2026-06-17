@@ -282,6 +282,11 @@ function InventorySystem.ConsumeConsumable(consumableId, amount)
     return consumables.ConsumeConsumable(InventorySystem, consumableId, amount)
 end
 
+-- P0.2 BM-NORESELL: 黑市卖出成功后的镜像扣除（只扣可回售来源，绝不扣黑市买入物）
+function InventorySystem.ConsumeResellableConsumable(consumableId, amount)
+    return consumables.ConsumeResellableConsumable(InventorySystem, consumableId, amount)
+end
+
 function InventorySystem.GetPetFoodList()
     return consumables.GetPetFoodList(InventorySystem)
 end
