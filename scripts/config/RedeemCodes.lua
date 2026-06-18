@@ -222,7 +222,19 @@ RedeemCodes.CODES = {
         },
         maxUses   = 100,
         perUser   = 1,
-        note      = "六一活动：拨浪鼓x5+风车x1，限100次",
+        disabled  = true,
+        note      = "[已注销] 六一活动：拨浪鼓x5+风车x1",
+    },
+    -- ====== 端午活动兑换码 ======
+    {
+        code      = "DUANWU2026",
+        rewards   = {
+            { type = "item", id = "dragonboat_colored_rope", amount = 5 },
+            { type = "item", id = "dragonboat_sachet", amount = 1 },
+        },
+        maxUses   = 100,
+        perUser   = 1,
+        note      = "端午活动：彩绳x5+香囊x1，限100次",
     },
     {
         code      = "LIUYI61FU",

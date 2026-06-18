@@ -1,10 +1,9 @@
 ---@diagnostic disable
 -- ============================================================================
 -- MinggePage.lua - 五行命格页面（装备 + 背包 + 属性统计）
+-- Style: 仙侠暗金 (UITheme 规范化版)
+-- 特点: 五行方位布局 | 内联品质选择 | 2列属性详情 | 延迟渲染 | 独立背包
 -- ============================================================================
--- 左侧：5行×3列 命格装备槽
--- 右侧：60格命格独立背包（30/30 分屏）
--- 底部属性汇总 + 套装激活
 
 local UI = require("urhox-libs/UI")
 local MinggeData = require("config.MinggeData")
@@ -14,6 +13,7 @@ local EventBus = require("core.EventBus")
 local ImageItemSlot = require("ui.ImageItemSlot")
 local MinggeTooltip = require("ui.MinggeTooltip")
 local GameConfig = require("config.GameConfig")
+local InventoryOps = require("ui.InventoryOps")
 local T = require("config.UITheme")
 
 local MinggePage = {}
@@ -27,53 +27,28 @@ local lockMask_ = nil
 local wrapperPanel_ = nil
 local sellQualities_ = { purple = true, orange = false }
 local contentCreated_ = false  -- 延迟渲染标志：首次 OnShow 时才创建格子
+local minggeStatsExpanded_ = false
+local minggeStatsDetail_ = nil
 
--- 批量出售品质勾选本地持久化
+-- 批量出售品质勾选持久化（委托 InventoryOps）
 local SELL_SETTINGS_FILE = "sell_mingge_settings.json"
-local cjson = require("cjson")
-
-local function LoadSellSettings()
-    pcall(function()
-        if not fileSystem or not fileSystem:FileExists(SELL_SETTINGS_FILE) then return end
-        local file = File(SELL_SETTINGS_FILE, FILE_READ)
-        if not file or not file:IsOpen() then return end
-        local raw = file:ReadString()
-        file:Close()
-        local ok, data = pcall(cjson.decode, raw)
-        if ok and type(data) == "table" then
-            for k, v in pairs(data) do
-                if sellQualities_[k] ~= nil then
-                    sellQualities_[k] = (v == true)
-                end
-            end
-        end
-    end)
-end
-
-local function SaveSellSettings()
-    pcall(function()
-        local file = File(SELL_SETTINGS_FILE, FILE_WRITE)
-        if not file or not file:IsOpen() then return end
-        file:WriteString(cjson.encode(sellQualities_))
-        file:Close()
-    end)
-end
-
-LoadSellSettings()
+InventoryOps.LoadSellSettings(SELL_SETTINGS_FILE, sellQualities_)
 
 -- 配置
-local INV_COLS = 6
+local INV_COLS = 7
 local SLOT_SIZE = T.size.slotSize
 local SLOT_GAP = T.spacing.xs
-local BAG_SPLIT = 30  -- 命格背包 30/30 分隔
 
--- 五行元素颜色
-local ELEMENT_COLORS = {
-    metal = {220, 200, 140, 255},
-    wood  = {100, 200, 80, 255},
-    water = {80, 160, 255, 255},
-    fire  = {255, 100, 60, 255},
-    earth = {200, 160, 80, 255},
+-- 五行元素颜色（统一引用 MinggeData 单一源，不再本地维护副本）
+local ELEMENT_COLORS = MinggeData.ELEMENT_COLORS
+
+-- 五行元素 Emoji（方位布局视觉标识）
+local ELEMENT_EMOJI = {
+    metal = "🪙",
+    wood  = "🌳",
+    water = "💧",
+    fire  = "🔥",
+    earth = "🪨",
 }
 
 -- ============================================================================
@@ -99,44 +74,25 @@ end
 
 local function CreateEquipPanel()
     local eqPanel = UI.Panel {
-        width = 3 * (SLOT_SIZE + SLOT_GAP) + T.spacing.lg * 2,
-        backgroundColor = {30, 35, 45, 240},
-        borderRadius = T.radius.md,
-        padding = T.spacing.sm,
+        width = "100%",
+        alignItems = "center",
         gap = T.spacing.xs,
-        children = {
-            UI.Label {
-                text = "命格装备",
-                fontSize = T.fontSize.md,
-                fontWeight = "bold",
-                fontColor = T.color.titleText,
-                textAlign = "center",
-            },
-        },
     }
 
-    -- 5行：每行一个五行 + 3格
-    for _, element in ipairs(MinggeData.ELEMENTS) do
+    -- 辅助：创建一个元素组（emoji label + 3 slots 垂直排列）
+    local function buildElementGroup(element)
         local elName = MinggeData.ELEMENT_NAMES[element]
-        local elColor = ELEMENT_COLORS[element] or {180, 180, 180, 255}
-
-        -- 行标签
-        local row = UI.Panel {
-            flexDirection = "row",
+        local elColor = ELEMENT_COLORS[element] or T.color.textSecondary
+        local group = UI.Panel {
             alignItems = "center",
-            gap = SLOT_GAP,
+            gap = T.spacing.xxs,
         }
-
-        -- 五行标签
-        row:AddChild(UI.Label {
-            text = elName,
+        group:AddChild(UI.Label {
+            text = ELEMENT_EMOJI[element] .. " " .. elName,
             fontSize = T.fontSize.xs,
             fontColor = elColor,
-            width = 14,
-            textAlign = "center",
         })
-
-        -- 3 个装备格
+        local slotRow = UI.Panel { flexDirection = "row", gap = SLOT_GAP }
         local slots = MinggeData.SLOTS[element]
         for _, slotId in ipairs(slots) do
             local capturedSlotId = slotId
@@ -156,68 +112,171 @@ local function CreateEquipPanel()
                 end,
             }
             equipSlots_[slotId] = slot
-            row:AddChild(slot)
+            slotRow:AddChild(slot)
         end
-
-        eqPanel:AddChild(row)
+        group:AddChild(slotRow)
+        return group
     end
 
-    -- ── 属性统计面板 ──
-    local statsPanel = UI.Panel {
-        marginTop = T.spacing.sm,
-        padding = T.spacing.sm,
-        gap = 2,
-        backgroundColor = {20, 25, 35, 200},
-        borderRadius = T.radius.sm,
+    -- 命格格子区：五行方位布局
+    -- Row 1: 水(北/上，居中)
+    -- Row 2: 木(东/左) + 金(西/右)
+    -- Row 3: 火(南/左下) + 土(中/右下)
+    local equipGrid = UI.Panel {
+        alignItems = "center",
+        gap = T.spacing.xs,
     }
 
-    -- 属性行
-    local statDefs = {
-        { key = "atk",          label = "攻击",     color = {255, 150, 100, 255} },
-        { key = "def",          label = "防御",     color = {100, 200, 255, 255} },
-        { key = "maxHp",        label = "生命",     color = {100, 255, 100, 255} },
-        { key = "hpRegen",      label = "回复",     color = {150, 255, 200, 255} },
-        { key = "critRate",     label = "暴击率",   color = {255, 220, 100, 255} },
-        { key = "critDmg",      label = "暴击伤害", color = {255, 200, 80, 255} },
-        { key = "heavyHit",     label = "重击",     color = {255, 140, 60, 255} },
-        { key = "killHeal",     label = "击杀回血", color = {100, 255, 180, 255} },
-        { key = "moveSpeed",    label = "移速",     color = {100, 220, 255, 255} },
-        { key = "tianzhuChance",label = "天诛",     color = {0, 220, 220, 255} },
-        { key = "tianzhuDamage",label = "天诛伤害", color = {0, 220, 220, 255} },
-        { key = "fortune",      label = "福缘",     color = {255, 215, 0, 255} },
-        { key = "wisdom",       label = "悟性",     color = {200, 150, 255, 255} },
-        { key = "constitution", label = "根骨",     color = {255, 180, 100, 255} },
-        { key = "physique",     label = "体魄",     color = {220, 50, 50, 255} },
-    }
+    -- Row 1: 水（北/上，居中）
+    equipGrid:AddChild(buildElementGroup("water"))
 
-    for _, sd in ipairs(statDefs) do
-        statsPanel:AddChild(UI.Panel {
-            flexDirection = "row",
-            justifyContent = "space-between",
-            children = {
-                UI.Label {
-                    text = sd.label,
-                    fontSize = T.fontSize.xs,
-                    fontColor = sd.color,
-                },
-                UI.Label {
-                    id = "mg_stat_" .. sd.key,
-                    text = "+0",
-                    fontSize = T.fontSize.xs,
-                    fontColor = {220, 220, 220, 255},
-                },
-            },
-        })
-    end
-
-    -- 套装标签（容器，每条套装独占一行不换行）
-    statsPanel:AddChild(UI.Panel {
-        id = "mg_set_bonus_panel",
-        marginTop = T.spacing.xs,
-        gap = 2,
+    -- Row 2: 木（左）+ 金（右）
+    equipGrid:AddChild(UI.Panel {
+        flexDirection = "row",
+        justifyContent = "center",
+        gap = T.spacing.lg,
+        children = {
+            buildElementGroup("wood"),
+            buildElementGroup("metal"),
+        },
     })
 
-    eqPanel:AddChild(statsPanel)
+    -- Row 3: 火（左）+ 土（右）
+    equipGrid:AddChild(UI.Panel {
+        flexDirection = "row",
+        justifyContent = "center",
+        gap = T.spacing.lg,
+        children = {
+            buildElementGroup("fire"),
+            buildElementGroup("earth"),
+        },
+    })
+
+    -- surfaceDeep 容器包裹 equipGrid（与 InventoryUI 装备区对齐）
+    eqPanel:AddChild(UI.Panel {
+        alignItems = "center",
+        justifyContent = "center",
+        backgroundColor = T.color.surfaceDeep,
+        borderRadius = T.radius.sm,
+        borderWidth = 1,
+        borderColor = T.color.borderLight,
+        padding = T.spacing.sm,
+        children = { equipGrid },
+    })
+
+    -- ── 属性摘要行（始终可见：攻/防/血 + 展开按钮） ──
+    local expandBtn = UI.Button {
+        id = "mg_stat_expand_btn",
+        text = "🔻 详情",
+        fontSize = T.fontSize.xs,
+        paddingLeft = T.spacing.xs,
+        paddingRight = T.spacing.xs,
+        height = 20,
+        borderRadius = T.radius.sm,
+        backgroundColor = T.color.invStatPanelBg,
+        fontColor = T.color.textSecondary,
+        onClick = function(self)
+            minggeStatsExpanded_ = not minggeStatsExpanded_
+            if minggeStatsDetail_ then
+                if minggeStatsExpanded_ then minggeStatsDetail_:Show() else minggeStatsDetail_:Hide() end
+            end
+            self:SetText(minggeStatsExpanded_ and "🔺 收起" or "🔻 详情")
+        end,
+    }
+
+    local statsSummary = UI.Panel {
+        flexDirection = "row",
+        alignItems = "center",
+        justifyContent = "center",
+        gap = T.spacing.xs,
+        marginTop = T.spacing.xs,
+        children = {
+            UI.Label { id = "mg_stat_summary_atk", text = "攻+0", fontSize = T.fontSize.xs, fontColor = T.statColor.atk },
+            UI.Label { id = "mg_stat_summary_def", text = "防+0", fontSize = T.fontSize.xs, fontColor = T.statColor.def },
+            UI.Label { id = "mg_stat_summary_maxHp", text = "血+0", fontSize = T.fontSize.xs, fontColor = T.statColor.maxHp },
+            expandBtn,
+        },
+    }
+    eqPanel:AddChild(statsSummary)
+
+    -- ── 属性详情（默认隐藏，展开后随面板整体滚动，无独立滚动条） ──
+    local MG_STAT_ROW_H = 16
+
+    -- 左列属性
+    local leftDefs = {
+        { key = "atk",          label = "攻击" },
+        { key = "maxHp",        label = "生命" },
+        { key = "critRate",     label = "暴击率" },
+        { key = "heavyHit",     label = "重击" },
+        { key = "killHeal",     label = "击杀回血" },
+        { key = "moveSpeed",    label = "移速" },
+        { key = "wisdom",       label = "悟性" },
+        { key = "tianzhuChance",label = "天诛" },
+    }
+    -- 右列属性
+    local rightDefs = {
+        { key = "def",          label = "防御" },
+        { key = "hpRegen",      label = "回复" },
+        { key = "critDmg",      label = "暴击伤害" },
+        { key = "tianzhuDamage",label = "天诛伤害" },
+        { key = "fortune",      label = "福缘" },
+        { key = "constitution", label = "根骨" },
+        { key = "physique",     label = "体魄" },
+    }
+
+    local function buildMgStatColumn(defs)
+        local col = UI.Panel { flexGrow = 1, flexShrink = 1, gap = 1 }
+        for _, sd in ipairs(defs) do
+            col:AddChild(UI.Panel {
+                height = MG_STAT_ROW_H,
+                flexDirection = "row",
+                alignItems = "center",
+                justifyContent = "space-between",
+                paddingRight = T.spacing.xs,
+                children = {
+                    UI.Label { text = sd.label, fontSize = T.fontSize.xs, fontColor = T.statColor[sd.key] or T.color.textSecondary },
+                    UI.Label { id = "mg_stat_" .. sd.key, text = "+0", fontSize = T.fontSize.xs, fontColor = T.color.invStatValue },
+                },
+            })
+        end
+        return col
+    end
+
+    -- 属性双列面板（无独立滚动，随面板整体滚动）
+    minggeStatsDetail_ = UI.Panel {
+        width = "100%",
+        visible = false,
+        marginTop = T.spacing.xs,
+        backgroundColor = T.color.invStatPanelBg,
+        borderRadius = T.radius.sm,
+        paddingLeft = T.spacing.sm,
+        paddingRight = T.spacing.sm,
+        paddingTop = T.spacing.xs,
+        paddingBottom = T.spacing.xs,
+        gap = T.spacing.xs,
+        children = {
+            -- 双列属性
+            UI.Panel {
+                flexDirection = "row",
+                gap = T.spacing.sm,
+                children = {
+                    buildMgStatColumn(leftDefs),
+                    UI.Panel { width = 1, backgroundColor = T.color.borderLight },
+                    buildMgStatColumn(rightDefs),
+                },
+            },
+            -- 分隔线
+            UI.Panel { width = "100%", height = 1, backgroundColor = T.color.borderLight, marginTop = T.spacing.xxs },
+            -- 套装效果区
+            UI.Panel {
+                id = "mg_set_bonus_panel",
+                width = "100%",
+                gap = T.spacing.xxs,
+            },
+        },
+    }
+    eqPanel:AddChild(minggeStatsDetail_)
+
     return eqPanel
 end
 
@@ -227,169 +286,139 @@ end
 
 local function CreateInvPanel()
     local invPanel = UI.Panel {
-        flexGrow = 1,
-        flexShrink = 1,
-        minWidth = 3 * (SLOT_SIZE + SLOT_GAP) + T.spacing.sm * 2,
-        maxWidth = INV_COLS * (SLOT_SIZE + SLOT_GAP) + T.spacing.sm * 2,
-        backgroundColor = {30, 35, 45, 240},
-        borderRadius = T.radius.md,
-        padding = T.spacing.sm,
-        gap = T.spacing.sm,
+        width = "100%",
+        gap = T.spacing.xs,
+    }
+
+    -- 品质选择内联面板（默认隐藏，点击▼展开）
+    local QUALITY_KEYS = { "purple", "orange" }
+    local QUALITY_LABELS = { "🟣极品", "🟠稀世" }
+    local qualityPanel = UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        flexWrap = "wrap",
+        gap = T.spacing.xs,
+        paddingLeft = T.spacing.xs,
+        paddingRight = T.spacing.xs,
+        paddingTop = T.spacing.xs,
+        paddingBottom = T.spacing.xs,
+        backgroundColor = T.color.invStatPanelBg,
+        borderRadius = T.radius.sm,
+        visible = false,
+    }
+    for idx, key in ipairs(QUALITY_KEYS) do
+        local isChecked = sellQualities_[key]
+        local btn = UI.Button {
+            text = (isChecked and "✓ " or "   ") .. QUALITY_LABELS[idx],
+            fontSize = T.fontSize.xs,
+            paddingLeft = T.spacing.sm,
+            paddingRight = T.spacing.sm,
+            height = 24,
+            borderRadius = T.radius.sm,
+            backgroundColor = isChecked and T.color.surfaceLight or T.color.surfaceDeep,
+            onClick = function(self)
+                sellQualities_[key] = not sellQualities_[key]
+                local checked = sellQualities_[key]
+                self:SetText((checked and "✓ " or "   ") .. QUALITY_LABELS[idx])
+                self:SetBackgroundColor(checked and T.color.surfaceLight or T.color.surfaceDeep)
+                InventoryOps.SaveSellSettings(SELL_SETTINGS_FILE, sellQualities_)
+            end,
+        }
+        qualityPanel:AddChild(btn)
+    end
+    sellMenu_ = qualityPanel
+
+    -- 操作栏（整理 + 批量出售 + 品质展开 + 空位显示）
+    invPanel:AddChild(UI.Panel {
+        flexDirection = "row",
+        justifyContent = "space-between",
+        alignItems = "center",
         children = {
             UI.Panel {
                 flexDirection = "row",
-                justifyContent = "space-between",
                 alignItems = "center",
+                gap = T.spacing.xs,
                 children = {
-                    UI.Label {
-                        text = "命格背包",
-                        fontSize = T.fontSize.md,
-                        fontWeight = "bold",
-                        fontColor = T.color.titleText,
+                    UI.Button {
+                        text = "整理",
+                        fontSize = T.fontSize.xs,
+                        paddingLeft = T.spacing.sm,
+                        paddingRight = T.spacing.sm,
+                        height = 24,
+                        borderRadius = T.radius.sm,
+                        backgroundColor = T.color.invSortBtn,
+                        onClick = function(self)
+                            InventoryOps.DoSort(MinggeSystem.SortBackpack)
+                            UpdateAllSlots()
+                            UpdateFreeSlots()
+                        end,
                     },
-                    UI.Panel {
-                        flexDirection = "row",
-                        alignItems = "center",
-                        gap = T.spacing.sm,
-                        children = {
-                            UI.Button {
-                                text = "整理",
-                                fontSize = T.fontSize.xs,
-                                paddingLeft = T.spacing.sm,
-                                paddingRight = T.spacing.sm,
-                                height = 22,
-                                borderRadius = T.radius.sm,
-                                backgroundColor = {50, 90, 130, 220},
-                                onClick = function(self)
-                                    MinggeSystem.SortBackpack()
-                                    UpdateAllSlots()
-                                    UpdateFreeSlots()
-                                end,
-                            },
-                            UI.Button {
-                                text = "批量出售",
-                                fontSize = T.fontSize.xs,
-                                paddingLeft = T.spacing.sm,
-                                paddingRight = T.spacing.sm,
-                                height = 22,
-                                borderRadius = T.radius.sm,
-                                borderTopRightRadius = 0,
-                                borderBottomRightRadius = 0,
-                                backgroundColor = {120, 80, 30, 220},
-                                onClick = function(self)
-                                    local hasAny = false
-                                    for _, v in pairs(sellQualities_) do
-                                        if v then hasAny = true; break end
-                                    end
-                                    if not hasAny then
-                                        EventBus.Emit("mingge_info", "请先在▼中勾选要出售的品质")
-                                        return
-                                    end
-                                    local count, lingYun = MinggeSystem.SellByQuality(sellQualities_)
-                                    if count > 0 then
-                                        UpdateAllSlots()
-                                        UpdateFreeSlots()
-                                        EventBus.Emit("mingge_info", "出售了 " .. count .. " 件，获得 " .. lingYun .. " 灵韵")
-                                    else
-                                        EventBus.Emit("mingge_info", "没有可出售的对应品质命格")
-                                    end
-                                end,
-                            },
-                            UI.Button {
-                                text = "▼",
-                                fontSize = 9,
-                                width = 18,
-                                height = 22,
-                                paddingLeft = 0,
-                                paddingRight = 0,
-                                borderRadius = T.radius.sm,
-                                borderTopLeftRadius = 0,
-                                borderBottomLeftRadius = 0,
-                                backgroundColor = {100, 65, 20, 220},
-                                onClick = function(self)
-                                    if sellMenu_ then
-                                        if sellMenu_:IsOpen() then
-                                            sellMenu_:Close()
-                                        else
-                                            local bl = self:GetAbsoluteLayout()
-                                            local ml = sellMenu_:GetLayout()
-                                            sellMenu_.absoluteLayout = {
-                                                x = bl.x,
-                                                y = bl.y + bl.h + 2,
-                                                w = ml.w,
-                                                h = ml.h,
-                                            }
-                                            sellMenu_:Open()
-                                        end
-                                    end
-                                end,
-                            },
-                            UI.Label {
-                                id = "mg_free_slots",
-                                text = "60/60",
-                                fontSize = T.fontSize.xs,
-                                fontColor = {180, 180, 180, 200},
-                            },
-                        },
+                    UI.Button {
+                        text = "批量出售",
+                        fontSize = T.fontSize.xs,
+                        paddingLeft = T.spacing.sm,
+                        paddingRight = T.spacing.sm,
+                        height = 24,
+                        borderRadius = T.radius.sm,
+                        borderTopRightRadius = 0,
+                        borderBottomRightRadius = 0,
+                        backgroundColor = T.color.invSellBtn,
+                        onClick = function(self)
+                            -- wrapper: MinggeSystem.SellByQuality 返回 (count, lingYun)，映射到 (count, 0, lingYun)
+                            local ok, msg = InventoryOps.DoBatchSell(sellQualities_, function(q)
+                                local c, ly = MinggeSystem.SellByQuality(q)
+                                return c, 0, ly
+                            end)
+                            if ok then
+                                UpdateAllSlots()
+                                UpdateFreeSlots()
+                            end
+                            EventBus.Emit("mingge_info", msg)
+                        end,
+                    },
+                    UI.Button {
+                        text = "▼",
+                        fontSize = 9,
+                        width = 20,
+                        height = 24,
+                        paddingLeft = 0,
+                        paddingRight = 0,
+                        borderRadius = T.radius.sm,
+                        borderTopLeftRadius = 0,
+                        borderBottomLeftRadius = 0,
+                        backgroundColor = T.color.invSellDropBtn,
+                        onClick = function(self)
+                            -- 内联展开/收起品质面板
+                            if qualityPanel:IsVisible() then
+                                qualityPanel:Hide()
+                                self:SetText("▼")
+                            else
+                                qualityPanel:Show()
+                                self:SetText("▲")
+                            end
+                        end,
                     },
                 },
             },
-        },
-    }
-
-    -- 背包上半区（1~30）
-    local gridPanel1 = UI.Panel {
-        flexDirection = "row",
-        flexWrap = "wrap",
-        gap = SLOT_GAP,
-    }
-    for i = 1, BAG_SPLIT do
-        local capturedIdx = i
-        local slot = ImageItemSlot {
-            slotId = i,
-            slotCategory = "mingge_inv",
-            size = SLOT_SIZE,
-            showTypeIcon = false,
-            onSlotClick = function(slotWidget, clickedItem)
-                if clickedItem then
-                    MinggeTooltip.Show(clickedItem, "backpack", capturedIdx, function()
-                        UpdateAllSlots()
-                        UpdateStats()
-                        UpdateFreeSlots()
-                    end)
-                end
-            end,
-        }
-        invSlots_[i] = slot
-        gridPanel1:AddChild(slot)
-    end
-    invPanel:AddChild(gridPanel1)
-
-    -- 分隔线
-    invPanel:AddChild(UI.Panel {
-        flexDirection = "row",
-        alignItems = "center",
-        gap = T.spacing.xs,
-        marginTop = T.spacing.xs,
-        marginBottom = T.spacing.xs,
-        children = {
-            UI.Panel { height = 1, flexGrow = 1, backgroundColor = {80, 90, 110, 150} },
             UI.Label {
-                text = "命格背包 2",
+                id = "mg_free_slots",
+                text = MinggeData.BACKPACK_SIZE .. "/" .. MinggeData.BACKPACK_SIZE,
                 fontSize = T.fontSize.xs,
-                fontColor = {140, 150, 170, 200},
+                fontColor = T.color.invEmptySlot,
             },
-            UI.Panel { height = 1, flexGrow = 1, backgroundColor = {80, 90, 110, 150} },
         },
     })
 
-    -- 背包下半区（31~60）
-    local gridPanel2 = UI.Panel {
+    -- 品质选择面板（内联，在操作栏下方展开）
+    invPanel:AddChild(qualityPanel)
+
+    -- 背包格子（连续 1~BACKPACK_SIZE）
+    local gridPanel = UI.Panel {
         flexDirection = "row",
         flexWrap = "wrap",
         gap = SLOT_GAP,
     }
-    for i = BAG_SPLIT + 1, MinggeData.BACKPACK_SIZE do
+    for i = 1, MinggeData.BACKPACK_SIZE do
         local capturedIdx = i
         local slot = ImageItemSlot {
             slotId = i,
@@ -407,9 +436,9 @@ local function CreateInvPanel()
             end,
         }
         invSlots_[i] = slot
-        gridPanel2:AddChild(slot)
+        gridPanel:AddChild(slot)
     end
-    invPanel:AddChild(gridPanel2)
+    invPanel:AddChild(gridPanel)
 
     return invPanel
 end
@@ -428,6 +457,8 @@ function MinggePage.Create(parentOverlay)
     contentCreated_ = false
     equipSlots_ = {}
     invSlots_ = {}
+    minggeStatsExpanded_ = false
+    minggeStatsDetail_ = nil
 
     contentPanel_ = UI.Panel {
         gap = T.spacing.sm,
@@ -436,25 +467,7 @@ function MinggePage.Create(parentOverlay)
     -- 初始化 MinggeTooltip
     MinggeTooltip.Init(parentOverlay)
 
-    -- 批量出售品质选择菜单（仅紫品/橙品，青品为最高品质不可批量出售）
-    sellMenu_ = UI.Menu {
-        size = "sm",
-        position = "absolute",
-        zIndex = 200,
-        items = {
-            { label = "🟣 紫品", checked = sellQualities_.purple, keepOpen = true },
-            { label = "🟠 橙品", checked = sellQualities_.orange, keepOpen = true },
-        },
-        onItemClick = function(self, item, index)
-            local keys = { "purple", "orange" }
-            if keys[index] then
-                sellQualities_[keys[index]] = item.checked or false
-                SaveSellSettings()
-            end
-        end,
-    }
-    sellMenu_:Close()
-    parentOverlay:AddChild(sellMenu_)
+    -- 品质选择面板已改为内联模式（在 CreateInvPanel 中创建），无需挂载到 overlay
 
     -- 监听命格变更
     EventBus.On("mingge_stats_changed", function()
@@ -474,7 +487,7 @@ function MinggePage.Create(parentOverlay)
         id = "mg_lock_mask",
         position = "absolute",
         top = 0, left = 0, right = 0, bottom = 0,
-        backgroundColor = {15, 10, 25, 220},
+        backgroundColor = T.color.minggeLockMask,
         justifyContent = "center",
         alignItems = "center",
         zIndex = 50,
@@ -492,20 +505,20 @@ function MinggePage.Create(parentOverlay)
                         text = "五行命格",
                         fontSize = T.fontSize.xl,
                         fontWeight = "bold",
-                        fontColor = {180, 140, 255, 255},
+                        fontColor = T.color.qualityPurple,
                         textAlign = "center",
                     },
                     UI.Label {
                         text = "修炼至「金丹初期」可解封",
                         fontSize = T.fontSize.md,
-                        fontColor = {200, 200, 200, 200},
+                        fontColor = T.color.invInfoLabel,
                         textAlign = "center",
                     },
                     UI.Label {
                         id = "mg_lock_realm_hint",
                         text = "",
                         fontSize = T.fontSize.sm,
-                        fontColor = {150, 150, 150, 180},
+                        fontColor = T.color.textMuted,
                         textAlign = "center",
                     },
                     UI.Button {
@@ -519,7 +532,7 @@ function MinggePage.Create(parentOverlay)
                         paddingBottom = T.spacing.sm,
                         marginTop = T.spacing.md,
                         borderRadius = T.radius.md,
-                        backgroundColor = {100, 60, 180, 240},
+                        backgroundColor = T.color.minggeUnlockBtn,
                         onClick = function(self)
                             if CheckRealmUnlocked() then
                                 -- 解封成功
@@ -618,12 +631,20 @@ function UpdateStats()
                 setPanel:AddChild(UI.Label {
                     text = elName .. "行·" .. setDef.name .. ": " .. setDef.desc,
                     fontSize = T.fontSize.xs,
-                    fontColor = {100, 220, 255, 230},
+                    fontColor = T.color.minggeSetBonus,
                     maxWidth = 9999,
                 })
             end
         end
     end
+
+    -- 摘要行更新（攻/防/血）
+    local sumAtk = contentPanel_:FindById("mg_stat_summary_atk")
+    local sumDef = contentPanel_:FindById("mg_stat_summary_def")
+    local sumHp  = contentPanel_:FindById("mg_stat_summary_maxHp")
+    if sumAtk then sumAtk:SetText("攻+" .. math.floor(summary.atk or 0)) end
+    if sumDef then sumDef:SetText("防+" .. math.floor(summary.def or 0)) end
+    if sumHp  then sumHp:SetText("血+" .. math.floor(summary.maxHp or 0)) end
 end
 
 --- 刷新背包空位显示
@@ -632,16 +653,13 @@ function UpdateFreeSlots()
     local label = contentPanel_:FindById("mg_free_slots")
     if label then
         local manager = MinggeSystem.GetManager()
-        local free1, free2 = 0, 0
+        local free = 0
         if manager then
-            for i = 1, BAG_SPLIT do
-                if not manager:GetInventoryItem(i) then free1 = free1 + 1 end
-            end
-            for i = BAG_SPLIT + 1, MinggeData.BACKPACK_SIZE do
-                if not manager:GetInventoryItem(i) then free2 = free2 + 1 end
+            for i = 1, MinggeData.BACKPACK_SIZE do
+                if not manager:GetInventoryItem(i) then free = free + 1 end
             end
         end
-        label:SetText(free1 .. "/" .. BAG_SPLIT .. " | " .. free2 .. "/" .. (MinggeData.BACKPACK_SIZE - BAG_SPLIT))
+        label:SetText(free .. "/" .. MinggeData.BACKPACK_SIZE)
     end
 end
 
@@ -650,18 +668,9 @@ function MinggePage.OnShow()
     -- 延迟渲染：首次 OnShow 时才创建装备面板和背包面板
     if not contentCreated_ then
         contentCreated_ = true
-        local mainRow = UI.Panel {
-            flexDirection = "row",
-            gap = T.spacing.md,
-            flexWrap = "wrap",
-            justifyContent = "center",
-            alignItems = "flex-start",
-            children = {
-                CreateEquipPanel(),
-                CreateInvPanel(),
-            },
-        }
-        contentPanel_:AddChild(mainRow)
+        -- 竖屏单列：装备区在上，背包在下
+        contentPanel_:AddChild(CreateEquipPanel())
+        contentPanel_:AddChild(CreateInvPanel())
     end
 
     -- 检查持久化解封标记（境界达标时自动解封）
@@ -703,7 +712,7 @@ end
 --- 页面被隐藏时调用
 function MinggePage.OnHide()
     MinggeTooltip.Hide()
-    if sellMenu_ and sellMenu_:IsOpen() then sellMenu_:Close() end
+    if sellMenu_ and sellMenu_:IsVisible() then sellMenu_:Hide() end
 end
 
 return MinggePage

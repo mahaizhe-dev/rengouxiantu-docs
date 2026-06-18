@@ -463,8 +463,9 @@ function M.HandleBuy(eventType, eventData)
                                         end
                                     end
                                 else
-                                    -- BM-S4AR: 强制新建锁定堆叠，绝不合并到已有堆叠
-                                    -- 替代旧的 AddToBackpack + 后置遍历锁定模式
+                                    -- BM-NORESELL(P1): 写入永久禁回售来源(bmNoResell)，不再加临时锁。
+                                    -- 合并到【同 ID 且 bmNoResell】堆叠（解决"买几次几堆"），绝不并入普通来源（防洗白）。
+                                    -- batchId 为兼容旧签名保留，函数内部已不再使用。
                                     BackpackUtils.AddLockedNewStack(
                                         backpack, consumableId, amount, cfg.name, batchId
                                     )

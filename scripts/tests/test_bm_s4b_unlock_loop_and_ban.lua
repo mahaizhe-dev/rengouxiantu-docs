@@ -1,9 +1,11 @@
 -- ============================================================================
--- test_bm_s4b_unlock_loop_and_ban.lua — BM-S4B 解锁闭环与整类禁售测试
+-- test_bm_s4b_unlock_loop_and_ban.lua — BM-S4B（已降级 non_blocking）
 --
--- 测试层次：
---   A. 解锁闭环：SerializeItemFull 剥离锁字段 → 重登不复现
---   B. 整类禁售：HasAnyLockedConsumable → 只要有一个锁定，整个 itemId 禁售
+-- ⚠️ BM-NORESELL(P1) 后："整类禁售"模型已退役，买入不再加临时锁。
+--    本测试保留以守护两项【过渡兼容】保证，不再代表现行卖出规则：
+--      A. 解锁闭环：SerializeItemFull 剥离 bmLock* → 临时锁字段永不落盘（防重登复现）
+--      B. HasAnyLockedConsumable 对【残留临时锁】的纯逻辑判定（旧存档 5 分钟内）
+--    现行禁回售规则见 test_bm_noresell；SyncState L1/L2 分支见 test_bm_s4e_sell_block_consistency。
 --
 -- 纯 Lua 测试，无引擎依赖。
 -- ============================================================================

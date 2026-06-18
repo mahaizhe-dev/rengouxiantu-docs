@@ -1661,8 +1661,9 @@ function BlackMerchantUI_HandleBMResult(eventType, eventData)
                 end
             end
         else
-            -- BM-S4AR: 强制新建锁定堆叠，绝不合并到已有堆叠
-            -- （AddConsumableLockedNewStack 内部已写入 bmNoResell 永久标记）
+            -- BM-NORESELL(P1): 写入永久禁回售来源(bmNoResell)，不再加临时锁；
+            -- 合并到【同 ID 且 bmNoResell】堆叠，绝不并入普通来源（防洗白）。
+            -- batchId 为兼容旧签名保留，函数内部已不再使用。
             local batchId = TradeLock.GenerateBatchId()
             InventorySystem.AddConsumableLockedNewStack(itemId, amount, batchId)
         end

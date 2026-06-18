@@ -448,6 +448,133 @@ UITheme.color = {
     -- ▼ 卡片边框色（半透明，用于公告/活动/奖励区块） ────
     cardBorderGold   = {255, 200, 80, 120},  -- 金色半透明（公告/福利/奖励/补偿）
     cardBorderInfo   = {100, 140, 200, 100}, -- 蓝色半透明（信息/社群卡片）
+
+    -- ── 装备弹窗 EquipTooltip 专属色（Step 2 录入） ──
+    equipTipPanelBg          = {25, 28, 38, 245},    -- 主面板底色
+    equipTipPanelBorder      = {80, 90, 110, 200},   -- 主面板边框
+    equipTipDivider          = {80, 85, 100, 120},   -- 信息区分割线
+    equipTipDividerFaint     = {80, 85, 100, 100},   -- 对比表分割线（更淡）
+    equipTipDescText         = {220, 220, 230, 220}, -- 消耗品描述正文
+    equipTipConsumableBg     = {35, 45, 35, 200},    -- 消耗品描述区底色（绿调）
+    equipTipStatLabel        = {160, 160, 180, 200}, -- 属性段标题（主/副属性 ▸）
+    equipTipMainStatName     = {255, 255, 230, 255}, -- 主属性名称（暖白）
+    equipTipSubStatName      = {200, 200, 220, 255}, -- 副属性名称（冷白）
+    equipTipSubStatVal       = {150, 220, 150, 255}, -- 副属性数值（淡绿）
+    equipTipSubStatBg        = {30, 35, 48, 200},    -- 副属性区底色
+    equipTipForgeBg          = {45, 38, 55, 200},    -- 洗练属性区底色（紫调）
+    equipTipForgeBorder      = {180, 140, 60, 120},  -- 洗练属性区边框（暗金）
+    equipTipForgeLabel       = {180, 160, 100, 200}, -- 洗练 ▸ 标签
+    equipTipForgeVal         = {255, 200, 100, 255}, -- 洗练属性数值（亮金）
+    equipTipSpiritBg         = {25, 45, 45, 200},    -- 灵性区底色（青调）
+    equipTipSpiritBorder     = {0, 200, 200, 120},   -- 灵性区边框
+    equipTipSpiritLabel      = {0, 200, 200, 200},   -- 灵性 ▸ 标签
+    equipTipSpiritName       = {150, 240, 240, 255}, -- 灵性属性名（浅青）
+    equipTipSpiritVal        = {0, 220, 220, 255},   -- 灵性属性数值（深青）
+    equipTipSaintBg          = {50, 10, 10, 210},    -- 圣性区底色（深红调）
+    equipTipSaintBorder      = {255, 60, 60, 130},   -- 圣性区边框
+    equipTipSaintLabel       = {255, 80, 80, 220},   -- 圣性 ▸ 标签
+    equipTipSaintName        = {255, 180, 180, 255}, -- 圣性属性名（粉红）
+    equipTipSetName          = {255, 200, 100, 255}, -- 套装名称（橙金）
+    equipTipInactive         = {120, 120, 120, 180}, -- 未激活行（暗灰）
+    equipTipSetBg            = {45, 38, 25, 200},    -- 套装区底色（暖棕）
+    equipTipEnchantActive    = {200, 160, 255, 255}, -- 附灵激活行（浅紫）
+    equipTipEnchantBg        = {40, 30, 60, 220},    -- 附灵区底色（深紫）
+    equipTipEnchantBorder    = {160, 100, 255, 150}, -- 附灵区边框
+    equipTipSkillBg          = {25, 40, 55, 200},    -- 技能区底色（蓝调）
+    equipTipSkillBorder      = {80, 160, 220, 100},  -- 技能区边框
+    equipTipSkillName        = {100, 200, 255, 255}, -- 技能名称（亮蓝）
+    equipTipSkillCd          = {160, 180, 200, 180}, -- 技能 CD 文字
+    equipTipSkillDesc        = {180, 200, 220, 200}, -- 技能描述
+    equipTipWineLabel        = {200, 180, 120, 200}, -- 美酒 ▸ 标签
+    equipTipWineName         = {255, 220, 140, 255}, -- 美酒名称（暖金）
+    equipTipWineEffect       = {200, 200, 180, 180}, -- 美酒效果描述
+    equipTipWineEmpty        = {100, 100, 110, 150}, -- 空酒槽提示
+    equipTipWineBg           = {40, 35, 25, 200},    -- 美酒区底色（暖棕）
+    equipTipWineBorder       = {180, 150, 80, 100},  -- 美酒区边框
+    equipTipSpecialBg        = {55, 25, 25, 200},    -- 独特效果区底色（深红）
+    equipTipSpecialBorder    = {220, 120, 60, 100},  -- 独特效果区边框
+    equipTipSpecialName      = {255, 160, 60, 255},  -- 独特效果名称（橙）
+    equipTipSpecialDesc      = {255, 200, 150, 200}, -- 独特效果描述
+    equipTipLingYunPrice     = {180, 140, 255, 200}, -- 灵韵售价（紫）
+    equipTipGoldPrice        = {200, 180, 100, 160}, -- 金币售价（暗金）
+    equipTipTagBg            = {60, 60, 80, 200},    -- 标签底色
+    equipTipTagText          = {255, 255, 255, 220}, -- 标签文字
+    equipTipCompareLabel     = {160, 160, 180, 180}, -- 对比标题
+    equipTipCompareEquipped  = {100, 200, 100, 230}, -- 对比"已装备"列头（绿）
+    equipTipCompareCurrent   = {100, 180, 255, 230}, -- 对比"当前"列头（蓝）
+    equipTipCompareNeutral   = {200, 200, 220, 220}, -- 对比持平色
+    equipTipCompareBetter    = {100, 255, 100, 255}, -- 对比更优（绿）
+    equipTipCompareWorse     = {255, 130, 130, 220}, -- 对比更差（红）
+    equipTipCompareStatName  = {200, 200, 220, 200}, -- 对比属性名
+    equipTipComparePanelBg   = {20, 22, 32, 235},    -- 对比面板底色
+    equipTipComparePanelBorder = {80, 90, 110, 150}, -- 对比面板边框
+    equipTipEquippedTag      = {60, 100, 60, 220},   -- "已装备"标签色
+    equipTipEquippedPanelBg  = {22, 25, 35, 235},    -- 已装备对比面板底色
+    equipTipEquippedPanelBorder = {60, 80, 60, 180}, -- 已装备对比面板边框（绿调）
+
+    -- ── 背包/命格通用色（Step 0 预录，Step 2/3 接入） ──
+    invPanelBg       = {30, 35, 45, 240},    -- 左右面板底色
+    invStatPanelBg   = {20, 25, 35, 200},    -- 属性统计区深底
+    invStatValue     = {220, 220, 220, 255}, -- 属性数值文字
+    invSetBonus      = {255, 200, 100, 200}, -- 装备套装加成文字
+    minggeSetBonus   = {100, 220, 255, 230}, -- 命格套装加成文字
+    invSortBtn       = {50, 90, 130, 220},   -- 整理按钮
+    invSellBtn       = {120, 80, 30, 220},   -- 批量出售按钮
+    invSellDropBtn   = {100, 65, 20, 220},   -- ▼下拉按钮
+    invEmptySlot     = {180, 180, 180, 200}, -- 空位提示文字
+    invDivider       = {80, 90, 110, 150},   -- 分隔线
+    invDividerText   = {140, 150, 170, 200}, -- 分隔文字
+    invTabActive     = {60, 140, 220, 255},  -- 背包Tab激活底
+    invTabInactive   = {60, 60, 75, 200},    -- 背包Tab未激活底
+    invInfoLabel     = {200, 200, 200, 200}, -- 信息标签
+    minggeLockMask   = {15, 10, 25, 220},    -- 命格解封遮罩底
+    minggeUnlockBtn  = {100, 60, 180, 240},  -- 解封按钮底
+
+    -- ▼ 命格 Tooltip 专属色 ──────────────────────────────
+    minggeTipOverlay      = {0, 0, 0, 160},       -- 遮罩（比通用 overlay 更深）
+    minggeTipCardBg       = {30, 35, 50, 250},    -- 内容卡片底色
+    minggeTipPortraitBg   = {20, 22, 35, 255},    -- 头像区底色
+    minggeTipElemBadgeBg  = {0, 0, 0, 180},       -- 五行角标底色
+    minggeTipInfoText     = {180, 180, 200, 230},  -- 品质/五行/阶级信息行文字
+    minggeTipDivider      = {80, 90, 120, 150},    -- 分隔线
+    minggeTipStatRowBg    = {50, 60, 80, 200},     -- 属性行底色
+    minggeTipStatName     = {220, 220, 240, 255},  -- 属性名文字
+    minggeTipSetBg        = {40, 55, 70, 200},     -- 套装信息区底色
+    minggeTipSetName      = {100, 220, 255, 255},  -- 套装名文字（纯白透明）
+    minggeTipSetDesc      = {150, 200, 220, 200},  -- 套装描述文字
+    minggeTipWarn         = {255, 100, 100, 230},  -- 同名警告文字
+    minggeTipSellLabel    = {140, 140, 160, 200},  -- 出售标签文字
+    minggeTipLingYunPrice = {180, 140, 255, 255},  -- 灵韵售价文字
+    minggeTipEquipBtn     = {60, 140, 80, 240},    -- 装备按钮底色
+    minggeTipDisabledBtn  = {80, 80, 80, 200},     -- 禁用装备按钮底色
+    minggeTipSellBtn      = {140, 80, 40, 240},    -- 出售按钮底色
+    minggeTipLockBtn      = {80, 80, 100, 220},    -- 锁定/解锁按钮底色
+    minggeTipUnequipBtn   = {140, 100, 40, 240},   -- 卸下按钮底色
+    minggeTipCloseBtn     = {60, 60, 70, 220},     -- 关闭按钮底色
+}
+
+-- ── 属性色阶（背包/命格通用，按 stat key 查找） ──
+UITheme.statColor = {
+    atk             = {255, 150, 100, 255},
+    def             = {100, 200, 255, 255},
+    maxHp           = {100, 255, 100, 255},
+    hpRegen         = {150, 255, 200, 255},
+    critRate        = {255, 220, 100, 255},
+    critDmg         = {255, 200, 80, 255},
+    heavyHit        = {255, 140, 60, 255},
+    skillDmg        = {200, 150, 255, 255},
+    killHeal        = {100, 255, 180, 255},
+    dmgReduce       = {180, 140, 255, 255},
+    speed           = {100, 220, 255, 255},
+    moveSpeed       = {100, 220, 255, 255},
+    fortune         = {255, 215, 0, 255},
+    wisdom          = {200, 150, 255, 255},
+    constitution    = {255, 180, 100, 255},
+    physique        = {220, 50, 50, 255},
+    tianzhuChance   = {0, 220, 220, 255},
+    tianzhuDamage   = {0, 220, 220, 255},
+    petSyncRate     = {0, 220, 220, 255},
+    attackSpeedBonus= {255, 200, 80, 255},
 }
 
 -- ── 品质辉光边框色（带透明度，用于图标边框） ──

@@ -186,22 +186,20 @@ end
 -- ============================================================================
 
 local function GetClassSprite()
-    local classId = GameConfig.PLAYER_CLASS or "monk"
+    local classId = (GameState.player and GameState.player.classId) or GameConfig.PLAYER_CLASS or "monk"
     return CLASS_PORTRAITS[classId] or CLASS_PORTRAITS.monk
 end
 
 --- 创建境界突破面板
 ---@param parentOverlay table
 function RealmPanel.Create(parentOverlay)
-    local classId = GameConfig.PLAYER_CLASS or "monk"
-
-    -- 头像面板（与角色信息面板一致）
+    -- 头像面板（根据玩家实际职业动态显示）
     portraitPanel_ = UI.Panel {
         width = PORTRAIT_SIZE,
         height = PORTRAIT_SIZE,
         borderRadius = T.radius.md,
         backgroundColor = T.color.headerBg,
-        backgroundImage = CLASS_PORTRAITS[classId] or CLASS_PORTRAITS.monk,
+        backgroundImage = GetClassSprite(),
         backgroundFit = "contain",
         overflow = "hidden",
     }

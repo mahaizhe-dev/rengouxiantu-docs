@@ -1,19 +1,25 @@
 -- ============================================================================
--- BlackMarketTradeLock.lua — 黑市交易保护锁（BM-S4A）
+-- BlackMarketTradeLock.lua — 黑市交易标记模块
+--
+-- ⚠️ 模型演进（务必先读）：
+--   旧模型 BM-S4A「临时锁」(bmLockUntil/Source/BatchId, 5 分钟过期) 已于 BM-NORESELL(P1) 退役：
+--   黑市买入不再加临时锁，改为写入【永久禁回售标记 bmNoResell】(MarkNoResell/IsNoResell)。
+--   临时锁相关 API（IsLocked/ApplyLock/ClearLock/HasAnyLockedConsumable 等）仅为
+--   兼容旧存档残留临时锁而保留，过渡期(5 分钟)后不再产生新锁。
+--   当前黑市禁回售的安全边界 = bmNoResell + 服务端"只扣可回售数量"校验。
 --
 -- 职责：
---   1. 定义锁元数据结构与常量
---   2. 提供锁状态判定 API（IsLocked / CanMerge / IsConsumeBlocked）
---   3. 提供锁写入 API（ApplyLock / ClearLock / ClearAllExpired）
---   4. 存档成功后批量清锁
+--   1. 永久禁回售标记 API（MarkNoResell / IsNoResell） ← 现行核心
+--   2. [兼容] 临时锁状态判定 API（IsLocked / CanMergeStacks / IsOperationBlocked）
+--   3. [兼容] 临时锁写入/清除 API（ApplyLock / ClearLock / ClearAllExpired / ClearAllOnSaveSuccess）
 --
 -- 设计文档：
---   docs/2026-05-13-BM-S4A-黑市交易保护锁与统一操作闸任务卡.md
+--   docs/2026-05-13-BM-S4A-黑市交易保护锁与统一操作闸任务卡.md（旧）
+--   docs/2026-06-17-黑市买入永久禁回售与全商品审计执行文档.md（现行）
 --
 -- 原则：
---   - 锁只标记在消耗品堆叠上（equipment 不参与）
---   - 锁定堆叠与未锁定同类不合并
---   - 保护期内阻断一切本地状态变更
+--   - 标记只作用于消耗品/装备堆叠（与品类无关，按来源区分）
+--   - bmNoResell 来源与普通来源、不同来源之间一律不合并（防洗白）
 -- ============================================================================
 
 local M = {}
@@ -218,12 +224,13 @@ function M.GenerateBatchId()
     return string.format("bm_%d_%d", os.time(), math.random(1000, 9999))
 end
 
---- 判断指定消耗品是否存在任何锁定堆叠（整类禁售判定）
---- BM-S4B: 只要有一个堆叠被锁，整个 consumableId 禁止卖出
+--- 判断指定消耗品是否存在任何临时锁堆叠
+--- ⚠️ BM-NORESELL(P1) 已退役"整类禁售"模型：买入不再加临时锁。本函数仅对旧存档残留临时锁生效，
+--- 过渡期后恒为 false（仍被 BlackMarketSyncState 的 L1 检查保留调用）。
 ---@param getItemFn fun(i: number): table|nil
 ---@param maxSlots number
 ---@param consumableId string
----@return boolean hasLocked 是否存在锁定堆叠
+---@return boolean hasLocked 是否存在临时锁堆叠
 function M.HasAnyLockedConsumable(getItemFn, maxSlots, consumableId)
     for i = 1, maxSlots do
         local item = getItemFn(i)

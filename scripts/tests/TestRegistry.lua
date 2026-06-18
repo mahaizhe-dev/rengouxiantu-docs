@@ -227,8 +227,8 @@ TestRegistry.tests = {
         path          = "scripts/tests/test_bm_s4b_unlock_loop_and_ban.lua",
         mode          = "run_file",
         enabled       = true,
-        gate          = "blocking",
-        skip_reason   = nil,
+        gate          = "non_blocking",
+        skip_reason   = "BM-NORESELL(P1) 降级：'整类禁售'语义已退役。仍运行以守护两项过渡兼容保证 —— SerializeItemFull 剥离 bmLock* 不落盘、HasAnyLockedConsumable 对残留临时锁的纯逻辑；不再阻断门禁",
     },
 
     ---------------------------------------------------------------------------
@@ -239,10 +239,10 @@ TestRegistry.tests = {
         id            = "bm_s4c_sell_block_model",
         group         = "system",
         path          = "scripts/tests/test_bm_s4c_sell_block_model.lua",
-        mode          = "run_file",
-        enabled       = true,
-        gate          = "blocking",
-        skip_reason   = nil,
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "BM-NORESELL(P1) 退役整类禁售：服务端 HandleSell 改按可回售数量放行，BackpackUtils.HasAnyLockedItem 已无生产调用方(死函数)。本测试 A7/E2 断言的'整类禁售为现行规则'与新模型矛盾；SyncState/L1/L2 分支覆盖见 test_bm_s4e_sell_block_consistency，禁回售见 test_bm_noresell",
     },
 
     ---------------------------------------------------------------------------
@@ -443,6 +443,21 @@ TestRegistry.tests = {
         id            = "bm_noresell_consume",
         group         = "system",
         path          = "scripts/tests/test_bm_noresell_consume.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
+    -- BM-NORESELL: 仓库存取保留 bmNoResell 端到端回归（买入→存仓→重登→取出）
+    -- 隔离 mock GameState/InventorySystem，跑真实 WarehouseSystem+SaveSerializer
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "bm_noresell_warehouse",
+        group         = "system",
+        path          = "scripts/tests/test_bm_noresell_warehouse.lua",
         mode          = "run_file",
         enabled       = true,
         gate          = "blocking",

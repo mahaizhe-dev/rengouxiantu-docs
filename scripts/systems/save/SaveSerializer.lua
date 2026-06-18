@@ -551,12 +551,18 @@ function SaveSerializer.DeserializeInventory(data)
                             itemData.name = bookData.name
                         end
                     else
-                        local cfgData = GameConfig.PET_FOOD[itemData.consumableId]
+                        local foodData = GameConfig.PET_FOOD[itemData.consumableId]
+                        local cfgData = foodData
                             or GameConfig.PET_MATERIALS[itemData.consumableId]
                             or GameConfig.EVENT_ITEMS[itemData.consumableId]
                         if cfgData then
                             itemData.icon = cfgData.icon
                             itemData.name = cfgData.name
+                            -- 补全宠物食物经验：服务端 AddToBackpack（活动开箱等）写入存档时不带 petExp，
+                            -- 导致食品栏 GetPetFoodList 检测不到。在此按 consumableId 从 PET_FOOD 权威补全。
+                            if foodData and not itemData.petExp then
+                                itemData.petExp = foodData.exp
+                            end
                         end
                     end
                 end

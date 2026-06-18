@@ -1,6 +1,9 @@
 ---@diagnostic disable
 -- ============================================================================
 -- EquipTooltip.lua - 装备属性详情浮层
+-- Style: 仙侠暗金 (UITheme 规范化版)
+-- 特点: 双面板对比 | 品质辉光 | 套装高亮 | 操作按钮语义色 | overlay层级
+-- ============================================================================
 -- 内嵌在背包面板中，不使用 Modal，避免 overlay 层级问题
 -- 支持双面板对比：背包/商店中查看装备时，左侧显示已装备，右侧显示当前物品
 -- ============================================================================
@@ -57,7 +60,7 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
     local isConsumable = item.category == "consumable"
     local qualityCfg = GameConfig.QUALITY[item.quality]
     local qName = qualityCfg and qualityCfg.name or "普通"
-    local qColor = qualityCfg and qualityCfg.color or {200, 200, 200, 255}
+    local qColor = qualityCfg and qualityCfg.color or T.color.qualityWhite
     local slotName = EquipmentData.SLOT_NAMES[item.slot] or item.slot or ""
 
     -- 物品名称（含图标）
@@ -109,7 +112,7 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
     end
 
     -- 分割线
-    table.insert(rows, UI.Panel { width = "100%", height = 1, backgroundColor = {80, 85, 100, 120}, marginTop = T.spacing.xs, marginBottom = T.spacing.xs })
+    table.insert(rows, UI.Panel { width = "100%", height = 1, backgroundColor = T.color.equipTipDivider, marginTop = T.spacing.xs, marginBottom = T.spacing.xs })
 
     -- 消耗品描述
     if isConsumable then
@@ -117,18 +120,18 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
         if item.desc then
             table.insert(descChildren, UI.Label {
                 text = item.desc,
-                fontSize = T.fontSize.sm, fontColor = {220, 220, 230, 220},
+                fontSize = T.fontSize.sm, fontColor = T.color.equipTipDescText,
             })
         end
         if item.petExp then
             table.insert(descChildren, UI.Label {
                 text = "🐾 宠物经验 +" .. item.petExp,
-                fontSize = T.fontSize.md, fontWeight = "bold", fontColor = {130, 230, 130, 255},
+                fontSize = T.fontSize.md, fontWeight = "bold", fontColor = T.color.success,
             })
         end
         if #descChildren > 0 then
             table.insert(rows, UI.Panel {
-                backgroundColor = {35, 45, 35, 200}, borderRadius = T.radius.sm,
+                backgroundColor = T.color.equipTipConsumableBg, borderRadius = T.radius.sm,
                 padding = T.spacing.sm, gap = T.spacing.xs,
                 children = descChildren,
             })
@@ -138,13 +141,13 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
     -- 主属性
     if item.mainStat then
         local mainChildren = {
-            UI.Label { text = "▸ 主属性", fontSize = T.fontSize.xs, fontColor = {160, 160, 180, 200}, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
+            UI.Label { text = "▸ 主属性", fontSize = T.fontSize.xs, fontColor = T.color.equipTipStatLabel, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
         }
         for stat, value in pairs(item.mainStat) do
             table.insert(mainChildren, StatRow(
                 STAT_ICONS[stat] or "📊", STAT_NAMES[stat] or stat,
                 FormatStatValue(stat, value),
-                {255, 255, 230, 255}, qColor, T.fontSize.md
+                T.color.equipTipMainStatName, qColor, T.fontSize.md
             ))
         end
         table.insert(rows, UI.Panel {
@@ -157,17 +160,17 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
     -- 副属性
     if item.subStats and #item.subStats > 0 then
         local subChildren = {
-            UI.Label { text = "▸ 副属性", fontSize = T.fontSize.xs, fontColor = {160, 160, 180, 200}, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
+            UI.Label { text = "▸ 副属性", fontSize = T.fontSize.xs, fontColor = T.color.equipTipStatLabel, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
         }
         for _, sub in ipairs(item.subStats) do
             table.insert(subChildren, StatRow(
                 STAT_ICONS[sub.stat] or "📊", sub.name or STAT_NAMES[sub.stat] or sub.stat,
                 FormatStatValue(sub.stat, sub.value),
-                {200, 200, 220, 255}, {150, 220, 150, 255}, T.fontSize.sm
+                T.color.equipTipSubStatName, T.color.equipTipSubStatVal, T.fontSize.sm
             ))
         end
         table.insert(rows, UI.Panel {
-            backgroundColor = {30, 35, 48, 200}, borderRadius = T.radius.sm, padding = T.spacing.sm, gap = T.spacing.xs,
+            backgroundColor = T.color.equipTipSubStatBg, borderRadius = T.radius.sm, padding = T.spacing.sm, gap = T.spacing.xs,
             children = subChildren,
         })
     end
@@ -176,15 +179,15 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
     if item.forgeStat then
         local fs = item.forgeStat
         table.insert(rows, UI.Panel {
-            backgroundColor = {45, 38, 55, 200}, borderRadius = T.radius.sm,
-            borderWidth = 1, borderColor = {180, 140, 60, 120},
+            backgroundColor = T.color.equipTipForgeBg, borderRadius = T.radius.sm,
+            borderWidth = 1, borderColor = T.color.equipTipForgeBorder,
             padding = T.spacing.sm, gap = T.spacing.xs,
             children = {
-                UI.Label { text = "▸ 洗练属性", fontSize = T.fontSize.xs, fontColor = {180, 160, 100, 200}, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
+                UI.Label { text = "▸ 洗练属性", fontSize = T.fontSize.xs, fontColor = T.color.equipTipForgeLabel, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
                 StatRow(
                     STAT_ICONS[fs.stat] or "🔨", fs.name or STAT_NAMES[fs.stat] or fs.stat,
                     FormatStatValue(fs.stat, fs.value),
-                    {255, 220, 150, 255}, {255, 200, 100, 255}, T.fontSize.md
+                    T.color.gold, T.color.equipTipForgeVal, T.fontSize.md
                 ),
             },
         })
@@ -194,15 +197,15 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
     if item.spiritStat then
         local ss = item.spiritStat
         table.insert(rows, UI.Panel {
-            backgroundColor = {25, 45, 45, 200}, borderRadius = T.radius.sm,
-            borderWidth = 1, borderColor = {0, 200, 200, 120},
+            backgroundColor = T.color.equipTipSpiritBg, borderRadius = T.radius.sm,
+            borderWidth = 1, borderColor = T.color.equipTipSpiritBorder,
             padding = T.spacing.sm, gap = T.spacing.xs,
             children = {
-                UI.Label { text = "▸ 灵性属性", fontSize = T.fontSize.xs, fontColor = {0, 200, 200, 200}, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
+                UI.Label { text = "▸ 灵性属性", fontSize = T.fontSize.xs, fontColor = T.color.equipTipSpiritLabel, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
                 StatRow(
                     STAT_ICONS[ss.stat] or "✨", ss.name or STAT_NAMES[ss.stat] or ss.stat,
                     FormatStatValue(ss.stat, ss.value),
-                    {150, 240, 240, 255}, {0, 220, 220, 255}, T.fontSize.md
+                    T.color.equipTipSpiritName, T.color.equipTipSpiritVal, T.fontSize.md
                 ),
             },
         })
@@ -212,15 +215,15 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
     if item.saintStat then
         local ss = item.saintStat
         table.insert(rows, UI.Panel {
-            backgroundColor = {50, 10, 10, 210}, borderRadius = T.radius.sm,
-            borderWidth = 1, borderColor = {255, 60, 60, 130},
+            backgroundColor = T.color.equipTipSaintBg, borderRadius = T.radius.sm,
+            borderWidth = 1, borderColor = T.color.equipTipSaintBorder,
             padding = T.spacing.sm, gap = T.spacing.xs,
             children = {
-                UI.Label { text = "▸ 圣性属性", fontSize = T.fontSize.xs, fontColor = {255, 80, 80, 220}, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
+                UI.Label { text = "▸ 圣性属性", fontSize = T.fontSize.xs, fontColor = T.color.equipTipSaintLabel, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
                 StatRow(
                     STAT_ICONS[ss.stat] or "🔴", ss.name or STAT_NAMES[ss.stat] or ss.stat,
                     FormatStatValue(ss.stat, ss.value),
-                    {255, 180, 180, 255}, {255, 80, 80, 255}, T.fontSize.md
+                    T.color.equipTipSaintName, T.color.error, T.fontSize.md
                 ),
             },
         })
@@ -248,17 +251,17 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
                 end
             end
             local setChildren = {
-                UI.Label { text = "🔗 " .. setData.name .. " (" .. setCount .. "件)", fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = {255, 200, 100, 255} },
+                UI.Label { text = "🔗 " .. setData.name .. " (" .. setCount .. "件)", fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = T.color.equipTipSetName },
             }
             for threshold, bonus in pairs(setData.pieces) do
                 local active = setCount >= threshold
                 table.insert(setChildren, UI.Label {
                     text = (active and "✓ " or "  ") .. "(" .. threshold .. "件) " .. bonus.description,
-                    fontSize = T.fontSize.xs, fontColor = active and {100, 255, 100, 255} or {120, 120, 120, 180},
+                    fontSize = T.fontSize.xs, fontColor = active and T.color.success or T.color.equipTipInactive,
                 })
             end
             table.insert(rows, UI.Panel {
-                backgroundColor = {45, 38, 25, 200}, borderRadius = T.radius.sm, padding = T.spacing.sm, gap = T.spacing.xs,
+                backgroundColor = T.color.equipTipSetBg, borderRadius = T.radius.sm, padding = T.spacing.sm, gap = T.spacing.xs,
                 children = setChildren,
             })
         end
@@ -294,19 +297,19 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
             local enchantChildren = {
                 UI.Label {
                     text = "💎 附灵: " .. setData.name .. " (" .. enchantCount .. "件)",
-                    fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = {180, 130, 255, 255},
+                    fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = T.color.qualityPurple,
                 },
             }
             for threshold, bonus in pairs(setData.pieces) do
                 local active = enchantCount >= threshold
                 table.insert(enchantChildren, UI.Label {
                     text = (active and "✓ " or "  ") .. "(" .. threshold .. "件) " .. bonus.description,
-                    fontSize = T.fontSize.xs, fontColor = active and {200, 160, 255, 255} or {120, 120, 120, 180},
+                    fontSize = T.fontSize.xs, fontColor = active and T.color.equipTipEnchantActive or T.color.equipTipInactive,
                 })
             end
             table.insert(rows, UI.Panel {
-                backgroundColor = {40, 30, 60, 220}, borderRadius = T.radius.sm,
-                borderWidth = 1, borderColor = {160, 100, 255, 150},
+                backgroundColor = T.color.equipTipEnchantBg, borderRadius = T.radius.sm,
+                borderWidth = 1, borderColor = T.color.equipTipEnchantBorder,
                 padding = T.spacing.sm, gap = T.spacing.xs,
                 children = enchantChildren,
             })
@@ -319,15 +322,15 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
         if skillDef then
             local cdText = skillDef.cooldown and ("CD " .. math.floor(skillDef.cooldown) .. "s") or ""
             table.insert(rows, UI.Panel {
-                backgroundColor = {25, 40, 55, 200}, borderRadius = T.radius.sm,
-                borderWidth = 1, borderColor = {80, 160, 220, 100},
+                backgroundColor = T.color.equipTipSkillBg, borderRadius = T.radius.sm,
+                borderWidth = 1, borderColor = T.color.equipTipSkillBorder,
                 padding = T.spacing.sm, gap = T.spacing.xs,
                 children = {
                     UI.Panel {
                         flexDirection = "row", justifyContent = "space-between", alignItems = "center",
                         children = {
-                            UI.Label { text = "🔮 技能: " .. (skillDef.icon or "") .. " " .. (skillDef.name or item.skillId), fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = {100, 200, 255, 255} },
-                            UI.Label { text = cdText, fontSize = T.fontSize.xs, fontColor = {160, 180, 200, 180} },
+                            UI.Label { text = "🔮 技能: " .. (skillDef.icon or "") .. " " .. (skillDef.name or item.skillId), fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = T.color.equipTipSkillName },
+                            UI.Label { text = cdText, fontSize = T.fontSize.xs, fontColor = T.color.equipTipSkillCd },
                         },
                     },
                     UI.Label {
@@ -336,7 +339,7 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
                             GameState.player and GameState.player:GetTotalMaxHp() or nil,
                             item.tier or InventorySystem.GetGourdTier()
                         ),
-                        fontSize = T.fontSize.xs, fontColor = {180, 200, 220, 200},
+                        fontSize = T.fontSize.xs, fontColor = T.color.equipTipSkillDesc,
                     },
                 },
             })
@@ -350,7 +353,7 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
             local player = GameState.player
             local wineSlots = player and player.wineSlots or {}
             local wineChildren = {
-                UI.Label { text = "▸ 美酒", fontSize = T.fontSize.xs, fontColor = {200, 180, 120, 200}, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
+                UI.Label { text = "▸ 美酒", fontSize = T.fontSize.xs, fontColor = T.color.equipTipWineLabel, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
             }
             for i = 1, 3 do
                 local wineId = wineSlots[i]
@@ -363,8 +366,8 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
                             paddingLeft = T.spacing.xs, paddingRight = T.spacing.xs,
                             height = T.fontSize.sm + 10,
                             children = {
-                                UI.Label { text = "\xf0\x9f\x8d\xb6 " .. wine.name, fontSize = T.fontSize.sm, fontColor = {255, 220, 140, 255} },
-                                UI.Label { text = "  " .. effectText, fontSize = T.fontSize.xs, fontColor = {200, 200, 180, 180}, flexShrink = 1 },
+                                UI.Label { text = "\xf0\x9f\x8d\xb6 " .. wine.name, fontSize = T.fontSize.sm, fontColor = T.color.equipTipWineName },
+                                UI.Label { text = "  " .. effectText, fontSize = T.fontSize.xs, fontColor = T.color.equipTipWineEffect, flexShrink = 1 },
                             },
                         })
                     end
@@ -374,14 +377,14 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
                         paddingLeft = T.spacing.xs,
                         height = T.fontSize.sm + 10,
                         children = {
-                            UI.Label { text = "\xf0\x9f\x94\x92 \xe7\xa9\xba\xe6\xa7\xbd", fontSize = T.fontSize.sm, fontColor = {100, 100, 110, 150} },
+                            UI.Label { text = "\xf0\x9f\x94\x92 \xe7\xa9\xba\xe6\xa7\xbd", fontSize = T.fontSize.sm, fontColor = T.color.equipTipWineEmpty },
                         },
                     })
                 end
             end
             table.insert(rows, UI.Panel {
-                backgroundColor = {40, 35, 25, 200}, borderRadius = T.radius.sm,
-                borderWidth = 1, borderColor = {180, 150, 80, 100},
+                backgroundColor = T.color.equipTipWineBg, borderRadius = T.radius.sm,
+                borderWidth = 1, borderColor = T.color.equipTipWineBorder,
                 padding = T.spacing.sm, gap = T.spacing.xs,
                 children = wineChildren,
             })
@@ -448,12 +451,12 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
             descText = eff.description or eff.desc or (eff.name or "特殊效果")
         end
         table.insert(rows, UI.Panel {
-            backgroundColor = {55, 25, 25, 200}, borderRadius = T.radius.sm,
-            borderWidth = 1, borderColor = {220, 120, 60, 100},
+            backgroundColor = T.color.equipTipSpecialBg, borderRadius = T.radius.sm,
+            borderWidth = 1, borderColor = T.color.equipTipSpecialBorder,
             padding = T.spacing.sm, gap = T.spacing.xs,
             children = {
-                UI.Label { text = "✨ " .. (eff.name or "特殊效果"), fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = {255, 160, 60, 255} },
-                UI.Label { text = descText, fontSize = T.fontSize.xs, fontColor = {255, 200, 150, 200} },
+                UI.Label { text = "✨ " .. (eff.name or "特殊效果"), fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = T.color.equipTipSpecialName },
+                UI.Label { text = descText, fontSize = T.fontSize.xs, fontColor = T.color.equipTipSpecialDesc },
             },
         })
     end
@@ -477,7 +480,7 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
                         and ("✨ 售价 " .. displaySellPrice .. " 灵韵")
                         or  ("💰 售价 " .. displaySellPrice),
                     fontSize = T.fontSize.xs,
-                    fontColor = displaySellCurrency == "lingYun" and {180, 140, 255, 200} or {200, 180, 100, 160},
+                    fontColor = displaySellCurrency == "lingYun" and T.color.equipTipLingYunPrice or T.color.equipTipGoldPrice,
                 },
             },
         })
@@ -490,16 +493,16 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
             marginTop = T.spacing.xs,
             children = {
                 UI.Panel {
-                    backgroundColor = tagColor or {60, 60, 80, 200},
+                    backgroundColor = tagColor or T.color.equipTipTagBg,
                     borderRadius = T.radius.sm,
-                    paddingTop = 2, paddingBottom = 2,
+                    paddingTop = T.spacing.xxs, paddingBottom = T.spacing.xxs,
                     paddingLeft = T.spacing.md, paddingRight = T.spacing.md,
                     children = {
                         UI.Label {
                             text = tagLabel,
                             fontSize = T.fontSize.xs,
                             fontWeight = "bold",
-                            fontColor = {255, 255, 255, 220},
+                            fontColor = T.color.equipTipTagText,
                             textAlign = "center",
                         },
                     },
@@ -557,8 +560,8 @@ local function BuildCompareSection(equippedItem, currentItem)
 
     local eqQuality = GameConfig.QUALITY[equippedItem.quality]
     local curQuality = GameConfig.QUALITY[currentItem.quality]
-    local eqColor = eqQuality and eqQuality.color or {200, 200, 200, 255}
-    local curColor = curQuality and curQuality.color or {200, 200, 200, 255}
+    local eqColor = eqQuality and eqQuality.color or T.color.qualityWhite
+    local curColor = curQuality and curQuality.color or T.color.qualityWhite
 
     local rows = {}
 
@@ -568,21 +571,21 @@ local function BuildCompareSection(equippedItem, currentItem)
         paddingBottom = T.spacing.xs,
         children = {
             UI.Panel { width = "34%", children = {
-                UI.Label { text = "属性对比", fontSize = T.fontSize.xs, fontColor = {160, 160, 180, 180} },
+                UI.Label { text = "属性对比", fontSize = T.fontSize.xs, fontColor = T.color.equipTipCompareLabel },
             }},
             UI.Panel { width = "33%", alignItems = "center", children = {
-                UI.Label { text = "🟢 已装备", fontSize = T.fontSize.xs, fontWeight = "bold", fontColor = {100, 200, 100, 230} },
+                UI.Label { text = "🟢 已装备", fontSize = T.fontSize.xs, fontWeight = "bold", fontColor = T.color.equipTipCompareEquipped },
                 UI.Label { text = equippedItem.name or "", fontSize = T.fontSize.xs, fontColor = eqColor, textAlign = "center" },
             }},
             UI.Panel { width = "33%", alignItems = "center", children = {
-                UI.Label { text = "🔵 当前", fontSize = T.fontSize.xs, fontWeight = "bold", fontColor = {100, 180, 255, 230} },
+                UI.Label { text = "🔵 当前", fontSize = T.fontSize.xs, fontWeight = "bold", fontColor = T.color.equipTipCompareCurrent },
                 UI.Label { text = currentItem.name or "", fontSize = T.fontSize.xs, fontColor = curColor, textAlign = "center" },
             }},
         },
     })
 
     -- 分割线
-    table.insert(rows, UI.Panel { width = "100%", height = 1, backgroundColor = {80, 85, 100, 100} })
+    table.insert(rows, UI.Panel { width = "100%", height = 1, backgroundColor = T.color.equipTipDividerFaint })
 
     -- 属性行
     for _, stat in ipairs(STAT_ORDER) do
@@ -593,29 +596,29 @@ local function BuildCompareSection(equippedItem, currentItem)
             local curStr = curVal and FormatStatShort(stat, curVal) or "-"
 
             -- 颜色：值更高的一方为绿色，更低为红色
-            local eqValColor = {200, 200, 220, 220}
-            local curValColor = {200, 200, 220, 220}
+            local eqValColor = T.color.equipTipCompareNeutral
+            local curValColor = T.color.equipTipCompareNeutral
             if eqVal and curVal then
                 if curVal > eqVal then
-                    curValColor = {100, 255, 100, 255}
-                    eqValColor = {255, 130, 130, 220}
+                    curValColor = T.color.equipTipCompareBetter
+                    eqValColor = T.color.equipTipCompareWorse
                 elseif curVal < eqVal then
-                    eqValColor = {100, 255, 100, 255}
-                    curValColor = {255, 130, 130, 220}
+                    eqValColor = T.color.equipTipCompareBetter
+                    curValColor = T.color.equipTipCompareWorse
                 end
             elseif curVal and not eqVal then
-                curValColor = {100, 255, 100, 255}
+                curValColor = T.color.equipTipCompareBetter
             elseif eqVal and not curVal then
-                eqValColor = {100, 255, 100, 255}
+                eqValColor = T.color.equipTipCompareBetter
             end
 
             table.insert(rows, UI.Panel {
                 flexDirection = "row", alignItems = "center",
-                paddingTop = 2, paddingBottom = 2,
+                paddingTop = T.spacing.xxs, paddingBottom = T.spacing.xxs,
                 children = {
                     UI.Label {
                         text = (STAT_ICONS[stat] or "📊") .. " " .. (STAT_NAMES[stat] or stat),
-                        width = "34%", fontSize = T.fontSize.xs, fontColor = {200, 200, 220, 200},
+                        width = "34%", fontSize = T.fontSize.xs, fontColor = T.color.equipTipCompareStatName,
                     },
                     UI.Label {
                         text = eqStr, width = "33%", fontSize = T.fontSize.sm,
@@ -633,10 +636,10 @@ local function BuildCompareSection(equippedItem, currentItem)
     return UI.Panel {
         flexGrow = 1, flexShrink = 1, flexBasis = 0,
         maxWidth = T.size.tooltipWidth,
-        backgroundColor = {20, 22, 32, 235},
+        backgroundColor = T.color.equipTipComparePanelBg,
         borderRadius = T.radius.lg,
         borderWidth = 1,
-        borderColor = {80, 90, 110, 150},
+        borderColor = T.color.equipTipComparePanelBorder,
         padding = T.spacing.md,
         gap = T.spacing.xs,
         overflow = "hidden",
@@ -934,10 +937,10 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
     local mainPanel = UI.Panel {
         flexGrow = 1, flexShrink = 1, flexBasis = 0,
         maxWidth = T.size.tooltipWidth,
-        backgroundColor = {25, 28, 38, 245},
+        backgroundColor = T.color.equipTipPanelBg,
         borderRadius = T.radius.lg,
         borderWidth = 1,
-        borderColor = {80, 90, 110, 200},
+        borderColor = T.color.equipTipPanelBorder,
         padding = T.spacing.md,
         gap = T.spacing.sm,
         overflow = "hidden",
@@ -950,14 +953,14 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
     if not isConsumable and (source == "inventory" or source == "shop") then
         local equippedItem = FindEquippedForSlot(item)
         if equippedItem then
-            local eqRows = BuildItemInfoRows(equippedItem, "已装备", {60, 100, 60, 220})
+            local eqRows = BuildItemInfoRows(equippedItem, "已装备", T.color.equipTipEquippedTag)
             equippedPanel = UI.Panel {
                 flexGrow = 1, flexShrink = 1, flexBasis = 0,
                 maxWidth = T.size.tooltipWidth,
-                backgroundColor = {22, 25, 35, 235},
+                backgroundColor = T.color.equipTipEquippedPanelBg,
                 borderRadius = T.radius.lg,
                 borderWidth = 1,
-                borderColor = {60, 80, 60, 180},
+                borderColor = T.color.equipTipEquippedPanelBorder,
                 padding = T.spacing.md,
                 gap = T.spacing.sm,
                 overflow = "hidden",
@@ -999,7 +1002,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         position = "absolute",
         top = 0, left = 0, right = 0, bottom = 0,
         zIndex = 150,
-        backgroundColor = {0, 0, 0, 150},
+        backgroundColor = T.color.overlay,
         justifyContent = "center",
         alignItems = "center",
         onPointerDown = function(self, event) end,

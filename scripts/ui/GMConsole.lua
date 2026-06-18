@@ -1319,6 +1319,32 @@ local GM_CATEGORIES = {
                     ShowLog("打造合同: " .. f .. " 项失败 / " .. t .. " 项", {255, 100, 100, 255})
                 end
             end },
+            { label = "黑市禁回售自测", action = function()
+                -- BM-NORESELL: 一键跑三个 run_file 测试（均用 mock 隔离，不碰真实玩家状态）
+                local files = {
+                    "tests.test_bm_noresell",          -- 标记/统计/合并隔离/序列化
+                    "tests.test_bm_noresell_consume",  -- P2 消耗优先级 + 混合消耗
+                    "tests.test_bm_noresell_warehouse",-- 买入→存仓→重登→取出 端到端
+                }
+                local totP, totF, totT, crashed = 0, 0, 0, 0
+                for _, mod in ipairs(files) do
+                    package.loaded[mod] = nil  -- 清缓存确保重跑
+                    local ok, result = pcall(require, mod)
+                    if ok and type(result) == "table" then
+                        totP = totP + (result.passed or 0)
+                        totF = totF + (result.failed or 0)
+                        totT = totT + (result.total or 0)
+                    else
+                        crashed = crashed + 1
+                        ShowLog("黑市禁回售: 模块崩溃 " .. mod .. " -> " .. tostring(result), {255, 100, 100, 255})
+                    end
+                end
+                if totF == 0 and crashed == 0 then
+                    ShowLog("黑市禁回售自测: 全部 " .. totP .. " 项通过! (" .. #files .. " 文件)", {100, 255, 100, 255})
+                else
+                    ShowLog("黑市禁回售自测: " .. totF .. " 失败 / " .. totT .. " (崩溃 " .. crashed .. ")", {255, 100, 100, 255})
+                end
+            end },
             -- [已禁用] 解封流水线自测 / 铸剑地炉综合自测
             -- 这两个测试在真实引擎中会通过 require() 触发顶层 package.loaded 改写
             -- 和 InventorySystem.SetManager(mock)，导致玩家背包被 mock 替换。

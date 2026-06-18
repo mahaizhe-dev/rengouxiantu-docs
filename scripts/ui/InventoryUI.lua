@@ -1,5 +1,7 @@
 -- ============================================================================
 -- InventoryUI.lua - 背包与装备 UI 面板
+-- Style: 仙侠暗金 (UITheme 规范化版)
+-- 特点: PanelShell骨架 | 双Tab切页 | 动态职业精灵 | 内联品质选择 | 事件驱动刷新
 -- ============================================================================
 
 local UI = require("urhox-libs/UI")
@@ -11,52 +13,25 @@ local InventorySystem = require("systems.InventorySystem")
 local EquipTooltip = require("ui.EquipTooltip")
 local ImageItemSlot = require("ui.ImageItemSlot")
 local MinggePage = require("ui.MinggePage")
+local PanelShell = require("ui.components.PanelShell")
+local InventoryOps = require("ui.InventoryOps")
 local T = require("config.UITheme")
 
 local InventoryUI = {}
 
 -- UI 组件引用
+local shell_ = nil
 local panel_ = nil
 local visible_ = false
 local equipSlots_ = {}
 local invSlots_ = {}
-local infoLabel_ = nil
+-- infoLabel_ 已移除，操作反馈使用 shell_.resultLabel
 local sellMenu_ = nil
-local sellToggleBtn_ = nil
 local sellQualities_ = { white = true, green = true, blue = true, purple = false, orange = false }
 
--- 批量出售品质勾选本地持久化
+-- 批量出售品质勾选持久化（委托 InventoryOps）
 local SELL_SETTINGS_FILE = "sell_equip_settings.json"
-local cjson = require("cjson")
-
-local function LoadSellSettings()
-    pcall(function()
-        if not fileSystem or not fileSystem:FileExists(SELL_SETTINGS_FILE) then return end
-        local file = File(SELL_SETTINGS_FILE, FILE_READ)
-        if not file or not file:IsOpen() then return end
-        local raw = file:ReadString()
-        file:Close()
-        local ok, data = pcall(cjson.decode, raw)
-        if ok and type(data) == "table" then
-            for k, v in pairs(data) do
-                if sellQualities_[k] ~= nil then
-                    sellQualities_[k] = (v == true)
-                end
-            end
-        end
-    end)
-end
-
-local function SaveSellSettings()
-    pcall(function()
-        local file = File(SELL_SETTINGS_FILE, FILE_WRITE)
-        if not file or not file:IsOpen() then return end
-        file:WriteString(cjson.encode(sellQualities_))
-        file:Close()
-    end)
-end
-
-LoadSellSettings()
+InventoryOps.LoadSellSettings(SELL_SETTINGS_FILE, sellQualities_)
 
 -- Tab 切页状态
 local currentTab_ = "equip"  -- "equip" | "mingge"
@@ -65,8 +40,12 @@ local tabBtnMingge_ = nil
 local equipContent_ = nil     -- 装备页内容容器
 local minggeContent_ = nil    -- 命格页内容容器
 
+-- 属性折叠状态
+local statsExpanded_ = false
+local statsDetail_ = nil
+
 -- 配置
-local INV_COLS = 6    -- 横屏最大列数（用于计算 maxWidth）
+local INV_COLS = 7    -- 横屏列数（7列 × 60格 = 9行，首屏更紧凑）
 local SLOT_SIZE = T.size.slotSize
 local SLOT_GAP = T.spacing.xs
 
@@ -95,28 +74,33 @@ local EQUIP_LAYOUT = {
 -- UI 构建
 -- ============================================================================
 
---- 创建装备面板（左侧）
+-- 职业→精灵映射（与 CharacterUI/RealmPanel 一致）
+local CLASS_PORTRAITS = {
+    monk    = "Textures/player_right.png",
+    taixu   = "Textures/class_swordsman_right.png",
+    zhenyue = "image/zhenyue_sprite_v3_20260426072019.png",
+}
+
+local function GetClassSprite()
+    local classId = (GameState.player and GameState.player.classId) or GameConfig.PLAYER_CLASS or "monk"
+    return CLASS_PORTRAITS[classId] or CLASS_PORTRAITS.monk
+end
+
+--- 创建装备区（竖屏：精灵 + 格子 row + 属性摘要）
+local spritePanel_ = nil  -- 保留引用以便刷新
+
 local function CreateEquipPanel()
     local eqPanel = UI.Panel {
-        width = 3 * (SLOT_SIZE + SLOT_GAP) + T.spacing.lg * 2,
-        backgroundColor = {30, 35, 45, 240},
-        borderRadius = T.radius.md,
-        padding = T.spacing.sm,
-        gap = T.spacing.sm,
-        children = {
-            UI.Label {
-                text = "装备",
-                fontSize = T.fontSize.md,
-                fontWeight = "bold",
-                fontColor = T.color.titleText,
-                textAlign = "center",
-            },
-        },
+        width = "100%",
+        alignItems = "center",
+        gap = T.spacing.xs,
     }
 
+    -- 装备区核心：角色精灵 + 4×3 格子 并排
+    local equipGrid = UI.Panel { gap = SLOT_GAP }
+
     -- 构建装备格子（4行x3列 网格布局）
-    local maxRow = 4
-    for r = 1, maxRow do
+    for r = 1, 4 do
         local row = UI.Panel {
             flexDirection = "row",
             gap = SLOT_GAP,
@@ -153,264 +137,293 @@ local function CreateEquipPanel()
                 equipSlots_[slotDef.id] = slot
                 row:AddChild(slot)
             else
-                -- 空位占位
-                row:AddChild(UI.Panel {
-                    width = SLOT_SIZE,
-                    height = SLOT_SIZE,
-                })
+                row:AddChild(UI.Panel { width = SLOT_SIZE, height = SLOT_SIZE })
             end
         end
-        eqPanel:AddChild(row)
+        equipGrid:AddChild(row)
     end
 
-    -- 属性统计
-    local statsPanel = UI.Panel {
-        marginTop = T.spacing.sm,
-        padding = T.spacing.sm,
-        gap = T.spacing.xs,
-        backgroundColor = {20, 25, 35, 200},
+    -- 角色精灵（根据职业动态显示）
+    spritePanel_ = UI.Panel {
+        width = 140,
+        height = 4 * (SLOT_SIZE + SLOT_GAP),
+        backgroundImage = GetClassSprite(),
+        backgroundFit = "contain",
         borderRadius = T.radius.sm,
     }
 
-    local statDefs = {
-        { key = "atk", label = "攻击", color = {255, 150, 100, 255} },
-        { key = "def", label = "防御", color = {100, 200, 255, 255} },
-        { key = "maxHp", label = "生命", color = {100, 255, 100, 255} },
-        { key = "hpRegen", label = "回复", color = {150, 255, 200, 255} },
-        { key = "critRate", label = "暴击率", color = {255, 220, 100, 255} },
-        { key = "critDmg", label = "暴击伤害", color = {255, 200, 80, 255} },
-        { key = "heavyHit", label = "重击", color = {255, 140, 60, 255} },
-        { key = "skillDmg", label = "技能伤害", color = {200, 150, 255, 255} },
-        { key = "killHeal", label = "击杀回血", color = {100, 255, 180, 255} },
-        { key = "dmgReduce", label = "减伤", color = {180, 140, 255, 255} },
-        { key = "speed", label = "移速", color = {100, 220, 255, 255} },
-        { key = "fortune", label = "福缘", color = {255, 215, 0, 255} },
-        { key = "wisdom", label = "悟性", color = {200, 150, 255, 255} },
-        { key = "constitution", label = "根骨", color = {255, 180, 100, 255} },
-        { key = "physique", label = "体魄", color = {220, 50, 50, 255} },
-        { key = "tianzhuChance", label = "天诛概率", color = {0, 220, 220, 255} },
-        { key = "tianzhuDamage", label = "天诛伤害", color = {0, 220, 220, 255} },
-    }
-
-    for _, sd in ipairs(statDefs) do
-        local row = UI.Panel {
-            flexDirection = "row",
-            justifyContent = "space-between",
-            children = {
-                UI.Label {
-                    text = sd.label,
-                    fontSize = T.fontSize.xs,
-                    fontColor = sd.color,
-                },
-                UI.Label {
-                    id = "stat_" .. sd.key,
-                    text = "+0",
-                    fontSize = T.fontSize.xs,
-                    fontColor = {220, 220, 220, 255},
-                },
-            },
-        }
-        statsPanel:AddChild(row)
-    end
-
-    -- 套装效果
-    statsPanel:AddChild(UI.Label {
-        id = "set_bonus_label",
-        text = "",
-        fontSize = T.fontSize.xs,
-        fontColor = {255, 200, 100, 200},
-        marginTop = T.spacing.xs,
+    -- 精灵 + 格子 并排（暗底容器包裹，增强结构感）
+    eqPanel:AddChild(UI.Panel {
+        flexDirection = "row",
+        alignItems = "center",
+        justifyContent = "center",
+        gap = T.spacing.md,
+        backgroundColor = T.color.surfaceDeep,
+        borderRadius = T.radius.sm,
+        borderWidth = 1,
+        borderColor = T.color.borderLight,
+        padding = T.spacing.sm,
+        children = {
+            spritePanel_,
+            equipGrid,
+        },
     })
 
-    eqPanel:AddChild(statsPanel)
+    -- ── 属性摘要行（始终可见：攻/防/血 + 展开按钮） ──
+    local expandBtn = UI.Button {
+        id = "stat_expand_btn",
+        text = "🔻 详情",
+        fontSize = T.fontSize.xs,
+        paddingLeft = T.spacing.xs,
+        paddingRight = T.spacing.xs,
+        height = 20,
+        borderRadius = T.radius.sm,
+        backgroundColor = T.color.invStatPanelBg,
+        fontColor = T.color.textSecondary,
+        onClick = function(self)
+            statsExpanded_ = not statsExpanded_
+            if statsDetail_ then
+                if statsExpanded_ then statsDetail_:Show() else statsDetail_:Hide() end
+            end
+            self:SetText(statsExpanded_ and "🔺 收起" or "🔻 详情")
+        end,
+    }
+
+    local statsSummary = UI.Panel {
+        flexDirection = "row",
+        alignItems = "center",
+        justifyContent = "center",
+        gap = T.spacing.xs,
+        marginTop = T.spacing.xs,
+        children = {
+            UI.Label { id = "stat_summary_atk", text = "攻+0", fontSize = T.fontSize.xs, fontColor = T.statColor.atk },
+            UI.Label { id = "stat_summary_def", text = "防+0", fontSize = T.fontSize.xs, fontColor = T.statColor.def },
+            UI.Label { id = "stat_summary_maxHp", text = "血+0", fontSize = T.fontSize.xs, fontColor = T.statColor.maxHp },
+            expandBtn,
+        },
+    }
+    eqPanel:AddChild(statsSummary)
+
+    -- ── 属性详情（默认隐藏，展开后随面板整体滚动，无独立滚动条） ──
+    local STAT_ROW_H = 16
+
+    -- 左列属性
+    local leftDefs = {
+        { key = "atk",          label = "攻击" },
+        { key = "maxHp",        label = "生命" },
+        { key = "critRate",     label = "暴击率" },
+        { key = "heavyHit",     label = "重击" },
+        { key = "killHeal",     label = "击杀回血" },
+        { key = "speed",        label = "移速" },
+        { key = "wisdom",       label = "悟性" },
+        { key = "physique",     label = "体魄" },
+        { key = "tianzhuChance",label = "天诛概率" },
+    }
+    -- 右列属性
+    local rightDefs = {
+        { key = "def",          label = "防御" },
+        { key = "hpRegen",      label = "回复" },
+        { key = "critDmg",      label = "暴击伤害" },
+        { key = "skillDmg",     label = "技能伤害" },
+        { key = "dmgReduce",    label = "减伤" },
+        { key = "fortune",      label = "福缘" },
+        { key = "constitution", label = "根骨" },
+        { key = "tianzhuDamage",label = "天诛伤害" },
+    }
+
+    local function buildStatColumn(defs)
+        local col = UI.Panel { flexGrow = 1, flexShrink = 1, gap = 1 }
+        for _, sd in ipairs(defs) do
+            col:AddChild(UI.Panel {
+                height = STAT_ROW_H,
+                flexDirection = "row",
+                alignItems = "center",
+                justifyContent = "space-between",
+                paddingRight = T.spacing.xs,
+                children = {
+                    UI.Label { text = sd.label, fontSize = T.fontSize.xs, fontColor = T.statColor[sd.key] or T.color.textSecondary },
+                    UI.Label { id = "stat_" .. sd.key, text = "+0", fontSize = T.fontSize.xs, fontColor = T.color.invStatValue },
+                },
+            })
+        end
+        return col
+    end
+
+    -- 属性双列面板（无独立滚动，随面板整体滚动）
+    statsDetail_ = UI.Panel {
+        width = "100%",
+        visible = false,
+        marginTop = T.spacing.xs,
+        backgroundColor = T.color.invStatPanelBg,
+        borderRadius = T.radius.sm,
+        paddingLeft = T.spacing.sm,
+        paddingRight = T.spacing.sm,
+        paddingTop = T.spacing.xs,
+        paddingBottom = T.spacing.xs,
+        gap = T.spacing.xs,
+        children = {
+            -- 双列属性
+            UI.Panel {
+                flexDirection = "row",
+                gap = T.spacing.sm,
+                children = {
+                    buildStatColumn(leftDefs),
+                    -- 中间竖分隔线
+                    UI.Panel { width = 1, backgroundColor = T.color.borderLight },
+                    buildStatColumn(rightDefs),
+                },
+            },
+            -- 分隔线
+            UI.Panel { width = "100%", height = 1, backgroundColor = T.color.borderLight, marginTop = T.spacing.xxs },
+            -- 套装效果区
+            UI.Panel {
+                id = "set_bonus_panel",
+                width = "100%",
+                gap = T.spacing.xxs,
+            },
+        },
+    }
+    eqPanel:AddChild(statsDetail_)
 
     return eqPanel
 end
 
---- 创建背包面板（右侧，宽度自适应）
+--- 创建背包区（竖屏：操作栏 + 品质选择 + 7 列连续格子）
 local function CreateInvPanel()
     local invPanel = UI.Panel {
-        flexGrow = 1,
-        flexShrink = 1,
-        minWidth = 3 * (SLOT_SIZE + SLOT_GAP) + T.spacing.sm * 2,
-        maxWidth = INV_COLS * (SLOT_SIZE + SLOT_GAP) + T.spacing.sm * 2,
-        backgroundColor = {30, 35, 45, 240},
-        borderRadius = T.radius.md,
-        padding = T.spacing.sm,
-        gap = T.spacing.sm,
+        width = "100%",
+        gap = T.spacing.xs,
+    }
+
+    -- 品质选择内联面板（默认隐藏，点击▼展开）
+    local QUALITY_KEYS = { "white", "green", "blue", "purple", "orange" }
+    local QUALITY_LABELS = { "⚪普通", "🟢良品", "🔵精品", "🟣极品", "🟠稀世" }
+    local qualityPanel = UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        flexWrap = "wrap",
+        gap = T.spacing.xs,
+        paddingLeft = T.spacing.xs,
+        paddingRight = T.spacing.xs,
+        paddingTop = T.spacing.xs,
+        paddingBottom = T.spacing.xs,
+        backgroundColor = T.color.invStatPanelBg,
+        borderRadius = T.radius.sm,
+        visible = false,
+    }
+    -- 创建品质勾选按钮
+    local qualityBtns = {}
+    for idx, key in ipairs(QUALITY_KEYS) do
+        local isChecked = sellQualities_[key]
+        local btn = UI.Button {
+            text = (isChecked and "✓ " or "   ") .. QUALITY_LABELS[idx],
+            fontSize = T.fontSize.xs,
+            paddingLeft = T.spacing.sm,
+            paddingRight = T.spacing.sm,
+            height = 24,
+            borderRadius = T.radius.sm,
+            backgroundColor = isChecked and T.color.surfaceLight or T.color.surfaceDeep,
+            onClick = function(self)
+                sellQualities_[key] = not sellQualities_[key]
+                local checked = sellQualities_[key]
+                self:SetText((checked and "✓ " or "   ") .. QUALITY_LABELS[idx])
+                self:SetBackgroundColor(checked and T.color.surfaceLight or T.color.surfaceDeep)
+                InventoryOps.SaveSellSettings(SELL_SETTINGS_FILE, sellQualities_)
+            end,
+        }
+        qualityBtns[idx] = btn
+        qualityPanel:AddChild(btn)
+    end
+    sellMenu_ = qualityPanel  -- 保留引用供 Hide 时关闭
+
+    -- 操作栏（整理 + 批量出售 + 品质展开 + 空位显示）
+    invPanel:AddChild(UI.Panel {
+        flexDirection = "row",
+        justifyContent = "space-between",
+        alignItems = "center",
         children = {
             UI.Panel {
                 flexDirection = "row",
-                justifyContent = "space-between",
                 alignItems = "center",
+                gap = T.spacing.xs,
                 children = {
-                    UI.Label {
-                        text = "背包",
-                        fontSize = T.fontSize.md,
-                        fontWeight = "bold",
-                        fontColor = T.color.titleText,
+                    UI.Button {
+                        text = "整理",
+                        fontSize = T.fontSize.xs,
+                        paddingLeft = T.spacing.sm,
+                        paddingRight = T.spacing.sm,
+                        height = 24,
+                        borderRadius = T.radius.sm,
+                        backgroundColor = T.color.invSortBtn,
+                        onClick = function(self)
+                            local msg = InventoryOps.DoSort(InventorySystem.SortBackpack)
+                            UpdateAllSlots()
+                            InventoryUI.UpdateFreeSlots()
+                            if shell_ then shell_.resultLabel:SetText(msg) end
+                        end,
                     },
-                    UI.Panel {
-                        flexDirection = "row",
-                        alignItems = "center",
-                        gap = T.spacing.sm,
-                        children = {
-                            UI.Button {
-                                text = "整理",
-                                fontSize = T.fontSize.xs,
-                                paddingLeft = T.spacing.sm,
-                                paddingRight = T.spacing.sm,
-                                height = 22,
-                                borderRadius = T.radius.sm,
-                                backgroundColor = {50, 90, 130, 220},
-                                onClick = function(self)
-                                    InventorySystem.SortBackpack()
-                                    UpdateAllSlots()
-                                    InventoryUI.UpdateFreeSlots()
-                                    if infoLabel_ then
-                                        infoLabel_:SetText("背包已整理")
-                                    end
-                                end,
-                            },
-                            UI.Button {
-                                text = "批量出售",
-                                fontSize = T.fontSize.xs,
-                                paddingLeft = T.spacing.sm,
-                                paddingRight = T.spacing.sm,
-                                height = 22,
-                                borderRadius = T.radius.sm,
-                                borderTopRightRadius = 0,
-                                borderBottomRightRadius = 0,
-                                backgroundColor = {120, 80, 30, 220},
-                                onClick = function(self)
-                                    -- 直接执行出售
-                                    local hasAny = false
-                                    for _, v in pairs(sellQualities_) do
-                                        if v then hasAny = true; break end
-                                    end
-                                    if not hasAny then
-                                        if infoLabel_ then infoLabel_:SetText("请先在▼中勾选要出售的品质") end
-                                        return
-                                    end
-                                    local count, gold, lingYun = InventorySystem.SellByQuality(sellQualities_)
-                                    if count > 0 then
-                                        UpdateAllSlots()
-                                        InventoryUI.UpdateFreeSlots()
-                                        if infoLabel_ then
-                                            local msg = "出售了 " .. count .. " 件，获得 " .. gold .. " 金币"
-                                            if lingYun and lingYun > 0 then
-                                                msg = msg .. " + " .. lingYun .. " 灵韵"
-                                            end
-                                            infoLabel_:SetText(msg)
-                                        end
-                                    else
-                                        if infoLabel_ then
-                                            infoLabel_:SetText("没有可出售的对应品质装备")
-                                        end
-                                    end
-                                end,
-                            },
-                            UI.Button {
-                                text = "▼",
-                                fontSize = 9,
-                                width = 18,
-                                height = 22,
-                                paddingLeft = 0,
-                                paddingRight = 0,
-                                borderRadius = T.radius.sm,
-                                borderTopLeftRadius = 0,
-                                borderBottomLeftRadius = 0,
-                                backgroundColor = {100, 65, 20, 220},
-                                onClick = function(self)
-                                    sellToggleBtn_ = self
-                                    if sellMenu_ then
-                                        if sellMenu_:IsOpen() then
-                                            sellMenu_:Close()
-                                        else
-                                            -- 用 absoluteLayout 直接定位，确保渲染和点击区域一致
-                                            local bl = self:GetAbsoluteLayout()
-                                            local ml = sellMenu_:GetLayout()
-                                            sellMenu_.absoluteLayout = {
-                                                x = bl.x,
-                                                y = bl.y + bl.h + 2,
-                                                w = ml.w,
-                                                h = ml.h,
-                                            }
-                                            sellMenu_:Open()
-                                        end
-                                    end
-                                end,
-                            },
-                            UI.Label {
-                                id = "inv_free_slots",
-                                text = "60/60",
-                                fontSize = T.fontSize.xs,
-                                fontColor = {180, 180, 180, 200},
-                            },
-                        },
+                    UI.Button {
+                        text = "批量出售",
+                        fontSize = T.fontSize.xs,
+                        paddingLeft = T.spacing.sm,
+                        paddingRight = T.spacing.sm,
+                        height = 24,
+                        borderRadius = T.radius.sm,
+                        borderTopRightRadius = 0,
+                        borderBottomRightRadius = 0,
+                        backgroundColor = T.color.invSellBtn,
+                        onClick = function(self)
+                            local ok, msg = InventoryOps.DoBatchSell(sellQualities_, InventorySystem.SellByQuality)
+                            if ok then
+                                UpdateAllSlots()
+                                InventoryUI.UpdateFreeSlots()
+                            end
+                            if shell_ then shell_.resultLabel:SetText(msg) end
+                        end,
+                    },
+                    UI.Button {
+                        text = "▼",
+                        fontSize = 9,
+                        width = 20,
+                        height = 24,
+                        paddingLeft = 0,
+                        paddingRight = 0,
+                        borderRadius = T.radius.sm,
+                        borderTopLeftRadius = 0,
+                        borderBottomLeftRadius = 0,
+                        backgroundColor = T.color.invSellDropBtn,
+                        onClick = function(self)
+                            -- 内联展开/收起品质面板
+                            if qualityPanel:IsVisible() then
+                                qualityPanel:Hide()
+                                self:SetText("▼")
+                            else
+                                qualityPanel:Show()
+                                self:SetText("▲")
+                            end
+                        end,
                     },
                 },
             },
-        },
-    }
-
-
-
-    -- 背包1 格子（1 ~ BAG_SPLIT）
-    local split = GameConfig.BAG_SPLIT
-
-    local gridPanel1 = UI.Panel {
-        flexDirection = "row",
-        flexWrap = "wrap",
-        gap = SLOT_GAP,
-    }
-    for i = 1, split do
-        local capturedIdx = i
-        local slot = ImageItemSlot {
-            slotId = i,
-            slotCategory = "inventory",
-            size = SLOT_SIZE,
-            showTypeIcon = false,
-            onSlotClick = function(slotWidget, clickedItem)
-                if clickedItem then
-                    EquipTooltip.Show(clickedItem, "inventory", capturedIdx, function()
-                        UpdateAllSlots()
-                        InventoryUI.UpdateStats()
-                        InventoryUI.UpdateFreeSlots()
-                    end)
-                end
-            end,
-        }
-        invSlots_[i] = slot
-        gridPanel1:AddChild(slot)
-    end
-    invPanel:AddChild(gridPanel1)
-
-    -- 分隔 tips
-    invPanel:AddChild(UI.Panel {
-        flexDirection = "row",
-        alignItems = "center",
-        gap = T.spacing.xs,
-        marginTop = T.spacing.xs,
-        marginBottom = T.spacing.xs,
-        children = {
-            UI.Panel { height = 1, flexGrow = 1, backgroundColor = {80, 90, 110, 150} },
             UI.Label {
-                text = "背包 2",
+                id = "inv_free_slots",
+                text = "60/60",
                 fontSize = T.fontSize.xs,
-                fontColor = {140, 150, 170, 200},
+                fontColor = T.color.invEmptySlot,
             },
-            UI.Panel { height = 1, flexGrow = 1, backgroundColor = {80, 90, 110, 150} },
         },
     })
 
-    -- 背包2 格子（BAG_SPLIT+1 ~ BACKPACK_SIZE）
-    local gridPanel2 = UI.Panel {
+    -- 品质选择面板（内联，在操作栏下方展开）
+    invPanel:AddChild(qualityPanel)
+
+    -- 背包格子（连续 1~BACKPACK_SIZE，无分隔）
+    local gridPanel = UI.Panel {
         flexDirection = "row",
         flexWrap = "wrap",
         gap = SLOT_GAP,
     }
-    for i = split + 1, GameConfig.BACKPACK_SIZE do
+    for i = 1, GameConfig.BACKPACK_SIZE do
         local capturedIdx = i
         local slot = ImageItemSlot {
             slotId = i,
@@ -428,9 +441,9 @@ local function CreateInvPanel()
             end,
         }
         invSlots_[i] = slot
-        gridPanel2:AddChild(slot)
+        gridPanel:AddChild(slot)
     end
-    invPanel:AddChild(gridPanel2)
+    invPanel:AddChild(gridPanel)
 
     return invPanel
 end
@@ -440,14 +453,12 @@ local function SwitchTab(tab)
     if currentTab_ == tab then return end
     currentTab_ = tab
 
-    -- 更新按钮样式（醒目配色）
-    local activeColor = {60, 140, 220, 255}
-    local inactiveColor = {60, 60, 75, 200}
+    -- 更新按钮样式（标准 tab 色，仅背景切换）
     if tabBtnEquip_ then
-        tabBtnEquip_:SetBackgroundColor(tab == "equip" and activeColor or inactiveColor)
+        tabBtnEquip_:SetBackgroundColor(tab == "equip" and T.color.tabActiveBg or T.color.tabInactiveBg)
     end
     if tabBtnMingge_ then
-        tabBtnMingge_:SetBackgroundColor(tab == "mingge" and activeColor or inactiveColor)
+        tabBtnMingge_:SetBackgroundColor(tab == "mingge" and T.color.tabActiveBg or T.color.tabInactiveBg)
     end
 
     -- 切换内容可见性
@@ -460,73 +471,88 @@ local function SwitchTab(tab)
 
     -- 切页时刷新对应页面数据 + 更新信息标签
     if tab == "equip" then
-        if infoLabel_ then infoLabel_:SetText("点击装备查看详情") end
+        if shell_ then shell_:SetSubtitle("点击装备查看详情") end
+        if shell_ then shell_.resultLabel:SetText("") end
         UpdateAllSlots()
         InventoryUI.UpdateStats()
         InventoryUI.UpdateFreeSlots()
         -- 隐藏命格 tooltip
         MinggePage.OnHide()
     else
-        if infoLabel_ then infoLabel_:SetText("点击命格查看详情") end
+        if shell_ then shell_:SetSubtitle("点击命格查看详情") end
+        if shell_ then shell_.resultLabel:SetText("") end
         MinggePage.OnShow()
         -- 隐藏装备 tooltip
         EquipTooltip.Hide()
-        if sellMenu_ and sellMenu_:IsOpen() then sellMenu_:Close() end
+        if sellMenu_ and sellMenu_:IsVisible() then sellMenu_:Hide() end
     end
 end
 
 --- 创建整个背包 UI 面板
 ---@param parentOverlay table overlay Widget
 function InventoryUI.Create(parentOverlay)
-    -- 信息标签（操作反馈）
-    infoLabel_ = UI.Label {
-        id = "inv_info",
-        text = "点击装备查看详情",
-        fontSize = T.fontSize.sm,
-        fontColor = {200, 200, 200, 200},
-        textAlign = "center",
+    -- PanelShell 外壳（标准竖屏参数：maxWidth=500, maxHeight=76%）
+    local PORTRAIT_SIZE = 64
+    local portraitPanel = UI.Panel {
+        width = PORTRAIT_SIZE,
+        height = PORTRAIT_SIZE,
+        borderRadius = T.radius.md,
+        backgroundColor = T.color.headerBg,
+        overflow = "hidden",
+        backgroundImage = "image/icon_backpack_20260618104916.png",
+        backgroundFit = "contain",
     }
 
-    -- Tab 按钮（醒目大号）
+    shell_ = PanelShell.Create({
+        title = "背包",
+        subtitle = "点击装备查看详情",
+        portrait = portraitPanel,
+        onClose = function() InventoryUI.Hide() end,
+        parent = parentOverlay,
+        zIndex = 120,
+        footerHint = "点击空白处关闭",
+    })
+    panel_ = shell_.panel  -- 保持 panel_ 引用用于 Show/Hide 兼容
+
+    -- Tab 按钮（重要主导航：大尺寸、粗体、明确激活态）
     tabBtnEquip_ = UI.Button {
-        text = "装备物品",
-        fontSize = 16,
-        fontColor = {255, 255, 255, 255},
-        paddingLeft = 18,
-        paddingRight = 18,
-        height = 36,
-        borderRadius = 18,
-        backgroundColor = {60, 140, 220, 255},
+        text = "⚔️ 装备物品",
+        flexGrow = 1,
+        height = 42,
+        fontSize = T.fontSize.sm,
+        fontWeight = "bold",
+        borderRadius = T.radius.md,
+        backgroundColor = T.color.tabActiveBg,
+        fontColor = T.color.tabActiveText,
         onClick = function(self) SwitchTab("equip") end,
     }
     tabBtnMingge_ = UI.Button {
-        text = "五行命格",
-        fontSize = 16,
-        fontColor = {255, 255, 255, 255},
-        paddingLeft = 18,
-        paddingRight = 18,
-        height = 36,
-        borderRadius = 18,
-        backgroundColor = {60, 60, 75, 200},
+        text = "☯️ 五行命格",
+        flexGrow = 1,
+        height = 42,
+        fontSize = T.fontSize.sm,
+        fontWeight = "bold",
+        borderRadius = T.radius.md,
+        backgroundColor = T.color.tabInactiveBg,
+        fontColor = T.color.tabInactiveText,
         onClick = function(self) SwitchTab("mingge") end,
     }
 
-    -- 装备页内容容器
+    -- Tab 栏
+    local tabBar = UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        gap = T.spacing.xs,
+        children = { tabBtnEquip_, tabBtnMingge_ },
+    }
+
+    -- 装备页内容容器（竖屏单列：装备区 → 操作栏 → 背包 grid）
     equipContent_ = UI.Panel {
         gap = T.spacing.sm,
+        alignItems = "center",
         children = {
-            -- 装备 + 背包格子
-            UI.Panel {
-                flexDirection = "row",
-                gap = T.spacing.md,
-                flexWrap = "wrap",
-                justifyContent = "center",
-                alignItems = "flex-start",
-                children = {
-                    CreateEquipPanel(),
-                    CreateInvPanel(),
-                },
-            },
+            CreateEquipPanel(),
+            CreateInvPanel(),
         },
     }
 
@@ -534,124 +560,37 @@ function InventoryUI.Create(parentOverlay)
     minggeContent_ = MinggePage.Create(parentOverlay)
     minggeContent_:Hide()  -- 默认隐藏
 
-    -- 主面板（全屏半透明背景）
-    panel_ = UI.Panel {
-        id = "inventoryPanel",
-        position = "absolute",
-        top = 0, left = 0, right = 0, bottom = 0,
-        backgroundColor = T.color.overlay,
-        justifyContent = "center",
-        alignItems = "center",
-        visible = false,
-        zIndex = 120,
-        children = {
-            -- 可滚动内容区
-            UI.ScrollView {
-                maxHeight = "95%",
-                width = "100%",
-                flexGrow = 0,
-                flexShrink = 1,
-                contentProps = {
-                    alignItems = "center",
-                    gap = T.spacing.sm,
-                    paddingTop = T.spacing.sm,
-                    paddingBottom = T.spacing.lg,
-                    paddingLeft = T.spacing.sm,
-                    paddingRight = T.spacing.sm,
-                },
-                children = {
-                    -- 统一卡片
-                    UI.Panel {
-                        maxWidth = 3 * (SLOT_SIZE + SLOT_GAP) + T.spacing.lg * 2
-                              + T.spacing.md
-                              + INV_COLS * (SLOT_SIZE + SLOT_GAP) + T.spacing.sm * 2
-                              + T.spacing.md * 2,
-                        alignSelf = "center",
-                        backgroundColor = T.color.panelBg,
-                        borderRadius = T.radius.lg,
-                        padding = T.spacing.md,
-                        gap = T.spacing.sm,
-                        children = {
-                            -- 标题栏（三列：左关闭、中tab居中、右信息）
-                            UI.Panel {
-                                flexDirection = "row",
-                                justifyContent = "space-between",
-                                alignItems = "center",
-                                children = {
-                                    -- 左：关闭按钮
-                                    UI.Button {
-                                        text = "✕",
-                                        width = T.size.closeButton,
-                                        height = T.size.closeButton,
-                                        fontSize = T.fontSize.md,
-                                        borderRadius = T.size.closeButton / 2,
-                                        backgroundColor = {60, 60, 70, 200},
-                                        onClick = function(self)
-                                            InventoryUI.Hide()
-                                        end,
-                                    },
-                                    -- 中：Tab 按钮居中
-                                    UI.Panel {
-                                        flexDirection = "row",
-                                        gap = T.spacing.sm,
-                                        children = {
-                                            tabBtnEquip_,
-                                            tabBtnMingge_,
-                                        },
-                                    },
-                                    -- 右：信息标签（与左侧关闭按钮平衡宽度）
-                                    infoLabel_,
-                                },
-                            },
-                            -- 装备页内容
-                            equipContent_,
-                            -- 命格页内容
-                            minggeContent_,
-                        },
-                    },
-                },
-            },
-        },
-    }
+    -- 组装内容到 PanelShell
+    shell_:AddContent(tabBar)
+    shell_:AddContent(equipContent_)
+    shell_:AddContent(minggeContent_)
 
-    parentOverlay:AddChild(panel_)
-
-    -- 批量出售品质选择菜单（挂载到 overlay 层，确保在背包面板之上）
-    sellMenu_ = UI.Menu {
-        size = "sm",
-        position = "absolute",
-        zIndex = 200,
-        items = {
-            { label = "⚪ 普通", checked = sellQualities_.white,  keepOpen = true },
-            { label = "🟢 良品", checked = sellQualities_.green,  keepOpen = true },
-            { label = "🔵 精品", checked = sellQualities_.blue,   keepOpen = true },
-            { label = "🟣 极品", checked = sellQualities_.purple, keepOpen = true },
-            { label = "🟠 稀世", checked = sellQualities_.orange, keepOpen = true },
-        },
-        onItemClick = function(self, item, index)
-            -- 同步勾选状态到 sellQualities_
-            local keys = { "white", "green", "blue", "purple", "orange" }
-            if keys[index] then
-                sellQualities_[keys[index]] = item.checked or false
-                SaveSellSettings()
-            end
-        end,
-    }
-    sellMenu_:Close()  -- Menu:Init 中 `false or true` = true，手动关闭
-    parentOverlay:AddChild(sellMenu_)
+    -- 品质选择面板已改为内联模式（在 CreateInvPanel 中创建），无需挂载到 overlay
 
     -- 初始化装备详情浮层（挂载到 overlay 层，确保在背包面板之上）
     EquipTooltip.Init(parentOverlay)
 
-    -- 监听装备变更
+    -- 监听装备变更（含存档恢复后首次触发）→ 同步刷新格子+属性+空位
     EventBus.On("equip_stats_changed", function()
+        if visible_ and currentTab_ == "equip" then
+            UpdateAllSlots()
+            InventoryUI.UpdateFreeSlots()
+        end
         InventoryUI.UpdateStats()
+    end)
+
+    -- 监听单件物品入包（掉落/购买/领取时触发）
+    EventBus.On("inventory_item_added", function()
+        if visible_ and currentTab_ == "equip" then
+            UpdateAllSlots()
+            InventoryUI.UpdateFreeSlots()
+        end
     end)
 
     -- 监听命格页信息（由 MinggePage 通过事件传递到共享 infoLabel）
     EventBus.On("mingge_info", function(msg)
-        if infoLabel_ and currentTab_ == "mingge" then
-            infoLabel_:SetText(msg or "")
+        if shell_ and currentTab_ == "mingge" then
+            shell_.resultLabel:SetText(msg or "")
         end
     end)
 
@@ -684,8 +623,8 @@ function InventoryUI.Hide()
         visible_ = false
         panel_:Hide()
         GameState.uiOpen = nil
-        if infoLabel_ then infoLabel_:SetText("点击装备查看详情") end
-        if sellMenu_ and sellMenu_:IsOpen() then sellMenu_:Close() end
+        if shell_ then shell_.resultLabel:SetText("") end
+        if sellMenu_ and sellMenu_:IsVisible() then sellMenu_:Hide() end
         EquipTooltip.Hide()
         MinggePage.OnHide()
     end
@@ -778,20 +717,27 @@ function InventoryUI.UpdateStats()
         end
     end
 
-    -- 套装效果
-    local setLabel = panel_:FindById("set_bonus_label")
-    if setLabel then
+    -- 套装效果（逐条渲染到独立容器）
+    local setPanel = panel_:FindById("set_bonus_panel")
+    if setPanel then
+        setPanel:ClearChildren()
         local bonuses = InventorySystem.GetActiveSetBonuses()
-        if #bonuses > 0 then
-            local texts = {}
-            for _, b in ipairs(bonuses) do
-                table.insert(texts, b.name .. ": " .. b.description)
-            end
-            setLabel:SetText(table.concat(texts, "\n"))
-        else
-            setLabel:SetText("")
+        for _, b in ipairs(bonuses) do
+            setPanel:AddChild(UI.Label {
+                text = b.name .. ": " .. b.description,
+                fontSize = T.fontSize.xs,
+                fontColor = T.color.invSetBonus,
+            })
         end
     end
+
+    -- 摘要行更新（攻/防/血）
+    local sumAtk = panel_:FindById("stat_summary_atk")
+    local sumDef = panel_:FindById("stat_summary_def")
+    local sumHp  = panel_:FindById("stat_summary_maxHp")
+    if sumAtk then sumAtk:SetText("攻+" .. math.floor(summary.atk or 0)) end
+    if sumDef then sumDef:SetText("防+" .. math.floor(summary.def or 0)) end
+    if sumHp  then sumHp:SetText("血+" .. math.floor(summary.maxHp or 0)) end
 end
 
 --- 更新背包空位显示
@@ -800,17 +746,13 @@ function InventoryUI.UpdateFreeSlots()
     local label = panel_:FindById("inv_free_slots")
     if label then
         local manager = InventorySystem.GetManager()
-        local split = GameConfig.BAG_SPLIT
-        local free1, free2 = 0, 0
+        local free = 0
         if manager then
-            for i = 1, split do
-                if not manager:GetInventoryItem(i) then free1 = free1 + 1 end
-            end
-            for i = split + 1, GameConfig.BACKPACK_SIZE do
-                if not manager:GetInventoryItem(i) then free2 = free2 + 1 end
+            for i = 1, GameConfig.BACKPACK_SIZE do
+                if not manager:GetInventoryItem(i) then free = free + 1 end
             end
         end
-        label:SetText(free1 .. "/" .. split .. " | " .. free2 .. "/" .. (GameConfig.BACKPACK_SIZE - split))
+        label:SetText(free .. "/" .. GameConfig.BACKPACK_SIZE)
     end
 end
 

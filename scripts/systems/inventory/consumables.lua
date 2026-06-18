@@ -206,7 +206,9 @@ function M.CountUnlockedConsumable(IS, consumableId)
     )
 end
 
---- BM-S4B: 判断指定消耗品是否存在任何锁定堆叠（整类禁售）
+--- 判断指定消耗品是否存在任何临时锁堆叠（被 BlackMarketSyncState 的 L1 检查调用）
+--- ⚠️ BM-NORESELL(P1) 后：买入不再加临时锁，本函数仅对【旧存档残留临时锁】(5 分钟内)返回 true，
+--- 过渡期后恒为 false。禁回售边界由 bmNoResell 承担，与此无关。
 ---@param IS table InventorySystem facade
 ---@param consumableId string
 ---@return boolean

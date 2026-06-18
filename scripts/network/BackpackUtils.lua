@@ -199,11 +199,12 @@ function BackpackUtils.RemoveResellableFromBackpack(backpack, consumableId, amou
     return remaining
 end
 
---- BM-S4C: 判断指定消耗品是否存在任何锁定堆叠（服务端整类禁售判定）
---- 只要有一个堆叠被锁，整个 consumableId 禁止卖出
+--- 判断指定消耗品是否存在任何（服务端）临时锁堆叠
+--- ⚠️ BM-NORESELL(P1) 已退役"整类禁售"模型：HandleSell 不再调用本函数，当前为历史保留（无生产调用方）。
+--- 仅对旧存档残留临时锁有判定意义；新模型的禁回售边界完全由 bmNoResell + 可回售数量校验承担。
 ---@param backpack table|nil
 ---@param consumableId string
----@return boolean hasLocked 是否存在锁定堆叠
+---@return boolean hasLocked 是否存在临时锁堆叠
 function BackpackUtils.HasAnyLockedItem(backpack, consumableId)
     if not backpack then return false end
     for _, item in pairs(backpack) do

@@ -1,6 +1,8 @@
 ---@diagnostic disable
 -- ============================================================================
 -- MinggeTooltip.lua - 五行命格物品详情浮层
+-- Style: 仙侠暗金 (UITheme 规范化版)
+-- 特点: 五行属性色 | 品质边框 | 装备/卸下/出售操作 | overlay层级
 -- ============================================================================
 -- 展示命格物品的属性详情，支持装备/卸下/出售操作
 
@@ -36,7 +38,7 @@ end
 
 --- 获取品质色
 local function GetQualityColor(quality)
-    return MinggeData.QUALITY_COLORS[quality] or {200, 200, 200, 255}
+    return MinggeData.QUALITY_COLORS[quality] or T.color.qualityWhite
 end
 
 
@@ -54,7 +56,7 @@ function MinggeTooltip.Init(parentOverlay)
         id = "minggeTooltipPanel",
         position = "absolute",
         top = 0, left = 0, right = 0, bottom = 0,
-        backgroundColor = {0, 0, 0, 160},
+        backgroundColor = T.color.minggeTipOverlay,
         justifyContent = "center",
         alignItems = "center",
         visible = false,
@@ -86,7 +88,7 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
     -- 内容卡片
     local card = UI.Panel {
         width = T.size.tooltipWidth + 20,
-        backgroundColor = {30, 35, 50, 250},
+        backgroundColor = T.color.minggeTipCardBg,
         borderRadius = T.radius.lg,
         padding = T.spacing.md,
         gap = T.spacing.sm,
@@ -98,7 +100,7 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
     local qualityColor = GetQualityColor(item.quality)
     local qualityName = MinggeData.QUALITY_NAMES[item.quality] or "?"
     local elementName = MinggeData.ELEMENT_NAMES[item.element] or "?"
-    local elemColor = MinggeData.ELEMENT_COLORS[item.element] or {200, 200, 200, 255}
+    local elemColor = MinggeData.ELEMENT_COLORS[item.element] or T.color.qualityWhite
 
     local portrait = item.image
     if not portrait and item.bossId then
@@ -113,7 +115,7 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
             borderRadius = T.radius.md,
             borderWidth = 2,
             borderColor = qualityColor,
-            backgroundColor = {20, 22, 35, 255},
+            backgroundColor = T.color.minggeTipPortraitBg,
             overflow = "hidden",
             children = {
                 UI.Panel {
@@ -122,7 +124,7 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
                     backgroundImage = portrait,
                     backgroundFit = "contain",
                     alignSelf = "center",
-                    marginTop = 2,
+                    marginTop = T.spacing.xxs,
                 },
                 -- 五行角标
                 UI.Label {
@@ -135,7 +137,7 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
                     right = 1,
                     width = 14,
                     height = 14,
-                    backgroundColor = {0, 0, 0, 180},
+                    backgroundColor = T.color.minggeTipElemBadgeBg,
                     borderRadius = 3,
                 },
             },
@@ -156,14 +158,14 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
     card:AddChild(UI.Label {
         text = infoText,
         fontSize = T.fontSize.sm,
-        fontColor = {180, 180, 200, 230},
+        fontColor = T.color.minggeTipInfoText,
         textAlign = "center",
     })
 
     -- ── 分隔线 ──
     card:AddChild(UI.Panel {
         height = 1,
-        backgroundColor = {80, 90, 120, 150},
+        backgroundColor = T.color.minggeTipDivider,
         marginTop = T.spacing.xs,
         marginBottom = T.spacing.xs,
     })
@@ -180,13 +182,13 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
         paddingRight = T.spacing.md,
         paddingTop = T.spacing.sm,
         paddingBottom = T.spacing.sm,
-        backgroundColor = {50, 60, 80, 200},
+        backgroundColor = T.color.minggeTipStatRowBg,
         borderRadius = T.radius.sm,
         children = {
             UI.Label {
                 text = statName,
                 fontSize = T.fontSize.md,
-                fontColor = {220, 220, 240, 255},
+                fontColor = T.color.minggeTipStatName,
             },
             UI.Label {
                 text = statValue,
@@ -202,7 +204,7 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
         local setDef = MinggeData.SETS[item.setId]
         if setDef then
             card:AddChild(UI.Panel {
-                backgroundColor = {40, 55, 70, 200},
+                backgroundColor = T.color.minggeTipSetBg,
                 borderRadius = T.radius.sm,
                 padding = T.spacing.sm,
                 marginTop = T.spacing.xs,
@@ -211,12 +213,12 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
                         text = "四象·" .. setDef.name,
                         fontSize = T.fontSize.sm,
                         fontWeight = "bold",
-                        fontColor = {100, 220, 255, 255},
+                        fontColor = T.color.minggeTipSetName,
                     },
                     UI.Label {
                         text = setDef.desc .. "（同行3件激活）",
                         fontSize = T.fontSize.xs,
-                        fontColor = {150, 200, 220, 200},
+                        fontColor = T.color.minggeTipSetDesc,
                     },
                 },
             })
@@ -229,7 +231,7 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
             card:AddChild(UI.Label {
                 text = "⚠ 同名命格已装备，无法再次装备",
                 fontSize = T.fontSize.xs,
-                fontColor = {255, 100, 100, 230},
+                fontColor = T.color.minggeTipWarn,
                 textAlign = "center",
                 marginTop = T.spacing.xs,
             })
@@ -247,12 +249,12 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
             UI.Label {
                 text = "出售:",
                 fontSize = T.fontSize.xs,
-                fontColor = {140, 140, 160, 200},
+                fontColor = T.color.minggeTipSellLabel,
             },
             UI.Label {
                 text = sellPrice .. " 灵韵",
                 fontSize = T.fontSize.xs,
-                fontColor = {180, 140, 255, 255},
+                fontColor = T.color.minggeTipLingYunPrice,
             },
         },
     })
@@ -278,7 +280,7 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
             paddingRight = T.spacing.lg,
             height = 32,
             borderRadius = T.radius.md,
-            backgroundColor = canEquip and {60, 140, 80, 240} or {80, 80, 80, 200},
+            backgroundColor = canEquip and T.color.minggeTipEquipBtn or T.color.minggeTipDisabledBtn,
             disabled = not canEquip,
             onClick = function(self)
                 local ok, err = MinggeSystem.Equip(slotIndex)
@@ -301,7 +303,7 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
                 paddingRight = T.spacing.lg,
                 height = 32,
                 borderRadius = T.radius.md,
-                backgroundColor = {140, 80, 40, 240},
+                backgroundColor = T.color.minggeTipSellBtn,
                 onClick = function(self)
                     local cb = onDone_
                     MinggeSystem.SellItem(slotIndex)
@@ -319,7 +321,7 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
             paddingRight = T.spacing.md,
             height = 32,
             borderRadius = T.radius.md,
-            backgroundColor = {80, 80, 100, 220},
+            backgroundColor = T.color.minggeTipLockBtn,
             onClick = function(self)
                 local cb = onDone_
                 MinggeSystem.ToggleLock(slotIndex)
@@ -336,7 +338,7 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
             paddingRight = T.spacing.lg,
             height = 32,
             borderRadius = T.radius.md,
-            backgroundColor = {140, 100, 40, 240},
+            backgroundColor = T.color.minggeTipUnequipBtn,
             onClick = function(self)
                 local ok, err = MinggeSystem.Unequip(slotIndex)
                 if ok then
@@ -358,7 +360,7 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
         paddingRight = T.spacing.md,
         height = 32,
         borderRadius = T.radius.md,
-        backgroundColor = {60, 60, 70, 220},
+        backgroundColor = T.color.minggeTipCloseBtn,
         onClick = function(self)
             MinggeTooltip.Hide()
         end,
