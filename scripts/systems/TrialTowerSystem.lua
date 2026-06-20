@@ -87,6 +87,12 @@ function TrialTowerSystem.Enter(floor, gameMap, camera)
         return false, "镇狱塔中无法进入试炼"
     end
 
+    -- 互斥：剑气长城副本中不能进入试炼
+    local okSW, SwordWallSystem = pcall(require, "systems.SwordWallSystem")
+    if okSW and SwordWallSystem and SwordWallSystem.IsActive() then
+        return false, "剑气长城副本中无法进入试炼"
+    end
+
     -- 检查层数合法
     local floorCfg = TrialTowerConfig.FLOOR_MONSTERS[floor]
     if not floorCfg then

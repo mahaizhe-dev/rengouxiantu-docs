@@ -962,6 +962,24 @@ local GM_CATEGORIES = {
                     ShowLog("仙劫战场封印已恢复", {255, 200, 100, 255})
                 end
             end },
+            { label = "仙灭封印切换",  action = function()
+                local QuestSystem = require("systems.QuestSystem")
+                local unsealed = QuestSystem.GMToggleSeal("mz_battle_luo")
+                if unsealed then
+                    ShowLog("仙灭战场封印已解除", {100, 255, 150, 255})
+                else
+                    ShowLog("仙灭战场封印已恢复", {255, 200, 100, 255})
+                end
+            end },
+            { label = "仙殒封印切换",  action = function()
+                local QuestSystem = require("systems.QuestSystem")
+                local unsealed = QuestSystem.GMToggleSeal("mz_battle_yun")
+                if unsealed then
+                    ShowLog("仙殒战场封印已解除", {100, 255, 150, 255})
+                else
+                    ShowLog("仙殒战场封印已恢复", {255, 200, 100, 255})
+                end
+            end },
             { label = "神器免费激活",  action = function()
                 local ArtifactSystem = require("systems.ArtifactSystem")
                 ArtifactSystem.gmBypass = not ArtifactSystem.gmBypass
@@ -1296,6 +1314,66 @@ local GM_CATEGORIES = {
                     ShowLog("快捷回城: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
                 else
                     ShowLog("快捷回城: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
+                end
+            end },
+            { label = "GM神剑(测试)", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                local Utils = require("core.Utils")
+                if InventorySystem.GetFreeSlots() < 1 then ShowLog("背包已满！", {255, 120, 100, 255}); return end
+                local sword = {
+                    id = Utils.NextId(),
+                    name = "GM·诛天神剑",
+                    slot = "weapon",
+                    icon = "image/icon_fengyin_zhuxian_ch5_20260518083648.png",
+                    quality = "red",
+                    tier = 10,
+                    mainStat = { atk = 9999 },
+                    subStats = {
+                        { stat = "critRate", name = "暴击率", value = 1.0 },
+                        { stat = "critDmg", name = "暴击伤害", value = 6.0 },
+                        { stat = "maxHp", name = "生命上限", value = 99999 },
+                        { stat = "speed", name = "速度", value = 3.0 },
+                    },
+                    sellPrice = 0,
+                }
+                InventorySystem.AddItem(sword)
+                ShowLog("已发放 GM·诛天神剑", {255, 50, 50, 255})
+            end },
+            { label = "剑气长城(免票)", action = function()
+                local SwordWallSystem = require("systems.SwordWallSystem")
+                local InventorySystem = require("systems.InventorySystem")
+                local SwordWallUI = require("ui.SwordWallUI")
+                -- 给门票然后进入
+                InventorySystem.AddConsumable("immortal_essence_blood", 1)
+                SwordWallUI.Hide()
+                SwordWallUI._doEnter()
+                ShowLog("剑气长城副本进入中...", {100, 255, 200, 255})
+            end },
+            { label = "剑气长城(退出)", action = function()
+                local SwordWallSystem = require("systems.SwordWallSystem")
+                if SwordWallSystem.IsActive() then
+                    SwordWallSystem.Fail(SwordWallSystem._getGameMap(), "GM强制退出")
+                    ShowLog("已退出剑气长城副本", {255, 200, 100, 255})
+                else
+                    ShowLog("当前不在副本中", {200, 200, 200, 255})
+                end
+            end },
+            { label = "剑气长城自测", action = function()
+                package.loaded["tests.test_sword_wall"] = nil
+                local TestSW = require("tests.test_sword_wall")
+                local passed, failed = TestSW.RunAll()
+                if failed == 0 then
+                    ShowLog("剑气长城: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
+                else
+                    ShowLog("剑气长城: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
+                end
+            end },
+            { label = "剑气积分+500", action = function()
+                local GS = require("core.GameState")
+                local player = GS.player
+                if player then
+                    player.swordWallPoints = (player.swordWallPoints or 0) + 500
+                    ShowLog("剑气积分+500 (本地测试)", {255, 220, 100, 255})
                 end
             end },
             { label = "诛仙阵图自测", action = function()

@@ -57,8 +57,8 @@ ArtifactCh5.FULL_BONUS = {
 --- 被动技能配置：四剑诛灭
 ArtifactCh5.PASSIVE = {
     name = "四剑诛灭",
-    desc = "施放主动技能时触发（冷却120秒），太虚四剑依次砸向小范围，四段分别造成自身攻击力100%/150%/200%/250%的伤害",
-    cooldown = 120,  -- 被动冷却（秒）
+    desc = "施放主动技能时触发（冷却60秒），诛仙四剑依次斜插砸向目标区域，四段分别造成自身攻击力100%/150%/200%/250%的伤害（可暴击）",
+    cooldown = 60,  -- 被动冷却（秒）
     damages = { 1.0, 1.5, 2.0, 2.5 },  -- 四段倍率（×攻击力）
     hitDelay = 0.18, -- 每剑间隔（秒）
     radius = 2.0,    -- 范围半径（格）
@@ -298,7 +298,7 @@ function ArtifactCh5.GetCurrentBonus()
 end
 
 -- ============================================================================
--- 被动技能：四剑诛灭（主动技能触发型，120秒CD）
+-- 被动技能：四剑诛灭（主动技能触发型，60秒CD）
 -- ============================================================================
 
 --- 尝试触发四剑诛灭（在 SkillSystem.HandleSkillCastPassives 中调用）
@@ -314,10 +314,12 @@ function ArtifactCh5.TryTriggerZhentu(skillId, skill)
     -- 只在施放主动技能时触发（排除被动触发类）
     if skill and skill.passive then return end
 
-    -- 锁定落点：优先最近怪物位置，无目标则落在玩家脚下
+    -- 锁定落点：最近怪物位置，无目标则不触发（避免空放浪费CD）
     local nearest = GameState.GetNearestMonster(player.x, player.y, ArtifactCh5.PASSIVE.radius * 3)
-    local tx = nearest and nearest.x or player.x
-    local ty = nearest and nearest.y or player.y
+    if not nearest or not nearest.alive then return end
+
+    local tx = nearest.x
+    local ty = nearest.y
 
     -- 触发：进入冷却
     ArtifactCh5._passiveReady = false
@@ -336,18 +338,18 @@ function ArtifactCh5._FireZhentuSwords(player, tx, ty)
     local delay   = ArtifactCh5.PASSIVE.hitDelay
 
     local baseAtk = player:GetTotalAtk()
-    local swordNames = { "天剑", "地剑", "人剑", "神剑" }
-    -- 浮字颜色：与剑影颜色对应
+    local swordNames = { "诛仙", "陷仙", "戮仙", "绝仙" }
+    -- 浮字颜色：与四仙剑颜色对应
     local floatColors = {
-        { 220, 180, 255, 255 },  -- 天剑：淡紫白
-        { 180, 100, 255, 255 },  -- 地剑：深紫
-        { 140, 200, 255, 255 },  -- 人剑：青蓝
-        { 255, 220, 120, 255 },  -- 神剑：金黄
+        { 255, 60, 60, 255 },    -- 诛仙：血红
+        { 60, 220, 200, 255 },   -- 陷仙：寒青
+        { 255, 140, 40, 255 },   -- 戮仙：焰橙
+        { 180, 60, 255, 255 },   -- 绝仙：冥紫
     }
 
     for i = 1, 4 do
         local dmgMultiplier = damages[i]
-        local dmg = math.floor(baseAtk * dmgMultiplier)
+        local rawDmg = math.floor(baseAtk * dmgMultiplier)
         local swordName = swordNames[i]
         local hitIndex = i
 
@@ -360,6 +362,13 @@ function ArtifactCh5._FireZhentuSwords(player, tx, ty)
             execute = function()
                 -- 生成剑影特效
                 CombatSystem.AddZhentuSwordEffect(px, py, hitIndex)
+
+                -- 暴击判定（与一剑开天/血爆一致，走 ApplyCrit）
+                local dmg = rawDmg
+                local isCrit = false
+                if player and player.ApplyCrit then
+                    dmg, isCrit = player:ApplyCrit(rawDmg)
+                end
 
                 -- 对范围内全部怪物造成伤害
                 local hitCount = 0
@@ -374,15 +383,26 @@ function ArtifactCh5._FireZhentuSwords(player, tx, ty)
                     end
                 end
 
-                -- 浮动文字提示（使用各剑对应颜色）
-                CombatSystem.AddFloatingText(
-                    px, py - 1.0 - (hitIndex - 1) * 0.35,
-                    swordName .. "·" .. math.floor(dmgMultiplier * 100) .. "%",
-                    floatColors[hitIndex], 1.5
-                )
+                -- 浮动文字：显示实际伤害数字（与其他伤害源一致）
+                if hitCount > 0 then
+                    local prefix = isCrit and (swordName .. "暴击 ") or (swordName .. " ")
+                    local ftColor = isCrit and {255, 230, 80, 255} or floatColors[hitIndex]
+                    CombatSystem.AddFloatingText(
+                        px, py - 1.0 - (hitIndex - 1) * 0.35,
+                        prefix .. dmg,
+                        ftColor, isCrit and 1.6 or 1.4
+                    )
+                else
+                    -- 未命中（怪物跑出范围）仍显示标签
+                    CombatSystem.AddFloatingText(
+                        px, py - 1.0 - (hitIndex - 1) * 0.35,
+                        swordName .. " MISS",
+                        {150, 150, 150, 200}, 1.0
+                    )
+                end
 
                 if hitIndex == 4 then
-                    print("[ArtifactCh5] 四剑诛灭 complete, total hits=" .. hitCount)
+                    print("[ArtifactCh5] 四剑诛灭 complete, total hits=" .. hitCount .. " dmg=" .. dmg .. " crit=" .. tostring(isCrit))
                 end
             end,
         })

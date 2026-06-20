@@ -757,4 +757,77 @@ return function(M)
         warningColor = {60, 60, 180, 150},      -- 裂魂蓝
     }
 
+    -- ========================================================================
+    -- 镇关魔王·斩劫罗睺（剑气长城副本BOSS）
+    -- 主题：四仙剑融合之力
+    -- ========================================================================
+
+    --- 诛仙剑气（直线穿透，高单体伤害）
+    M.Skills.ch5_luohou_zhuxian_slash = {
+        id = "ch5_luohou_zhuxian_slash",
+        name = "诛仙剑气",
+        cooldown = 6,
+        damageMult = 4.5,
+        castTime = 0.8,
+        warningShape = "line",
+        warningRange = 7.0,
+        warningWidth = 1.5,
+        warningColor = {200, 50, 50, 140},      -- 诛仙·血红
+    }
+
+    --- 陷仙禁域（圆形范围减速+持续伤害）
+    M.Skills.ch5_luohou_xianxian_trap = {
+        id = "ch5_luohou_xianxian_trap",
+        name = "陷仙禁域",
+        cooldown = 9,
+        damageMult = 2.0,
+        effect = "slow",
+        effectDuration = 3.0,
+        effectValue = 0.5,        -- 减速50%
+        castTime = 1.0,
+        warningShape = "circle",
+        warningRange = 4.0,
+        warningColor = {180, 100, 200, 130},    -- 陷仙·暗紫
+    }
+
+    --- 戮仙斩（宽扇形，击退效果）
+    M.Skills.ch5_luohou_luxian_cleave = {
+        id = "ch5_luohou_luxian_cleave",
+        name = "戮仙斩",
+        cooldown = 7,
+        damageMult = 3.5,
+        effect = "knockback",
+        effectValue = 3.0,        -- 击退3格
+        castTime = 0.6,
+        warningShape = "cone",
+        warningRange = 5.0,
+        warningConeAngle = 150,
+        warningColor = {60, 180, 60, 130},      -- 戮仙·碧绿
+    }
+
+    --- 绝仙灭世阵（全屏十字，极高伤害，P2专属）
+    M.Skills.ch5_luohou_juexian_cross = {
+        id = "ch5_luohou_juexian_cross",
+        name = "绝仙灭世阵",
+        cooldown = 12,
+        damageMult = 5.5,
+        castTime = 1.5,
+        warningShape = "cross",
+        warningRange = 8.0,
+        warningCrossWidth = 2.0,
+        warningColor = {220, 180, 40, 150},     -- 绝仙·金黄
+    }
+
+    --- 四剑归一（全屏圆形，最终技能）
+    M.Skills.ch5_luohou_fusion = {
+        id = "ch5_luohou_fusion",
+        name = "四剑归一",
+        cooldown = 20,
+        damageMult = 7.0,
+        castTime = 2.0,
+        warningShape = "circle",
+        warningRange = 6.0,
+        warningColor = {255, 255, 255, 180},    -- 纯白
+    }
+
 end

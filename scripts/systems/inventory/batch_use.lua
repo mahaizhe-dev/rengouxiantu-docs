@@ -373,6 +373,12 @@ function M._UseBatchPremiumZong(IS, count)
     -- 缓存按帧自动重算（_statsCacheFrame），下帧 GetTotalFortune() 即刻生效
 
     EventBus.Emit("premium_zong_used", actualCount)
+
+    -- 立即存档：防止服务端其他操作（开箱等）整包回写覆盖 premiumZongEaten，
+    -- 导致重登后计数重置（"从第一个开始记"的根因）
+    local SavePersistence = require("systems.save.SavePersistence")
+    SavePersistence.Save()
+
     local msg = "食用 " .. actualCount .. " 颗仙界精品粽，福缘永久+" .. actualCount .. "！（已食用 " .. player.premiumZongEaten .. "/" .. PREMIUM_ZONG_MAX .. "）"
     print("[InventorySystem] " .. msg)
     return true, msg, actualCount

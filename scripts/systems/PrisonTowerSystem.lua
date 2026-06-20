@@ -87,6 +87,12 @@ function PrisonTowerSystem.Enter(floor, gameMap, camera)
         return false, "挑战副本中无法进入镇狱塔"
     end
 
+    -- 互斥：剑气长城副本中不能进入
+    local okSW, SwordWallSystem = pcall(require, "systems.SwordWallSystem")
+    if okSW and SwordWallSystem and SwordWallSystem.IsActive() then
+        return false, "剑气长城副本中无法进入镇狱塔"
+    end
+
     -- 层数合法性
     if floor < 1 or floor > PrisonTowerConfig.MAX_FLOOR then
         return false, "第" .. floor .. "层尚未开放"

@@ -270,7 +270,7 @@ local REGION_LABEL_DEFS = {
     { key = "mz_yaochi",     name = "瑶池",       color = {200, 180, 220, 255} },
     { key = "mz_rift",       name = "天裂峡谷",   color = {120, 100, 160, 255} },
     { key = "mz_battle_jie", name = "仙劫战场",   color = {160, 130, 170, 255}, subtitle = "合体期", subtitleColor = {200, 160, 160, 200} },
-    { key = "mz_battle_luo", name = "仙陨战场",   color = {160, 130, 170, 255}, subtitle = "Lv.140 谪仙境", subtitleColor = {200, 160, 160, 200} },
+    { key = "mz_battle_luo", name = "仙灭战场",   color = {160, 130, 170, 255}, subtitle = "Lv.140 谪仙境", subtitleColor = {200, 160, 160, 200} },
     { key = "mz_battle_yun", name = "仙殒战场",   color = {160, 130, 170, 255}, subtitle = "Lv.120 大乘期", subtitleColor = {200, 160, 160, 200} },
     -- ch5
     { key = "ch5_front_camp",      name = "前营",       color = {200, 180, 140, 255} },
@@ -846,22 +846,25 @@ function Minimap.Create(parentOverlay)
             fontSize = T.fontSize.xs,
             fontWeight = "bold",
             fontColor = {255, 220, 100, 240},
+            width = "100%",
         }
         local progressLabel = UI.Label {
             text = "",
             fontSize = T.fontSize.xs,
             fontColor = {210, 210, 220, 220},
             lineHeight = 1.3,
+            width = "100%",
         }
         local descLabel = UI.Label {
             text = "",
             fontSize = T.fontSize.xs,
             fontColor = {170, 170, 180, 180},
             lineHeight = 1.2,
+            width = "100%",
         }
         local entryPanel = UI.Panel {
             width = "100%",
-            gap = 2,
+            gap = T.spacing.xxs,
             children = { nameLabel, progressLabel, descLabel },
         }
         questLabels_[chainId] = { name = nameLabel, progress = progressLabel, desc = descLabel, panel = entryPanel, chapter = chain.chapter }
@@ -880,7 +883,7 @@ function Minimap.Create(parentOverlay)
         paddingBottom = T.spacing.xs,
         paddingLeft = T.spacing.sm,
         paddingRight = T.spacing.sm,
-        gap = T.spacing.xs,
+        gap = T.spacing.sm,
         pointerEvents = "none",
         children = questEntries,
     }
@@ -890,6 +893,7 @@ function Minimap.Create(parentOverlay)
         text = "🌳 悟道树  0/3",
         fontSize = T.fontSize.xs,
         fontColor = {180, 220, 180, 220},
+        width = "100%",
     }
     dailyLabels_.daoTree = { label = daoTreeLabel }
 
@@ -897,6 +901,7 @@ function Minimap.Create(parentOverlay)
         text = "🔮 封魔任务  0/1",
         fontSize = T.fontSize.xs,
         fontColor = {180, 180, 220, 220},
+        width = "100%",
     }
     dailyLabels_.sealDemon = { label = sealDemonLabel }
 
@@ -904,6 +909,7 @@ function Minimap.Create(parentOverlay)
         text = "🗼 每日供奉  0/1",
         fontSize = T.fontSize.xs,
         fontColor = {180, 180, 220, 220},
+        width = "100%",
     }
     dailyLabels_.trialTower = { label = trialTowerLabel }
 
@@ -937,7 +943,7 @@ function Minimap.Create(parentOverlay)
     local dailyPanel = UI.Panel {
         id = "minimap_daily_panel",
         width = 160,
-        marginTop = T.spacing.xs,
+        marginTop = T.spacing.sm,
         backgroundColor = {15, 18, 25, 200},
         borderRadius = T.radius.sm,
         borderWidth = 1,
@@ -946,7 +952,7 @@ function Minimap.Create(parentOverlay)
         paddingBottom = T.spacing.xs,
         paddingLeft = T.spacing.sm,
         paddingRight = T.spacing.sm,
-        gap = T.spacing.xs,
+        gap = T.spacing.sm,
         pointerEvents = "none",
         children = initChildren,
     }

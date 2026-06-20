@@ -937,4 +937,37 @@ M.Types.artifact_sikong_xuanyin = {
     berserkBuff = { atkSpeedMult = 1.5, speedMult = 1.5, cdrMult = 0.5 },
 }
 
+-- ============================================================================
+-- 镇关魔王·斩劫罗睺（剑气长城副本BOSS）
+-- 120级谪仙·圣级BOSS，主题：四仙剑融合
+-- 副本专属，不设普通掉落（奖励由宝箱结算）
+-- category 设为 "dungeon_boss" 避免记录到 bossKillTimes
+-- ============================================================================
+M.Types.ch5_sword_wall_luohou = {
+    name = "镇关魔王·斩劫罗睺",
+    icon = "⚔️",
+    portrait = "image/boss_luohou_20260620095951.png",
+    zone = "ch5_sword_corridor",
+    category = "saint_boss",      -- 圣级BOSS倍率（hp×40, atk×2, def×2）
+    race = "abyss_demon",
+    level = 120,
+    realm = "zhexian",            -- 谪仙
+    bodyColor = {80, 20, 80, 255},
+    clawColor = {200, 160, 40},
+    skillTextColor = {255, 220, 100, 255},
+    warningColorOverride = {200, 160, 40, 120},
+    phases = 2,
+    skills = { "ch5_luohou_zhuxian_slash", "ch5_luohou_xianxian_trap", "ch5_luohou_luxian_cleave" },
+    phaseConfig = {
+        { threshold = 0.5, atkMult = 1.5, speedMult = 1.3,
+          announce = "四剑合一……劫数已至！",
+          addSkill = "ch5_luohou_juexian_cross" },
+        { threshold = 0.2, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.5,
+          announce = "斩尽仙凡……诸劫归一！",
+          triggerSkill = "ch5_luohou_fusion" },
+    },
+    respawnTime = 9999,           -- 副本怪不重生
+    dropTable = {},               -- 副本BOSS不走普通掉落，奖励由宝箱结算
+}
+
 end

@@ -57,7 +57,7 @@ function GameEvents.Register(refs)
         if monster.isTrainingDummy then return end
 
         -- BOSS击杀冷却记录（防止切换章节刷新BOSS）— 封魔BOSS不影响原BOSS刷新
-        if GameConfig.BOSS_CATEGORIES[monster.category] and not monster.isSealDemon then
+        if GameConfig.BOSS_CATEGORIES[monster.category] and not monster.isSealDemon and not monster.isSwordWall then
             GameState.bossKillTimes[monster.typeId] = {
                 killTime = GameState.gameTime,
                 respawnTime = monster.respawnTime,
@@ -529,6 +529,15 @@ function GameEvents.Register(refs)
                     {255, 100, 80, 255}, 2.0
                 )
             end
+            return
+        end
+
+        -- 剑气长城副本中死亡：自动失败退出
+        local okSW, SwordWallSystem = pcall(require, "systems.SwordWallSystem")
+        if okSW and SwordWallSystem and SwordWallSystem.IsActive() then
+            local player = GameState.player
+            if player then player.alive = true end
+            SwordWallSystem.Fail(refs.gameMap, "挑战失败…")
             return
         end
 

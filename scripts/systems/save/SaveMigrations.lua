@@ -1068,33 +1068,148 @@ local MIGRATIONS = {
         return data
     end,
 
-    -- v27 → v28: 补偿 v18 遗漏 — 仓库中 T9+ 葫芦补 spiritStat
+    -- v27 → v28: 补偿 v18 遗漏 — 仓库中 T9+ 葫芦补 spiritStat + 清除两套T1并存
     [28] = function(data)
-        if not data.warehouse or not data.warehouse.items then
-            data.version = 28
-            return data
-        end
-
+        -- Part 1: 仓库葫芦 spiritStat 补偿
         local GOURD_SPIRIT = {
             [9]  = { stat = "wisdom", name = "悟性", value = 8 },
             [10] = { stat = "wisdom", name = "悟性", value = 9 },
             [11] = { stat = "wisdom", name = "悟性", value = 9 },
         }
-
-        local count = 0
-        for slotStr, item in pairs(data.warehouse.items) do
-            if item and item.slot == "treasure" then
-                local tier = item.tier or 1
-                local spiritDef = GOURD_SPIRIT[tier]
-                if spiritDef and not item.spiritStat then
-                    item.spiritStat = { stat = spiritDef.stat, name = spiritDef.name, value = spiritDef.value }
-                    count = count + 1
+        local gourdCount = 0
+        if data.warehouse and data.warehouse.items then
+            for _, item in pairs(data.warehouse.items) do
+                if item and item.slot == "treasure" then
+                    local tier = item.tier or 1
+                    local spiritDef = GOURD_SPIRIT[tier]
+                    if spiritDef and not item.spiritStat then
+                        item.spiritStat = { stat = spiritDef.stat, name = spiritDef.name, value = spiritDef.value }
+                        gourdCount = gourdCount + 1
+                    end
                 end
             end
         end
 
-        print("[SaveSystem] v27→v28 migration: warehouse gourd spiritStat fix, " .. count .. " gourd(s) patched")
+        -- Part 2: 清除两套T1并存（setId是T1且enchantSetId存在 → 删setId）
+        local T1_SETS = { xuesha = true, qingyun = true, fengmo = true, haoqi = true }
+        local dupCount = 0
+        local function fixDualT1(item)
+            if item and item.setId and T1_SETS[item.setId] and item.enchantSetId then
+                item.setId = nil
+                dupCount = dupCount + 1
+            end
+        end
+        if data.inventory then
+            if data.inventory.equipment then
+                for _, item in pairs(data.inventory.equipment) do fixDualT1(item) end
+            end
+            if data.inventory.backpack then
+                for _, item in pairs(data.inventory.backpack) do fixDualT1(item) end
+            end
+        end
+        if data.warehouse and data.warehouse.items then
+            for _, item in pairs(data.warehouse.items) do fixDualT1(item) end
+        end
+
+        print("[SaveSystem] v27→v28 migration: " .. gourdCount .. " gourd spiritStat patched, " .. dupCount .. " dual-T1 setId cleared")
         data.version = 28
+        return data
+    end,
+
+    -- v28 → v29: 120级飞升属性调整 — 根据 level+realm 重算裸属性
+    [29] = function(data)
+        local player = data.player
+        if not player then
+            data.version = 29
+            return data
+        end
+
+        -- 新每级成长
+        local GROWTH = { maxHp = 15, atk = 3, def = 2, hpRegen = 0.3 }
+
+        -- 新境界突破奖励（内联，不依赖 GameConfig）
+        local REALM_ORDER = {
+            "lianqi_1", "lianqi_2", "lianqi_3",
+            "zhuji_1", "zhuji_2", "zhuji_3",
+            "jindan_1", "jindan_2", "jindan_3",
+            "yuanying_1", "yuanying_2", "yuanying_3",
+            "huashen_1", "huashen_2", "huashen_3",
+            "heti_1", "heti_2", "heti_3",
+            "dacheng_1", "dacheng_2", "dacheng_3", "dacheng_4",
+            "dujie_1", "dujie_2", "dujie_3", "dujie_4",
+        }
+        local REALM_REWARDS = {
+            lianqi_1    = { maxHp = 28,  atk = 6,   def = 4,  hpRegen = 0.6 },
+            lianqi_2    = { maxHp = 20,  atk = 4,   def = 3,  hpRegen = 0.4 },
+            lianqi_3    = { maxHp = 20,  atk = 4,   def = 2,  hpRegen = 0.4 },
+            zhuji_1     = { maxHp = 60,  atk = 12,  def = 8,  hpRegen = 1.2 },
+            zhuji_2     = { maxHp = 50,  atk = 10,  def = 7,  hpRegen = 1.0 },
+            zhuji_3     = { maxHp = 48,  atk = 10,  def = 6,  hpRegen = 1.0 },
+            jindan_1    = { maxHp = 95,  atk = 19,  def = 13, hpRegen = 1.9 },
+            jindan_2    = { maxHp = 78,  atk = 16,  def = 10, hpRegen = 1.6 },
+            jindan_3    = { maxHp = 75,  atk = 15,  def = 10, hpRegen = 1.5 },
+            yuanying_1  = { maxHp = 130, atk = 26,  def = 17, hpRegen = 2.6 },
+            yuanying_2  = { maxHp = 105, atk = 21,  def = 14, hpRegen = 2.1 },
+            yuanying_3  = { maxHp = 103, atk = 21,  def = 14, hpRegen = 2.1 },
+            huashen_1   = { maxHp = 170, atk = 34,  def = 30, hpRegen = 3.5 },
+            huashen_2   = { maxHp = 130, atk = 26,  def = 22, hpRegen = 2.7 },
+            huashen_3   = { maxHp = 130, atk = 26,  def = 23, hpRegen = 2.7 },
+            heti_1      = { maxHp = 210, atk = 42,  def = 45, hpRegen = 4.3 },
+            heti_2      = { maxHp = 155, atk = 31,  def = 30, hpRegen = 3.2 },
+            heti_3      = { maxHp = 155, atk = 32,  def = 30, hpRegen = 3.2 },
+            dacheng_1   = { maxHp = 280, atk = 56,  def = 65, hpRegen = 5.8 },
+            dacheng_2   = { maxHp = 191, atk = 39,  def = 42, hpRegen = 3.9 },
+            dacheng_3   = { maxHp = 191, atk = 39,  def = 41, hpRegen = 3.8 },
+            dacheng_4   = { maxHp = 191, atk = 39,  def = 41, hpRegen = 3.8 },
+            dujie_1     = { maxHp = 500, atk = 100, def = 80, hpRegen = 10.0 },
+            dujie_2     = { maxHp = 240, atk = 48,  def = 32, hpRegen = 3.2 },
+            dujie_3     = { maxHp = 248, atk = 50,  def = 33, hpRegen = 3.3 },
+            dujie_4     = { maxHp = 255, atk = 51,  def = 34, hpRegen = 3.4 },
+        }
+
+        -- 初始属性
+        local newHp     = 100
+        local newAtk    = 15
+        local newDef    = 5
+        local newRegen  = 1.0
+
+        -- 等级成长：(level - 1) × growth
+        local level = player.level or 1
+        newHp    = newHp    + (level - 1) * GROWTH.maxHp
+        newAtk   = newAtk   + (level - 1) * GROWTH.atk
+        newDef   = newDef   + (level - 1) * GROWTH.def
+        newRegen = newRegen + (level - 1) * GROWTH.hpRegen
+
+        -- 境界突破累加：遍历 REALM_ORDER 直到玩家当前 realm
+        local currentRealm = player.realm or "mortal"
+        if currentRealm ~= "mortal" then
+            for _, realmId in ipairs(REALM_ORDER) do
+                local r = REALM_REWARDS[realmId]
+                if r then
+                    newHp    = newHp    + r.maxHp
+                    newAtk   = newAtk   + r.atk
+                    newDef   = newDef   + r.def
+                    newRegen = newRegen + r.hpRegen
+                end
+                if realmId == currentRealm then break end
+            end
+        end
+
+        local oldHp = player.maxHp or 100
+        local oldAtk = player.atk or 15
+        local oldDef = player.def or 5
+        local oldRegen = player.hpRegen or 1.0
+
+        player.maxHp   = newHp
+        player.atk     = newAtk
+        player.def     = newDef
+        player.hpRegen = newRegen
+
+        print(string.format(
+            "[SaveSystem] v28→v29 migration: realm=%s lv=%d | hp %d→%d | atk %d→%d | def %d→%d | regen %.1f→%.1f",
+            currentRealm, level, oldHp, newHp, oldAtk, newAtk, oldDef, newDef, oldRegen, newRegen
+        ))
+        data.version = 29
         return data
     end,
 }

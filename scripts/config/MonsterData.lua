@@ -188,6 +188,7 @@ require("config.MonsterTypes_ch3")(MonsterData)
 require("config.MonsterTypes_ch4")(MonsterData)
 require("config.MonsterTypes_ch5")(MonsterData)
 require("config.MonsterTypes_xianjie")(MonsterData)
+require("config.MonsterTypes_xianyun")(MonsterData)
 require("config.MonsterTypes_training")(MonsterData)
 
 return MonsterData

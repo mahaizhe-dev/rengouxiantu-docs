@@ -321,6 +321,7 @@ MinggeData.SOURCES = {
     blood_general   = { name = "镇渊魔帅·噬渊血犼",     element = "wood",  stat = "maxHp",         tier = 3, level = 120 },
     marshal_shugu   = { name = "镇渊魔帅·蚀骨",         element = "earth", stat = "def",           tier = 3, level = 120 },
     marshal_liesoul = { name = "镇渊魔帅·裂魂",         element = "fire",  stat = "atk",           tier = 3, level = 120 },
+    outer_celestial_boss = { name = "域外天魔",         element = "fire",  stat = "moveSpeed",     tier = 3, level = 120 },
 }
 
 -- ============================================================================
@@ -368,6 +369,7 @@ MinggeData.PORTRAITS = {
     blood_general   = "Textures/monster_abyss_marshal.png",
     marshal_shugu   = "Textures/monster_marshal_shugu.png",
     marshal_liesoul = "Textures/monster_marshal_liesoul.png",
+    outer_celestial_boss = "image/edited_monster_outer_celestial_20260619095204.png",
 }
 
 -- ============================================================================

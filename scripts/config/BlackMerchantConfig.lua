@@ -179,6 +179,15 @@ BMConfig.ITEMS = {
     tiandi_fragment_3 = ItemFromGame("tiandi_fragment_3", {
         buy_price = 25, sell_price = 50, category = "tiandi", boss = "域外邪魔",
     }),
+    tiandi_fragment_4 = ItemFromGame("tiandi_fragment_4", {
+        buy_price = 25, sell_price = 50, category = "tiandi", boss = "域外天魔",
+    }),
+    tiandi_fragment_5 = ItemFromGame("tiandi_fragment_5", {
+        buy_price = 25, sell_price = 50, category = "tiandi", boss = "域外天魔",
+    }),
+    tiandi_fragment_6 = ItemFromGame("tiandi_fragment_6", {
+        buy_price = 25, sell_price = 50, category = "tiandi", boss = "域外天魔",
+    }),
 
     -- === 诛仙阵图残符（太虚·第五章，对应9位BOSS） ===
     -- 魔帅掉落（1-3）：收购价30仙石，出售价60仙石

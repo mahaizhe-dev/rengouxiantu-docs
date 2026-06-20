@@ -5,7 +5,7 @@
 local GameConfig = {}
 
 -- GM 调试开关（发布正式版前改为 false）
-GameConfig.GM_ENABLED = false
+GameConfig.GM_ENABLED = true
 GameConfig.GM_SHOW_COORDS = false  -- GM：鼠标悬停显示瓦片坐标
 
 -- 多人副本功能总开关（Kill Switch）
@@ -15,7 +15,7 @@ GameConfig.DUNGEON_ENABLED = false
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
 GameConfig.CODE_VERSION = 6
-GameConfig.DISPLAY_VERSION = "v1.12.10"
+GameConfig.DISPLAY_VERSION = "v1.12.13"
 
 -- 地图设置
 GameConfig.TILE_SIZE = 128         -- 每个瓦片的逻辑像素大小（基准值，不要直接用于渲染）
@@ -237,6 +237,9 @@ GameConfig.PET_MATERIALS = {
     tiandi_fragment_1 = { name = "天帝剑痕碎片·壹", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "远古天帝斩落域外邪魔时遗留的剑痕残片，剑意犹存，隐约可闻天雷余响。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },
     tiandi_fragment_2 = { name = "天帝剑痕碎片·贰", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "据传天帝以此一剑斩断天外入侵通道，立下中洲万世屏障。碎片表面仍残留斩裂虚空的痕迹。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },
     tiandi_fragment_3 = { name = "天帝剑痕碎片·叁", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "剑痕之中封存着天帝护佑中洲的意志，岁月流转仍不减分毫，是那场惊天一役的最后见证。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },
+    tiandi_fragment_4 = { name = "天帝剑痕碎片·肆", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "碎片边缘凝聚着天帝斩灭域外天魔时爆发的无上剑意，蓝紫雷弧交织不息。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外天魔掉落（0.1%）" },
+    tiandi_fragment_5 = { name = "天帝剑痕碎片·伍", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "此片封印着天帝镇压域外裂隙时的第五道剑气，触之虚空震颤，万物俯首。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外天魔掉落（0.1%）" },
+    tiandi_fragment_6 = { name = "天帝剑痕碎片·陆", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "残片上可见六道裂纹呈星阵排列，相传天帝以六合之势封锁天魔退路，此为阵眼残痕。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外天魔掉落（0.1%）" },
     -- 诛仙阵图残符（第五章神器，9片对应九宫方位，激活诛仙阵图）
     zhentu_fragment_1 = { name = "阵图残符·壹", icon = "icon_zhentu_fragment.png", sellPrice = 150000, quality = "red", desc = "诛仙阵图第一块残符，源自镇渊魔帅·蚀骨，暗含阵法根基之力。\n用途：集齐九片可重铸诛仙阵图。\n获取：镇渊魔帅·蚀骨掉落（0.1%）" },
     zhentu_fragment_2 = { name = "阵图残符·贰", icon = "icon_zhentu_fragment.png", sellPrice = 150000, quality = "red", desc = "诛仙阵图第二块残符，源自镇渊魔帅·裂魂，内蕴撕裂灵魂的寒意。\n用途：集齐九片可重铸诛仙阵图。\n获取：镇渊魔帅·裂魂掉落（0.1%）" },
@@ -372,7 +375,7 @@ GameConfig.LEVEL_GROWTH = {
     maxHp = 15,
     atk = 3,
     def = 2,
-    hpRegen = 0.2,
+    hpRegen = 0.3,
 }
 
 -- ===================== 境界系统 =====================
@@ -406,146 +409,146 @@ GameConfig.REALMS = {
         name = "练气初期", order = 1, isMajor = true,
         maxLevel = 25, requiredLevel = 10, attackSpeedBonus = 0.1,
         cost = { qiPill = 1, gold = 3000 },
-        rewards = { maxHp = 15, atk = 3, def = 2, hpRegen = 0.2 },
+        rewards = { maxHp = 28, atk = 6, def = 4, hpRegen = 0.6 },
     },
     lianqi_2 = {
         name = "练气中期", order = 2, isMajor = false,
         maxLevel = 25, requiredLevel = 15, attackSpeedBonus = 0.1,
         cost = { qiPill = 2, gold = 10000 },
-        rewards = { maxHp = 23, atk = 5, def = 3, hpRegen = 0.3 },
+        rewards = { maxHp = 20, atk = 4, def = 3, hpRegen = 0.4 },
     },
     lianqi_3 = {
         name = "练气后期", order = 3, isMajor = false,
         maxLevel = 25, requiredLevel = 20, attackSpeedBonus = 0.1,
         cost = { qiPill = 5, gold = 20000 },
-        rewards = { maxHp = 30, atk = 6, def = 4, hpRegen = 0.4 },
+        rewards = { maxHp = 20, atk = 4, def = 2, hpRegen = 0.4 },
     },
     -- ===== 筑基（大境界：练气→筑基）3 小境界 =====
     zhuji_1 = {
         name = "筑基初期", order = 4, isMajor = true,
         maxLevel = 40, requiredLevel = 25, attackSpeedBonus = 0.2,
         cost = { zhujiPill = 1, gold = 50000 },
-        rewards = { maxHp = 45, atk = 9, def = 6, hpRegen = 0.6 },
+        rewards = { maxHp = 60, atk = 12, def = 8, hpRegen = 1.2 },
     },
     zhuji_2 = {
         name = "筑基中期", order = 5, isMajor = false,
         maxLevel = 40, requiredLevel = 30, attackSpeedBonus = 0.2,
         cost = { zhujiPill = 2, gold = 75000 },
-        rewards = { maxHp = 53, atk = 11, def = 7, hpRegen = 0.7 },
+        rewards = { maxHp = 50, atk = 10, def = 7, hpRegen = 1.0 },
     },
     zhuji_3 = {
         name = "筑基后期", order = 6, isMajor = false,
         maxLevel = 40, requiredLevel = 35, attackSpeedBonus = 0.2,
         cost = { zhujiPill = 5, gold = 100000 },
-        rewards = { maxHp = 60, atk = 12, def = 8, hpRegen = 0.8 },
+        rewards = { maxHp = 48, atk = 10, def = 6, hpRegen = 1.0 },
     },
     -- ===== 金丹（大境界：筑基→金丹）3 小境界 =====
     jindan_1 = {
         name = "金丹初期", order = 7, isMajor = true,
         maxLevel = 55, requiredLevel = 40, attackSpeedBonus = 0.3,
         cost = { jindanSand = 10, gold = 200000 },
-        rewards = { maxHp = 75, atk = 15, def = 10, hpRegen = 1.0 },
+        rewards = { maxHp = 95, atk = 19, def = 13, hpRegen = 1.9 },
     },
     jindan_2 = {
         name = "金丹中期", order = 8, isMajor = false,
         maxLevel = 55, requiredLevel = 45, attackSpeedBonus = 0.3,
         cost = { jindanSand = 20, gold = 300000 },
-        rewards = { maxHp = 83, atk = 17, def = 11, hpRegen = 1.1 },
+        rewards = { maxHp = 78, atk = 16, def = 10, hpRegen = 1.6 },
     },
     jindan_3 = {
         name = "金丹后期", order = 9, isMajor = false,
         maxLevel = 55, requiredLevel = 50, attackSpeedBonus = 0.3,
         cost = { jindanSand = 40, gold = 500000 },
-        rewards = { maxHp = 90, atk = 18, def = 12, hpRegen = 1.2 },
+        rewards = { maxHp = 75, atk = 15, def = 10, hpRegen = 1.5 },
     },
     -- ===== 元婴（大境界：金丹→元婴）3 小境界 =====
     yuanying_1 = {
         name = "元婴初期", order = 10, isMajor = true,
         maxLevel = 70, requiredLevel = 55, attackSpeedBonus = 0.4,
         cost = { yuanyingFruit = 25, gold = 750000 },
-        rewards = { maxHp = 105, atk = 21, def = 14, hpRegen = 1.4 },
+        rewards = { maxHp = 130, atk = 26, def = 17, hpRegen = 2.6 },
     },
     yuanying_2 = {
         name = "元婴中期", order = 11, isMajor = false,
         maxLevel = 70, requiredLevel = 60, attackSpeedBonus = 0.4,
         cost = { yuanyingFruit = 50, gold = 1000000 },
-        rewards = { maxHp = 113, atk = 23, def = 15, hpRegen = 1.5 },
+        rewards = { maxHp = 105, atk = 21, def = 14, hpRegen = 2.1 },
     },
     yuanying_3 = {
         name = "元婴后期", order = 12, isMajor = false,
         maxLevel = 70, requiredLevel = 65, attackSpeedBonus = 0.4,
         cost = { yuanyingFruit = 75, gold = 1500000 },
-        rewards = { maxHp = 120, atk = 24, def = 16, hpRegen = 1.6 },
+        rewards = { maxHp = 103, atk = 21, def = 14, hpRegen = 2.1 },
     },
     -- ===== 化神（大境界：元婴→化神）3 小境界 =====
     huashen_1 = {
         name = "化神初期", order = 13, isMajor = true,
         maxLevel = 85, requiredLevel = 70, attackSpeedBonus = 0.5,
         cost = { jiuzhuanJindan = 30, gold = 2400000 },
-        rewards = { maxHp = 135, atk = 27, def = 18, hpRegen = 1.8 },
+        rewards = { maxHp = 170, atk = 34, def = 30, hpRegen = 3.5 },
     },
     huashen_2 = {
         name = "化神中期", order = 14, isMajor = false,
         maxLevel = 85, requiredLevel = 75, attackSpeedBonus = 0.5,
         cost = { jiuzhuanJindan = 60, gold = 3600000 },
-        rewards = { maxHp = 143, atk = 29, def = 19, hpRegen = 1.9 },
+        rewards = { maxHp = 130, atk = 26, def = 22, hpRegen = 2.7 },
     },
     huashen_3 = {
         name = "化神后期", order = 15, isMajor = false,
         maxLevel = 85, requiredLevel = 80, attackSpeedBonus = 0.5,
         cost = { jiuzhuanJindan = 90, gold = 5400000 },
-        rewards = { maxHp = 150, atk = 30, def = 20, hpRegen = 2.0 },
+        rewards = { maxHp = 130, atk = 26, def = 23, hpRegen = 2.7 },
     },
     -- ===== 合体（大境界：化神→合体）3 小境界 =====
     heti_1 = {
         name = "合体初期", order = 16, isMajor = true,
         maxLevel = 100, requiredLevel = 85, attackSpeedBonus = 0.6,
         cost = { jiuzhuanJindan = 120, gold = 7000000 },
-        rewards = { maxHp = 165, atk = 33, def = 22, hpRegen = 2.2 },
+        rewards = { maxHp = 210, atk = 42, def = 45, hpRegen = 4.3 },
     },
     heti_2 = {
         name = "合体中期", order = 17, isMajor = false,
         maxLevel = 100, requiredLevel = 90, attackSpeedBonus = 0.6,
         cost = { jiuzhuanJindan = 150, gold = 10500000 },
-        rewards = { maxHp = 173, atk = 35, def = 23, hpRegen = 2.3 },
+        rewards = { maxHp = 155, atk = 31, def = 30, hpRegen = 3.2 },
     },
     heti_3 = {
         name = "合体后期", order = 18, isMajor = false,
         maxLevel = 100, requiredLevel = 95, attackSpeedBonus = 0.6,
         cost = { jiuzhuanJindan = 180, gold = 15800000 },
-        rewards = { maxHp = 180, atk = 36, def = 24, hpRegen = 2.4 },
+        rewards = { maxHp = 155, atk = 32, def = 30, hpRegen = 3.2 },
     },
     -- ===== 大乘（大境界：合体→大乘）4 小境界 =====
     dacheng_1 = {
         name = "大乘初期", order = 19, isMajor = true,
         maxLevel = 120, requiredLevel = 100, attackSpeedBonus = 0.8,
         cost = { dujieDan = 100, gold = 19000000 },
-        rewards = { maxHp = 195, atk = 39, def = 26, hpRegen = 2.6 },
+        rewards = { maxHp = 280, atk = 56, def = 65, hpRegen = 5.8 },
     },
     dacheng_2 = {
         name = "大乘中期", order = 20, isMajor = false,
         maxLevel = 120, requiredLevel = 105, attackSpeedBonus = 0.8,
         cost = { dujieDan = 150, gold = 25500000 },
-        rewards = { maxHp = 203, atk = 41, def = 27, hpRegen = 2.7 },
+        rewards = { maxHp = 191, atk = 39, def = 42, hpRegen = 3.9 },
     },
     dacheng_3 = {
         name = "大乘后期", order = 21, isMajor = false,
         maxLevel = 120, requiredLevel = 110, attackSpeedBonus = 0.8,
         cost = { dujieDan = 200, gold = 34500000 },
-        rewards = { maxHp = 210, atk = 42, def = 28, hpRegen = 2.8 },
+        rewards = { maxHp = 191, atk = 39, def = 41, hpRegen = 3.8 },
     },
     dacheng_4 = {
         name = "大乘巅峰", order = 22, isMajor = false,
         maxLevel = 120, requiredLevel = 115, attackSpeedBonus = 0.8,
         cost = { dujieDan = 255, gold = 46500000 },
-        rewards = { maxHp = 218, atk = 44, def = 29, hpRegen = 2.9 },
+        rewards = { maxHp = 191, atk = 39, def = 41, hpRegen = 3.8 },
     },
     -- ===== 谪仙（大境界：大乘→谪仙）4 小境界 =====
     dujie_1 = {
         name = "谪仙初期", order = 23, isMajor = true,
         maxLevel = 140, requiredLevel = 120, attackSpeedBonus = 1.0,
         cost = { xianDan = 200, gold = 51000000 },
-        rewards = { maxHp = 233, atk = 47, def = 31, hpRegen = 3.1 },
+        rewards = { maxHp = 500, atk = 100, def = 80, hpRegen = 10.0 },
     },
     dujie_2 = {
         name = "谪仙中期", order = 24, isMajor = false,

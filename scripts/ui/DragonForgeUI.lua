@@ -1,7 +1,9 @@
 -- ============================================================================
--- DragonForgeUI.lua - 神真子·龙神圣器打造界面
--- 5页签（断流/焚天/噬魂/裂地/灭影），葫芦升级风格左右对比
+-- DragonForgeUI.lua - 龙神圣器打造界面（第四章）
+-- Style: 仙侠暗金 (UITheme 规范化版)
+-- 特点: S2.4固定高度 | 7页签(5圣器+龙极令+灵器) | 左右对比预览 | S10按钮语义
 -- ============================================================================
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 
 local UI = require("urhox-libs/UI")
 local GameState = require("core.GameState")
@@ -16,18 +18,26 @@ local ForgeSystem = require("systems.ForgeSystem")
 
 local DragonForgeUI = {}
 
+---@type any
 local panel_ = nil
 local visible_ = false
+---@type any
 local contentPanel_ = nil
+---@type any
 local outerPanel_ = nil
+---@type any
 local tabBarPanel_ = nil
+---@type any
 local resultLabel_ = nil
+---@type any
 local parentOverlay_ = nil
+---@type any
 local successPanel_ = nil
 
-local currentTab_ = 1  -- 当前页签索引（1~5）
+local currentTab_ = 1  -- 当前页签索引（1~7）
 
 local PORTRAIT_SIZE = 64
+local STAT_ROW_H    = 22
 
 --- 格式化金币数字（来自共享模块）
 local FormatGold = FormatUtils.Gold
@@ -46,111 +56,32 @@ local EXTRA_TABS = {
     [7] = { label = "⚒️灵器铸造", color = {50, 220, 180, 255},  inactiveColor = {20, 60, 55, 220}  },
 }
 
---- 构建页签栏
-local function BuildTabBar()
-    local recipes = EquipmentData.DRAGON_FORGE_RECIPES
-    local tabs = {}
-
-    for i, recipe in ipairs(recipes) do
-        local isActive = (i == currentTab_)
-        local targetDef = EquipmentData.SpecialEquipment[recipe.target]
-        local qualityCfg = targetDef and GameConfig.QUALITY[targetDef.quality]
-        local activeColor = qualityCfg and qualityCfg.color or {255, 80, 80, 255}
-
-        table.insert(tabs, UI.Button {
-            text = recipe.label,
-            width = 52,
-            height = 30,
-            fontSize = T.fontSize.sm,
-            fontWeight = isActive and "bold" or "normal",
-            fontColor = isActive and {255, 255, 255, 255} or {180, 180, 190, 200},
-            backgroundColor = isActive
-                and { activeColor[1], activeColor[2], activeColor[3], 200 }
-                or {50, 55, 65, 200},
-            borderRadius = T.radius.sm,
-            borderWidth = isActive and 1 or 0,
-            borderColor = isActive and { activeColor[1], activeColor[2], activeColor[3], 255 } or nil,
-            onClick = function(self)
-                if currentTab_ ~= i then
-                    currentTab_ = i
-                    RefreshUI()
-                end
-            end,
-        })
-    end
-
-    -- 追加额外页签（龙极令、灵器铸造，仅第四章显示）
-    for tabIdx = 6, 7 do
-        local def = EXTRA_TABS[tabIdx]
-        local isActive = (tabIdx == currentTab_)
-        local ic = def.inactiveColor or {50, 55, 65, 200}
-        table.insert(tabs, UI.Button {
-            text = def.label,
-            height = 30,
-            paddingLeft = 8, paddingRight = 8,
-            fontSize = T.fontSize.sm,
-            fontWeight = isActive and "bold" or "normal",
-            fontColor = isActive and {255, 255, 255, 255} or {def.color[1], def.color[2], def.color[3], 180},
-            backgroundColor = isActive
-                and { def.color[1], def.color[2], def.color[3], 220 }
-                or ic,
-            borderRadius = T.radius.sm,
-            borderWidth = 1,
-            borderColor = { def.color[1], def.color[2], def.color[3], isActive and 255 or 80 },
-            onClick = function(self)
-                if currentTab_ ~= tabIdx then
-                    currentTab_ = tabIdx
-                    RefreshUI()
-                end
-            end,
-        })
-    end
-
-    return UI.Panel {
-        flexDirection = "row",
-        width = "100%",
-        gap = T.spacing.xs,
-        justifyContent = "center",
-        flexWrap = "wrap",
-        children = tabs,
-    }
-end
-
---- 格式化范围值
-local function FormatRange(stat, minVal, maxVal)
-    if stat == "critRate" or stat == "critDmg" or stat == "speed"
-        or stat == "dmgReduce" or stat == "skillDmg" then
-        return string.format("+%.1f%%~%.1f%%", minVal * 100, maxVal * 100)
-    elseif stat == "hpRegen" then
-        return string.format("+%.1f~%.1f/s", minVal, maxVal)
-    else
-        return "+" .. math.floor(minVal) .. "~" .. math.floor(maxVal)
-    end
-end
-
 -- ============================================================================
 -- 属性显示辅助（预览面板 & 成功面板共用）
 -- ============================================================================
 
-local STAT_NAMES = StatNames.NAMES
-local STAT_ICONS = StatNames.ICONS
+local STAT_NAMES    = StatNames.NAMES
+local STAT_ICONS    = StatNames.ICONS
 local FormatStatVal = StatNames.FormatValue
 
+--- 单行属性行（icon + name 左对齐，val 右对齐）
 local function SuccessStatRow(icon, name, valStr, nameColor, valColor)
     return UI.Panel {
-        flexDirection = "row",
-        justifyContent = "space-between",
-        alignItems = "center",
-        width = "100%",
-        paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm,
-        height = T.fontSize.sm + 12,
+        flexDirection    = "row",
+        justifyContent   = "space-between",
+        alignItems       = "center",
+        width            = "100%",
+        paddingLeft      = T.spacing.sm,
+        paddingRight     = T.spacing.sm,
+        height           = STAT_ROW_H,
         children = {
             UI.Label { text = icon .. " " .. name, fontSize = T.fontSize.sm, fontColor = nameColor },
-            UI.Label { text = valStr, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = valColor },
+            UI.Label { text = valStr,               fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = valColor },
         },
     }
 end
 
+--- 特殊效果文字描述（从效果对象生成可读字符串）
 local function GetSpecialEffectDesc(eff)
     if not eff then return "" end
     if eff.type == "bleed_dot" then
@@ -205,60 +136,96 @@ local function GetSpecialEffectDesc(eff)
     end
 end
 
---- 构建打造后预览行（显示数值范围，灵性属性显示❓）
+-- ============================================================================
+-- 格式化范围值
+-- ============================================================================
+
+local function FormatRange(stat, minVal, maxVal)
+    if stat == "critRate" or stat == "critDmg" or stat == "speed"
+        or stat == "dmgReduce" or stat == "skillDmg" then
+        return string.format("+%.1f%%~%.1f%%", minVal * 100, maxVal * 100)
+    elseif stat == "hpRegen" then
+        return string.format("+%.1f~%.1f/s", minVal, maxVal)
+    else
+        return "+" .. math.floor(minVal) .. "~" .. math.floor(maxVal)
+    end
+end
+
+-- ============================================================================
+-- 预览面板右侧：打造后圣器属性（含范围 + 灵性❓）
+-- ============================================================================
+
 local function BuildForgePreviewRows(targetDef)
     local rows = {}
-    local qColor = {255, 50, 50, 255}
-    local randLo = 1.1   -- randBase for red quality
-    local randHi = 1.5   -- randBase + 0.4
-    local numTM = EquipmentData.SUB_STAT_TIER_MULT[9]   -- 11.0
-    local pctTM = EquipmentData.PCT_SUB_TIER_MULT[9]    -- 6.0
-    local qMult = GameConfig.QUALITY["red"].multiplier   -- 2.1
+    local qColor  = T.color.qualityRed
+    local randLo  = 1.1
+    local randHi  = 1.5
+    local numTM   = EquipmentData.SUB_STAT_TIER_MULT[9]
+    local pctTM   = EquipmentData.PCT_SUB_TIER_MULT[9]
+    local qMult   = GameConfig.QUALITY["red"].multiplier
 
-    -- 武器名
+    -- 武器名 + 品阶
     table.insert(rows, UI.Label {
-        text = targetDef.name,
-        fontSize = T.fontSize.lg, fontWeight = "bold",
+        text      = targetDef.name,
+        fontSize  = T.fontSize.lg, fontWeight = "bold",
         fontColor = qColor, textAlign = "center",
     })
     table.insert(rows, UI.Label {
-        text = "9阶  [圣器] 武器",
-        fontSize = T.fontSize.sm,
-        fontColor = {qColor[1], qColor[2], qColor[3], 180}, textAlign = "center",
+        text      = "9阶  [圣器] 武器",
+        fontSize  = T.fontSize.sm,
+        fontColor = { qColor[1], qColor[2], qColor[3], 180 },
+        textAlign = "center",
     })
-    table.insert(rows, UI.Panel { width = "100%", height = 1, backgroundColor = {80, 85, 100, 120}, marginTop = T.spacing.xs, marginBottom = T.spacing.xs })
+    table.insert(rows, UI.Panel {
+        width = "100%", height = T.decor.dividerHeight,
+        backgroundColor = T.decor.dividerColor,
+        marginTop = T.spacing.xs, marginBottom = T.spacing.xs,
+    })
 
     -- 主属性（固定）
     local mainChildren = {
-        UI.Label { text = "▸ 主属性", fontSize = T.fontSize.xs, fontColor = {200, 160, 160, 220}, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
+        UI.Label {
+            text = "▸ 主属性", fontSize = T.fontSize.xs,
+            fontColor = T.color.equipTipStatLabel,
+            paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs,
+        },
     }
     for stat, value in pairs(targetDef.mainStat or {}) do
-        local icon = STAT_ICONS[stat] or "📊"
-        local name = STAT_NAMES[stat] or stat
+        local icon   = STAT_ICONS[stat] or "📊"
+        local name   = STAT_NAMES[stat] or stat
         local valStr = FormatStatVal(stat, value)
         table.insert(mainChildren, UI.Panel {
-            flexDirection = "row", justifyContent = "space-between", alignItems = "center",
-            paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm, height = T.fontSize.md + 10,
+            flexDirection  = "row", justifyContent = "space-between",
+            alignItems     = "center",
+            paddingLeft    = T.spacing.sm, paddingRight = T.spacing.sm,
+            height         = STAT_ROW_H,
             children = {
-                UI.Label { text = icon .. " " .. name, fontSize = T.fontSize.md, fontColor = {255, 255, 230, 255} },
-                UI.Label { text = valStr, fontSize = T.fontSize.md, fontWeight = "bold", fontColor = {255, 215, 0, 255} },
+                UI.Label { text = icon .. " " .. name, fontSize = T.fontSize.md, fontColor = T.color.equipTipMainStatName },
+                UI.Label { text = valStr,               fontSize = T.fontSize.md, fontWeight = "bold", fontColor = T.color.statValueGold },
             },
         })
     end
     table.insert(rows, UI.Panel {
-        backgroundColor = {math.floor(qColor[1] * 0.15), math.floor(qColor[2] * 0.15), math.floor(qColor[3] * 0.15), 220},
-        borderRadius = T.radius.sm, borderWidth = 1, borderColor = {qColor[1], qColor[2], qColor[3], 100},
-        padding = T.spacing.sm, gap = T.spacing.xs, children = mainChildren,
+        backgroundColor = T.decor.qualitySlotBg.red,
+        borderRadius    = T.radius.sm,
+        borderWidth     = 1,
+        borderColor     = { qColor[1], qColor[2], qColor[3], 100 },
+        padding         = T.spacing.sm,
+        gap             = T.spacing.xs,
+        children        = mainChildren,
     })
 
-    -- 副属性（显示范围）
+    -- 副属性（随机范围）
     local subChildren = {
-        UI.Label { text = "▸ 副属性（随机锻造）", fontSize = T.fontSize.xs, fontColor = {160, 180, 200, 220}, paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs },
+        UI.Label {
+            text = "▸ 副属性（随机锻造）", fontSize = T.fontSize.xs,
+            fontColor   = T.color.equipTipStatLabel,
+            paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs,
+        },
     }
     for _, sub in ipairs(targetDef.subStats or {}) do
         local icon = STAT_ICONS[sub.stat] or "📊"
         local name = sub.name or STAT_NAMES[sub.stat] or sub.stat
-        -- 查找基础定义
         local subDef = nil
         for _, s in ipairs(EquipmentData.SUB_STATS) do
             if s.stat == sub.stat then subDef = s; break end
@@ -268,7 +235,7 @@ local function BuildForgePreviewRows(targetDef)
             local fixedVal = math.floor(9 * qMult)
             valStr = "+" .. fixedVal
         else
-            local baseVal = subDef and subDef.baseValue or 1
+            local baseVal  = subDef and subDef.baseValue or 1
             local tierMult = EquipmentData.PCT_STATS[sub.stat] and pctTM or numTM
             local minV = baseVal * tierMult * randLo
             local maxV = baseVal * tierMult * randHi
@@ -277,31 +244,45 @@ local function BuildForgePreviewRows(targetDef)
             valStr = FormatRange(sub.stat, minV, maxV)
         end
         table.insert(subChildren, UI.Panel {
-            flexDirection = "row", justifyContent = "space-between", alignItems = "center",
-            paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm, height = T.fontSize.sm + 10,
+            flexDirection  = "row", justifyContent = "space-between",
+            alignItems     = "center",
+            paddingLeft    = T.spacing.xs, paddingRight = T.spacing.xs,
+            height         = STAT_ROW_H,
             children = {
-                UI.Label { text = icon .. " " .. name, fontSize = T.fontSize.sm, fontColor = {220, 220, 240, 255} },
-                UI.Label { text = valStr, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = {150, 255, 150, 255} },
+                UI.Label { text = icon .. " " .. name, fontSize = T.fontSize.sm, fontColor = T.color.equipTipSubStatName },
+                UI.Label { text = valStr, fontSize = T.fontSize.xxs, fontWeight = "bold", fontColor = T.color.statValueGreen, flexShrink = 1 },
             },
         })
     end
     table.insert(rows, UI.Panel {
-        backgroundColor = {25, 30, 45, 220}, borderRadius = T.radius.sm,
-        padding = T.spacing.sm, gap = T.spacing.xs, children = subChildren,
+        backgroundColor = T.color.equipTipSubStatBg,
+        borderRadius    = T.radius.sm,
+        padding         = T.spacing.sm,
+        gap             = T.spacing.xs,
+        children        = subChildren,
     })
 
     -- 灵性属性（随机，显示❓）
     table.insert(rows, UI.Panel {
-        backgroundColor = {20, 45, 45, 220}, borderRadius = T.radius.sm,
-        borderWidth = 1, borderColor = {0, 200, 200, 120},
-        padding = T.spacing.sm, gap = T.spacing.xs,
+        backgroundColor = T.color.equipTipSpiritBg,
+        borderRadius    = T.radius.sm,
+        borderWidth     = 1,
+        borderColor     = T.color.equipTipSpiritBorder,
+        padding         = T.spacing.sm,
+        gap             = T.spacing.xs,
         children = {
-            UI.Label { text = "▸ 灵性属性", fontSize = T.fontSize.xs, fontColor = {0, 200, 200, 220}, paddingLeft = T.spacing.xs },
+            UI.Label {
+                text        = "▸ 灵性属性",
+                fontSize    = T.fontSize.xs,
+                fontColor   = T.color.equipTipSpiritLabel,
+                paddingLeft = T.spacing.xs,
+            },
             UI.Panel {
-                flexDirection = "row", justifyContent = "center", alignItems = "center",
-                paddingTop = T.spacing.xs, paddingBottom = T.spacing.xs,
+                flexDirection  = "row", justifyContent = "center",
+                alignItems     = "center",
+                paddingTop     = T.spacing.xs, paddingBottom = T.spacing.xs,
                 children = {
-                    UI.Label { text = "❓ 随机属性", fontSize = T.fontSize.sm, fontColor = {0, 200, 200, 150} },
+                    UI.Label { text = "❓ 随机属性", fontSize = T.fontSize.sm, fontColor = { T.color.statValueCyan[1], T.color.statValueCyan[2], T.color.statValueCyan[3], 150 } },
                 },
             },
         },
@@ -311,32 +292,110 @@ local function BuildForgePreviewRows(targetDef)
     if targetDef.specialEffect then
         local eff = targetDef.specialEffect
         table.insert(rows, UI.Panel {
-            backgroundColor = {55, 25, 20, 220}, borderRadius = T.radius.sm,
-            borderWidth = 1, borderColor = {220, 120, 60, 100},
-            padding = T.spacing.sm, gap = T.spacing.xs,
+            backgroundColor = T.color.equipTipSpecialBg,
+            borderRadius    = T.radius.sm,
+            borderWidth     = 1,
+            borderColor     = T.color.equipTipSpecialBorder,
+            padding         = T.spacing.sm,
+            gap             = T.spacing.xs,
             children = {
-                UI.Label { text = "✨ " .. (eff.name or "特殊效果"), fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = {255, 160, 60, 255} },
-                UI.Label { text = GetSpecialEffectDesc(eff), fontSize = T.fontSize.xs, fontColor = {255, 200, 150, 200} },
+                UI.Label { text = "✨ " .. (eff.name or "特殊效果"), fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = T.color.equipTipSpecialName },
+                UI.Label { text = GetSpecialEffectDesc(eff),            fontSize = T.fontSize.xs,                    fontColor = T.color.equipTipSpecialDesc },
             },
         })
     end
 
-    -- 标签
+    -- "打造后"标签
     table.insert(rows, UI.Panel {
         width = "100%", alignItems = "center", paddingTop = T.spacing.xs,
         children = {
             UI.Label {
-                text = "打造后",
-                fontSize = T.fontSize.xs,
-                fontColor = {60, 130, 60, 220},
-                backgroundColor = {60, 130, 60, 40},
-                paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm,
-                borderRadius = T.radius.sm,
+                text            = "打造后",
+                fontSize        = T.fontSize.xs,
+                fontColor       = T.color.matEnough,
+                backgroundColor = { T.color.matEnough[1], T.color.matEnough[2], T.color.matEnough[3], 40 },
+                paddingLeft     = T.spacing.sm, paddingRight = T.spacing.sm,
+                borderRadius    = T.radius.sm,
             },
         },
     })
 
     return rows
+end
+
+-- ============================================================================
+-- 页签栏构建
+-- ============================================================================
+
+local function BuildTabBar()
+    local recipes = EquipmentData.DRAGON_FORGE_RECIPES
+    local tabs = {}
+
+    for i, recipe in ipairs(recipes) do
+        local isActive    = (i == currentTab_)
+        local targetDef   = EquipmentData.SpecialEquipment[recipe.target]
+        local qualityCfg  = targetDef and GameConfig.QUALITY[targetDef.quality]
+        local activeColor = qualityCfg and qualityCfg.color or T.color.qualityRed
+
+        table.insert(tabs, UI.Button {
+            text            = recipe.label,
+            width           = 52,
+            height          = 30,
+            fontSize        = T.fontSize.sm,
+            fontWeight      = isActive and "bold" or "normal",
+            fontColor       = isActive and T.color.tabActiveText or T.color.tabInactiveText,
+            backgroundColor = isActive
+                and { activeColor[1], activeColor[2], activeColor[3], 200 }
+                or  T.color.tabInactiveBg,
+            borderRadius    = T.radius.sm,
+            borderWidth     = isActive and 1 or 0,
+            borderColor     = isActive and { activeColor[1], activeColor[2], activeColor[3], 255 } or nil,
+            onClick = function(self)
+                if currentTab_ ~= i then
+                    currentTab_ = i
+                    RefreshUI()
+                end
+            end,
+        })
+    end
+
+    -- 追加额外页签（龙极令、灵器铸造）
+    for tabIdx = 6, 7 do
+        local def      = EXTRA_TABS[tabIdx]
+        local isActive = (tabIdx == currentTab_)
+        local ic       = def.inactiveColor or T.color.tabInactiveBg
+        table.insert(tabs, UI.Button {
+            text            = def.label,
+            height          = 30,
+            paddingLeft     = T.spacing.sm, paddingRight = T.spacing.sm,
+            fontSize        = T.fontSize.sm,
+            fontWeight      = isActive and "bold" or "normal",
+            fontColor       = isActive
+                and T.color.tabActiveText
+                or { def.color[1], def.color[2], def.color[3], 180 },
+            backgroundColor = isActive
+                and { def.color[1], def.color[2], def.color[3], 220 }
+                or  ic,
+            borderRadius    = T.radius.sm,
+            borderWidth     = 1,
+            borderColor     = { def.color[1], def.color[2], def.color[3], isActive and 255 or 80 },
+            onClick = function(self)
+                if currentTab_ ~= tabIdx then
+                    currentTab_ = tabIdx
+                    RefreshUI()
+                end
+            end,
+        })
+    end
+
+    return UI.Panel {
+        flexDirection  = "row",
+        width          = "100%",
+        gap            = T.spacing.xs,
+        justifyContent = "center",
+        flexWrap       = "wrap",
+        children       = tabs,
+    }
 end
 
 -- ============================================================================
@@ -346,69 +405,69 @@ end
 --- 构建龙极令打造内容（Tab 6）
 local function BuildLongjiContent()
     local InventorySystem = require("systems.InventorySystem")
-    local player = GameState.player
+    local player   = GameState.player
     local children = {}
 
-    local cost = EquipmentData.LONGJI_FORGE_COST
+    local cost      = EquipmentData.LONGJI_FORGE_COST
+    local cyanColor = GameConfig.QUALITY["cyan"] and GameConfig.QUALITY["cyan"].color or T.color.statValueCyan
 
     -- 产物说明区
-    local cyanColor = GameConfig.QUALITY["cyan"] and GameConfig.QUALITY["cyan"].color or {0, 200, 200, 255}
     table.insert(children, UI.Panel {
-        width = "100%",
-        backgroundColor = {30, 35, 50, 240},
-        borderRadius = T.radius.lg,
-        borderWidth = 1,
-        borderColor = {cyanColor[1], cyanColor[2], cyanColor[3], 150},
-        padding = T.spacing.md,
-        gap = T.spacing.sm,
-        alignItems = "center",
+        width           = "100%",
+        backgroundColor = T.color.surfaceDeep,
+        borderRadius    = T.radius.lg,
+        borderWidth     = 1,
+        borderColor     = { cyanColor[1], cyanColor[2], cyanColor[3], 150 },
+        padding         = T.spacing.md,
+        gap             = T.spacing.sm,
+        alignItems      = "center",
         children = {
-            UI.Label { text = "🐲 龙极令", fontSize = T.fontSize.lg, fontWeight = "bold", fontColor = {255, 200, 50, 255} },
-            UI.Label { text = "T9 灵器品质  攻击型法宝", fontSize = T.fontSize.sm, fontColor = {cyanColor[1], cyanColor[2], cyanColor[3], 200} },
-            UI.Panel { width = "80%", height = 1, backgroundColor = {255, 200, 50, 60} },
-            UI.Label { text = "⚔️ 主属性：攻击力（standard 公式）", fontSize = T.fontSize.sm, fontColor = {255, 215, 0, 255} },
-            UI.Label { text = "🐲 专属技能：龙息（90°扇形AOE，仙缘伤害）", fontSize = T.fontSize.sm, fontColor = {255, 200, 50, 230} },
-            UI.Label { text = "📦 产物放入背包", fontSize = T.fontSize.xs, fontColor = {180, 180, 190, 180} },
+            UI.Label { text = "🐲 龙极令",          fontSize = T.fontSize.lg, fontWeight = "bold", fontColor = T.color.gold },
+            UI.Label { text = "T9 灵器品质  攻击型法宝", fontSize = T.fontSize.sm,                    fontColor = { cyanColor[1], cyanColor[2], cyanColor[3], 200 } },
+            UI.Panel { width = "80%", height = T.decor.dividerHeight, backgroundColor = { T.color.gold[1], T.color.gold[2], T.color.gold[3], 60 } },
+            UI.Label { text = "⚔️ 主属性：攻击力（standard 公式）",        fontSize = T.fontSize.sm, fontColor = T.color.statValueGold },
+            UI.Label { text = "🐲 专属技能：龙息（90°扇形AOE，仙缘伤害）", fontSize = T.fontSize.sm, fontColor = { T.color.gold[1], T.color.gold[2], T.color.gold[3], 230 } },
+            UI.Label { text = "📦 产物放入背包",                             fontSize = T.fontSize.xs, fontColor = T.color.textSecondary },
         },
     })
 
     -- 材料消耗区
     local materialRows = {}
-    local materialsOk = true
+    local materialsOk  = true
 
     -- 太虚令
     local taixuHave = InventorySystem.CountUnlockedConsumable("taixu_token")
     local taixuNeed = cost.taixu_token
-    local taixuOk = taixuHave >= taixuNeed
+    local taixuOk   = taixuHave >= taixuNeed
     if not taixuOk then materialsOk = false end
     table.insert(materialRows, UI.Panel {
         flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
         children = {
             UI.Label { text = "🔮", fontSize = T.fontSize.sm },
             UI.Label {
-                text = "太虚令  " .. taixuHave .. "/" .. taixuNeed,
-                fontSize = T.fontSize.xs,
-                fontColor = taixuOk and {130, 230, 130, 255} or {255, 130, 100, 255},
+                text      = "太虚令  " .. taixuHave .. "/" .. taixuNeed,
+                fontSize  = T.fontSize.xs,
+                fontColor = taixuOk and T.color.matEnough or T.color.matInsufficient,
             },
         },
     })
 
     -- 四龙鳞材料
     for _, mat in ipairs(cost.materials) do
-        local matDef = GameConfig.PET_MATERIALS[mat.id]
+        local matDef  = GameConfig.PET_MATERIALS[mat.id]
         local matName = matDef and matDef.name or mat.id
         local matIcon = matDef and matDef.icon or "❓"
-        local have = InventorySystem.CountUnlockedConsumable(mat.id)
-        local enough = have >= mat.count
+        local have    = InventorySystem.CountUnlockedConsumable(mat.id)
+        local enough  = have >= mat.count
         if not enough then materialsOk = false end
         table.insert(materialRows, UI.Panel {
             flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
             children = {
                 UI.Label { text = matIcon, fontSize = T.fontSize.sm },
                 UI.Label {
-                    text = matName .. "  " .. have .. "/" .. mat.count,
-                    fontSize = T.fontSize.xs,
-                    fontColor = enough and {130, 230, 130, 255} or {255, 130, 100, 255},
+                    text      = matName .. "  " .. have .. "/" .. mat.count,
+                    fontSize  = T.fontSize.xs,
+                    fontColor = enough and T.color.matEnough or T.color.matInsufficient,
                 },
             },
         })
@@ -416,12 +475,12 @@ local function BuildLongjiContent()
 
     -- 背包空位检查
     local freeSlots = InventorySystem.GetFreeSlots()
-    local hasSpace = freeSlots > 0
+    local hasSpace  = freeSlots > 0
     if not hasSpace then materialsOk = false end
     table.insert(materialRows, UI.Label {
-        text = "📦 背包空位：" .. freeSlots,
-        fontSize = T.fontSize.xs,
-        fontColor = hasSpace and {130, 230, 130, 255} or {255, 130, 100, 255},
+        text      = "📦 背包空位：" .. freeSlots,
+        fontSize  = T.fontSize.xs,
+        fontColor = hasSpace and T.color.matEnough or T.color.matInsufficient,
     })
 
     local canForge = materialsOk
@@ -439,24 +498,23 @@ local function BuildLongjiContent()
     end
 
     table.insert(materialRows, UI.Button {
-        text = btnText,
-        width = "100%",
-        height = T.size.dialogBtnH,
-        fontSize = T.fontSize.sm,
-        variant = canForge and "primary" or "disabled",
-        backgroundColor = canForge and {180, 140, 30, 220} or {80, 80, 90, 200},
+        text            = btnText,
+        width           = "100%",
+        height          = T.size.dialogBtnH,
+        fontSize        = T.fontSize.sm,
+        backgroundColor = canForge and T.color.btnSpend    or T.color.btnDisabled,
+        fontColor       = canForge and T.color.btnSpendFg  or T.color.btnDisabledFg,
         onClick = function(self)
-            if canForge then
-                DragonForgeUI.DoForgeLongji()
-            end
+            if canForge then DragonForgeUI.DoForgeLongji() end
         end,
     })
 
     table.insert(children, UI.Panel {
-        width = "100%", gap = T.spacing.sm,
-        padding = T.spacing.sm,
+        width      = "100%",
+        gap        = T.spacing.sm,
+        padding    = T.spacing.sm,
         alignItems = "center",
-        children = materialRows,
+        children   = materialRows,
     })
 
     return children
@@ -465,61 +523,61 @@ end
 --- 构建灵器铸造内容（Tab 7）
 local function BuildLingqiContent()
     local InventorySystem = require("systems.InventorySystem")
-    local player = GameState.player
+    local player   = GameState.player
     local children = {}
 
-    local cost = EquipmentData.LINGQI_FORGE_COST
-    local cyanColor = GameConfig.QUALITY["cyan"] and GameConfig.QUALITY["cyan"].color or {0, 200, 200, 255}
+    local cost      = EquipmentData.LINGQI_FORGE_COST
+    local cyanColor = GameConfig.QUALITY["cyan"] and GameConfig.QUALITY["cyan"].color or T.color.statValueCyan
 
     -- 产物说明区
     table.insert(children, UI.Panel {
-        width = "100%",
-        backgroundColor = {25, 35, 40, 240},
-        borderRadius = T.radius.lg,
-        borderWidth = 1,
-        borderColor = {cyanColor[1], cyanColor[2], cyanColor[3], 150},
-        padding = T.spacing.md,
-        gap = T.spacing.sm,
-        alignItems = "center",
+        width           = "100%",
+        backgroundColor = T.color.surfaceDeep,
+        borderRadius    = T.radius.lg,
+        borderWidth     = 1,
+        borderColor     = { cyanColor[1], cyanColor[2], cyanColor[3], 150 },
+        padding         = T.spacing.md,
+        gap             = T.spacing.sm,
+        alignItems      = "center",
         children = {
-            UI.Label { text = "⚒️ 灵器铸造", fontSize = T.fontSize.lg, fontWeight = "bold", fontColor = {cyanColor[1], cyanColor[2], cyanColor[3], 255} },
-            UI.Label { text = "T9 灵器品质  随机槽位", fontSize = T.fontSize.sm, fontColor = {cyanColor[1], cyanColor[2], cyanColor[3], 200} },
-            UI.Panel { width = "80%", height = 1, backgroundColor = {0, 200, 200, 60} },
-            UI.Label { text = "🎰 30% 概率套装灵器，70% 普通灵器", fontSize = T.fontSize.sm, fontColor = {255, 215, 0, 255} },
-            UI.Label { text = "🎲 随机槽位：武器/头盔/铠甲/肩甲/腰带/战靴/戒指/项链", fontSize = T.fontSize.xs, fontColor = {180, 200, 220, 200} },
-            UI.Label { text = "📦 产物放入背包", fontSize = T.fontSize.xs, fontColor = {180, 180, 190, 180} },
+            UI.Label { text = "⚒️ 灵器铸造",               fontSize = T.fontSize.lg, fontWeight = "bold", fontColor = { cyanColor[1], cyanColor[2], cyanColor[3], 255 } },
+            UI.Label { text = "T9 灵器品质  随机槽位",       fontSize = T.fontSize.sm,                    fontColor = { cyanColor[1], cyanColor[2], cyanColor[3], 200 } },
+            UI.Panel { width = "80%", height = T.decor.dividerHeight, backgroundColor = { T.color.statValueCyan[1], T.color.statValueCyan[2], T.color.statValueCyan[3], 60 } },
+            UI.Label { text = "🎰 30% 概率套装灵器，70% 普通灵器",                          fontSize = T.fontSize.sm, fontColor = T.color.statValueGold },
+            UI.Label { text = "🎲 随机槽位：武器/头盔/铠甲/肩甲/腰带/战靴/戒指/项链", fontSize = T.fontSize.xs, fontColor = T.color.textSecondary },
+            UI.Label { text = "📦 产物放入背包",                                        fontSize = T.fontSize.xs, fontColor = T.color.textMuted },
         },
     })
 
     -- 材料消耗区
     local materialRows = {}
-    local materialsOk = true
+    local materialsOk  = true
 
     -- 金币
     local canAfford = player.gold >= cost.gold
     if not canAfford then materialsOk = false end
     table.insert(materialRows, UI.Label {
-        text = "💰 消耗：" .. FormatGold(cost.gold) .. " 金币（当前：" .. FormatGold(player.gold) .. "）",
-        fontSize = T.fontSize.xs,
-        fontColor = canAfford and {130, 230, 130, 255} or {255, 130, 100, 255},
+        text      = "💰 消耗：" .. FormatGold(cost.gold) .. " 金币（当前：" .. FormatGold(player.gold) .. "）",
+        fontSize  = T.fontSize.xs,
+        fontColor = canAfford and T.color.matEnough or T.color.matInsufficient,
     })
 
     -- 四龙鳞材料
     for _, mat in ipairs(cost.materials) do
-        local matDef = GameConfig.PET_MATERIALS[mat.id]
+        local matDef  = GameConfig.PET_MATERIALS[mat.id]
         local matName = matDef and matDef.name or mat.id
         local matIcon = matDef and matDef.icon or "❓"
-        local have = InventorySystem.CountUnlockedConsumable(mat.id)
-        local enough = have >= mat.count
+        local have    = InventorySystem.CountUnlockedConsumable(mat.id)
+        local enough  = have >= mat.count
         if not enough then materialsOk = false end
         table.insert(materialRows, UI.Panel {
             flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
             children = {
                 UI.Label { text = matIcon, fontSize = T.fontSize.sm },
                 UI.Label {
-                    text = matName .. "  " .. have .. "/" .. mat.count,
-                    fontSize = T.fontSize.xs,
-                    fontColor = enough and {130, 230, 130, 255} or {255, 130, 100, 255},
+                    text      = matName .. "  " .. have .. "/" .. mat.count,
+                    fontSize  = T.fontSize.xs,
+                    fontColor = enough and T.color.matEnough or T.color.matInsufficient,
                 },
             },
         })
@@ -527,17 +585,17 @@ local function BuildLingqiContent()
 
     -- 背包空位检查
     local freeSlots = InventorySystem.GetFreeSlots()
-    local hasSpace = freeSlots > 0
+    local hasSpace  = freeSlots > 0
     if not hasSpace then materialsOk = false end
     table.insert(materialRows, UI.Label {
-        text = "📦 背包空位：" .. freeSlots,
-        fontSize = T.fontSize.xs,
-        fontColor = hasSpace and {130, 230, 130, 255} or {255, 130, 100, 255},
+        text      = "📦 背包空位：" .. freeSlots,
+        fontSize  = T.fontSize.xs,
+        fontColor = hasSpace and T.color.matEnough or T.color.matInsufficient,
     })
 
     local canForge = materialsOk
 
-    -- 打造按钮
+    -- 铸造按钮
     local btnText
     if not hasSpace then
         btnText = "背包已满"
@@ -550,155 +608,148 @@ local function BuildLingqiContent()
     end
 
     table.insert(materialRows, UI.Button {
-        text = btnText,
-        width = "100%",
-        height = T.size.dialogBtnH,
-        fontSize = T.fontSize.sm,
-        variant = canForge and "primary" or "disabled",
-        backgroundColor = canForge and {30, 150, 150, 220} or {80, 80, 90, 200},
+        text            = btnText,
+        width           = "100%",
+        height          = T.size.dialogBtnH,
+        fontSize        = T.fontSize.sm,
+        backgroundColor = canForge and T.color.btnSpend   or T.color.btnDisabled,
+        fontColor       = canForge and T.color.btnSpendFg or T.color.btnDisabledFg,
         onClick = function(self)
-            if canForge then
-                DragonForgeUI.DoForgeLingqi()
-            end
+            if canForge then DragonForgeUI.DoForgeLingqi() end
         end,
     })
 
     table.insert(children, UI.Panel {
-        width = "100%", gap = T.spacing.sm,
-        padding = T.spacing.sm,
+        width      = "100%",
+        gap        = T.spacing.sm,
+        padding    = T.spacing.sm,
         alignItems = "center",
-        children = materialRows,
+        children   = materialRows,
     })
 
     return children
 end
 
+-- ============================================================================
+-- 主内容区构建（动态，每次刷新重建）
+-- ============================================================================
 
-
---- 构建动态内容（每次刷新重建）
 local function BuildContent()
-    local EquipTooltip = require("ui.EquipTooltip")
+    local EquipTooltip    = require("ui.EquipTooltip")
     local InventorySystem = require("systems.InventorySystem")
-    local player = GameState.player
-    local children = {}
+    local player          = GameState.player
+    local children        = {}
 
-    -- Tab 6/7 走背包打造模式（Tab 8 铸剑地炉已迁移至 SwordForgeUI.lua）
+    -- Tab 6/7 走背包打造模式
     if currentTab_ == 6 then return BuildLongjiContent() end
     if currentTab_ == 7 then return BuildLingqiContent() end
 
-    local recipes = EquipmentData.DRAGON_FORGE_RECIPES
-    local recipe = recipes[currentTab_]
+    local recipes  = EquipmentData.DRAGON_FORGE_RECIPES
+    local recipe   = recipes[currentTab_]
     if not recipe then return children end
 
     local sourceDef = EquipmentData.SpecialEquipment[recipe.source]
     local targetDef = EquipmentData.SpecialEquipment[recipe.target]
     if not sourceDef or not targetDef then return children end
 
-    local weapon = GetEquippedWeapon()
+    local weapon    = GetEquippedWeapon()
     local hasSource = weapon and weapon.equipId == recipe.source
 
-    -- 左侧：当前灵器（如果已装备）
+    -- 左侧面板：当前装备 / 需装备提示
     local curRows
     if hasSource then
-        curRows = EquipTooltip.BuildItemInfoRows(weapon, "当前", {80, 80, 100, 220})
+        curRows = EquipTooltip.BuildItemInfoRows(weapon,    "当前",  T.color.equipTipComparePanelBg)
     else
-        -- 未装备该灵器：显示灵器模板
-        curRows = EquipTooltip.BuildItemInfoRows(sourceDef, "需装备", {120, 80, 80, 220})
+        curRows = EquipTooltip.BuildItemInfoRows(sourceDef, "需装备", { 120, 80, 80, 220 })
     end
 
-    -- 右侧：圣器预览（显示数值范围 + 灵性❓）
+    -- 右侧面板：圣器打造后预览
     local nextRows = BuildForgePreviewRows(targetDef)
 
     local curPanel = UI.Panel {
-        flexGrow = 1, flexShrink = 1, flexBasis = 0,
-        maxWidth = T.size.tooltipWidth,
-        backgroundColor = {25, 28, 38, 245},
-        borderRadius = T.radius.lg, borderWidth = 1,
-        borderColor = hasSource and {100, 200, 220, 200} or {80, 80, 90, 150},
-        padding = T.spacing.sm, gap = T.spacing.sm,
-        overflow = "hidden",
-        children = curRows,
+        flexGrow        = 1, flexShrink = 1, flexBasis = 0,
+        maxWidth        = T.size.tooltipWidth,
+        backgroundColor = T.color.equipTipComparePanelBg,
+        borderRadius    = T.radius.lg,
+        borderWidth     = 1,
+        borderColor     = hasSource and { 100, 200, 220, 200 } or T.color.border,
+        padding         = T.spacing.sm,
+        gap             = T.spacing.sm,
+        overflow        = "hidden",
+        children        = curRows,
     }
 
-    local targetQColor = GameConfig.QUALITY[targetDef.quality]
-    local nextBorderColor = targetQColor and targetQColor.color or {255, 80, 80, 255}
+    local targetQColor    = GameConfig.QUALITY[targetDef.quality]
+    local nextBorderColor = targetQColor and targetQColor.color or T.color.qualityRed
 
     local nextPanel = UI.Panel {
-        flexGrow = 1, flexShrink = 1, flexBasis = 0,
-        maxWidth = T.size.tooltipWidth,
-        backgroundColor = {30, 22, 22, 245},
-        borderRadius = T.radius.lg, borderWidth = 1,
-        borderColor = { nextBorderColor[1], nextBorderColor[2], nextBorderColor[3], 180 },
-        padding = T.spacing.sm, gap = T.spacing.sm,
-        overflow = "hidden",
-        children = nextRows,
+        flexGrow        = 1, flexShrink = 1, flexBasis = 0,
+        maxWidth        = T.size.tooltipWidth,
+        backgroundColor = T.color.surfaceDeep,
+        borderRadius    = T.radius.lg,
+        borderWidth     = 1,
+        borderColor     = { nextBorderColor[1], nextBorderColor[2], nextBorderColor[3], 180 },
+        padding         = T.spacing.sm,
+        gap             = T.spacing.sm,
+        overflow        = "hidden",
+        children        = nextRows,
     }
 
-    local arrowPanel = UI.Panel {
-        justifyContent = "center", alignItems = "center",
-        paddingTop = T.spacing.lg,
-        children = {
-            UI.Label { text = "➜", fontSize = T.fontSize.xl, fontColor = {255, 200, 100, 255} },
-        },
-    }
-
+    -- 左右对比行（紧贴并排，对齐 EquipTooltip）
     table.insert(children, UI.Panel {
         flexDirection = "row",
-        gap = T.spacing.xs,
-        alignItems = "flex-start",
-        width = "100%",
-        children = { curPanel, arrowPanel, nextPanel },
+        gap           = T.spacing.xs,
+        alignItems    = "flex-start",
+        width         = "100%",
+        children      = { curPanel, nextPanel },
     })
 
     -- 打造条件区
-    local cost = EquipmentData.DRAGON_FORGE_COST
-    local canAfford = player.gold >= cost.gold
+    local cost       = EquipmentData.DRAGON_FORGE_COST
+    local canAfford  = player.gold >= cost.gold
     local materialsOk = true
     local materialRows = {}
 
+    -- 装备状态警告
+    if not hasSource then
+        table.insert(materialRows, UI.Label {
+            text      = "⚠ 需装备「" .. sourceDef.name .. "」",
+            fontSize  = T.fontSize.xs,
+            fontColor = T.color.warning,
+        })
+    end
+
+    -- 金币
+    table.insert(materialRows, UI.Label {
+        text      = "💰 消耗：" .. FormatGold(cost.gold) .. " 金币（当前：" .. FormatGold(player.gold) .. "）",
+        fontSize  = T.fontSize.xs,
+        fontColor = canAfford and T.color.matEnough or T.color.matInsufficient,
+    })
+    if not canAfford then materialsOk = false end
+
+    -- 材料列表
     for _, mat in ipairs(cost.materials) do
-        local matDef = GameConfig.PET_MATERIALS[mat.id]
+        local matDef  = GameConfig.PET_MATERIALS[mat.id]
         local matName = matDef and matDef.name or mat.id
         local matIcon = matDef and matDef.icon or "❓"
-        local have = InventorySystem.CountUnlockedConsumable(mat.id)
-        local enough = have >= mat.count
+        local have    = InventorySystem.CountUnlockedConsumable(mat.id)
+        local enough  = have >= mat.count
         if not enough then materialsOk = false end
 
         table.insert(materialRows, UI.Panel {
-            flexDirection = "row",
-            alignItems = "center",
-            gap = T.spacing.xs,
+            flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
             children = {
                 UI.Label { text = matIcon, fontSize = T.fontSize.sm },
                 UI.Label {
-                    text = matName .. "  " .. have .. "/" .. mat.count,
-                    fontSize = T.fontSize.xs,
-                    fontColor = enough and {130, 230, 130, 255} or {255, 130, 100, 255},
+                    text      = matName .. "  " .. have .. "/" .. mat.count,
+                    fontSize  = T.fontSize.xs,
+                    fontColor = enough and T.color.matEnough or T.color.matInsufficient,
                 },
             },
         })
     end
 
     local canForge = hasSource and canAfford and materialsOk
-
-    -- 装备状态
-    if not hasSource then
-        table.insert(materialRows, 1, UI.Label {
-            text = "⚠ 需装备「" .. sourceDef.name .. "」",
-            fontSize = T.fontSize.xs,
-            fontColor = {255, 180, 80, 255},
-        })
-    end
-
-    -- 金币
-    local costText = "💰 消耗：" .. FormatGold(cost.gold) .. " 金币（当前：" .. FormatGold(player.gold) .. "）"
-    local costColor = canAfford and {130, 230, 130, 255} or {255, 130, 100, 255}
-
-    table.insert(materialRows, UI.Label {
-        text = costText,
-        fontSize = T.fontSize.xs,
-        fontColor = costColor,
-    })
 
     -- 打造按钮
     local btnText
@@ -713,30 +764,32 @@ local function BuildContent()
     end
 
     table.insert(materialRows, UI.Button {
-        text = btnText,
-        width = "100%",
-        height = T.size.dialogBtnH,
-        fontSize = T.fontSize.sm,
-        variant = canForge and "primary" or "disabled",
-        backgroundColor = canForge and {160, 60, 60, 220} or {80, 80, 90, 200},
+        text            = btnText,
+        width           = "100%",
+        height          = T.size.dialogBtnH,
+        fontSize        = T.fontSize.sm,
+        backgroundColor = canForge and T.color.btnDanger   or T.color.btnDisabled,
+        fontColor       = canForge and T.color.btnDangerFg or T.color.btnDisabledFg,
         onClick = function(self)
-            if canForge then
-                DragonForgeUI.DoForge()
-            end
+            if canForge then DragonForgeUI.DoForge() end
         end,
     })
 
     table.insert(children, UI.Panel {
-        width = "100%", gap = T.spacing.sm,
-        padding = T.spacing.sm,
+        width      = "100%",
+        gap        = T.spacing.sm,
+        padding    = T.spacing.sm,
         alignItems = "center",
-        children = materialRows,
+        children   = materialRows,
     })
 
     return children
 end
 
---- 刷新面板显示（销毁旧内容，重建）
+-- ============================================================================
+-- 刷新逻辑（销毁旧内容，重建页签栏 + 主体内容）
+-- ============================================================================
+
 local function RefreshUI_internal()
     if not outerPanel_ then return end
 
@@ -745,7 +798,6 @@ local function RefreshUI_internal()
         contentPanel_ = nil
     end
 
-    -- 重建页签栏
     if tabBarPanel_ then
         tabBarPanel_:Destroy()
         tabBarPanel_ = nil
@@ -753,95 +805,138 @@ local function RefreshUI_internal()
     tabBarPanel_ = BuildTabBar()
     outerPanel_:AddChild(tabBarPanel_)
 
-    -- 重建内容
     local newChildren = BuildContent()
     contentPanel_ = UI.Panel {
-        width = "100%",
-        gap = T.spacing.sm,
+        width      = "100%",
+        gap        = T.spacing.sm,
         alignItems = "center",
-        children = newChildren,
+        children   = newChildren,
     }
     outerPanel_:AddChild(contentPanel_)
 end
 
--- 公开刷新（供 forward ref 使用）
+-- 公开 forward ref（供内部回调使用）
 function RefreshUI()
     RefreshUI_internal()
 end
 
+-- ============================================================================
+-- 面板初始化（Create）
+-- ============================================================================
+
 function DragonForgeUI.Create(parentOverlay)
     resultLabel_ = UI.Label {
-        text = "",
-        fontSize = T.fontSize.sm,
-        fontColor = {100, 255, 150, 255},
+        text      = "",
+        fontSize  = T.fontSize.sm,
+        fontColor = T.color.success,
         textAlign = "center",
     }
 
     outerPanel_ = UI.Panel {
         width = "100%",
-        gap = T.spacing.sm,
+        gap   = T.spacing.sm,
     }
 
     panel_ = UI.Panel {
-        id = "dragonForgePanel",
-        position = "absolute",
+        id              = "dragonForgePanel",
+        position        = "absolute",
         top = 0, left = 0, right = 0, bottom = 0,
         backgroundColor = T.color.overlay,
-        justifyContent = "center",
-        alignItems = "center",
-        paddingBottom = T.spacing.xl,
-        visible = false,
-        zIndex = 100,
+        justifyContent  = "center",
+        alignItems      = "center",
+        visible         = false,
+        zIndex          = 100,
+        onClick         = function(self) DragonForgeUI.Hide() end,
         children = {
+            -- S2.4 固定高度卡片（76%），宽度最大 tooltipWidth*2+80
             UI.Panel {
-                width = "96%",
-                maxWidth = T.size.tooltipWidth * 2 + 80,
+                width           = "94%",
+                maxWidth        = T.size.tooltipWidth * 2 + 80,
+                height          = "76%",
                 backgroundColor = T.color.panelBg,
-                borderRadius = T.radius.lg,
-                borderWidth = 1,
-                borderColor = {200, 80, 80, 180},
-                padding = T.spacing.md,
-                gap = T.spacing.sm,
-                maxHeight = "90%",
-                overflow = "scroll",
+                borderRadius    = T.radius.lg,
+                borderWidth     = 1,
+                borderColor     = T.color.forgeBorderRed,
+                flexDirection   = "column",
+                onClick         = function(self) end,  -- 防穿透
                 children = {
-                    -- 顶部：标题 + 关闭
+                    -- ── Header ────────────────────────────────────────────
                     UI.Panel {
-                        width = "100%",
-                        flexDirection = "row",
-                        alignItems = "center",
-                        gap = T.spacing.md,
+                        width             = "100%",
+                        flexDirection     = "row",
+                        alignItems        = "center",
+                        gap               = T.spacing.md,
+                        paddingLeft       = T.spacing.md,
+                        paddingRight      = T.spacing.md,
+                        paddingTop        = T.spacing.sm,
+                        paddingBottom     = T.spacing.sm,
+                        borderBottomWidth = 1,
+                        borderColor       = T.color.goldDark,
                         children = {
-                            UI.Button {
-                                text = "✕",
-                                width = T.size.closeButton, height = T.size.closeButton,
-                                fontSize = T.fontSize.md,
-                                borderRadius = T.size.closeButton / 2,
-                                backgroundColor = {60, 60, 70, 200},
-                                onClick = function() DragonForgeUI.Hide() end,
-                            },
+                            -- NPC 头像
                             UI.Panel {
-                                width = PORTRAIT_SIZE,
-                                height = PORTRAIT_SIZE,
-                                borderRadius = T.radius.md,
-                                backgroundColor = {30, 35, 50, 200},
-                                overflow = "hidden",
+                                width           = PORTRAIT_SIZE,
+                                height          = PORTRAIT_SIZE,
+                                borderRadius    = T.radius.md,
+                                backgroundColor = T.color.headerBg,
+                                backgroundImage = "Textures/npc_shenzhenzi.png",
+                                backgroundFit   = "cover",
+                                borderWidth     = 1,
+                                borderColor     = T.color.forgeBorderRed,
+                                overflow        = "hidden",
                             },
-                            UI.Label {
-                                text = "🔨 龙神圣器打造",
-                                fontSize = T.fontSize.lg,
-                                fontWeight = "bold",
-                                fontColor = {255, 180, 80, 255},
-                                flexGrow = 1, flexShrink = 1,
+                            -- 标题区
+                            UI.Panel { flexGrow = 1, flexShrink = 1, gap = T.spacing.xxs, children = {
+                                UI.Label {
+                                    text       = "龙神圣器打造",
+                                    fontSize   = T.fontSize.lg,
+                                    fontWeight = "bold",
+                                    fontColor  = T.color.gold,
+                                },
+                                UI.Label {
+                                    text      = "第四章·圣器锻造",
+                                    fontSize  = T.fontSize.xs,
+                                    fontColor = T.color.textMuted,
+                                },
+                            }},
+                            -- 关闭按钮（右侧）
+                            UI.Button {
+                                text            = "✕",
+                                width           = T.size.closeButton,
+                                height          = T.size.closeButton,
+                                fontSize        = T.fontSize.md,
+                                borderRadius    = T.size.closeButton / 2,
+                                backgroundColor = {255, 100, 100, 30},
+                                onClick         = function() DragonForgeUI.Hide() end,
                             },
                         },
                     },
-                    -- 分隔线
-                    UI.Panel { width = "100%", height = 1, backgroundColor = {200, 80, 80, 60} },
-                    -- 动态内容区（页签+内容）
-                    outerPanel_,
-                    -- 结果提示
-                    resultLabel_,
+                    -- ── ScrollView（页签 + 主体内容）─────────────────────
+                    UI.ScrollView {
+                        flexGrow   = 1, flexShrink = 1, flexBasis = 0,
+                        width      = "100%",
+                        padding    = T.spacing.md,
+                        gap        = T.spacing.sm,
+                        children   = { outerPanel_ },
+                    },
+                    -- ── Footer ────────────────────────────────────────────
+                    UI.Panel {
+                        width          = "100%",
+                        alignItems     = "center",
+                        gap            = T.spacing.xs,
+                        paddingTop     = T.spacing.sm,
+                        paddingBottom  = T.spacing.sm,
+                        borderTopWidth = 1,
+                        borderColor    = T.color.border,
+                        children = {
+                            resultLabel_,
+                            UI.Label {
+                                text      = "点击空白处关闭",
+                                fontSize  = T.fontSize.xs,
+                                fontColor = T.color.textMuted,
+                            },
+                        },
+                    },
                 },
             },
         },
@@ -852,7 +947,7 @@ function DragonForgeUI.Create(parentOverlay)
 end
 
 -- ============================================================================
--- 打造成功展示面板
+-- 打造成功弹窗（Tab 1~5：圣器替换武器）
 -- ============================================================================
 
 local function HideForgeSuccess()
@@ -869,222 +964,156 @@ local function ShowForgeSuccess(weapon, targetDef)
     if successPanel_ then HideForgeSuccess() end
     if not parentOverlay_ then return end
 
-    local qColor = {255, 50, 50, 255}  -- red 圣器 color
-    local goldColor = {255, 215, 0, 255}
+    local qColor    = T.color.qualityRed
+    local goldColor = T.color.statValueGold
 
-    -- 武器图标区
-    local iconWidget
+    -- 武器图标
     local iconChild
     if IconUtils.IsImagePath(targetDef.icon) then
         iconChild = UI.Panel { width = 60, height = 60, backgroundImage = targetDef.icon, backgroundFit = "contain" }
     else
         iconChild = UI.Label { text = targetDef.icon or "⚔️", fontSize = 40, textAlign = "center" }
     end
-    iconWidget = UI.Panel {
-        width = 80, height = 80,
-        justifyContent = "center", alignItems = "center",
-        backgroundColor = {qColor[1], qColor[2], qColor[3], 25},
-        borderRadius = T.radius.lg,
-        borderWidth = 2,
-        borderColor = {qColor[1], qColor[2], qColor[3], 180},
-        children = { iconChild },
+    local iconWidget = UI.Panel {
+        width           = 80, height = 80,
+        justifyContent  = "center", alignItems = "center",
+        backgroundColor = T.decor.qualitySlotBg.red,
+        borderRadius    = T.radius.lg,
+        borderWidth     = 2,
+        borderColor     = { qColor[1], qColor[2], qColor[3], 180 },
+        children        = { iconChild },
     }
 
-    -- 主属性区
+    -- 主属性
     local mainChildren = {}
     for stat, value in pairs(weapon.mainStat or {}) do
         table.insert(mainChildren, SuccessStatRow(
             STAT_ICONS[stat] or "📊", STAT_NAMES[stat] or stat,
             FormatStatVal(stat, value),
-            {255, 255, 230, 255}, goldColor
+            T.color.equipTipMainStatName, goldColor
         ))
     end
 
-    -- 副属性区
+    -- 副属性
     local subChildren = {}
     for _, sub in ipairs(weapon.subStats or {}) do
         table.insert(subChildren, SuccessStatRow(
             STAT_ICONS[sub.stat] or "📊", sub.name or STAT_NAMES[sub.stat] or sub.stat,
             FormatStatVal(sub.stat, sub.value),
-            {220, 220, 240, 255}, {150, 255, 150, 255}
+            T.color.equipTipSubStatName, T.color.statValueGreen
         ))
     end
 
-    -- 灵性属性区
+    -- 灵性属性
     local spiritWidget = nil
     if weapon.spiritStat then
         local ss = weapon.spiritStat
         spiritWidget = UI.Panel {
-            width = "100%",
-            backgroundColor = {20, 45, 45, 220},
-            borderRadius = T.radius.sm,
-            borderWidth = 1, borderColor = {0, 200, 200, 120},
-            padding = T.spacing.sm, gap = T.spacing.xs,
+            width           = "100%",
+            backgroundColor = T.color.equipTipSpiritBg,
+            borderRadius    = T.radius.sm,
+            borderWidth     = 1, borderColor = T.color.equipTipSpiritBorder,
+            padding         = T.spacing.sm, gap = T.spacing.xs,
             children = {
-                UI.Label {
-                    text = "▸ 灵性属性",
-                    fontSize = T.fontSize.xs,
-                    fontColor = {0, 200, 200, 220},
-                    paddingLeft = T.spacing.xs,
-                },
+                UI.Label { text = "▸ 灵性属性", fontSize = T.fontSize.xs, fontColor = T.color.equipTipSpiritLabel, paddingLeft = T.spacing.xs },
                 SuccessStatRow(
                     STAT_ICONS[ss.stat] or "✨", ss.name or STAT_NAMES[ss.stat] or ss.stat,
                     FormatStatVal(ss.stat, ss.value),
-                    {150, 240, 240, 255}, {0, 230, 230, 255}
+                    T.color.equipTipSpiritName, T.color.statValueCyan
                 ),
             },
         }
     end
 
-    -- 特殊效果区
+    -- 特殊效果
     local effectWidget = nil
     if weapon.specialEffect then
         local eff = weapon.specialEffect
         effectWidget = UI.Panel {
-            width = "100%",
-            backgroundColor = {55, 25, 20, 220},
-            borderRadius = T.radius.sm,
-            borderWidth = 1, borderColor = {220, 120, 60, 120},
-            padding = T.spacing.sm, gap = T.spacing.xs,
+            width           = "100%",
+            backgroundColor = T.color.equipTipSpecialBg,
+            borderRadius    = T.radius.sm,
+            borderWidth     = 1, borderColor = T.color.equipTipSpecialBorder,
+            padding         = T.spacing.sm, gap = T.spacing.xs,
             children = {
-                UI.Label {
-                    text = "✨ " .. (eff.name or "特殊效果"),
-                    fontSize = T.fontSize.sm, fontWeight = "bold",
-                    fontColor = {255, 160, 60, 255},
-                },
-                UI.Label {
-                    text = GetSpecialEffectDesc(eff),
-                    fontSize = T.fontSize.xs,
-                    fontColor = {255, 200, 150, 210},
-                },
+                UI.Label { text = "✨ " .. (eff.name or "特殊效果"), fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = T.color.equipTipSpecialName },
+                UI.Label { text = GetSpecialEffectDesc(eff),            fontSize = T.fontSize.xs,                    fontColor = T.color.equipTipSpecialDesc },
             },
         }
     end
 
-    -- 组装内容区
+    -- 组装属性内容区
     local contentChildren = {
-        -- 主属性
         UI.Panel {
-            width = "100%",
-            backgroundColor = {qColor[1] * 0.15, qColor[2] * 0.15, qColor[3] * 0.15, 220},
-            borderRadius = T.radius.sm,
-            borderWidth = 1, borderColor = {qColor[1], qColor[2], qColor[3], 100},
-            padding = T.spacing.sm, gap = T.spacing.xs,
+            width           = "100%",
+            backgroundColor = T.decor.qualitySlotBg.red,
+            borderRadius    = T.radius.sm,
+            borderWidth     = 1, borderColor = { qColor[1], qColor[2], qColor[3], 100 },
+            padding         = T.spacing.sm, gap = T.spacing.xs,
             children = {
-                UI.Label {
-                    text = "▸ 主属性",
-                    fontSize = T.fontSize.xs,
-                    fontColor = {200, 160, 160, 220},
-                    paddingLeft = T.spacing.xs,
-                },
+                UI.Label { text = "▸ 主属性", fontSize = T.fontSize.xs, fontColor = T.color.equipTipStatLabel, paddingLeft = T.spacing.xs },
                 table.unpack(mainChildren),
             },
         },
-        -- 副属性
         UI.Panel {
-            width = "100%",
-            backgroundColor = {25, 30, 45, 220},
-            borderRadius = T.radius.sm,
-            padding = T.spacing.sm, gap = T.spacing.xs,
+            width           = "100%",
+            backgroundColor = T.color.equipTipSubStatBg,
+            borderRadius    = T.radius.sm,
+            padding         = T.spacing.sm, gap = T.spacing.xs,
             children = {
-                UI.Label {
-                    text = "▸ 副属性（随机锻造）",
-                    fontSize = T.fontSize.xs,
-                    fontColor = {160, 180, 200, 220},
-                    paddingLeft = T.spacing.xs,
-                },
+                UI.Label { text = "▸ 副属性（随机锻造）", fontSize = T.fontSize.xs, fontColor = T.color.equipTipStatLabel, paddingLeft = T.spacing.xs },
                 table.unpack(subChildren),
             },
         },
     }
-    if spiritWidget then table.insert(contentChildren, spiritWidget) end
-    if effectWidget then table.insert(contentChildren, effectWidget) end
+    if spiritWidget  then table.insert(contentChildren, spiritWidget) end
+    if effectWidget  then table.insert(contentChildren, effectWidget) end
 
     successPanel_ = UI.Panel {
-        id = "forgeSuccessPanel",
-        position = "absolute",
+        id              = "forgeSuccessPanel",
+        position        = "absolute",
         top = 0, left = 0, right = 0, bottom = 0,
-        justifyContent = "center",
-        alignItems = "center",
-        backgroundColor = {0, 0, 0, 180},
-        zIndex = 250,
-        onClick = function(self) end,  -- 防穿透
+        justifyContent  = "center",
+        alignItems      = "center",
+        backgroundColor = { 0, 0, 0, 180 },
+        zIndex          = 250,
+        onClick         = function(self) end,
         children = {
             UI.Panel {
-                flexDirection = "column",
-                alignItems = "center",
-                gap = T.spacing.md,
-                backgroundColor = {25, 18, 18, 250},
-                borderRadius = T.radius.lg,
-                borderWidth = 2,
-                borderColor = {qColor[1], qColor[2], qColor[3], 180},
-                paddingTop = T.spacing.xl,
-                paddingBottom = T.spacing.xl,
-                paddingLeft = T.spacing.lg,
-                paddingRight = T.spacing.lg,
-                minWidth = 260,
-                maxWidth = T.size.tooltipWidth + 40,
-                maxHeight = "85%",
-                overflow = "scroll",
-                onClick = function(self) end,
+                width           = "88%",
+                maxWidth        = 400,
+                flexDirection   = "column",
+                alignItems      = "center",
+                gap             = T.spacing.md,
+                backgroundColor = T.color.panelBg,
+                borderRadius    = T.radius.lg,
+                borderWidth     = 2,
+                borderColor     = { qColor[1], qColor[2], qColor[3], 180 },
+                paddingTop      = T.spacing.xl,
+                paddingBottom   = T.spacing.xl,
+                paddingLeft     = T.spacing.lg,
+                paddingRight    = T.spacing.lg,
+                maxHeight       = "85%",
+                overflow        = "scroll",
+                onClick         = function(self) end,
                 children = {
-                    -- 标题
-                    UI.Label {
-                        text = "⚔️ 龙极铸成！",
-                        fontSize = T.fontSize.xl + 2,
-                        fontWeight = "bold",
-                        fontColor = goldColor,
-                        textAlign = "center",
-                    },
-                    -- 副标题
-                    UI.Label {
-                        text = "灵器蜕变，龙威降世",
-                        fontSize = T.fontSize.sm,
-                        fontColor = {255, 180, 120, 160},
-                        textAlign = "center",
-                    },
-                    -- 分割线
-                    UI.Panel { width = "80%", height = 1, backgroundColor = {255, 80, 50, 60} },
-                    -- 图标
+                    UI.Label { text = "⚔️ 龙极铸成！",     fontSize = T.fontSize.xl + 2, fontWeight = "bold", fontColor = goldColor, textAlign = "center" },
+                    UI.Label { text = "灵器蜕变，龙威降世", fontSize = T.fontSize.sm,                          fontColor = { T.color.gold[1], T.color.gold[2], T.color.gold[3], 160 }, textAlign = "center" },
+                    UI.Panel { width = "80%", height = T.decor.dividerHeight, backgroundColor = T.color.forgeBorderRed },
                     iconWidget,
-                    -- 武器名
-                    UI.Label {
-                        text = targetDef.name,
-                        fontSize = T.fontSize.lg,
-                        fontWeight = "bold",
-                        fontColor = qColor,
-                        textAlign = "center",
-                    },
-                    -- 阶级品质
-                    UI.Label {
-                        text = "9阶 [圣器] 武器",
-                        fontSize = T.fontSize.sm,
-                        fontColor = {qColor[1], qColor[2], qColor[3], 180},
-                        textAlign = "center",
-                    },
-                    -- 分割线
-                    UI.Panel { width = "80%", height = 1, backgroundColor = {255, 80, 50, 40} },
-                    -- 属性内容区
-                    UI.Panel {
-                        width = "100%",
-                        gap = T.spacing.sm,
-                        children = contentChildren,
-                    },
-                    -- 分割线
-                    UI.Panel { width = "80%", height = 1, backgroundColor = {255, 80, 50, 40} },
-                    -- 确认按钮
+                    UI.Label { text = targetDef.name, fontSize = T.fontSize.lg, fontWeight = "bold", fontColor = qColor, textAlign = "center" },
+                    UI.Label { text = "9阶 [圣器] 武器",   fontSize = T.fontSize.sm,                          fontColor = { qColor[1], qColor[2], qColor[3], 180 }, textAlign = "center" },
+                    UI.Panel { width = "80%", height = T.decor.dividerHeight, backgroundColor = { qColor[1], qColor[2], qColor[3], 40 } },
+                    UI.Panel { width = "100%", gap = T.spacing.sm, children = contentChildren },
+                    UI.Panel { width = "80%", height = T.decor.dividerHeight, backgroundColor = { qColor[1], qColor[2], qColor[3], 40 } },
                     UI.Button {
-                        text = "确认",
-                        width = 180,
-                        height = 44,
-                        fontSize = T.fontSize.md,
-                        fontWeight = "bold",
-                        fontColor = {255, 255, 255, 255},
-                        borderRadius = T.radius.md,
-                        backgroundColor = {180, 50, 50, 255},
-                        onClick = function(self)
-                            HideForgeSuccess()
-                        end,
+                        text            = "确认",
+                        width           = 180, height = T.size.dialogBtnH,
+                        fontSize        = T.fontSize.md, fontWeight = "bold",
+                        fontColor       = T.color.btnDangerFg,
+                        borderRadius    = T.radius.md,
+                        backgroundColor = T.color.btnDanger,
+                        onClick         = function(self) HideForgeSuccess() end,
                     },
                 },
             },
@@ -1095,58 +1124,58 @@ local function ShowForgeSuccess(weapon, targetDef)
     GameState.uiOpen = "forge_success"
 end
 
---- 执行打造（委托 ForgeSystem）
+-- ============================================================================
+-- 执行打造（Tab 1~5，委托 ForgeSystem）
+-- ============================================================================
+
 function DragonForgeUI.DoForge()
-    -- 从 FORGE_RECIPE_ORDER 映射 currentTab_ → recipeId
-    local order = EquipmentData.FORGE_RECIPE_ORDER.dragon_forge
+    local order    = EquipmentData.FORGE_RECIPE_ORDER.dragon_forge
     local recipeId = order and order[currentTab_]
     if not recipeId then return end
 
     local result = ForgeSystem.Execute(recipeId)
     if not result.success then
         resultLabel_:SetText(result.error or "打造失败")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        resultLabel_:SetStyle({ fontColor = T.color.error })
         return
     end
 
     RefreshUI()
 
-    -- 弹出打造成功展示面板
-    local recipe = EquipmentData.FORGE_RECIPES[recipeId]
+    local recipe    = EquipmentData.FORGE_RECIPES[recipeId]
     local targetDef = EquipmentData.SpecialEquipment[recipe.generator.targetId]
     ShowForgeSuccess(result.weapon, targetDef)
 end
 
 -- ============================================================================
--- 龙极令打造（背包模式）
+-- 背包打造通用成功弹窗（Tab 6/7 共用，法宝/灵器）
 -- ============================================================================
 
---- 背包打造通用成功弹窗（法宝/灵器共用）
 local function ShowBagForgeSuccess(item, title, subtitle)
     if successPanel_ then HideForgeSuccess() end
     if not parentOverlay_ then return end
 
     local qualityConfig = GameConfig.QUALITY[item.quality]
-    local qColor = qualityConfig and qualityConfig.color or {0, 200, 200, 255}
-    local goldColor = {255, 215, 0, 255}
+    local qColor        = qualityConfig and qualityConfig.color or T.color.statValueCyan
+    local goldColor     = T.color.statValueGold
 
-    -- 主属性行
+    -- 主属性
     local mainChildren = {}
     for stat, value in pairs(item.mainStat or {}) do
         table.insert(mainChildren, SuccessStatRow(
             STAT_ICONS[stat] or "📊", STAT_NAMES[stat] or stat,
             FormatStatVal(stat, value),
-            {255, 255, 230, 255}, goldColor
+            T.color.equipTipMainStatName, goldColor
         ))
     end
 
-    -- 副属性行
+    -- 副属性
     local subChildren = {}
     for _, sub in ipairs(item.subStats or {}) do
         table.insert(subChildren, SuccessStatRow(
             STAT_ICONS[sub.stat] or "📊", sub.name or STAT_NAMES[sub.stat] or sub.stat,
             FormatStatVal(sub.stat, sub.value),
-            {220, 220, 240, 255}, {150, 255, 150, 255}
+            T.color.equipTipSubStatName, T.color.statValueGreen
         ))
     end
 
@@ -1155,17 +1184,17 @@ local function ShowBagForgeSuccess(item, title, subtitle)
     if item.spiritStat then
         local ss = item.spiritStat
         spiritWidget = UI.Panel {
-            width = "100%",
-            backgroundColor = {20, 45, 45, 220},
-            borderRadius = T.radius.sm,
-            borderWidth = 1, borderColor = {0, 200, 200, 120},
-            padding = T.spacing.sm, gap = T.spacing.xs,
+            width           = "100%",
+            backgroundColor = T.color.equipTipSpiritBg,
+            borderRadius    = T.radius.sm,
+            borderWidth     = 1, borderColor = T.color.equipTipSpiritBorder,
+            padding         = T.spacing.sm, gap = T.spacing.xs,
             children = {
-                UI.Label { text = "▸ 灵性属性", fontSize = T.fontSize.xs, fontColor = {0, 200, 200, 220}, paddingLeft = T.spacing.xs },
+                UI.Label { text = "▸ 灵性属性", fontSize = T.fontSize.xs, fontColor = T.color.equipTipSpiritLabel, paddingLeft = T.spacing.xs },
                 SuccessStatRow(
                     STAT_ICONS[ss.stat] or "✨", ss.name or STAT_NAMES[ss.stat] or ss.stat,
                     FormatStatVal(ss.stat, ss.value),
-                    {150, 240, 240, 255}, {0, 230, 230, 255}
+                    T.color.equipTipSpiritName, T.color.statValueCyan
                 ),
             },
         }
@@ -1176,17 +1205,17 @@ local function ShowBagForgeSuccess(item, title, subtitle)
     if item.saintStat then
         local ss = item.saintStat
         saintWidget = UI.Panel {
-            width = "100%",
-            backgroundColor = {50, 10, 10, 230},
-            borderRadius = T.radius.sm,
-            borderWidth = 1, borderColor = {255, 60, 60, 150},
-            padding = T.spacing.sm, gap = T.spacing.xs,
+            width           = "100%",
+            backgroundColor = T.color.equipTipSaintBg,
+            borderRadius    = T.radius.sm,
+            borderWidth     = 1, borderColor = T.color.equipTipSaintBorder,
+            padding         = T.spacing.sm, gap = T.spacing.xs,
             children = {
-                UI.Label { text = "▸ 圣性属性", fontSize = T.fontSize.xs, fontColor = {255, 80, 80, 230}, paddingLeft = T.spacing.xs },
+                UI.Label { text = "▸ 圣性属性", fontSize = T.fontSize.xs, fontColor = T.color.equipTipSaintLabel, paddingLeft = T.spacing.xs },
                 SuccessStatRow(
                     STAT_ICONS[ss.stat] or "🔴", ss.name or STAT_NAMES[ss.stat] or ss.stat,
                     FormatStatVal(ss.stat, ss.value),
-                    {255, 180, 180, 255}, {255, 80, 80, 255}
+                    T.color.equipTipSaintName, T.color.statValueRed
                 ),
             },
         }
@@ -1198,111 +1227,112 @@ local function ShowBagForgeSuccess(item, title, subtitle)
         local setData = EquipmentData.SetBonuses[item.setId]
         local setName = setData and setData.name or item.setId
         setWidget = UI.Panel {
-            width = "100%",
-            backgroundColor = {50, 30, 50, 220},
-            borderRadius = T.radius.sm,
-            borderWidth = 1, borderColor = {200, 100, 200, 120},
-            padding = T.spacing.sm,
+            width           = "100%",
+            backgroundColor = T.color.equipTipSetBg,
+            borderRadius    = T.radius.sm,
+            borderWidth     = 1, borderColor = { 200, 100, 200, 120 },
+            padding         = T.spacing.sm,
             children = {
-                UI.Label { text = "🔮 套装：" .. setName, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = {220, 150, 255, 255} },
+                UI.Label { text = "🔮 套装：" .. setName, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = T.color.equipTipSetName },
             },
         }
     end
 
+    -- 组装属性内容区
     local contentChildren = {
         UI.Panel {
-            width = "100%",
-            backgroundColor = {qColor[1] * 0.15, qColor[2] * 0.15, qColor[3] * 0.15, 220},
-            borderRadius = T.radius.sm,
-            borderWidth = 1, borderColor = {qColor[1], qColor[2], qColor[3], 100},
-            padding = T.spacing.sm, gap = T.spacing.xs,
+            width           = "100%",
+            backgroundColor = { math.floor(qColor[1] * 0.15), math.floor(qColor[2] * 0.15), math.floor(qColor[3] * 0.15), 220 },
+            borderRadius    = T.radius.sm,
+            borderWidth     = 1, borderColor = { qColor[1], qColor[2], qColor[3], 100 },
+            padding         = T.spacing.sm, gap = T.spacing.xs,
             children = {
-                UI.Label { text = "▸ 主属性", fontSize = T.fontSize.xs, fontColor = {200, 160, 160, 220}, paddingLeft = T.spacing.xs },
+                UI.Label { text = "▸ 主属性", fontSize = T.fontSize.xs, fontColor = T.color.equipTipStatLabel, paddingLeft = T.spacing.xs },
                 table.unpack(mainChildren),
             },
         },
         UI.Panel {
-            width = "100%",
-            backgroundColor = {25, 30, 45, 220},
-            borderRadius = T.radius.sm,
-            padding = T.spacing.sm, gap = T.spacing.xs,
+            width           = "100%",
+            backgroundColor = T.color.equipTipSubStatBg,
+            borderRadius    = T.radius.sm,
+            padding         = T.spacing.sm, gap = T.spacing.xs,
             children = {
-                UI.Label { text = "▸ 副属性", fontSize = T.fontSize.xs, fontColor = {160, 180, 200, 220}, paddingLeft = T.spacing.xs },
+                UI.Label { text = "▸ 副属性", fontSize = T.fontSize.xs, fontColor = T.color.equipTipStatLabel, paddingLeft = T.spacing.xs },
                 table.unpack(subChildren),
             },
         },
     }
     if spiritWidget then table.insert(contentChildren, spiritWidget) end
-    if saintWidget then table.insert(contentChildren, saintWidget) end
-    if setWidget then table.insert(contentChildren, setWidget) end
+    if saintWidget  then table.insert(contentChildren, saintWidget) end
+    if setWidget    then table.insert(contentChildren, setWidget) end
 
     -- 技能标记（法宝专用）
     if item.skillId then
-        local SkillData = require("config.SkillData")
-        local skillDef = SkillData.Skills[item.skillId]
+        local SkillData  = require("config.SkillData")
+        local skillDef   = SkillData.Skills[item.skillId]
         if skillDef then
             table.insert(contentChildren, UI.Panel {
-                width = "100%",
-                backgroundColor = {40, 35, 15, 220},
-                borderRadius = T.radius.sm,
-                borderWidth = 1, borderColor = {255, 200, 50, 100},
-                padding = T.spacing.sm, gap = T.spacing.xs,
+                width           = "100%",
+                backgroundColor = T.color.equipTipSkillBg,
+                borderRadius    = T.radius.sm,
+                borderWidth     = 1, borderColor = T.color.equipTipSkillBorder,
+                padding         = T.spacing.sm, gap = T.spacing.xs,
                 children = {
-                    UI.Label { text = (skillDef.icon or "✨") .. " " .. skillDef.name, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = {255, 200, 50, 255} },
-                    UI.Label { text = skillDef.description or "", fontSize = T.fontSize.xs, fontColor = {255, 220, 150, 200} },
+                    UI.Label { text = (skillDef.icon or "✨") .. " " .. skillDef.name, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = T.color.equipTipSkillName },
+                    UI.Label { text = skillDef.description or "",                       fontSize = T.fontSize.xs,                    fontColor = T.color.equipTipSkillDesc },
                 },
             })
         end
     end
 
-    -- 槽位信息
-    local slotName = EquipmentData.SLOT_NAMES[item.slot] or item.slot
+    -- 槽位 + 品质信息
+    local slotName    = EquipmentData.SLOT_NAMES[item.slot] or item.slot
     local qualityName = qualityConfig and qualityConfig.name or item.quality
 
     successPanel_ = UI.Panel {
-        id = "forgeSuccessPanel",
-        position = "absolute",
+        id              = "forgeSuccessPanel",
+        position        = "absolute",
         top = 0, left = 0, right = 0, bottom = 0,
-        justifyContent = "center",
-        alignItems = "center",
-        backgroundColor = {0, 0, 0, 180},
-        zIndex = 250,
-        onClick = function(self) end,
+        justifyContent  = "center",
+        alignItems      = "center",
+        backgroundColor = { 0, 0, 0, 180 },
+        zIndex          = 250,
+        onClick         = function(self) end,
         children = {
             UI.Panel {
-                flexDirection = "column",
-                alignItems = "center",
-                gap = T.spacing.md,
-                backgroundColor = {20, 25, 30, 250},
-                borderRadius = T.radius.lg,
-                borderWidth = 2,
-                borderColor = {qColor[1], qColor[2], qColor[3], 180},
-                paddingTop = T.spacing.xl,
-                paddingBottom = T.spacing.xl,
-                paddingLeft = T.spacing.lg,
-                paddingRight = T.spacing.lg,
-                minWidth = 260,
-                maxWidth = T.size.tooltipWidth + 40,
-                maxHeight = "85%",
-                overflow = "scroll",
-                onClick = function(self) end,
+                width           = "88%",
+                maxWidth        = 400,
+                flexDirection   = "column",
+                alignItems      = "center",
+                gap             = T.spacing.md,
+                backgroundColor = T.color.panelBg,
+                borderRadius    = T.radius.lg,
+                borderWidth     = 2,
+                borderColor     = { qColor[1], qColor[2], qColor[3], 180 },
+                paddingTop      = T.spacing.xl,
+                paddingBottom   = T.spacing.xl,
+                paddingLeft     = T.spacing.lg,
+                paddingRight    = T.spacing.lg,
+                maxHeight       = "85%",
+                overflow        = "scroll",
+                onClick         = function(self) end,
                 children = {
-                    UI.Label { text = title, fontSize = T.fontSize.xl + 2, fontWeight = "bold", fontColor = goldColor, textAlign = "center" },
-                    UI.Label { text = subtitle, fontSize = T.fontSize.sm, fontColor = {qColor[1], qColor[2], qColor[3], 160}, textAlign = "center" },
-                    UI.Panel { width = "80%", height = 1, backgroundColor = {qColor[1], qColor[2], qColor[3], 60} },
-                    UI.Label { text = item.name, fontSize = T.fontSize.lg, fontWeight = "bold", fontColor = {qColor[1], qColor[2], qColor[3], 255}, textAlign = "center" },
-                    UI.Label { text = item.tier .. "阶 [" .. qualityName .. "] " .. slotName, fontSize = T.fontSize.sm, fontColor = {qColor[1], qColor[2], qColor[3], 180}, textAlign = "center" },
-                    UI.Panel { width = "80%", height = 1, backgroundColor = {qColor[1], qColor[2], qColor[3], 40} },
+                    UI.Label { text = title,    fontSize = T.fontSize.xl + 2, fontWeight = "bold", fontColor = goldColor, textAlign = "center" },
+                    UI.Label { text = subtitle, fontSize = T.fontSize.sm,                          fontColor = { qColor[1], qColor[2], qColor[3], 160 }, textAlign = "center" },
+                    UI.Panel { width = "80%", height = T.decor.dividerHeight, backgroundColor = { qColor[1], qColor[2], qColor[3], 60 } },
+                    UI.Label { text = item.name,                                       fontSize = T.fontSize.lg, fontWeight = "bold", fontColor = { qColor[1], qColor[2], qColor[3], 255 }, textAlign = "center" },
+                    UI.Label { text = item.tier .. "阶 [" .. qualityName .. "] " .. slotName, fontSize = T.fontSize.sm, fontColor = { qColor[1], qColor[2], qColor[3], 180 }, textAlign = "center" },
+                    UI.Panel { width = "80%", height = T.decor.dividerHeight, backgroundColor = { qColor[1], qColor[2], qColor[3], 40 } },
                     UI.Panel { width = "100%", gap = T.spacing.sm, children = contentChildren },
-                    UI.Panel { width = "80%", height = 1, backgroundColor = {qColor[1], qColor[2], qColor[3], 40} },
+                    UI.Panel { width = "80%", height = T.decor.dividerHeight, backgroundColor = { qColor[1], qColor[2], qColor[3], 40 } },
                     UI.Button {
-                        text = "确认",
-                        width = 180, height = 44,
-                        fontSize = T.fontSize.md, fontWeight = "bold",
-                        fontColor = {255, 255, 255, 255},
-                        borderRadius = T.radius.md,
-                        backgroundColor = {qColor[1], qColor[2], qColor[3], 220},
-                        onClick = function(self) HideForgeSuccess() end,
+                        text            = "确认",
+                        width           = 180, height = T.size.dialogBtnH,
+                        fontSize        = T.fontSize.md, fontWeight = "bold",
+                        fontColor       = { 255, 255, 255, 255 },
+                        borderRadius    = T.radius.md,
+                        backgroundColor = { qColor[1], qColor[2], qColor[3], 220 },
+                        onClick         = function(self) HideForgeSuccess() end,
                     },
                 },
             },
@@ -1313,12 +1343,15 @@ local function ShowBagForgeSuccess(item, title, subtitle)
     GameState.uiOpen = "forge_success"
 end
 
---- 执行龙极令打造（委托 ForgeSystem）
+-- ============================================================================
+-- 龙极令打造（Tab 6，背包模式，委托 ForgeSystem）
+-- ============================================================================
+
 function DragonForgeUI.DoForgeLongji()
     local result = ForgeSystem.Execute("dragon_longji")
     if not result.success then
         resultLabel_:SetText(result.error or "打造失败")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        resultLabel_:SetStyle({ fontColor = T.color.error })
         return
     end
 
@@ -1327,25 +1360,23 @@ function DragonForgeUI.DoForgeLongji()
         print("[DragonForgeUI] WARNING: RefreshUI error after longji forge: " .. tostring(refreshErr))
     end
 
-    -- 成功弹窗
     local popupOk, popupErr = pcall(ShowBagForgeSuccess, result.item, "🐲 龙极令铸成！", "四龙之威凝为一令")
     if not popupOk then
         print("[DragonForgeUI] ERROR: ShowBagForgeSuccess failed: " .. tostring(popupErr))
         resultLabel_:SetText("打造成功！（龙极令已放入背包）")
-        resultLabel_:SetStyle({ fontColor = {100, 255, 150, 255} })
+        resultLabel_:SetStyle({ fontColor = T.color.success })
     end
 end
 
 -- ============================================================================
--- 灵器铸造（背包模式）
+-- 灵器铸造（Tab 7，背包模式，委托 ForgeSystem）
 -- ============================================================================
 
---- 执行灵器铸造（委托 ForgeSystem）
 function DragonForgeUI.DoForgeLingqi()
     local result = ForgeSystem.Execute("dragon_lingqi")
     if not result.success then
         resultLabel_:SetText(result.error or "铸造失败")
-        resultLabel_:SetStyle({ fontColor = {255, 120, 100, 255} })
+        resultLabel_:SetStyle({ fontColor = T.color.error })
         return
     end
 
@@ -1354,24 +1385,25 @@ function DragonForgeUI.DoForgeLingqi()
         print("[DragonForgeUI] WARNING: RefreshUI error after lingqi forge: " .. tostring(refreshErr))
     end
 
-    -- 判断是否套装灵器（通过 setId 字段判断）
-    local item = result.item
-    local isSet = item and item.setId ~= nil
-    local title = isSet and "🔮 套装灵器铸成！" or "⚒️ 灵器铸成！"
+    local item   = result.item
+    local isSet  = item and item.setId ~= nil
+    local title  = isSet and "🔮 套装灵器铸成！" or "⚒️ 灵器铸成！"
     local subtitle = isSet and "龙鳞淬炼，套装显现" or "龙鳞淬炼，灵器出世"
     local popupOk, popupErr = pcall(ShowBagForgeSuccess, item, title, subtitle)
     if not popupOk then
         print("[DragonForgeUI] ERROR: ShowBagForgeSuccess failed: " .. tostring(popupErr))
         resultLabel_:SetText("铸造成功！（灵器已放入背包）")
-        resultLabel_:SetStyle({ fontColor = {100, 255, 150, 255} })
+        resultLabel_:SetStyle({ fontColor = T.color.success })
     end
 end
 
-
+-- ============================================================================
+-- 生命周期：Show / Hide / IsVisible / Destroy
+-- ============================================================================
 
 function DragonForgeUI.Show(npc)
     if panel_ and not visible_ then
-        visible_ = true
+        visible_  = true
         GameState.uiOpen = "dragon_forge"
         currentTab_ = 1
         resultLabel_:SetText("")
@@ -1396,13 +1428,13 @@ end
 
 function DragonForgeUI.Destroy()
     if successPanel_ then HideForgeSuccess() end
-    panel_ = nil
-    contentPanel_ = nil
-    outerPanel_ = nil
-    tabBarPanel_ = nil
-    parentOverlay_ = nil
-    successPanel_ = nil
-    visible_ = false
+    panel_          = nil
+    contentPanel_   = nil
+    outerPanel_     = nil
+    tabBarPanel_    = nil
+    parentOverlay_  = nil
+    successPanel_   = nil
+    visible_        = false
 end
 
 return DragonForgeUI

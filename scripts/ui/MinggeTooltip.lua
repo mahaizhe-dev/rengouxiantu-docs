@@ -280,7 +280,8 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
             paddingRight = T.spacing.lg,
             height = 32,
             borderRadius = T.radius.md,
-            backgroundColor = canEquip and T.color.minggeTipEquipBtn or T.color.minggeTipDisabledBtn,
+            backgroundColor = canEquip and T.color.btnSpend or T.color.btnDisabled,
+            fontColor = canEquip and T.color.btnSpendFg or T.color.btnDisabledFg,
             disabled = not canEquip,
             onClick = function(self)
                 local ok, err = MinggeSystem.Equip(slotIndex)
@@ -303,7 +304,8 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
                 paddingRight = T.spacing.lg,
                 height = 32,
                 borderRadius = T.radius.md,
-                backgroundColor = T.color.minggeTipSellBtn,
+                backgroundColor = T.color.btnSuccess,
+                fontColor = T.color.btnSuccessFg,
                 onClick = function(self)
                     local cb = onDone_
                     MinggeSystem.SellItem(slotIndex)
@@ -321,7 +323,8 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
             paddingRight = T.spacing.md,
             height = 32,
             borderRadius = T.radius.md,
-            backgroundColor = T.color.minggeTipLockBtn,
+            backgroundColor = T.color.btnSecondary,
+            fontColor = T.color.btnSecondaryFg,
             onClick = function(self)
                 local cb = onDone_
                 MinggeSystem.ToggleLock(slotIndex)
@@ -338,7 +341,8 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
             paddingRight = T.spacing.lg,
             height = 32,
             borderRadius = T.radius.md,
-            backgroundColor = T.color.minggeTipUnequipBtn,
+            backgroundColor = T.color.btnSecondary,
+            fontColor = T.color.btnSecondaryFg,
             onClick = function(self)
                 local ok, err = MinggeSystem.Unequip(slotIndex)
                 if ok then
@@ -360,7 +364,8 @@ function MinggeTooltip.Show(item, source, slotIndex, onDoneCallback)
         paddingRight = T.spacing.md,
         height = 32,
         borderRadius = T.radius.md,
-        backgroundColor = T.color.minggeTipCloseBtn,
+        backgroundColor = T.color.btnSecondary,
+        fontColor = T.color.btnSecondaryFg,
         onClick = function(self)
             MinggeTooltip.Hide()
         end,

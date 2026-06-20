@@ -155,7 +155,7 @@ local function TestConstants()
     ASSERT_NOT_NIL(ArtifactCh5.PASSIVE, "PASSIVE 存在")
     if ArtifactCh5.PASSIVE then
         ASSERT_EQ(ArtifactCh5.PASSIVE.name, "四剑诛灭", "PASSIVE.name == 四剑诛灭")
-        ASSERT_EQ(ArtifactCh5.PASSIVE.cooldown, 120, "PASSIVE.cooldown == 120秒")
+        ASSERT_EQ(ArtifactCh5.PASSIVE.cooldown, 60, "PASSIVE.cooldown == 60秒")
         ASSERT_EQ(#ArtifactCh5.PASSIVE.damages, 4, "PASSIVE.damages 有4段")
         ASSERT_EQ(ArtifactCh5.PASSIVE.damages[1], 1.0, "第1剑 100%")
         ASSERT_EQ(ArtifactCh5.PASSIVE.damages[2], 1.5, "第2剑 150%")
@@ -400,7 +400,7 @@ local function TestPassiveSkill()
     ASSERT_EQ(ArtifactCh5.GetPassiveCooldownRemaining(), 0, "CD归零后 GetCooldownRemaining == 0")
 
     -- ── 场景4: 被动技能倍率配置正确性 ──
-    ASSERT_EQ(ArtifactCh5.PASSIVE.cooldown, 120, "PASSIVE.cooldown == 120秒")
+    ASSERT_EQ(ArtifactCh5.PASSIVE.cooldown, 60, "PASSIVE.cooldown == 60秒")
     local totalMult = 0
     for _, mult in ipairs(ArtifactCh5.PASSIVE.damages) do
         totalMult = totalMult + mult

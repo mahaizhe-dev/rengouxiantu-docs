@@ -34,6 +34,8 @@ local STAT_ICONS = StatNames.ICONS
 local FormatStatValue = StatNames.FormatValue
 
 --- 构建一行属性
+local STAT_ROW_H = 22  -- 属性行统一高度
+
 local function StatRow(icon, name, valStr, nameColor, valColor, fs)
     fs = fs or T.fontSize.sm
     return UI.Panel {
@@ -41,7 +43,7 @@ local function StatRow(icon, name, valStr, nameColor, valColor, fs)
         justifyContent = "space-between",
         alignItems = "center",
         paddingLeft = T.spacing.xs, paddingRight = T.spacing.xs,
-        height = fs + 10,
+        height = STAT_ROW_H,
         children = {
             UI.Label { text = icon .. " " .. name, fontSize = fs, fontColor = nameColor },
             UI.Label { text = valStr, fontSize = fs, fontWeight = "bold", fontColor = valColor },
@@ -63,51 +65,52 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
     local qColor = qualityCfg and qualityCfg.color or T.color.qualityWhite
     local slotName = EquipmentData.SLOT_NAMES[item.slot] or item.slot or ""
 
-    -- 物品名称（含图标）
+    -- 物品名称区（左图标40px + 右名称/副标题）
     local imgSrc = item.image or (IconUtils.IsImagePath(item.icon) and item.icon) or nil
     local displayIcon = IconUtils.GetTextIcon(item.icon, "")
     local nameText = item.name or "未知物品"
 
-    if imgSrc then
-        -- 图片图标：左侧图片 + 右侧名称，水平排列
-        table.insert(rows, UI.Panel {
-            flexDirection = "row", justifyContent = "center", alignItems = "center", gap = T.spacing.xs,
-            children = {
-                UI.Panel { width = 28, height = 28, backgroundImage = imgSrc, backgroundFit = "contain" },
-                UI.Label {
-                    text = nameText,
-                    fontSize = T.fontSize.lg, fontWeight = "bold",
-                    fontColor = qColor,
-                },
-            },
-        })
-    else
-        -- emoji 或无图标
-        local fullName = displayIcon ~= "" and (displayIcon .. " " .. nameText) or nameText
-        table.insert(rows, UI.Label {
-            text = fullName,
-            fontSize = T.fontSize.lg, fontWeight = "bold",
-            fontColor = qColor,
-            textAlign = "center",
-        })
-    end
+    -- 长名称缩小字号保持1行（超8中文字用md，超12字用sm）
+    local nameFs = T.fontSize.lg
+    local nameLen = #nameText / 3  -- UTF-8 中文约3字节/字
+    if nameLen > 12 then nameFs = T.fontSize.sm
+    elseif nameLen > 8 then nameFs = T.fontSize.md end
 
+    -- 副标题行
+    local subLine
     if isConsumable then
         local typeLabel = item.petExp and "宠物食物" or "消耗品"
         local countStr = (item.count and item.count > 1) and (" ×" .. item.count) or ""
-        table.insert(rows, UI.Label {
-            text = "[" .. qName .. " " .. typeLabel .. "]" .. countStr,
-            fontSize = T.fontSize.sm, fontColor = {qColor[1], qColor[2], qColor[3], 200}, textAlign = "center",
-        })
+        subLine = "[" .. qName .. " " .. typeLabel .. "]" .. countStr
     else
         local tierStr = item.tier and (item.tier .. "阶") or ""
-        local subLine = "[" .. qName .. "] " .. slotName
-        if tierStr ~= "" then
-            subLine = tierStr .. "  " .. subLine
-        end
-        table.insert(rows, UI.Label {
-            text = subLine,
-            fontSize = T.fontSize.sm, fontColor = {qColor[1], qColor[2], qColor[3], 180}, textAlign = "center",
+        subLine = "[" .. qName .. "] " .. slotName
+        if tierStr ~= "" then subLine = tierStr .. "  " .. subLine end
+    end
+
+    local TIP_ICON_SIZE = 40
+    if imgSrc then
+        table.insert(rows, UI.Panel {
+            flexDirection = "row", alignItems = "center", gap = T.spacing.sm,
+            children = {
+                UI.Panel { width = TIP_ICON_SIZE, height = TIP_ICON_SIZE, borderRadius = T.radius.sm, backgroundImage = imgSrc, backgroundFit = "contain" },
+                UI.Panel { flexGrow = 1, flexShrink = 1, gap = T.spacing.xxs, children = {
+                    UI.Label { text = nameText, fontSize = nameFs, fontWeight = "bold", fontColor = qColor },
+                    UI.Label { text = subLine, fontSize = T.fontSize.xs, fontColor = {qColor[1], qColor[2], qColor[3], 180} },
+                }},
+            },
+        })
+    else
+        local iconText = displayIcon ~= "" and displayIcon or "📦"
+        table.insert(rows, UI.Panel {
+            flexDirection = "row", alignItems = "center", gap = T.spacing.sm,
+            children = {
+                UI.Label { text = iconText, fontSize = T.fontSize.xl, width = TIP_ICON_SIZE, textAlign = "center" },
+                UI.Panel { flexGrow = 1, flexShrink = 1, gap = T.spacing.xxs, children = {
+                    UI.Label { text = nameText, fontSize = nameFs, fontWeight = "bold", fontColor = qColor },
+                    UI.Label { text = subLine, fontSize = T.fontSize.xs, fontColor = {qColor[1], qColor[2], qColor[3], 180} },
+                }},
+            },
         })
     end
 
@@ -240,10 +243,17 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
                 if equipped then
                     local slotSeen = {}
                     for eqSlotId, eq in pairs(equipped) do
-                        if eq and eq.setId == item.setId then
-                            local origSlot = eq.slot or eqSlotId
-                            if not slotSeen[origSlot] then
-                                slotSeen[origSlot] = true
+                        if eq then
+                            -- 原装 setId 匹配（按 slot 去重）
+                            if eq.setId == item.setId then
+                                local origSlot = eq.slot or eqSlotId
+                                if not slotSeen[origSlot] then
+                                    slotSeen[origSlot] = true
+                                    setCount = setCount + 1
+                                end
+                            end
+                            -- 附灵 enchantSetId 匹配（每件+1）
+                            if eq.enchantSetId == item.setId then
                                 setCount = setCount + 1
                             end
                         end
@@ -715,7 +725,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
     if source == "inventory" and isConsumable then
         if item.petExp then
             table.insert(btnChildren, UI.Button {
-                text = "🦴 喂食宠物", variant = "primary", flexGrow = 1,
+                text = "🦴 喂食宠物", backgroundColor = T.color.btnSpend, fontColor = T.color.btnSpendFg, flexGrow = 1,
                 onClick = function()
                     EquipTooltip.Hide()
                     if doneCallback then doneCallback() end
@@ -755,7 +765,8 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
                     if not isDuplicate then
                         table.insert(batchBtns, UI.Button {
                             text = actionIcon .. " " .. actionLabel .. batchLabels[bi],
-                            variant = bi == #batchAmounts and "warning" or "primary",
+                            backgroundColor = bi == #batchAmounts and T.color.btnDanger or T.color.btnSpend,
+                            fontColor = bi == #batchAmounts and T.color.btnDangerFg or T.color.btnSpendFg,
                             flexGrow = 1,
                             onClick = function(self)
                                 -- 双击防护：立即禁用按钮
@@ -782,7 +793,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         if item.consumableId == "wubao_token_box" or item.consumableId == "sha_hai_ling_box" or item.consumableId == "taixu_token_box" or item.consumableId == "taixu_jianling_box" then
             local cId = item.consumableId
             table.insert(btnChildren, UI.Button {
-                text = "📦 使用", variant = "primary", flexGrow = 1,
+                text = "📦 使用", backgroundColor = T.color.btnSpend, fontColor = T.color.btnSpendFg, flexGrow = 1,
                 onClick = function(self)
                     self:SetDisabled(true)
                     local ok, msg = InventorySystem.UseBatchConsumable(cId, 1)
@@ -798,7 +809,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         end
         if item.consumableId == "item_guardian_token" then
             table.insert(btnChildren, UI.Button {
-                text = "🔖 使用", variant = "primary", flexGrow = 1,
+                text = "🔖 使用", backgroundColor = T.color.btnSpend, fontColor = T.color.btnSpendFg, flexGrow = 1,
                 onClick = function()
                     local ok, err = InventorySystem.UseGuardianToken(sourceSlotId)
                     if ok then
@@ -819,7 +830,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
             and item.consumableId ~= "xianjie_premium_zong"
             and item.consumableId ~= "wubao_token_box" and item.consumableId ~= "sha_hai_ling_box" and item.consumableId ~= "taixu_token_box" and item.consumableId ~= "taixu_jianling_box" then
             table.insert(btnChildren, UI.Button {
-                text = "出售", variant = "warning", flexGrow = 1,
+                text = "出售", backgroundColor = T.color.btnSuccess, fontColor = T.color.btnSuccessFg, flexGrow = 1,
                 onClick = function(self)
                     self:SetDisabled(true)
                     if _isEventItem then
@@ -840,7 +851,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         local WarehouseSystem = require("systems.WarehouseSystem")
         if WarehouseSystem.IsOpen() then
             table.insert(btnChildren, UI.Button {
-                text = "📦存放", variant = "secondary", flexGrow = 1,
+                text = "📦存放", backgroundColor = T.color.btnSecondary, fontColor = T.color.btnSecondaryFg, flexGrow = 1,
                 onClick = function()
                     local ok, err = WarehouseSystem.StoreItem(sourceSlotId)
                     if ok then
@@ -855,7 +866,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         end
     elseif source == "inventory" then
         table.insert(btnChildren, UI.Button {
-            text = "穿戴", variant = "primary", flexGrow = 1,
+            text = "穿戴", backgroundColor = T.color.btnSpend, fontColor = T.color.btnSpendFg, flexGrow = 1,
             onClick = function()
                 local manager = InventorySystem.GetManager()
                 if manager and item then
@@ -876,7 +887,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         local WarehouseSystem = require("systems.WarehouseSystem")
         if WarehouseSystem.IsOpen() then
             table.insert(btnChildren, UI.Button {
-                text = "📦存放", variant = "secondary", flexGrow = 1,
+                text = "📦存放", backgroundColor = T.color.btnSecondary, fontColor = T.color.btnSecondaryFg, flexGrow = 1,
                 onClick = function()
                     local ok, err = WarehouseSystem.StoreItem(sourceSlotId)
                     if ok then
@@ -890,7 +901,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
             })
         end
         table.insert(btnChildren, UI.Button {
-            text = "出售", variant = "warning", flexGrow = 1,
+            text = "出售", backgroundColor = T.color.btnSuccess, fontColor = T.color.btnSuccessFg, flexGrow = 1,
             onClick = function()
                 InventorySystem.SellItem(sourceSlotId)
                 EquipTooltip.Hide()
@@ -899,7 +910,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         })
     elseif source == "equipment" then
         table.insert(btnChildren, UI.Button {
-            text = "卸下", variant = "secondary", flexGrow = 1,
+            text = "卸下", backgroundColor = T.color.btnSecondary, fontColor = T.color.btnSecondaryFg, flexGrow = 1,
             onClick = function()
                 local manager = InventorySystem.GetManager()
                 if manager then
@@ -918,7 +929,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         local shopItem = sourceSlotId
         table.insert(btnChildren, UI.Button {
             text = "💰 购买  " .. (shopItem.price or 0) .. " 金币",
-            variant = "primary", flexGrow = 1,
+            backgroundColor = T.color.btnSpend, fontColor = T.color.btnSpendFg, flexGrow = 1,
             onClick = function()
                 local EquipShopUI = require("ui.EquipShopUI")
                 local ok = EquipShopUI.DoBuy(shopItem)
@@ -943,7 +954,6 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         borderColor = T.color.equipTipPanelBorder,
         padding = T.spacing.md,
         gap = T.spacing.sm,
-        overflow = "hidden",
         onClick = function() end, -- 阻止穿透
         children = mainRows,
     }
@@ -963,7 +973,6 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
                 borderColor = T.color.equipTipEquippedPanelBorder,
                 padding = T.spacing.md,
                 gap = T.spacing.sm,
-                overflow = "hidden",
                 onClick = function() end,
                 children = eqRows,
             }
@@ -976,9 +985,9 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         contentChildren = {
             UI.Panel {
                 flexDirection = "row",
-                gap = T.spacing.sm,
+                gap = T.spacing.xs,
                 alignItems = "flex-start",
-                maxWidth = T.size.tooltipWidth * 2 + T.spacing.sm,
+                maxWidth = T.size.tooltipWidth * 2 + T.spacing.xs,
                 width = "100%",
                 onClick = function() end,
                 children = { equippedPanel, mainPanel },

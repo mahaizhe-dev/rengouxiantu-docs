@@ -88,6 +88,12 @@ function TownReturnSystem.CanUse()
         return false, "镇狱塔中无法回城"
     end
 
+    -- 剑气长城副本
+    local okSW, SwordWallSystem = pcall(require, "systems.SwordWallSystem")
+    if okSW and SwordWallSystem and SwordWallSystem.IsActive and SwordWallSystem.IsActive() then
+        return false, "剑气长城副本中无法回城"
+    end
+
     -- 副本
     local okDC, DungeonClient = pcall(require, "network.DungeonClient")
     if okDC and DungeonClient and DungeonClient.IsDungeonMode and DungeonClient.IsDungeonMode() then

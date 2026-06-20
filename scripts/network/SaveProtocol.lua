@@ -136,6 +136,13 @@ SaveProtocol.S2C_BossRespawned      = "S2C_BossRespawned"      -- BOSS刷新
 SaveProtocol.S2C_BossRespawnTimer   = "S2C_BossRespawnTimer"   -- 刷新倒计时 (1fps)
 SaveProtocol.S2C_DungeonRewardInfo  = "S2C_DungeonRewardInfo"  -- 待领取副本奖励信息
 SaveProtocol.S2C_ClaimDungeonRewardResult = "S2C_ClaimDungeonResult" -- 领取副本奖励结果
+-- 剑气长城副本
+SaveProtocol.C2S_SwordWallClaim     = "C2S_SWClaim"        -- 宝箱结算请求
+SaveProtocol.C2S_SwordWallShopQuery = "C2S_SWShopQuery"    -- 商店查询（余额+商品表）
+SaveProtocol.C2S_SwordWallShopBuy   = "C2S_SWShopBuy"      -- 商店购买
+SaveProtocol.S2C_SwordWallClaimResult  = "S2C_SWClaimResult"   -- 宝箱结算结果
+SaveProtocol.S2C_SwordWallShopData     = "S2C_SWShopData"      -- 商店数据（余额+商品）
+SaveProtocol.S2C_SwordWallShopBuyResult = "S2C_SWShopBuyResult" -- 商店购买结果
 -- 通用
 SaveProtocol.S2C_RateLimited  = "S2C_RateLimited"     -- 服务端速率限制反馈
 
@@ -253,6 +260,13 @@ SaveProtocol.ALL_EVENTS = {
     SaveProtocol.S2C_BossRespawnTimer,
     SaveProtocol.S2C_DungeonRewardInfo,
     SaveProtocol.S2C_ClaimDungeonRewardResult,
+    -- 剑气长城副本
+    SaveProtocol.C2S_SwordWallClaim,
+    SaveProtocol.C2S_SwordWallShopQuery,
+    SaveProtocol.C2S_SwordWallShopBuy,
+    SaveProtocol.S2C_SwordWallClaimResult,
+    SaveProtocol.S2C_SwordWallShopData,
+    SaveProtocol.S2C_SwordWallShopBuyResult,
     -- 通用
     SaveProtocol.S2C_RateLimited,
 }

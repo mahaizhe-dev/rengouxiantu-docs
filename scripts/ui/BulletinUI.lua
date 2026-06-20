@@ -23,12 +23,12 @@ local visible_ = false
 
 ---@type {rewardId: string, title: string, desc: string, items: {type: string, id: string|nil, name: string, icon: string, count: number}[]}|nil
 local ACTIVE_REWARD = {
-    rewardId = "update_reward_v1.12.8",
-    title = "更新福利",
-    desc = "端午掉落活动开启，前往中洲查看活动细节，感谢各位道友的支持。",
+    rewardId = "update_reward_v1.12.12",
+    title = "端午节福利",
+    desc = "端午节快乐！祝各位道友端午安康，感谢大家的支持。",
     items = {
-        { type = "lingYun", count = 100, name = "灵韵", icon = "✨" },
-        { type = "consumable", id = "gold_bar", count = 10, name = "金条", icon = "🥇" },
+        { type = "lingYun", count = 500, name = "灵韵", icon = "✨" },
+        { type = "consumable", id = "gold_bar", count = 100, name = "金条", icon = "🥇" },
     },
 }
 
@@ -377,24 +377,10 @@ function BulletinUI.Create(parentOverlay)
         },
     })
 
-    -- ── 滚动区域：更新日志列表 ──
-    shell_:AddContent(UI.ScrollView {
-        width = "100%",
-        flexShrink = 1,
-        children = {
-            UI.Panel {
-                width = "100%",
-                gap = T.spacing.sm,
-                children = (function()
-                    local entries = {}
-                    for _, log in ipairs(ChangelogData.CHANGELOGS) do
-                        table.insert(entries, CreateChangelogEntry(log))
-                    end
-                    return entries
-                end)(),
-            },
-        },
-    })
+    -- ── 更新日志列表（直接添加到 PanelShell，由外层 ScrollView 统一滚动） ──
+    for _, log in ipairs(ChangelogData.CHANGELOGS) do
+        shell_:AddContent(CreateChangelogEntry(log))
+    end
 end
 
 --- 刷新福利按钮状态（Show 时调用）

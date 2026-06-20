@@ -1,3 +1,4 @@
+---@diagnostic disable
 -- ============================================================================
 -- InventoryUI.lua - 背包与装备 UI 面板
 -- Style: 仙侠暗金 (UITheme 规范化版)
@@ -143,9 +144,9 @@ local function CreateEquipPanel()
         equipGrid:AddChild(row)
     end
 
-    -- 角色精灵（根据职业动态显示）
+    -- 角色精灵（根据职业动态显示，非标准 slot 尺寸）
     spritePanel_ = UI.Panel {
-        width = 140,
+        width = 140,  -- 角色精灵展示宽度（无对应令牌，与 4×3 装备格视觉平衡）
         height = 4 * (SLOT_SIZE + SLOT_GAP),
         backgroundImage = GetClassSprite(),
         backgroundFit = "contain",
@@ -232,7 +233,7 @@ local function CreateEquipPanel()
     }
 
     local function buildStatColumn(defs)
-        local col = UI.Panel { flexGrow = 1, flexShrink = 1, gap = 1 }
+        local col = UI.Panel { flexGrow = 1, flexShrink = 1, gap = T.spacing.xxs }
         for _, sd in ipairs(defs) do
             col:AddChild(UI.Panel {
                 height = STAT_ROW_H,
@@ -352,9 +353,10 @@ local function CreateInvPanel()
                         fontSize = T.fontSize.xs,
                         paddingLeft = T.spacing.sm,
                         paddingRight = T.spacing.sm,
-                        height = 24,
+                        height = 28,
                         borderRadius = T.radius.sm,
-                        backgroundColor = T.color.invSortBtn,
+                        backgroundColor = T.color.btnSecondary,
+                        fontColor = T.color.btnSecondaryFg,
                         onClick = function(self)
                             local msg = InventoryOps.DoSort(InventorySystem.SortBackpack)
                             UpdateAllSlots()
@@ -367,11 +369,12 @@ local function CreateInvPanel()
                         fontSize = T.fontSize.xs,
                         paddingLeft = T.spacing.sm,
                         paddingRight = T.spacing.sm,
-                        height = 24,
+                        height = 28,
                         borderRadius = T.radius.sm,
                         borderTopRightRadius = 0,
                         borderBottomRightRadius = 0,
-                        backgroundColor = T.color.invSellBtn,
+                        backgroundColor = T.color.btnSuccess,
+                        fontColor = T.color.btnSuccessFg,
                         onClick = function(self)
                             local ok, msg = InventoryOps.DoBatchSell(sellQualities_, InventorySystem.SellByQuality)
                             if ok then
@@ -383,15 +386,16 @@ local function CreateInvPanel()
                     },
                     UI.Button {
                         text = "▼",
-                        fontSize = 9,
+                        fontSize = T.fontSize.xxs,
                         width = 20,
-                        height = 24,
+                        height = 28,
                         paddingLeft = 0,
                         paddingRight = 0,
                         borderRadius = T.radius.sm,
                         borderTopLeftRadius = 0,
                         borderBottomLeftRadius = 0,
-                        backgroundColor = T.color.invSellDropBtn,
+                        backgroundColor = T.color.btnSecondary,
+                        fontColor = T.color.btnSecondaryFg,
                         onClick = function(self)
                             -- 内联展开/收起品质面板
                             if qualityPanel:IsVisible() then
@@ -471,7 +475,7 @@ local function SwitchTab(tab)
 
     -- 切页时刷新对应页面数据 + 更新信息标签
     if tab == "equip" then
-        if shell_ then shell_:SetSubtitle("点击装备查看详情") end
+        -- subtitle 已由 header Tab 替代，无需设置
         if shell_ then shell_.resultLabel:SetText("") end
         UpdateAllSlots()
         InventoryUI.UpdateStats()
@@ -479,7 +483,7 @@ local function SwitchTab(tab)
         -- 隐藏命格 tooltip
         MinggePage.OnHide()
     else
-        if shell_ then shell_:SetSubtitle("点击命格查看详情") end
+        -- subtitle 已由 header Tab 替代，无需设置
         if shell_ then shell_.resultLabel:SetText("") end
         MinggePage.OnShow()
         -- 隐藏装备 tooltip
@@ -503,48 +507,51 @@ function InventoryUI.Create(parentOverlay)
         backgroundFit = "contain",
     }
 
+    -- Tab 按钮需要先创建，传入 titleContent
+    -- （前置声明，实际按钮在下方创建后回填）
+    local titleContent = UI.Panel {
+        flexDirection = "row",
+        gap = T.spacing.xs,
+    }
+
     shell_ = PanelShell.Create({
-        title = "背包",
-        subtitle = "点击装备查看详情",
         portrait = portraitPanel,
+        titleContent = titleContent,
         onClose = function() InventoryUI.Hide() end,
         parent = parentOverlay,
         zIndex = 120,
+        maxHeight = "80%",
         footerHint = "点击空白处关闭",
     })
     panel_ = shell_.panel  -- 保持 panel_ 引用用于 Show/Hide 兼容
 
-    -- Tab 按钮（重要主导航：大尺寸、粗体、明确激活态）
+    -- Tab 按钮（嵌入 header titleContent）
     tabBtnEquip_ = UI.Button {
-        text = "⚔️ 装备物品",
+        text = "⚔️ 装备",
         flexGrow = 1,
-        height = 42,
+        height = 36,
         fontSize = T.fontSize.sm,
         fontWeight = "bold",
-        borderRadius = T.radius.md,
+        borderRadius = T.radius.sm,
         backgroundColor = T.color.tabActiveBg,
         fontColor = T.color.tabActiveText,
         onClick = function(self) SwitchTab("equip") end,
     }
     tabBtnMingge_ = UI.Button {
-        text = "☯️ 五行命格",
+        text = "☯️ 命格",
         flexGrow = 1,
-        height = 42,
+        height = 36,
         fontSize = T.fontSize.sm,
         fontWeight = "bold",
-        borderRadius = T.radius.md,
+        borderRadius = T.radius.sm,
         backgroundColor = T.color.tabInactiveBg,
         fontColor = T.color.tabInactiveText,
         onClick = function(self) SwitchTab("mingge") end,
     }
 
-    -- Tab 栏
-    local tabBar = UI.Panel {
-        width = "100%",
-        flexDirection = "row",
-        gap = T.spacing.xs,
-        children = { tabBtnEquip_, tabBtnMingge_ },
-    }
+    -- 将 Tab 按钮挂入 header 的 titleContent
+    titleContent:AddChild(tabBtnEquip_)
+    titleContent:AddChild(tabBtnMingge_)
 
     -- 装备页内容容器（竖屏单列：装备区 → 操作栏 → 背包 grid）
     equipContent_ = UI.Panel {
@@ -560,8 +567,7 @@ function InventoryUI.Create(parentOverlay)
     minggeContent_ = MinggePage.Create(parentOverlay)
     minggeContent_:Hide()  -- 默认隐藏
 
-    -- 组装内容到 PanelShell
-    shell_:AddContent(tabBar)
+    -- 组装内容到 PanelShell（Tab 已在 header 中，无需单独添加）
     shell_:AddContent(equipContent_)
     shell_:AddContent(minggeContent_)
 

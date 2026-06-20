@@ -33,6 +33,7 @@ local successPanel_ = nil
 local currentRecipeIdx_ = 1
 
 local RED_COLOR = {255, 80, 50, 255}
+local STAT_ROW_H = 22  -- 属性行统一高度（对齐 EquipTooltip）
 
 --- 格式化金币
 local FormatGold = FormatUtils.Gold
@@ -222,8 +223,8 @@ local function BuildForgePreviewRows(targetDef)
         local valStr = FormatStatVal(stat, value)
         table.insert(mainChildren, UI.Panel {
             flexDirection = "row", justifyContent = "space-between", alignItems = "center",
-            paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm,
-            height = T.fontSize.md + 10,
+            paddingLeft = T.spacing.xs, paddingRight = T.spacing.xs,
+            height = STAT_ROW_H,
             children = {
                 UI.Label { text = icon .. " " .. name, fontSize = T.fontSize.md, fontColor = {255, 255, 230, 255} },
                 UI.Label { text = valStr, fontSize = T.fontSize.md, fontWeight = "bold", fontColor = {255, 215, 0, 255} },
@@ -262,10 +263,10 @@ local function BuildForgePreviewRows(targetDef)
         end
         table.insert(subChildren, UI.Panel {
             flexDirection = "row", justifyContent = "space-between", alignItems = "center",
-            paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm, height = T.fontSize.sm + 10,
+            paddingLeft = T.spacing.xs, paddingRight = T.spacing.xs, height = STAT_ROW_H,
             children = {
                 UI.Label { text = icon .. " " .. name, fontSize = T.fontSize.sm, fontColor = {220, 220, 240, 255} },
-                UI.Label { text = valStr, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = {150, 255, 150, 255} },
+                UI.Label { text = valStr, fontSize = T.fontSize.xxs, fontWeight = "bold", fontColor = {150, 255, 150, 255}, flexShrink = 1 },
             },
         })
     end
@@ -310,7 +311,7 @@ local function BuildForgePreviewRows(targetDef)
                            fontColor = {255, 80, 80, 230}, paddingLeft = T.spacing.xs },
                 UI.Panel {
                     flexDirection = "row", justifyContent = "space-between", alignItems = "center",
-                    paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm, height = T.fontSize.sm + 10,
+                    paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm, height = STAT_ROW_H,
                     children = {
                         UI.Label { text = icon .. " " .. name, fontSize = T.fontSize.sm, fontColor = {255, 180, 180, 255} },
                         UI.Label { text = valStr, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = {255, 80, 80, 255} },
@@ -414,7 +415,7 @@ local function SuccessStatRow(icon, name, valStr, nameColor, valColor)
         alignItems = "center",
         width = "100%",
         paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm,
-        height = T.fontSize.sm + 12,
+        height = STAT_ROW_H,
         children = {
             UI.Label { text = icon .. " " .. name, fontSize = T.fontSize.sm, fontColor = nameColor },
             UI.Label { text = valStr, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = valColor },
@@ -564,19 +565,18 @@ local function ShowForgeSuccess(item, title, subtitle)
         position = "absolute",
         top = 0, left = 0, right = 0, bottom = 0,
         justifyContent = "center", alignItems = "center",
-        backgroundColor = {0, 0, 0, 180},
+        backgroundColor = T.color.overlay,
         zIndex = 250,
         onClick = function(self) end,
         children = {
             UI.Panel {
                 flexDirection = "column", alignItems = "center", gap = T.spacing.md,
-                backgroundColor = {20, 15, 12, 250},
+                backgroundColor = T.color.panelBg,
                 borderRadius = T.radius.lg,
                 borderWidth = 2, borderColor = {qColor[1], qColor[2], qColor[3], 180},
-                paddingTop = T.spacing.xl, paddingBottom = T.spacing.xl,
-                paddingLeft = T.spacing.lg, paddingRight = T.spacing.lg,
-                minWidth = 260,
-                maxWidth = T.size.tooltipWidth + 40,
+                padding = T.spacing.xl,
+                width = "88%",
+                maxWidth = 400,
                 maxHeight = "85%", overflow = "scroll",
                 onClick = function(self) end,
                 children = {
@@ -595,10 +595,10 @@ local function ShowForgeSuccess(item, title, subtitle)
                     UI.Panel { width = "80%", height = 1, backgroundColor = {qColor[1], qColor[2], qColor[3], 40} },
                     UI.Button {
                         text = "确认",
-                        width = 180, height = 44,
+                        width = 180, height = T.size.dialogBtnH,
                         fontSize = T.fontSize.md, fontWeight = "bold",
-                        fontColor = {255, 255, 255, 255}, borderRadius = T.radius.md,
-                        backgroundColor = {qColor[1], qColor[2], qColor[3], 220},
+                        fontColor = T.color.btnSuccessFg, borderRadius = T.radius.md,
+                        backgroundColor = T.color.btnSuccess,
                         onClick = function(self) HideForgeSuccess() end,
                     },
                 },
@@ -693,32 +693,7 @@ local function BuildRecipeContent(recipeId)
     if not outputTemplate then
         outputTemplate = EquipmentData.FabaoTemplates[recipe.outputId]
     end
-    if outputTemplate then
-        local qCfg = GameConfig.QUALITY[outputTemplate.quality or "red"]
-        local qColor = qCfg and qCfg.color or RED_COLOR
-        -- FabaoTemplates 没有 quality 字段；法宝属于"灵器"，不是"圣器"
-        local qName  = isFabaoOutput and "灵器" or (qCfg and qCfg.name or "圣器")
-        table.insert(materialRows, UI.Panel {
-            flexDirection = "row", alignItems = "center",
-            justifyContent = "center", gap = T.spacing.xs, width = "100%",
-            children = {
-                UI.Label {
-                    text = outputTemplate.name or recipe.outputId,
-                    fontSize = T.fontSize.md, fontWeight = "bold",
-                    fontColor = {qColor[1], qColor[2], qColor[3], 255},
-                },
-                UI.Label {
-                    text = "·" .. qName,
-                    fontSize = T.fontSize.sm,
-                    fontColor = {qColor[1], qColor[2], qColor[3], 180},
-                },
-            },
-        })
-        table.insert(materialRows, UI.Panel {
-            width = "100%", height = 1,
-            backgroundColor = {RED_COLOR[1], RED_COLOR[2], RED_COLOR[3], 60},
-        })
-    end
+    -- outputTemplate 只用于后续面板构建，不再往 materialRows 写标题（标题在 BuildForgePreviewRows 内）
 
     -- ── 灵器铸造专属信息面板（outputId=nil 且配方含 lingqi）─────────────────
     local isLingqiRecipe = (recipe.outputId == nil) and string.find(recipeId, "lingqi")
@@ -897,9 +872,9 @@ local function BuildRecipeContent(recipeId)
         local curPanel = UI.Panel {
             flexGrow = 1, flexShrink = 1, flexBasis = 0,
             maxWidth = T.size.tooltipWidth,
-            backgroundColor = {25, 12, 10, 245},
+            backgroundColor = T.color.equipTipComparePanelBg,
             borderRadius = T.radius.lg, borderWidth = 1,
-            borderColor = hasFromBag and {200, 100, 80, 200} or {80, 50, 50, 150},
+            borderColor = hasFromBag and {200, 100, 80, 200} or T.color.equipTipComparePanelBorder,
             padding = T.spacing.sm, gap = T.spacing.sm,
             overflow = "hidden",
             children = curRows,
@@ -913,7 +888,7 @@ local function BuildRecipeContent(recipeId)
         local nextPanel = UI.Panel {
             flexGrow = 1, flexShrink = 1, flexBasis = 0,
             maxWidth = T.size.tooltipWidth,
-            backgroundColor = {30, 12, 12, 245},
+            backgroundColor = T.color.equipTipComparePanelBg,
             borderRadius = T.radius.lg, borderWidth = 1,
             borderColor = {qColor[1], qColor[2], qColor[3], 180},
             padding = T.spacing.sm, gap = T.spacing.sm,
@@ -921,65 +896,50 @@ local function BuildRecipeContent(recipeId)
             children = previewRows,
         }
 
-        local arrowPanel = UI.Panel {
-            justifyContent = "center", alignItems = "center",
-            paddingTop = T.spacing.lg,
-            children = {
-                UI.Label { text = "➜", fontSize = T.fontSize.xl, fontColor = {255, 200, 100, 255} },
-            },
-        }
-
-        -- 上部：封印古剑 ➜ 解封预览
+        -- 上部：并排对比（紧贴，对齐 EquipTooltip）
         table.insert(children, UI.Panel {
             flexDirection = "row",
             gap = T.spacing.xs,
             alignItems = "flex-start",
             width = "100%",
-            children = { curPanel, arrowPanel, nextPanel },
+            children = { curPanel, nextPanel },
         })
 
-        -- 下部：材料面板（空位/金币/fromBag2/材料/描述/按钮）
+        -- 下部：材料（居中纯文字，无框体）
         table.insert(children, UI.Panel {
             width = "100%",
-            backgroundColor = {30, 15, 12, 240},
-            borderRadius = T.radius.lg,
-            borderWidth = 1, borderColor = {RED_COLOR[1], RED_COLOR[2], RED_COLOR[3], 120},
-            padding = T.spacing.md, gap = T.spacing.sm,
+            gap = T.spacing.sm,
+            padding = T.spacing.sm,
+            alignItems = "center",
             children = materialRows,
         })
 
     elseif isLingqiRecipe then
-        -- ── 灵器铸造配方：只显示材料面板（信息已在 materialRows 中） ──────────
+        -- ── 灵器铸造配方：居中纯文字材料 ──────────────────────────────────────
         table.insert(children, UI.Panel {
             width = "100%",
-            backgroundColor = {30, 15, 12, 240},
-            borderRadius = T.radius.lg,
-            borderWidth = 1, borderColor = {RED_COLOR[1], RED_COLOR[2], RED_COLOR[3], 120},
-            padding = T.spacing.md, gap = T.spacing.sm,
+            gap = T.spacing.sm,
+            padding = T.spacing.sm,
+            alignItems = "center",
             children = materialRows,
         })
 
     else
-        -- ── 其他配方：左面板材料 + 箭头 + 右面板预览 ────────────────────────
-        local leftPanel = UI.Panel {
-            flex = 1, flexShrink = 1,
-            backgroundColor = {30, 15, 12, 240},
-            borderRadius = T.radius.lg,
-            borderWidth = 1, borderColor = {RED_COLOR[1], RED_COLOR[2], RED_COLOR[3], 120},
-            padding = T.spacing.md, gap = T.spacing.sm,
-            children = materialRows,
-        }
+        -- ── 其他配方：上方产出预览（框体） + 下方材料（居中纯文字） ─────────────
 
         -- ── 右面板：产出属性预览 ──────────────────────────────────────────────
         local rightPanel
         if outputTemplate and outputTemplate.mainStat then
             local previewRows = BuildForgePreviewRows(outputTemplate)
+            local rqCfg = GameConfig.QUALITY[outputTemplate.quality or "red"]
+            local rqColor = rqCfg and rqCfg.color or RED_COLOR
             rightPanel = UI.Panel {
-                flex = 1, flexShrink = 1,
-                backgroundColor = {18, 12, 20, 245},
+                width = "90%",
+                maxWidth = T.size.tooltipWidth,
+                backgroundColor = T.color.equipTipComparePanelBg,
                 borderRadius = T.radius.lg,
-                borderWidth = 1, borderColor = {100, 40, 40, 150},
-                padding = T.spacing.md, gap = T.spacing.sm,
+                borderWidth = 1, borderColor = {rqColor[1], rqColor[2], rqColor[3], 180},
+                padding = T.spacing.sm, gap = T.spacing.sm,
                 children = previewRows,
             }
         else
@@ -1016,7 +976,7 @@ local function BuildRecipeContent(recipeId)
                         UI.Label { text = "▸ 主属性", fontSize = T.fontSize.xs, fontColor = {200, 160, 160, 220}, paddingLeft = T.spacing.xs },
                         UI.Panel {
                             flexDirection = "row", justifyContent = "space-between", alignItems = "center",
-                            paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm, height = T.fontSize.md + 10,
+                            paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm, height = STAT_ROW_H,
                             children = {
                                 UI.Label { text = icon .. " " .. name, fontSize = T.fontSize.md, fontColor = {255, 255, 230, 255} },
                                 UI.Label { text = FormatStatVal(statKey, mainVal), fontSize = T.fontSize.md, fontWeight = "bold", fontColor = {255, 215, 0, 255} },
@@ -1095,36 +1055,30 @@ local function BuildRecipeContent(recipeId)
             })
 
             rightPanel = UI.Panel {
-                flex = 1, flexShrink = 1,
-                backgroundColor = {18, 12, 20, 245},
+                width = "90%",
+                maxWidth = T.size.tooltipWidth,
+                backgroundColor = T.color.equipTipComparePanelBg,
                 borderRadius = T.radius.lg,
-                borderWidth = 1, borderColor = {100, 40, 40, 150},
-                padding = T.spacing.md, gap = T.spacing.sm,
+                borderWidth = 1, borderColor = {RED_COLOR[1], RED_COLOR[2], RED_COLOR[3], 150},
+                padding = T.spacing.sm, gap = T.spacing.sm,
                 children = fabaoRows,
             }
         end
 
+        -- 上方：产出装备预览（居中框体）
         table.insert(children, UI.Panel {
-            flexDirection = "row",
             width = "100%",
-            gap = T.spacing.xs,
-            alignItems = "flex-start",
-            children = {
-                leftPanel,
-                UI.Panel {
-                    justifyContent = "center", alignItems = "center",
-                    paddingTop = T.spacing.lg,
-                    width = 24,
-                    children = {
-                        UI.Label {
-                            text = "➜",
-                            fontSize = T.fontSize.md,
-                            fontColor = {255, 160, 60, 220},
-                        },
-                    },
-                },
-                rightPanel,
-            },
+            alignItems = "center",
+            children = { rightPanel },
+        })
+
+        -- 下方：材料（居中纯文字，无框体）
+        table.insert(children, UI.Panel {
+            width = "100%",
+            gap = T.spacing.sm,
+            padding = T.spacing.sm,
+            alignItems = "center",
+            children = materialRows,
         })
     end
 
@@ -1215,7 +1169,7 @@ function SwordForgeUI.Create(parentOverlay)
     resultLabel_ = UI.Label {
         text = "",
         fontSize = T.fontSize.sm,
-        fontColor = {100, 255, 150, 255},
+        fontColor = T.color.success,
         textAlign = "center",
     }
 
@@ -1231,50 +1185,77 @@ function SwordForgeUI.Create(parentOverlay)
         backgroundColor = T.color.overlay,
         justifyContent = "center",
         alignItems = "center",
-        paddingBottom = T.spacing.xl,
         visible = false,
         zIndex = 100,
+        onClick = function(self) SwordForgeUI.Hide() end,
         children = {
+            -- S2.4 固定高度卡片
             UI.Panel {
-                width = "96%",
+                width = "94%",
                 maxWidth = T.size.tooltipWidth * 2 + 80,
+                height = "76%",
                 backgroundColor = T.color.panelBg,
                 borderRadius = T.radius.lg,
-                borderWidth = 1, borderColor = {RED_COLOR[1], RED_COLOR[2], RED_COLOR[3], 180},
-                padding = T.spacing.md,
-                gap = T.spacing.sm,
-                maxHeight = "90%",
-                overflow = "scroll",
+                borderWidth = 1, borderColor = T.color.forgeBorderRed,
+                flexDirection = "column",
+                onClick = function(self) end,  -- 防穿透
                 children = {
-                    -- 标题栏
+                    -- ── Header ──
                     UI.Panel {
                         width = "100%", flexDirection = "row",
                         alignItems = "center", gap = T.spacing.md,
+                        paddingLeft = T.spacing.md, paddingRight = T.spacing.md,
+                        paddingTop = T.spacing.sm, paddingBottom = T.spacing.sm,
+                        borderBottomWidth = 1,
+                        borderColor = T.color.goldDark,
                         children = {
+                            -- NPC 肖像
+                            UI.Panel {
+                                width = 64, height = 64,
+                                borderRadius = T.radius.md,
+                                backgroundColor = T.color.headerBg,
+                                backgroundImage = "image/furnace_3x3_20260515085411.png",
+                                backgroundFit = "cover",
+                                borderWidth = 1, borderColor = T.color.forgeBorderRed,
+                                overflow = "hidden",
+                            },
+                            -- 标题区
+                            UI.Panel { flexGrow = 1, flexShrink = 1, gap = T.spacing.xxs, children = {
+                                UI.Label { text = "铸剑地炉", fontSize = T.fontSize.lg,
+                                           fontWeight = "bold", fontColor = T.color.gold },
+                                UI.Label { text = "第五章·圣器锻造", fontSize = T.fontSize.xs,
+                                           fontColor = T.color.textMuted },
+                            }},
+                            -- 关闭按钮（右侧）
                             UI.Button {
                                 text = "✕",
                                 width = T.size.closeButton, height = T.size.closeButton,
                                 fontSize = T.fontSize.md,
                                 borderRadius = T.size.closeButton / 2,
-                                backgroundColor = {60, 60, 70, 200},
+                                backgroundColor = {255, 100, 100, 30},
                                 onClick = function() SwordForgeUI.Hide() end,
-                            },
-                            UI.Label {
-                                text = "🔥 铸剑地炉",
-                                fontSize = T.fontSize.lg,
-                                fontWeight = "bold",
-                                fontColor = {RED_COLOR[1], RED_COLOR[2], RED_COLOR[3], 255},
-                                flexGrow = 1, flexShrink = 1,
                             },
                         },
                     },
-                    -- 分隔线
-                    UI.Panel { width = "100%", height = 1,
-                               backgroundColor = {RED_COLOR[1], RED_COLOR[2], RED_COLOR[3], 60} },
-                    -- 动态内容区
-                    outerPanel_,
-                    -- 结果提示
-                    resultLabel_,
+                    -- ── ScrollView ──
+                    UI.ScrollView {
+                        flexGrow = 1, flexShrink = 1, flexBasis = 0,
+                        width = "100%",
+                        padding = T.spacing.md,
+                        gap = T.spacing.sm,
+                        children = { outerPanel_ },
+                    },
+                    -- ── Footer ──
+                    UI.Panel {
+                        width = "100%", alignItems = "center", gap = T.spacing.xs,
+                        paddingTop = T.spacing.sm, paddingBottom = T.spacing.sm,
+                        borderTopWidth = 1, borderColor = T.color.border,
+                        children = {
+                            resultLabel_,
+                            UI.Label { text = "点击空白处关闭", fontSize = T.fontSize.xs,
+                                       fontColor = T.color.textMuted },
+                        },
+                    },
                 },
             },
         },

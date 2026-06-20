@@ -335,6 +335,8 @@ function NPCDialog.Create(parentOverlay)
     GetXianshiRankUI().Create(parentOverlay)
     GetSkinShopUI().Create(parentOverlay)
     GetSwordPoolUI().Create(parentOverlay)
+    local SwordWallUI = require("ui.SwordWallUI")
+    SwordWallUI.Create(parentOverlay)
 end
 
 -- E-2: NPC 交互路由表（新增类型只需加一行）
@@ -349,6 +351,28 @@ local INTERACT_HANDLERS = {
     village_chief     = function(npc)  GetVillageChiefUI().Show(npc) end,
     black_merchant    = function(_npc) GetBlackMerchantUI().Show() end,
     skin_shop         = function(_npc) GetSkinShopUI().Show() end,
+    sword_wall_challenge = function(_npc)
+        local SwordWallUI = require("ui.SwordWallUI")
+        SwordWallUI.Show()
+    end,
+    sword_wall_exit = function(_npc)
+        local SwordWallSystem = require("systems.SwordWallSystem")
+        if SwordWallSystem.IsActive() then
+            local gameMap = SwordWallSystem._getGameMap()
+            SwordWallSystem.Fail(gameMap, "主动撤退")
+        end
+    end,
+    sword_wall_chest = function(_npc)
+        local SwordWallSystem = require("systems.SwordWallSystem")
+        local ok, err = SwordWallSystem.OpenChest()
+        if not ok and err then
+            local CombatSystem = require("systems.CombatSystem")
+            local player = GameState.player
+            if player then
+                CombatSystem.AddFloatingText(player.x, player.y - 1.0, err, {255, 100, 100, 255}, 2.0)
+            end
+        end
+    end,
     teleport_array    = function(_npc) GetTeleportUI().Show() end,
     bagua_teleport    = function(npc)
         -- 八卦传送阵：直接传送到目标位置，无选择 UI
@@ -815,6 +839,8 @@ function NPCDialog.Show(npc)
     if DungeonClient.IsDungeonMode() then
         if npc.interactType == "dungeon_exit_portal" then
             -- 允许副本传送阵交互（直接走下面的 handler 路由）
+        elseif npc.interactType == "sword_wall_exit" or npc.interactType == "sword_wall_chest" then
+            -- 剑气长城副本内实体允许交互
         else
             local CombatSystem = require("systems.CombatSystem")
             local player = GameState.player

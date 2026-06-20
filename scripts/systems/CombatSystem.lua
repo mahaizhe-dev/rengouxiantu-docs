@@ -731,28 +731,35 @@ end
 ---@param py number 玩家世界Y
 ---@param index number 第几把剑（1=天剑 2=地剑 3=人剑 4=神剑）
 function CombatSystem.AddZhentuSwordEffect(px, py, index)
-    -- 四把剑从四个斜角飞入：↗↙↖↘
-    local angles = { math.pi * 0.25, math.pi * 1.25, math.pi * 0.75, math.pi * 1.75 }
+    -- 四把仙剑从不同高角度斜插砸向同一区域
+    -- 水平偏移角度（四个方向散开）：右前、左后、左前、右后
+    local hAngles = { 0.3, math.pi + 0.3, math.pi * 0.5 + 0.4, math.pi * 1.5 - 0.4 }
+    -- 四仙剑颜色：诛仙(血红) 陷仙(寒青) 戮仙(焰橙) 绝仙(冥紫)
     local colors = {
-        {220, 180, 255, 240},   -- 天剑：淡紫白
-        {180, 100, 255, 240},   -- 地剑：深紫
-        {140, 200, 255, 240},   -- 人剑：青蓝
-        {255, 220, 120, 240},   -- 神剑：金黄
+        {255, 60, 60, 240},    -- 诛仙：血红
+        {60, 220, 200, 240},   -- 陷仙：寒青
+        {255, 140, 40, 240},   -- 戮仙：焰橙
+        {180, 60, 255, 240},   -- 绝仙：冥紫
     }
-    local ang = angles[index] or 0
-    local dist = 3.5  -- 起始距离（瓦片）
-    local cosA = math.cos(ang)
-    local sinA = math.sin(ang)
+    local hAng = hAngles[index] or 0
+    local hDist = 1.8   -- 水平偏移距离（瓦片，剑着地点散开程度）
+    local vDist = 2.2   -- 垂直起始高度（瓦片，从上方多高落下）
+    -- 起始位置：目标点上方+水平偏移（模拟从天而降斜插）
+    local startX = px + math.cos(hAng) * hDist
+    local startY = py + math.sin(hAng) * hDist - vDist  -- Y轴向上为负（屏幕坐标）
     table.insert(CombatSystem.zhentuSwordEffects, {
-        -- 起始位置（从远处飞向玩家）
-        startX  = px + cosA * dist,
-        startY  = py + sinA * dist,
-        targetX = px,
-        targetY = py,
-        angle   = ang + math.pi,   -- 剑尖朝向玩家方向
+        startX  = startX,
+        startY  = startY,
+        targetX = px + math.cos(hAng) * 0.3,  -- 着地点略微散开
+        targetY = py + math.sin(hAng) * 0.3,
+        -- 剑身倾斜角度（从起点指向终点的方向，斜插效果）
+        tiltAngle = math.atan(
+            (py + math.sin(hAng) * 0.3) - startY,
+            (px + math.cos(hAng) * 0.3) - startX
+        ),
         color   = colors[index],
         index   = index,
-        duration = 0.55,
+        duration = 0.70,
         elapsed  = 0,
     })
 end

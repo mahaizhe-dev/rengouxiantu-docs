@@ -225,7 +225,7 @@ local function CreateEquipPanel()
     }
 
     local function buildMgStatColumn(defs)
-        local col = UI.Panel { flexGrow = 1, flexShrink = 1, gap = 1 }
+        local col = UI.Panel { flexGrow = 1, flexShrink = 1, gap = T.spacing.xxs }
         for _, sd in ipairs(defs) do
             col:AddChild(UI.Panel {
                 height = MG_STAT_ROW_H,
@@ -344,9 +344,10 @@ local function CreateInvPanel()
                         fontSize = T.fontSize.xs,
                         paddingLeft = T.spacing.sm,
                         paddingRight = T.spacing.sm,
-                        height = 24,
+                        height = 28,
                         borderRadius = T.radius.sm,
-                        backgroundColor = T.color.invSortBtn,
+                        backgroundColor = T.color.btnSecondary,
+                        fontColor = T.color.btnSecondaryFg,
                         onClick = function(self)
                             InventoryOps.DoSort(MinggeSystem.SortBackpack)
                             UpdateAllSlots()
@@ -358,11 +359,12 @@ local function CreateInvPanel()
                         fontSize = T.fontSize.xs,
                         paddingLeft = T.spacing.sm,
                         paddingRight = T.spacing.sm,
-                        height = 24,
+                        height = 28,
                         borderRadius = T.radius.sm,
                         borderTopRightRadius = 0,
                         borderBottomRightRadius = 0,
-                        backgroundColor = T.color.invSellBtn,
+                        backgroundColor = T.color.btnSuccess,
+                        fontColor = T.color.btnSuccessFg,
                         onClick = function(self)
                             -- wrapper: MinggeSystem.SellByQuality 返回 (count, lingYun)，映射到 (count, 0, lingYun)
                             local ok, msg = InventoryOps.DoBatchSell(sellQualities_, function(q)
@@ -378,15 +380,16 @@ local function CreateInvPanel()
                     },
                     UI.Button {
                         text = "▼",
-                        fontSize = 9,
+                        fontSize = T.fontSize.xxs,
                         width = 20,
-                        height = 24,
+                        height = 28,
                         paddingLeft = 0,
                         paddingRight = 0,
                         borderRadius = T.radius.sm,
                         borderTopLeftRadius = 0,
                         borderBottomLeftRadius = 0,
-                        backgroundColor = T.color.invSellDropBtn,
+                        backgroundColor = T.color.btnSecondary,
+                        fontColor = T.color.btnSecondaryFg,
                         onClick = function(self)
                             -- 内联展开/收起品质面板
                             if qualityPanel:IsVisible() then
@@ -532,7 +535,8 @@ function MinggePage.Create(parentOverlay)
                         paddingBottom = T.spacing.sm,
                         marginTop = T.spacing.md,
                         borderRadius = T.radius.md,
-                        backgroundColor = T.color.minggeUnlockBtn,
+                        backgroundColor = T.color.btnSpend,
+                        fontColor = T.color.btnSpendFg,
                         onClick = function(self)
                             if CheckRealmUnlocked() then
                                 -- 解封成功

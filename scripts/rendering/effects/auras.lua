@@ -573,10 +573,30 @@ end
 
 -- ============================================================================
 -- 神器被动「四剑诛灭」剑影特效
--- 四把剑从四个斜角飞向玩家，到达目标时爆出冲击光圈
+-- 四把仙剑 PNG 从不同高角度斜插砸入地面
 -- ============================================================================
 
---- 渲染阵图剑气特效
+-- 四仙剑 PNG 图片句柄（懒加载）
+local _zhentuSwordImages = nil
+local _zhentuSwordPaths = {
+    "image/sword_zhu_20260618123650.png",
+    "image/sword_xian_20260618123646.png",
+    "image/sword_lu_20260618123646.png",
+    "image/sword_jue_20260618123741.png",
+}
+
+local function getZhentuSwordImage(nvg, index)
+    if not _zhentuSwordImages then
+        _zhentuSwordImages = {}
+        for i, path in ipairs(_zhentuSwordPaths) do
+            _zhentuSwordImages[i] = nvgCreateImage(nvg, path, 0)
+        end
+    end
+    return _zhentuSwordImages[index]
+end
+
+--- 渲染诛仙阵图·四剑诛灭特效
+--- 四把仙剑 PNG 从不同高角度斜插砸入地面，着地后短暂驻留+冲击波
 function M.RenderZhentuSwordEffects(nvg, l, camera)
     local effects = CombatSystem.zhentuSwordEffects
     if #effects == 0 then return end
@@ -586,117 +606,164 @@ function M.RenderZhentuSwordEffects(nvg, l, camera)
     for i = 1, #effects do
         local e = effects[i]
         local t = e.elapsed / e.duration   -- 0 → 1
-
-        -- 插值：剑从起点飞向目标
-        -- 前70%时间飞行，后30%时间冲击光圈消散
-        local flyT = math.min(t / 0.70, 1.0)
-        -- 使用 ease-out（减速到达）
-        local eased = 1.0 - (1.0 - flyT) * (1.0 - flyT)
-
-        local wx = e.startX + (e.targetX - e.startX) * eased
-        local wy = e.startY + (e.targetY - e.startY) * eased
-
-        if not camera:IsVisible(wx, wy, l.w, l.h, 2) then goto continue end
-
-        local sx = (wx - camera.x) * tileSize + l.w / 2 + l.x
-        local sy = (wy - camera.y) * tileSize + l.h / 2 + l.y
-
         local c = e.color
-        -- 飞行阶段 alpha（全程可见，到达后淡出）
-        local alpha
-        if t < 0.70 then
-            alpha = 0.7 + flyT * 0.3   -- 飞行中逐渐增亮
+
+        -- 目标屏幕坐标（着地点）
+        local tsx = (e.targetX - camera.x) * tileSize + l.w / 2 + l.x
+        local tsy = (e.targetY - camera.y) * tileSize + l.h / 2 + l.y
+
+        if not camera:IsVisible(e.targetX, e.targetY, l.w, l.h, 3) then goto continue end
+
+        -- 动画分段：前15%蓄力停顿，15%-35%急速下坠，35%-100%驻留淡出
+        local dropPhase  -- 0→1 下落进度
+        local dropT      -- 实际位移插值
+        if t < 0.15 then
+            -- 蓄力阶段：剑悬停在高处，微微震颤（位移几乎不动）
+            dropPhase = t / 0.15  -- 0→1 within pause
+            dropT = dropPhase * 0.03  -- 只移动3%（微颤效果）
+        elseif t < 0.35 then
+            -- 急速下坠：从3%猛冲到100%（ease-in 加速坠落，力量感）
+            local fallT = (t - 0.15) / 0.20  -- 0→1 within fall
+            -- 强 ease-in（三次方加速，越来越快）
+            dropT = 0.03 + 0.97 * fallT * fallT * fallT
+            dropPhase = 1.0
         else
-            alpha = 1.0 - (t - 0.70) / 0.30
+            -- 已着地
+            dropPhase = 1.0
+            dropT = 1.0
+        end
+
+        -- 剑身倾斜角度（从起点指向终点）
+        local ang = e.tiltAngle or (math.pi * 0.5)  -- 默认近垂直
+        local cosA = math.cos(ang)
+        local sinA = math.sin(ang)
+
+        -- 剑身尺寸
+        local swordLen = tileSize * 1.6
+        local swordW   = tileSize * 0.08
+
+        -- 剑尖位置：从起始飞向目标
+        local startSX = (e.startX - camera.x) * tileSize + l.w / 2 + l.x
+        local startSY = (e.startY - camera.y) * tileSize + l.h / 2 + l.y
+        local tipX = startSX + (tsx - startSX) * dropT
+        local tipY = startSY + (tsy - startSY) * dropT
+
+        -- 剑柄位置（沿倾斜方向，剑尖到剑柄）
+        local hiltX = tipX - cosA * swordLen
+        local hiltY = tipY - sinA * swordLen
+
+        -- alpha：蓄力+下落时全亮，着地后驻留淡出
+        local alpha
+        if t < 0.35 then
+            alpha = 0.7 + (t / 0.35) * 0.3  -- 蓄力到砸地逐渐增亮
+        else
+            alpha = 1.0 - (t - 0.35) / 0.65  -- 着地后淡出
         end
         alpha = math.max(0, math.min(1, alpha))
         local a = math.floor(alpha * 255)
 
-        local ang = e.angle
-        local cosA = math.cos(ang)
-        local sinA = math.sin(ang)
-
-        -- ① 剑身（矩形条）
-        local swordLen = tileSize * (0.55 + flyT * 0.1)   -- 飞行时略微拉长
-        local swordW   = tileSize * 0.06
-        local halfW    = swordW * 0.5
-        -- 前向(剑尖方向) & 侧向
-        local fx, fy = cosA, sinA
+        -- 侧向量（用于剑身宽度）
         local rx, ry = -sinA, cosA
+        local halfW = swordW * 0.5
 
-        -- 剑尖在当前位置，剑柄在后方
-        local tipX = sx + fx * swordLen * 0.35
-        local tipY = sy + fy * swordLen * 0.35
-        local hiltX = sx - fx * swordLen * 0.65
-        local hiltY = sy - fy * swordLen * 0.65
-
-        -- 发光外层
-        nvgBeginPath(nvg)
-        nvgMoveTo(nvg, tipX, tipY)
-        nvgLineTo(nvg, hiltX + rx * halfW * 2.5, hiltY + ry * halfW * 2.5)
-        nvgLineTo(nvg, hiltX - rx * halfW * 2.5, hiltY - ry * halfW * 2.5)
-        nvgClosePath(nvg)
-        nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(a * 0.30)))
-        nvgFill(nvg)
-
-        -- 主剑身
-        nvgBeginPath(nvg)
-        nvgMoveTo(nvg, tipX, tipY)
-        nvgLineTo(nvg, hiltX + rx * halfW, hiltY + ry * halfW)
-        nvgLineTo(nvg, hiltX - rx * halfW, hiltY - ry * halfW)
-        nvgClosePath(nvg)
-        nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], a))
-        nvgFill(nvg)
-
-        -- 剑身高光（沿中线）
-        nvgBeginPath(nvg)
-        nvgMoveTo(nvg, tipX, tipY)
-        nvgLineTo(nvg, hiltX, hiltY)
-        nvgStrokeColor(nvg, nvgRGBA(255, 255, 255, math.floor(a * 0.6)))
-        nvgStrokeWidth(nvg, 1.5)
-        nvgLineCap(nvg, NVG_ROUND)
-        nvgStroke(nvg)
-
-        -- ② 拖尾（飞行方向反向的渐隐线）
-        if flyT < 0.98 then
-            local trailLen = tileSize * 0.5 * flyT
-            local trailX = sx - fx * trailLen
-            local trailY = sy - fy * trailLen
+        -- ① 下落拖尾光柱（下坠阶段，蓄力时不显示）
+        if t >= 0.15 and dropT < 0.95 then
+            local trailLen = swordLen * 1.2 * dropPhase
+            local trailX = tipX - cosA * trailLen
+            local trailY = tipY - sinA * trailLen
             local trailPaint = nvgLinearGradient(nvg,
-                sx, sy, trailX, trailY,
-                nvgRGBA(c[1], c[2], c[3], math.floor(a * 0.55)),
+                tipX, tipY, trailX, trailY,
+                nvgRGBA(c[1], c[2], c[3], math.floor(a * 0.5)),
                 nvgRGBA(c[1], c[2], c[3], 0))
             nvgBeginPath(nvg)
-            nvgMoveTo(nvg, sx + rx * halfW * 1.5, sy + ry * halfW * 1.5)
-            nvgLineTo(nvg, sx - rx * halfW * 1.5, sy - ry * halfW * 1.5)
+            nvgMoveTo(nvg, tipX + rx * halfW * 2, tipY + ry * halfW * 2)
+            nvgLineTo(nvg, tipX - rx * halfW * 2, tipY - ry * halfW * 2)
             nvgLineTo(nvg, trailX, trailY)
             nvgClosePath(nvg)
             nvgFillPaint(nvg, trailPaint)
             nvgFill(nvg)
         end
 
-        -- ③ 到达冲击光圈（到达目标后展开）
-        if flyT >= 0.95 then
-            local impactT = (t - 0.70) / 0.30
-            impactT = math.max(0, math.min(1, impactT))
-            local ringR = tileSize * 0.6 * impactT
-            local ringA = math.floor(255 * (1.0 - impactT) * alpha)
+        -- ② 剑身 PNG 绘制（旋转到倾斜角度）
+        local swordImg = getZhentuSwordImage(nvg, e.index)
+        if swordImg and swordImg > 0 then
+            -- PNG 原始方向：剑尖朝上（-Y），需旋转到 tiltAngle 方向
+            -- tiltAngle 是剑尖运动方向（从起点指向终点），PNG 剑尖需对齐该方向
+            -- PNG 朝上 = -pi/2，实际方向 = ang，旋转量 = ang - (-pi/2) = ang + pi/2
+            local imgRot = ang + math.pi * 0.5
 
-            -- 目标中心屏幕坐标
-            local tsx = (e.targetX - camera.x) * tileSize + l.w / 2 + l.x
-            local tsy = (e.targetY - camera.y) * tileSize + l.h / 2 + l.y
+            -- 剑身中心位置（tip 和 hilt 中点）
+            local cx = (tipX + hiltX) * 0.5
+            local cy = (tipY + hiltY) * 0.5
+            local imgW = tileSize * 0.7   -- PNG 绘制宽度
+            local imgH = swordLen * 1.1   -- PNG 绘制高度（略大于逻辑长度）
 
+            nvgSave(nvg)
+            nvgTranslate(nvg, cx, cy)
+            nvgRotate(nvg, imgRot)
+
+            -- 外发光（additive blend，放大版半透明）
+            nvgGlobalCompositeBlendFunc(nvg, NVG_SRC_ALPHA, NVG_ONE)
+            local glowW = imgW * 1.6
+            local glowH = imgH * 1.3
+            local glowPaint = nvgImagePattern(nvg, -glowW/2, -glowH/2, glowW, glowH, 0, swordImg, alpha * 0.4)
             nvgBeginPath(nvg)
-            nvgCircle(nvg, tsx, tsy, ringR)
+            nvgRect(nvg, -glowW/2, -glowH/2, glowW, glowH)
+            nvgFillPaint(nvg, glowPaint)
+            nvgFill(nvg)
+            nvgGlobalCompositeBlendFunc(nvg, NVG_ONE, NVG_ONE_MINUS_SRC_ALPHA)
+
+            -- 主剑身图片
+            local imgPaint = nvgImagePattern(nvg, -imgW/2, -imgH/2, imgW, imgH, 0, swordImg, alpha)
+            nvgBeginPath(nvg)
+            nvgRect(nvg, -imgW/2, -imgH/2, imgW, imgH)
+            nvgFillPaint(nvg, imgPaint)
+            nvgFill(nvg)
+
+            nvgRestore(nvg)
+        else
+            -- 回退：无图片时用矢量三角形
+            nvgBeginPath(nvg)
+            nvgMoveTo(nvg, tipX, tipY)
+            nvgLineTo(nvg, hiltX + rx * halfW * 1.5, hiltY + ry * halfW * 1.5)
+            nvgLineTo(nvg, hiltX - rx * halfW * 1.5, hiltY - ry * halfW * 1.5)
+            nvgClosePath(nvg)
+            nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], a))
+            nvgFill(nvg)
+        end
+
+        -- ⑤ 着地冲击波（砸地瞬间 t>=0.33 爆发）
+        if t >= 0.33 then
+            local impactT = (t - 0.33) / 0.35  -- 0.33→0.68 展开完毕
+            impactT = math.max(0, math.min(1, impactT))
+            local ringR = tileSize * (0.4 + 0.6 * impactT)
+            local ringA = math.floor(220 * (1.0 - impactT) * alpha)
+
+            -- 地面冲击环
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, tipX, tipY, ringR)
             nvgStrokeColor(nvg, nvgRGBA(c[1], c[2], c[3], ringA))
-            nvgStrokeWidth(nvg, 3.0 * (1.0 - impactT * 0.7))
+            nvgStrokeWidth(nvg, 2.5 * (1.0 - impactT * 0.5))
             nvgStroke(nvg)
 
-            -- 内圈填充（更淡）
-            nvgBeginPath(nvg)
-            nvgCircle(nvg, tsx, tsy, ringR * 0.5)
-            nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(ringA * 0.15)))
-            nvgFill(nvg)
+            -- 地面碎片飞溅（短线段向外散射）
+            if impactT < 0.6 then
+                local sparkA = math.floor(180 * (1.0 - impactT / 0.6) * alpha)
+                for s = 1, 6 do
+                    local sparkAng = (s / 6) * math.pi * 2 + e.index * 0.7
+                    local sparkR = ringR * (0.5 + impactT * 0.8)
+                    local sx2 = tipX + math.cos(sparkAng) * sparkR * 0.4
+                    local sy2 = tipY + math.sin(sparkAng) * sparkR * 0.4
+                    local ex2 = tipX + math.cos(sparkAng) * sparkR
+                    local ey2 = tipY + math.sin(sparkAng) * sparkR
+                    nvgBeginPath(nvg)
+                    nvgMoveTo(nvg, sx2, sy2)
+                    nvgLineTo(nvg, ex2, ey2)
+                    nvgStrokeColor(nvg, nvgRGBA(c[1], c[2], c[3], sparkA))
+                    nvgStrokeWidth(nvg, 1.5)
+                    nvgStroke(nvg)
+                end
+            end
         end
 
         ::continue::

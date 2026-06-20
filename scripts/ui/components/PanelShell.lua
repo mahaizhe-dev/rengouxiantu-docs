@@ -66,13 +66,21 @@ function PanelShell.Create(cfg)
         table.insert(headerChildren, UI.Panel { children = { cfg.portrait } })
     end
 
-    -- 标题区
-    table.insert(headerChildren, UI.Panel {
-        flexGrow = 1, flexShrink = 1,
-        marginLeft = cfg.portrait and T.spacing.sm or 0,
-        gap = 2,
-        children = { titleLabel, subtitleLabel },
-    })
+    -- 标题区（支持自定义 titleContent 替代默认 title+subtitle）
+    if cfg.titleContent then
+        table.insert(headerChildren, UI.Panel {
+            flexGrow = 1, flexShrink = 1,
+            marginLeft = cfg.portrait and T.spacing.sm or 0,
+            children = { cfg.titleContent },
+        })
+    else
+        table.insert(headerChildren, UI.Panel {
+            flexGrow = 1, flexShrink = 1,
+            marginLeft = cfg.portrait and T.spacing.sm or 0,
+            gap = 2,
+            children = { titleLabel, subtitleLabel },
+        })
+    end
 
     -- 关闭按钮（右侧）
     table.insert(headerChildren, UI.Button {

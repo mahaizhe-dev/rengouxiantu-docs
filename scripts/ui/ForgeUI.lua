@@ -1,7 +1,7 @@
 -- ============================================================================
 -- ForgeUI.lua - 锻造师洗练面板
--- 每件装备可额外洗练1条副属性，洗练池 = EquipmentData.SUB_STATS
--- 优先展示身上装备，其次展示背包内装备
+-- Style: 仙侠暗金 (UITheme 规范化版)
+-- 特点: PanelShell骨架 | 顶部信息板操作 | 7列统一格子 | 身上/背包分区
 -- ============================================================================
 
 local UI = require("urhox-libs/UI")
@@ -12,22 +12,37 @@ local InventorySystem = require("systems.InventorySystem")
 local EventBus = require("core.EventBus")
 local SaveSession = require("systems.save.SaveSession")
 local T = require("config.UITheme")
-local StatNames = require("utils.StatNames")
+local PanelShell = require("ui.components.PanelShell")
+local ImageItemSlot = require("ui.ImageItemSlot")
 
 local ForgeUI = {}
 
+-- ── 模块状态 ─────────────────────────────────────────────────────────────────
+local shell_ = nil
 local panel_ = nil
 local visible_ = false
-local listPanel_ = nil
-local detailPanel_ = nil
 local selectedItem_ = nil     -- 当前选中的装备引用
 local selectedSource_ = nil   -- "equipment" | "inventory"
 local selectedSlot_ = nil     -- 装备槽位id 或 背包索引
-local resultLabel_ = nil      -- 底部结果提示标签
 local lastForgeTime_ = 0      -- 上次洗练时间戳（防连点）
 local FORGE_THROTTLE = 0.5    -- 洗练最小间隔（秒）
 
--- 洗练费用（按阶级，与 TIER_MULTIPLIER 增长对齐）
+-- 信息板控件引用
+local infoPanel_ = nil        -- 顶部信息板容器
+local infoNameLabel_ = nil    -- 选中装备名
+local forgeStatLabel_ = nil   -- 洗练属性显示
+local forgeBtn_ = nil         -- 洗练按钮
+local resultLabel_ = nil      -- 操作结果反馈
+
+-- 格子引用
+local equipSlots_ = {}        -- 身上装备 slot widgets（key=slotId）
+local invSlots_ = {}          -- 背包装备 slot widgets（key=index）
+
+-- ── 常量 ─────────────────────────────────────────────────────────────────────
+local SLOT_SIZE = T.size.slotSize
+local SLOT_GAP = T.spacing.xs
+
+-- 洗练费用（按阶级）
 local FORGE_COST = {
     [1]  = 500,
     [2]  = 1000,
@@ -42,22 +57,23 @@ local FORGE_COST = {
     [11] = 160000,
 }
 
--- 装备槽位 emoji 映射（用于列表显示，替代图片路径）
-local SLOT_EMOJI = {
-    weapon = "⚔️", helmet = "🪖", armor = "🛡️", shoulder = "🦺",
-    belt = "🎗️", boots = "👢", ring1 = "💍", ring2 = "💍",
-    necklace = "📿", cape = "🧣", treasure = "🏺", exclusive = "✨",
+-- 装备槽位顺序
+local EQUIP_SLOT_ORDER = {
+    "necklace", "helmet", "shoulder",
+    "weapon", "armor", "cape",
+    "ring1", "belt", "ring2",
+    "exclusive", "boots", "treasure",
 }
 
 -- ============================================================================
--- 洗练逻辑
+-- 洗练逻辑（不动）
 -- ============================================================================
 
 --- 获取洗练费用
 ---@param item table
 ---@return number
 local function GetForgeCost(item)
-    return FORGE_COST[item.tier or 1] or 50
+    return FORGE_COST[item.tier or 1] or 500
 end
 
 --- 计算某属性在指定 tier 下的洗练值范围文本
@@ -85,13 +101,6 @@ local function GetForgeRangeText(statId, tier)
     if rawMin <= 0 then rawMin = 0.01 end
     if rawMax <= 0 then rawMax = 0.01 end
 
-    local isPct = EquipmentData.PCT_STATS[statId]
-    local isHpRegen = (statId == "hpRegen")
-    if not isPct and not isHpRegen then
-        rawMin = math.max(1, math.floor(rawMin + 0.5))
-        rawMax = math.max(1, math.floor(rawMax + 0.5))
-    end
-
     local function fmt(val)
         if EquipmentData.PCT_STATS[statId] or EquipmentData.PCT_MAIN_STATS[statId] then
             if statId == "critDmg" then return string.format("%.0f%%", val * 100)
@@ -104,11 +113,10 @@ local function GetForgeRangeText(statId, tier)
     return "（" .. fmt(rawMin) .. "~" .. fmt(rawMax) .. "）"
 end
 
---- 随机洗练一条副属性（从副属性池中选，排除主属性和已有副属性）
+--- 随机洗练一条副属性
 ---@param item table
 ---@return table|nil newStat {stat, name, value}
 local function RollForgeStat(item)
-    -- 收集已有属性（主属性 + 副属性）
     local excluded = {}
     if item.mainStat then
         for stat, _ in pairs(item.mainStat) do
@@ -120,12 +128,10 @@ local function RollForgeStat(item)
             excluded[sub.stat] = true
         end
     end
-    -- 已有洗练属性也排除
     if item.forgeStat then
         excluded[item.forgeStat.stat] = true
     end
 
-    -- 可用池
     local pool = {}
     for _, sub in ipairs(EquipmentData.SUB_STATS) do
         if not excluded[sub.stat] then
@@ -136,7 +142,6 @@ local function RollForgeStat(item)
     if #pool == 0 then return nil end
 
     local pick = pool[math.random(1, #pool)]
-    -- 百分比副属性（critRate/critDmg）走独立的平缓倍率表
     local tierMult
     if EquipmentData.PCT_STATS[pick.stat] then
         tierMult = EquipmentData.PCT_SUB_TIER_MULT[item.tier or 1] or 1.0
@@ -147,13 +152,28 @@ local function RollForgeStat(item)
     value = math.floor(value * 100 + 0.5) / 100
     if value <= 0 then value = 0.01 end
 
-    -- 整数类属性（非百分比、非 hpRegen）显示时用 math.floor，
-    -- 需要保证洗练值至少为 1，否则会显示"+0"
     if not EquipmentData.PCT_STATS[pick.stat] and pick.stat ~= "hpRegen" then
         value = math.max(1, math.floor(value + 0.5))
     end
 
     return { stat = pick.stat, name = pick.name, value = value }
+end
+
+--- 格式化属性值（公开方法，外部有引用）
+---@param sub table {stat, value}
+---@return string
+function ForgeUI.FormatStatValue(sub)
+    if EquipmentData.PCT_STATS[sub.stat] or EquipmentData.PCT_MAIN_STATS[sub.stat] then
+        if sub.stat == "critDmg" then
+            return string.format("%.0f%%", sub.value * 100)
+        else
+            return string.format("%.1f%%", sub.value * 100)
+        end
+    elseif sub.stat == "hpRegen" then
+        return string.format("%.1f/s", sub.value)
+    else
+        return tostring(math.floor(sub.value))
+    end
 end
 
 --- 执行洗练
@@ -181,402 +201,389 @@ local function DoForge()
     -- 写入洗练属性
     selectedItem_.forgeStat = newStat
 
-    -- 如果是身上装备，需要刷新属性
+    -- 如果是身上装备，刷新属性
     if selectedSource_ == "equipment" then
         InventorySystem.RecalcEquipStats()
     end
 
-    -- 会话式合并保存：洗练属于高频操作，合并落盘（P2优化）
     SaveSession.MarkDirty()
 
     local rangeText = GetForgeRangeText(newStat.stat, selectedItem_.tier)
-    return true, "洗练成功！获得 " .. newStat.name .. " +" .. ForgeUI.FormatStatValue(newStat) .. " " .. rangeText
+    return true, "洗练成功！" .. newStat.name .. " +" .. ForgeUI.FormatStatValue(newStat) .. " " .. rangeText
 end
 
---- 格式化属性值
----@param sub table {stat, value}
----@return string
-function ForgeUI.FormatStatValue(sub)
-    if EquipmentData.PCT_STATS[sub.stat] or EquipmentData.PCT_MAIN_STATS[sub.stat] then
-        -- 百分比属性统一用百分比显示
-        if sub.stat == "critDmg" then
-            return string.format("%.0f%%", sub.value * 100)
-        else
-            return string.format("%.1f%%", sub.value * 100)
+-- ============================================================================
+-- 信息板刷新
+-- ============================================================================
+
+--- 刷新顶部信息板（选中状态变化时调用）
+local function RefreshInfoPanel()
+    if not infoPanel_ then return end
+
+    -- 同步预览格子
+    if ForgeUI._previewSlot then
+        ForgeUI._previewSlot:SetItem(selectedItem_)
+    end
+
+    if not selectedItem_ then
+        -- 未选中
+        if infoNameLabel_ then
+            infoNameLabel_:SetText("选择装备")
+            infoNameLabel_:SetStyle({ fontColor = T.color.textSecondary })
         end
-    elseif sub.stat == "hpRegen" then
-        return string.format("%.1f/s", sub.value)
+        if forgeStatLabel_ then
+            forgeStatLabel_:SetText("点击下方格子选择")
+            forgeStatLabel_:SetStyle({ fontColor = T.color.textMuted })
+        end
+        if forgeBtn_ then
+            forgeBtn_:SetText("🔨 洗练")
+            forgeBtn_:SetDisabled(true)
+        end
+        if resultLabel_ then resultLabel_:SetText("") end
+        return
+    end
+
+    local item = selectedItem_
+    local qCfg = GameConfig.QUALITY[item.quality]
+    local qColor = qCfg and qCfg.color or T.color.textPrimary
+
+    -- 装备名
+    if infoNameLabel_ then
+        infoNameLabel_:SetText((item.name or "未知装备"))
+        infoNameLabel_:SetStyle({ fontColor = qColor })
+    end
+
+    -- 洗练属性
+    if item.forgeStat then
+        local rangeText = GetForgeRangeText(item.forgeStat.stat, item.tier)
+        if forgeStatLabel_ then
+            forgeStatLabel_:SetText("洗练: " .. item.forgeStat.name .. " +" .. ForgeUI.FormatStatValue(item.forgeStat) .. " " .. rangeText)
+            forgeStatLabel_:SetStyle({ fontColor = T.color.success })
+        end
     else
-        return tostring(math.floor(sub.value))
+        if forgeStatLabel_ then
+            forgeStatLabel_:SetText("尚未洗练")
+            forgeStatLabel_:SetStyle({ fontColor = T.color.textMuted })
+        end
+    end
+
+    -- 按钮（S10: 花金币→btnSpend，不足→btnDisabled；S8: 超万缩写）
+    local cost = GetForgeCost(item)
+    local player = GameState.player
+    local canAfford = player and player.gold >= cost
+    local costText = cost >= 10000 and string.format("%.1fw", cost / 10000) or tostring(cost)
+    if forgeBtn_ then
+        forgeBtn_:SetText("🔨 洗练  💰" .. costText)
+        forgeBtn_:SetDisabled(not canAfford)
+        forgeBtn_:SetBackgroundColor(canAfford and T.color.btnSpend or T.color.btnDisabled)
     end
 end
 
 -- ============================================================================
--- 收集可洗练装备列表
+-- 格子选中处理
 -- ============================================================================
 
---- 收集所有可洗练装备（身上优先，然后背包）
----@return table[] { {item, source, slotId} }
-local function CollectEquipments()
-    local list = {}
+--- 选中装备（从身上）
+local function SelectEquipSlot(slotId)
     local manager = InventorySystem.GetManager()
-    if not manager then return list end
-
-    -- 身上装备
-    for _, slotId in ipairs(EquipmentData.SLOTS) do
-        local item = manager:GetEquipmentItem(slotId)
-        if item and item.quality then
-            table.insert(list, { item = item, source = "equipment", slotId = slotId })
-        end
+    if not manager then return end
+    local item = manager:GetEquipmentItem(slotId)
+    if not item or not item.quality then return end
+    -- 已选同一个则取消
+    if selectedItem_ == item then
+        selectedItem_ = nil
+        selectedSource_ = nil
+        selectedSlot_ = nil
+    else
+        selectedItem_ = item
+        selectedSource_ = "equipment"
+        selectedSlot_ = slotId
     end
+    if resultLabel_ then resultLabel_:SetText("") end
+    RefreshInfoPanel()
+end
 
-    -- 背包内装备
-    for i = 1, GameConfig.BACKPACK_SIZE do
-        local item = manager:GetInventoryItem(i)
-        if item and item.quality and item.category ~= "consumable" then
-            table.insert(list, { item = item, source = "inventory", slotId = i })
-        end
+--- 选中装备（从背包）
+local function SelectInvSlot(index)
+    local manager = InventorySystem.GetManager()
+    if not manager then return end
+    local item = manager:GetInventoryItem(index)
+    if not item or not item.quality or item.category == "consumable" then return end
+    if selectedItem_ == item then
+        selectedItem_ = nil
+        selectedSource_ = nil
+        selectedSlot_ = nil
+    else
+        selectedItem_ = item
+        selectedSource_ = "inventory"
+        selectedSlot_ = index
     end
-
-    return list
+    if resultLabel_ then resultLabel_:SetText("") end
+    RefreshInfoPanel()
 end
 
 -- ============================================================================
 -- UI 构建
 -- ============================================================================
 
---- 创建一个装备行条目
----@param entry table {item, source, slotId}
----@param isSelected boolean
----@return table widget
-local function CreateEquipRow(entry, isSelected)
-    local item = entry.item
-    local qCfg = GameConfig.QUALITY[item.quality]
-    local qColor = qCfg and qCfg.color or {200, 200, 200, 255}
+local FORGE_SLOT_SIZE = 56
 
-    -- 来源标签
-    local srcText = entry.source == "equipment" and "[穿戴]" or "[背包]"
-    local srcColor = entry.source == "equipment" and {120, 200, 255, 220} or {160, 160, 170, 200}
-
-    -- 洗练状态：显示具体属性
-    local forgeTag = ""
-    local forgeColor = {0,0,0,0}
-    if item.forgeStat then
-        forgeTag = " " .. item.forgeStat.name .. "+" .. ForgeUI.FormatStatValue(item.forgeStat)
-        forgeColor = {100, 255, 180, 230}
-    end
-
-    local bgColor = isSelected and {60, 65, 90, 250} or {35, 40, 55, 220}
-    local bdColor = isSelected and {255, 215, 100, 255} or {50, 55, 70, 120}
-    local bdWidth = isSelected and 2 or 1
-
-    return UI.Button {
-        flexDirection = "row",
-        alignItems = "center",
-        gap = T.spacing.sm,
-        paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm,
-        paddingTop = 6, paddingBottom = 6,
-        backgroundColor = bgColor,
-        borderRadius = T.radius.sm,
-        borderWidth = bdWidth,
-        borderColor = bdColor,
-        onClick = function(self)
-            selectedItem_ = item
-            selectedSource_ = entry.source
-            selectedSlot_ = entry.slotId
-            ForgeUI.Refresh()
-        end,
-        children = {
-            -- 图标（用 emoji 替代图片路径）
-            UI.Label {
-                text = SLOT_EMOJI[item.slot] or "📦",
-                fontSize = T.fontSize.lg,
-                width = 28,
-                textAlign = "center",
-            },
-            -- 名称行
-            UI.Panel {
-                flexGrow = 1, flexShrink = 1, flexBasis = 0,
-                children = {
-                    UI.Panel {
-                        flexDirection = "row", alignItems = "center", gap = 4,
-                        children = {
-                            UI.Label {
-                                text = item.name,
-                                fontSize = T.fontSize.sm,
-                                fontWeight = "bold",
-                                fontColor = qColor,
-                            },
-                            UI.Label {
-                                text = forgeTag,
-                                fontSize = T.fontSize.xs,
-                                fontColor = forgeColor,
-                            },
-                        },
-                    },
-                    UI.Label {
-                        text = srcText,
-                        fontSize = T.fontSize.xs,
-                        fontColor = srcColor,
-                    },
-                },
-            },
-        },
-    }
-end
-
----@param parentOverlay table
-function ForgeUI.Create(parentOverlay)
-    -- 装备列表（可滚动）
-    listPanel_ = UI.Panel {
-        id = "forge_list",
-        width = "100%",
-        flexGrow = 1, flexShrink = 1, flexBasis = 0,
-        gap = T.spacing.xs,
-        overflow = "scroll",
+--- 创建顶部洗练操作板（左：装备格 | 右：属性+按钮）
+local function CreateInfoPanel()
+    -- 左侧：选中装备展示格
+    local selectedSlotWidget_ = ImageItemSlot {
+        slotId = "__forge_preview__",
+        slotCategory = "forge_preview",
+        size = FORGE_SLOT_SIZE,
+        showTypeIcon = false,
     }
 
-    -- 底部详情区
-    detailPanel_ = UI.Panel {
-        id = "forge_detail",
-        width = "100%",
-        gap = T.spacing.xs,
-        paddingTop = T.spacing.sm,
+    infoNameLabel_ = UI.Label {
+        text = "选择装备",
+        fontSize = T.fontSize.sm,
+        fontWeight = "bold",
+        fontColor = T.color.textSecondary,
     }
 
-    -- 结果提示
+    forgeStatLabel_ = UI.Label {
+        text = "点击下方格子选择",
+        fontSize = T.fontSize.xs,
+        fontColor = T.color.textMuted,
+    }
+
     resultLabel_ = UI.Label {
-        id = "forge_result",
         text = "",
         fontSize = T.fontSize.xs,
-        fontColor = {100, 255, 150, 255},
-        textAlign = "center",
-        height = 16,
+        fontColor = T.color.success,
     }
 
-    -- 主面板
-    panel_ = UI.Panel {
-        id = "forgePanel",
-        position = "absolute",
-        top = 0, left = 0, right = 0, bottom = 0,
-        backgroundColor = T.color.overlay,
-        justifyContent = "center",
+    forgeBtn_ = UI.Button {
+        text = "🔨 洗练",
+        fontSize = T.fontSize.sm,
+        fontWeight = "bold",
+        paddingLeft = T.spacing.lg,
+        paddingRight = T.spacing.lg,
+        height = 32,
+        borderRadius = T.radius.sm,
+        backgroundColor = T.color.btnDisabled,
+        fontColor = T.color.btnDisabledFg,
+        disabled = true,
+        onClick = function(self)
+            local now = time and time.elapsedTime or 0
+            if now - lastForgeTime_ < FORGE_THROTTLE then
+                if resultLabel_ then resultLabel_:SetText("操作过快") end
+                return
+            end
+            lastForgeTime_ = now
+            local ok, msg = DoForge()
+            if resultLabel_ then
+                resultLabel_:SetText(msg)
+                resultLabel_:SetStyle({ fontColor = ok and T.color.success or T.color.error })
+            end
+            RefreshInfoPanel()
+            ForgeUI.RefreshSlots()
+        end,
+    }
+
+    -- 保存 slotWidget 引用供刷新用
+    ForgeUI._previewSlot = selectedSlotWidget_
+
+    infoPanel_ = UI.Panel {
+        width = "100%",
+        flexDirection = "row",
         alignItems = "center",
-        paddingBottom = T.spacing.xl,
-        visible = false,
-        zIndex = 100,
+        gap = T.spacing.md,
+        backgroundColor = T.color.surfaceDeep,
+        borderRadius = T.radius.sm,
+        borderWidth = 1,
+        borderColor = T.color.border,
+        padding = T.spacing.sm,
         children = {
-            -- 内容卡片
+            -- 左：装备格
             UI.Panel {
-                width = "94%",
-                maxWidth = T.size.npcPanelMaxW,
-                maxHeight = "85%",
-                backgroundColor = T.color.panelBg,
-                borderRadius = T.radius.lg,
-                padding = T.spacing.md,
+                width = FORGE_SLOT_SIZE + T.spacing.xs * 2,
+                height = FORGE_SLOT_SIZE + T.spacing.xs * 2,
+                backgroundColor = T.color.surface,
+                borderRadius = T.radius.md,
+                borderWidth = 1,
+                borderColor = T.color.borderLight,
+                justifyContent = "center",
+                alignItems = "center",
+                children = { selectedSlotWidget_ },
+            },
+            -- 右：信息区
+            UI.Panel {
+                flexGrow = 1,
+                flexShrink = 1,
                 gap = T.spacing.xs,
                 children = {
-                    -- 标题栏（关闭按钮在左，标题在右）
-                    UI.Panel {
-                        flexDirection = "row",
-                        justifyContent = "space-between",
-                        alignItems = "center",
-                        children = {
-                            UI.Button {
-                                text = "✕",
-                                width = T.size.closeButton, height = T.size.closeButton,
-                                fontSize = T.fontSize.md,
-                                borderRadius = T.size.closeButton / 2,
-                                backgroundColor = {60, 60, 70, 200},
-                                onClick = function() ForgeUI.Hide() end,
-                            },
-                            UI.Label {
-                                text = "🔨 洗练",
-                                fontSize = T.fontSize.lg,
-                                fontWeight = "bold",
-                                fontColor = T.color.titleText,
-                            },
-                        },
-                    },
-                    -- 说明
-                    UI.Label {
-                        text = "每件装备可洗练1条额外属性，再次洗练会替换\n洗练不会洗出和主副属性相同的词缀",
-                        fontSize = T.fontSize.xs,
-                        fontColor = {150, 155, 170, 200},
-                    },
-                    -- 分隔线
-                    UI.Panel { width = "100%", height = 1, backgroundColor = {60, 65, 80, 150} },
-                    -- 装备列表
-                    listPanel_,
-                    -- 分隔线
-                    UI.Panel { width = "100%", height = 1, backgroundColor = {60, 65, 80, 150} },
-                    -- 详情区
-                    detailPanel_,
-                    -- 结果提示
+                    infoNameLabel_,
+                    forgeStatLabel_,
+                    forgeBtn_,
                     resultLabel_,
                 },
             },
         },
     }
 
-    parentOverlay:AddChild(panel_)
+    return infoPanel_
+end
+
+--- 创建身上装备格子区
+local function CreateEquipGrid()
+    local gridPanel = UI.Panel {
+        width = "100%",
+        gap = T.spacing.xs,
+    }
+
+    -- 分区标签
+    gridPanel:AddChild(UI.Label {
+        text = "── 身上装备 ──",
+        fontSize = T.fontSize.xs,
+        fontColor = T.color.textMuted,
+        textAlign = "center",
+        width = "100%",
+    })
+
+    -- 7列格子（左对齐自然排列）
+    local row = UI.Panel { width = "100%", flexDirection = "row", flexWrap = "wrap", gap = SLOT_GAP }
+    for _, slotId in ipairs(EQUIP_SLOT_ORDER) do
+        local capturedSlotId = slotId
+        local slot = ImageItemSlot {
+            slotId = slotId,
+            slotCategory = "forge_equip",
+            inventoryManager = InventorySystem.GetManager(),
+            size = SLOT_SIZE,
+            onSlotClick = function(slotWidget, clickedItem)
+                SelectEquipSlot(capturedSlotId)
+            end,
+        }
+        equipSlots_[slotId] = slot
+        row:AddChild(slot)
+    end
+    gridPanel:AddChild(row)
+
+    return gridPanel
+end
+
+--- 创建背包装备格子区（仅显示装备类物品）
+local function CreateInvGrid()
+    local gridPanel = UI.Panel {
+        width = "100%",
+        gap = T.spacing.xs,
+    }
+
+    -- 分区标签
+    gridPanel:AddChild(UI.Label {
+        text = "── 背包装备 ──",
+        fontSize = T.fontSize.xs,
+        fontColor = T.color.textMuted,
+        textAlign = "center",
+        width = "100%",
+    })
+
+    -- 7列格子（左对齐自然排列）
+    local row = UI.Panel { width = "100%", flexDirection = "row", flexWrap = "wrap", gap = SLOT_GAP }
+    local manager = InventorySystem.GetManager()
+    for i = 1, GameConfig.BACKPACK_SIZE do
+        local item = manager and manager:GetInventoryItem(i) or nil
+        -- 只为装备类物品创建格子（跳过空位和消耗品）
+        if item and item.quality and item.category ~= "consumable" then
+            local capturedIdx = i
+            local slot = ImageItemSlot {
+                slotId = i,
+                slotCategory = "forge_inv",
+                size = SLOT_SIZE,
+                showTypeIcon = false,
+                onSlotClick = function(slotWidget, clickedItem)
+                    SelectInvSlot(capturedIdx)
+                end,
+            }
+            slot:SetItem(item)
+            invSlots_[i] = slot
+            row:AddChild(slot)
+        end
+    end
+    gridPanel:AddChild(row)
+
+    return gridPanel
+end
+
+--- 创建面板
+---@param parentOverlay table
+function ForgeUI.Create(parentOverlay)
+    if panel_ then return end
+
+    -- NPC 头像（锻造师，S2.5 规范：64px + headerBg + backgroundImage）
+    local PORTRAIT_SIZE = 64
+    local portraitPanel = UI.Panel {
+        width = PORTRAIT_SIZE,
+        height = PORTRAIT_SIZE,
+        borderRadius = T.radius.md,
+        backgroundColor = T.color.headerBg,
+        overflow = "hidden",
+        backgroundImage = "Textures/npc_blacksmith.png",
+        backgroundFit = "contain",
+    }
+
+    shell_ = PanelShell.Create({
+        title = "洗练",
+        subtitle = "选择装备后点击洗练",
+        portrait = portraitPanel,
+        onClose = function() ForgeUI.Hide() end,
+        parent = parentOverlay,
+        zIndex = 100,
+        footerHint = "每件装备可洗练1条额外属性，再次洗练会替换",
+    })
+    panel_ = shell_.panel
+
+    -- 组装内容（居中对齐）
+    local contentWrapper = UI.Panel {
+        width = "100%",
+        alignItems = "center",
+        gap = T.spacing.sm,
+        children = {
+            CreateInfoPanel(),
+            CreateEquipGrid(),
+            CreateInvGrid(),
+        },
+    }
+    shell_:AddContent(contentWrapper)
+
+    -- 初始刷新格子
+    ForgeUI.RefreshSlots()
 end
 
 -- ============================================================================
 -- 刷新
 -- ============================================================================
 
---- 统一刷新（列表 + 详情）
-function ForgeUI.Refresh()
-    ForgeUI.RefreshList()
-    ForgeUI.RefreshDetail()
-end
+--- 刷新所有格子显示
+function ForgeUI.RefreshSlots()
+    local manager = InventorySystem.GetManager()
+    if not manager then return end
 
-function ForgeUI.RefreshList()
-    if not listPanel_ then return end
-    listPanel_:ClearChildren()
-
-    local equips = CollectEquipments()
-    if #equips == 0 then
-        listPanel_:AddChild(UI.Label {
-            text = "没有可洗练的装备",
-            fontSize = T.fontSize.sm,
-            fontColor = {150, 150, 150, 200},
-            textAlign = "center",
-            marginTop = T.spacing.lg,
-        })
-        return
+    -- 身上装备
+    for slotId, slotWidget in pairs(equipSlots_) do
+        local item = manager:GetEquipmentItem(slotId)
+        slotWidget:SetItem(item)
     end
 
-    for _, entry in ipairs(equips) do
-        local isSel = (selectedItem_ == entry.item)
-        listPanel_:AddChild(CreateEquipRow(entry, isSel))
-    end
-end
-
-function ForgeUI.RefreshDetail()
-    if not detailPanel_ then return end
-    detailPanel_:ClearChildren()
-
-    if not selectedItem_ then
-        detailPanel_:AddChild(UI.Label {
-            text = "点击上方装备进行洗练",
-            fontSize = T.fontSize.sm,
-            fontColor = {120, 125, 140, 200},
-            textAlign = "center",
-            marginTop = T.spacing.sm,
-            marginBottom = T.spacing.sm,
-        })
-        return
-    end
-
-    local item = selectedItem_
-    local qCfg = GameConfig.QUALITY[item.quality]
-    local qColor = qCfg and qCfg.color or {200, 200, 200, 255}
-    local cost = GetForgeCost(item)
-
-    -- 选中装备信息行
-    local infoChildren = {}
-
-    -- 装备名 + 属性摘要（STAT_NAMES 来自共享模块）
-    local STAT_NAMES = StatNames.SHORT_NAMES
-    local statSummary = ""
-    if item.mainStat then
-        for stat, val in pairs(item.mainStat) do
-            local name = STAT_NAMES[stat] or stat
-            if EquipmentData.PCT_MAIN_STATS[stat] then
-                statSummary = name .. "+" .. string.format("%.1f%%", val * 100)
-            else
-                statSummary = name .. "+" .. math.floor(val)
-            end
+    -- 背包格子（已创建的）
+    for idx, slotWidget in pairs(invSlots_) do
+        local item = manager:GetInventoryItem(idx)
+        if item and item.quality and item.category ~= "consumable" then
+            slotWidget:SetItem(item)
+        else
+            slotWidget:SetItem(nil)
         end
     end
+end
 
-    table.insert(infoChildren, UI.Panel {
-        flexDirection = "row", alignItems = "center", justifyContent = "space-between",
-        children = {
-            UI.Label {
-                text = (SLOT_EMOJI[item.slot] or "📦") .. " " .. item.name,
-                fontSize = T.fontSize.sm,
-                fontWeight = "bold",
-                fontColor = qColor,
-            },
-            UI.Label {
-                text = statSummary,
-                fontSize = T.fontSize.xs,
-                fontColor = {255, 220, 150, 230},
-            },
-        },
-    })
-
-    -- 洗练属性显示
-    if item.forgeStat then
-        table.insert(infoChildren, UI.Panel {
-            flexDirection = "row", alignItems = "center", justifyContent = "space-between",
-            backgroundColor = {40, 60, 50, 200},
-            borderRadius = T.radius.sm,
-            paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm,
-            paddingTop = 4, paddingBottom = 4,
-            children = {
-                UI.Label {
-                    text = "洗练属性: " .. item.forgeStat.name .. " +" .. ForgeUI.FormatStatValue(item.forgeStat)
-                        .. " " .. GetForgeRangeText(item.forgeStat.stat, item.tier),
-                    fontSize = T.fontSize.xs,
-                    fontWeight = "bold",
-                    fontColor = {100, 255, 180, 255},
-                },
-                UI.Label {
-                    text = "再次洗练替换",
-                    fontSize = T.fontSize.xs,
-                    fontColor = {255, 200, 100, 160},
-                },
-            },
-        })
-    else
-        table.insert(infoChildren, UI.Label {
-            text = "尚未洗练，点击下方按钮洗练",
-            fontSize = T.fontSize.xs,
-            fontColor = {150, 155, 170, 180},
-        })
-    end
-
-    -- 洗练按钮
-    local player = GameState.player
-    local canAfford = player and player.gold >= cost
-    table.insert(infoChildren, UI.Button {
-        text = "洗练  💰" .. cost,
-        width = "100%",
-        height = 36,
-        fontSize = T.fontSize.sm,
-        fontWeight = "bold",
-        variant = canAfford and "primary" or "default",
-        backgroundColor = canAfford and nil or {60, 60, 60, 200},
-        marginTop = T.spacing.xs,
-        onClick = function(self)
-            local now = time.elapsedTime
-            if now - lastForgeTime_ < FORGE_THROTTLE then
-                if resultLabel_ then
-                    resultLabel_:SetText("操作过快，请稍后")
-                    resultLabel_:SetStyle({ fontColor = {255, 200, 100, 255} })
-                end
-                return
-            end
-            lastForgeTime_ = now
-            local ok, msg = DoForge()
-            ForgeUI.Refresh()
-            -- 更新结果提示
-            if resultLabel_ then
-                resultLabel_:SetText(msg)
-                resultLabel_:SetStyle({
-                    fontColor = ok and {100, 255, 150, 255} or {255, 120, 100, 255},
-                })
-            end
-        end,
-    })
-
-    for _, child in ipairs(infoChildren) do
-        detailPanel_:AddChild(child)
-    end
+--- 统一刷新
+function ForgeUI.Refresh()
+    ForgeUI.RefreshSlots()
+    RefreshInfoPanel()
 end
 
 -- ============================================================================
@@ -598,7 +605,7 @@ end
 
 function ForgeUI.Hide()
     if panel_ and visible_ then
-        SaveSession.Flush()  -- 关闭 UI 时收口会话脏数据（P2优化）
+        SaveSession.Flush()
         visible_ = false
         panel_:Hide()
         if GameState.uiOpen == "forge" then
@@ -615,16 +622,25 @@ function ForgeUI.IsVisible()
     return visible_
 end
 
---- 销毁面板（切换角色时调用，重置所有状态）
+--- 销毁面板
 function ForgeUI.Destroy()
+    if panel_ then
+        panel_:Remove()
+    end
     panel_ = nil
+    shell_ = nil
     visible_ = false
-    listPanel_ = nil
-    detailPanel_ = nil
     selectedItem_ = nil
     selectedSource_ = nil
     selectedSlot_ = nil
     resultLabel_ = nil
+    infoPanel_ = nil
+    infoNameLabel_ = nil
+    forgeStatLabel_ = nil
+    forgeBtn_ = nil
+    ForgeUI._previewSlot = nil
+    equipSlots_ = {}
+    invSlots_ = {}
 end
 
 return ForgeUI

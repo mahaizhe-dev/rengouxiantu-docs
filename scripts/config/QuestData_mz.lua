@@ -18,7 +18,7 @@ QuestData_mz.ZONE_QUESTS = {
     mz_battle_luo_zone = {
         zone = "mz_battle_luo",
         chapter = 101,
-        name = "仙陨战场",
+        name = "仙灭战场",
         steps = {},
     },
     mz_battle_yun_zone = {
@@ -63,7 +63,7 @@ QuestData_mz.SEALS = {
         },
         originalTile = TileTypes.TILE.BRIDGE_FLOOR,
         sealTile = TileTypes.TILE.SEAL_RED,
-        promptText = "仙陨封印：需谪仙境修为（Lv.140）方可解封",
+        promptText = "仙灭封印：需达到谪仙境修为方可解封",
         promptRange = 3.0,
         realmDriven = true,
         requiredRealmOrder = 23,
@@ -80,7 +80,7 @@ QuestData_mz.SEALS = {
         },
         originalTile = TileTypes.TILE.BRIDGE_FLOOR,
         sealTile = TileTypes.TILE.SEAL_RED,
-        promptText = "仙殒封印：需大乘期修为（Lv.120）方可解封",
+        promptText = "仙殒封印：需达到大乘期修为方可解封",
         promptRange = 3.0,
         realmDriven = true,
         requiredRealmOrder = 19,

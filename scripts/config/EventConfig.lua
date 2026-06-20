@@ -63,6 +63,10 @@ EventConfig.ACTIVE_EVENT = {
             emperor_boss = { dragonboat_colored_rope = 0.05 },
             saint_boss   = { dragonboat_colored_rope = 0.06 },
         },
+        [101] = { -- 中洲战场（仙劫+仙殒）
+            king_boss    = { dragonboat_colored_rope = 0.04 },
+            emperor_boss = { dragonboat_colored_rope = 0.05 },
+        },
     },
 
     -- ═══ 稀有开启物（辟邪香囊）掉率：按怪物境界 monster.realm ═══

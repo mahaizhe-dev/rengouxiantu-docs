@@ -19,7 +19,14 @@ battle_yun.regions = {
 
 battle_yun.npcs = {}
 battle_yun.decorations = {}
-battle_yun.spawns = {}
+battle_yun.spawns = {
+    -- 域外天魔 ×5（皇级BOSS，均匀分布在战场区域）
+    { type = "outer_celestial_boss", x = 60, y = 6  },
+    { type = "outer_celestial_boss", x = 73, y = 6  },
+    { type = "outer_celestial_boss", x = 66, y = 12 },
+    { type = "outer_celestial_boss", x = 60, y = 18 },
+    { type = "outer_celestial_boss", x = 73, y = 18 },
+}
 
 battle_yun.generation = {
     fill = { tile = "CORRUPTED_GROUND" },

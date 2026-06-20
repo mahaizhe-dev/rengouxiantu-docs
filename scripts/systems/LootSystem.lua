@@ -51,5 +51,6 @@ LootSystem.GenerateXianyuanReward  = rewards.GenerateXianyuanReward
 LootSystem.GenerateXianyuanSetReward = rewards.GenerateXianyuanSetReward
 LootSystem.ForgeRandomLingqi       = rewards.ForgeRandomLingqi
 LootSystem.ForgeRandomSetLingqi    = rewards.ForgeRandomSetLingqi
+LootSystem.GenerateSwordWallRewardEquipment = rewards.GenerateSwordWallRewardEquipment
 
 return LootSystem

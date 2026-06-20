@@ -363,4 +363,19 @@ function M.ForgeRandomSetLingqi(poolId, tierOverride)
     return generation.GenerateSetEquipment(100, setId, nil, tierOverride)
 end
 
+--- 剑气长城副本奖励：T10 青色灵器（30%套装 / 70%普通）
+--- 套装白名单：xuesha, qingyun, fengmo, haoqi
+---@return table|nil
+function M.GenerateSwordWallRewardEquipment()
+    local SWC = require("config.SwordWallConfig")
+    if math.random() < SWC.REWARD_SET_CHANCE then
+        -- 30% 套装件
+        local setId = SWC.REWARD_SET_IDS[math.random(1, #SWC.REWARD_SET_IDS)]
+        return generation.GenerateSetEquipment(120, setId, nil, SWC.REWARD_EQUIP_TIER)
+    else
+        -- 70% 普通T10青色灵器
+        return M.ForgeRandomLingqi(nil, SWC.REWARD_EQUIP_TIER, SWC.REWARD_EQUIP_QUALITY)
+    end
+end
+
 return M

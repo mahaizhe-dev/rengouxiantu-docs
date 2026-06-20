@@ -45,11 +45,11 @@ local passiveDetail_ = nil
 -- 颜色常量
 -- ============================================================================
 
-local COLOR_GOLD        = {255, 215, 0, 255}
+local COLOR_GOLD        = T.color.statValueGold
 local COLOR_GOLD_DIM    = {180, 150, 60, 255}
-local COLOR_PASSIVE_ON  = {255, 215, 0, 255}
-local COLOR_PASSIVE_OFF = {120, 120, 130, 255}
-local COLOR_NEXT        = {200, 160, 40, 255}
+local COLOR_PASSIVE_ON  = T.color.statValueGold
+local COLOR_PASSIVE_OFF = T.color.textMuted
+local COLOR_NEXT        = T.color.artifactReady
 
 -- 格子遮罩色
 local MASK_ACTIVATED    = {0, 0, 0, 0}
@@ -431,7 +431,8 @@ function ArtifactUI.Create(parentOverlay)
                                 height = T.size.dialogBtnH,
                                 fontSize = T.fontSize.md,
                                 borderRadius = T.radius.md,
-                                backgroundColor = {70, 70, 80, 220},
+                                backgroundColor = T.color.btnSecondary,
+                                fontColor = T.color.btnSecondaryFg,
                                 onClick = function() ArtifactUI.HideConfirm() end,
                             },
                             UI.Button {
@@ -441,7 +442,8 @@ function ArtifactUI.Create(parentOverlay)
                                 fontSize = T.fontSize.md,
                                 fontWeight = "bold",
                                 borderRadius = T.radius.md,
-                                backgroundColor = {200, 160, 40, 255},
+                                backgroundColor = T.color.btnSpend,
+                                fontColor = T.color.btnSpendFg,
                                 onClick = function() DoConfirmActivate() end,
                             },
                         },
@@ -674,7 +676,7 @@ function ArtifactUI.RefreshPassive()
     elseif count >= ArtifactSystem.GRID_COUNT and not ArtifactSystem.bossDefeated then
         -- ⚡ 可觉醒 → 预备状态
         passiveContainer_:SetStyle({
-            borderColor = {200, 160, 40, 100},
+            borderColor = {T.color.artifactReady[1], T.color.artifactReady[2], T.color.artifactReady[3], 100},
             borderWidth = 1,
             backgroundColor = {45, 40, 15, 200},
         })
@@ -683,7 +685,7 @@ function ArtifactUI.RefreshPassive()
         end
         if passiveStatus_ then
             passiveStatus_:SetText("待觉醒 - 击败BOSS后激活")
-            passiveStatus_:SetStyle({ fontColor = {200, 160, 40, 255} })
+            passiveStatus_:SetStyle({ fontColor = T.color.artifactReady })
         end
         if passiveDesc_ then
             passiveDesc_:SetStyle({ fontColor = {180, 180, 190, 200} })
@@ -719,11 +721,11 @@ function ArtifactUI.RefreshActionButton()
         actionBtn_:SetVisible(true)
         local canFight = ArtifactSystem.CanFightBoss()
         actionBtn_:SetText("唤醒神器")
-        actionBtn_:SetStyle({ backgroundColor = canFight and {220, 60, 60, 255} or {80, 80, 90, 200} })
+        actionBtn_:SetStyle({ backgroundColor = canFight and T.color.btnDanger or T.color.btnDisabled })
     elseif ArtifactSystem.bossDefeated then
         actionBtn_:SetVisible(true)
         actionBtn_:SetText("✦ 神兵已觉醒 ✦")
-        actionBtn_:SetStyle({ backgroundColor = {60, 140, 80, 200} })
+        actionBtn_:SetStyle({ backgroundColor = T.color.btnSuccess })
     else
         actionBtn_:SetVisible(false)
     end
@@ -845,8 +847,9 @@ function ArtifactUI.ShowVictory()
                         fontSize = T.fontSize.md,
                         fontWeight = "bold",
                         borderRadius = T.radius.md,
-                        backgroundColor = {200, 160, 40, 255},
-                        marginTop = 4,
+                        backgroundColor = T.color.btnSuccess,
+                        fontColor = T.color.btnSuccessFg,
+                        marginTop = T.spacing.xs,
                         onClick = function() ArtifactUI.HideVictory() end,
                     },
                 },

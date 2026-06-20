@@ -263,6 +263,38 @@ M.WORLD_DROP_POOLS = {
         },
     },
 
+    -- ===================== 仙殒战场·域外天魔掉落池 =====================
+
+    -- 100% 掉落池：龙髓/修炼果/灵韵果 三选一
+    xianyun_material = {
+        bossLabel = "100%",
+        items = {
+            { type = "consumable", consumableId = "dragon_marrow" },         -- 龙髓
+            { type = "consumable", consumableId = "exp_pill" },              -- 修炼果
+            { type = "consumable", consumableId = "lingyun_fruit" },         -- 灵韵果
+        },
+    },
+    -- 5% 稀有掉落池：渡劫丹/上品修炼果/金砖/上品灵韵果/仙人精血 五选一
+    xianyun_rare = {
+        bossLabel = "5%",
+        items = {
+            { type = "consumable", consumableId = "dujie_dan" },                 -- 渡劫丹
+            { type = "consumable", consumableId = "exp_pill_superior" },          -- 上品修炼果
+            { type = "consumable", consumableId = "gold_brick" },                 -- 金砖
+            { type = "consumable", consumableId = "lingyun_fruit_superior" },     -- 上品灵韵果
+            { type = "consumable", consumableId = "immortal_essence_blood" },     -- 仙人精血
+        },
+    },
+    -- 0.1% 神器池：天帝剑痕碎片(4/5/6) 三选一
+    xianyun_fragments = {
+        bossLabel = "0.1%",
+        items = {
+            { type = "consumable", consumableId = "tiandi_fragment_4" }, -- 天帝剑痕碎片·肆
+            { type = "consumable", consumableId = "tiandi_fragment_5" }, -- 天帝剑痕碎片·伍
+            { type = "consumable", consumableId = "tiandi_fragment_6" }, -- 天帝剑痕碎片·陆
+        },
+    },
+
     -- ===================== 宠物技能书掉落池 =====================
 
     -- 司空正阳专属：新3系列高级书共享3%，随机掉1本

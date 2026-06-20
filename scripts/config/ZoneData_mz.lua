@@ -172,9 +172,10 @@ ZoneData_mz.TILE_TRANSITION_COLORS = {
 -- ============================================================================
 
 ZoneData_mz.BESTIARY_ZONES = {
-    order = { "xianjie_battlefield" },
+    order = { "xianjie_battlefield", "xianyun_battlefield" },
     names = {
         xianjie_battlefield = "仙劫战场",
+        xianyun_battlefield = "仙殒战场",
     },
 }
 
@@ -187,7 +188,7 @@ ZoneData_mz.ZONE_INFO = {
     mz_yaochi     = { name = "瑶池",       levelRange = nil },
     mz_rift       = { name = "天裂峡谷",   levelRange = nil },
     mz_battle_jie = { name = "仙劫战场",   levelRange = nil },
-    mz_battle_luo = { name = "仙陨战场",   levelRange = nil },
+    mz_battle_luo = { name = "仙灭战场",   levelRange = nil },
     mz_battle_yun = { name = "仙殒战场",   levelRange = nil },
     mz_road       = { name = "仙府长街",   levelRange = nil },
 }

@@ -11,7 +11,19 @@ library.regions = {
     ch5_library = { x1 = 59, y1 = 49, x2 = 76, y2 = 63, zone = "ch5_library" },
 }
 
-library.npcs = {}
+library.npcs = {
+    {
+        id = "sword_wall_guardian",
+        name = "剑气长城镇守使",
+        subtitle = "失落的守剑人",
+        icon = "⚔️",
+        portrait = "image/monster_sword_ghost_20260515092604.png",
+        iconScale = 1,  -- 标准NPC大小
+        x = 67, y = 63,  -- 藏经阁底部，通往剑气长城回廊通道口
+        interactType = "sword_wall_challenge",
+        dialog = "剑气长城魔劫未消……勇者，可敢一试？",
+    },
+}
 library.spawns = {
     -- 藏经书阁：无普通怪，仅精英+BOSS
     -- 精英怪：禁页书妖 ×4（阁内巡逻）
@@ -19,8 +31,8 @@ library.spawns = {
     { type = "ch5_book_demon",    x = 72.5, y = 55.5 },
     { type = "ch5_book_demon",    x = 62.5, y = 57.5 },
     { type = "ch5_book_demon",    x = 73.5, y = 59.5 },
-    -- BOSS：温素章 ×1（阁楼深处）
-    { type = "ch5_wen_suzhang",   x = 67.5, y = 60.5 },
+    -- BOSS：温素章 ×1（阁楼中央）
+    { type = "ch5_wen_suzhang",   x = 67.5, y = 56.5 },
 }
 library.decorations = {
     -- 藏经书阁：燃书架与散卷

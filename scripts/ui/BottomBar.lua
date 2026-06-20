@@ -80,11 +80,11 @@ local function createToolBtn(icon, hotkey, id, onClick)
                 btn,
                 UI.Label {
                     text = hotkey,
-                    fontSize = 9,
+                    fontSize = T.fontSize.xxs,
                     fontColor = {160, 170, 190, 180},
                     textAlign = "center",
                     pointerEvents = "none",
-                    marginTop = 1,
+                    marginTop = T.spacing.xxs,
                 },
             },
         }
@@ -472,14 +472,12 @@ function BottomBar.Create(parentOverlay, callbacks)
                         gap = T.spacing.xs,
                         height = T.size.toolButton + (showHotkeys_ and 16 or 4),
                         children = {
-                            -- 左侧：资源信息（横排）
+                            -- 左侧：资源信息（上下两行）
                             UI.Panel {
-                                flexDirection = "row",
                                 flexGrow = 1,
                                 flexShrink = 1,
                                 flexBasis = 0,
-                                alignItems = "center",
-                                gap = T.spacing.sm,
+                                gap = T.spacing.xxs,
                                 pointerEvents = "none",
                                 children = {
                                     UI.Label {
@@ -493,12 +491,6 @@ function BottomBar.Create(parentOverlay, callbacks)
                                         text = "💎 0",
                                         fontSize = T.fontSize.xs,
                                         fontColor = {150, 100, 255, 255},
-                                    },
-                                    UI.Label {
-                                        id = "bb_zone",
-                                        text = "📍 两界村",
-                                        fontSize = T.fontSize.xs,
-                                        fontColor = {180, 180, 180, 200},
                                     },
                                 },
                             },

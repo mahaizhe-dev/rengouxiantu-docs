@@ -475,7 +475,8 @@ function ArtifactUI_ch4.Create(parentOverlay)
                                 height = T.size.dialogBtnH,
                                 fontSize = T.fontSize.md,
                                 borderRadius = T.radius.md,
-                                backgroundColor = {70, 70, 80, 220},
+                                backgroundColor = T.color.btnSecondary,
+                                fontColor = T.color.btnSecondaryFg,
                                 onClick = function() ArtifactUI_ch4.HideConfirm() end,
                             },
                             UI.Button {
@@ -485,7 +486,8 @@ function ArtifactUI_ch4.Create(parentOverlay)
                                 fontSize = T.fontSize.md,
                                 fontWeight = "bold",
                                 borderRadius = T.radius.md,
-                                backgroundColor = {60, 130, 200, 255},
+                                backgroundColor = T.color.btnSpend,
+                                fontColor = T.color.btnSpendFg,
                                 onClick = function() DoConfirmActivate() end,
                             },
                         },
@@ -770,11 +772,11 @@ function ArtifactUI_ch4.RefreshActionButton()
         actionBtn_:SetVisible(true)
         local canFight = ArtifactCh4.CanFightBoss()
         actionBtn_:SetText("唤醒八卦盘")
-        actionBtn_:SetStyle({ backgroundColor = canFight and {60, 130, 200, 255} or {80, 80, 90, 200} })
+        actionBtn_:SetStyle({ backgroundColor = canFight and T.color.btnDanger or T.color.btnDisabled })
     elseif ArtifactCh4.bossDefeated then
         actionBtn_:SetVisible(true)
         actionBtn_:SetText("✦ 八卦盘已觉醒 ✦")
-        actionBtn_:SetStyle({ backgroundColor = {40, 120, 160, 200} })
+        actionBtn_:SetStyle({ backgroundColor = T.color.btnSuccess })
     else
         actionBtn_:SetVisible(false)
     end
@@ -897,8 +899,9 @@ function ArtifactUI_ch4.ShowVictory()
                         fontSize = T.fontSize.md,
                         fontWeight = "bold",
                         borderRadius = T.radius.md,
-                        backgroundColor = {60, 130, 200, 255},
-                        marginTop = 4,
+                        backgroundColor = T.color.btnSuccess,
+                        fontColor = T.color.btnSuccessFg,
+                        marginTop = T.spacing.xs,
                         onClick = function() ArtifactUI_ch4.HideVictory() end,
                     },
                 },

@@ -40,6 +40,11 @@ if not _dhOk then
     print("[Server][WARN] DungeonHandler load failed: " .. tostring(DungeonHandler))
     DungeonHandler = nil
 end
+local _swOk, SwordWallHandler = pcall(require, "network.SwordWallHandler")
+if not _swOk then
+    print("[Server][WARN] SwordWallHandler load failed: " .. tostring(SwordWallHandler))
+    SwordWallHandler = nil
+end
 local _ehOk, EventHandler = pcall(require, "network.EventHandler")
 if not _ehOk then
     print("[Server][WARN] EventHandler load failed: " .. tostring(EventHandler))
@@ -213,6 +218,12 @@ function Start()
     -- 皮肤商店（大黑无天）
     RateLimitedSubscribe(SaveProtocol.C2S_SkinShopQuery, "HandleSkinShopQuery")
     RateLimitedSubscribe(SaveProtocol.C2S_SkinShopBuy, "HandleSkinShopBuy")
+    -- 剑气长城副本
+    if SwordWallHandler then
+        RateLimitedSubscribe(SaveProtocol.C2S_SwordWallClaim, "HandleSwordWallClaim")
+        RateLimitedSubscribe(SaveProtocol.C2S_SwordWallShopQuery, "HandleSwordWallShopQuery")
+        RateLimitedSubscribe(SaveProtocol.C2S_SwordWallShopBuy, "HandleSwordWallShopBuy")
+    end
     -- 仙缘宝箱
     RateLimitedSubscribe(SaveProtocol.C2S_XianyuanChest_StartOpen, "HandleXianyuanChestStartOpen")
     RateLimitedSubscribe(SaveProtocol.C2S_XianyuanChest_CancelOpen, "HandleXianyuanChestCancelOpen")
@@ -968,6 +979,22 @@ end
 
 function HandleSkinShopBuy(eventType, eventData)
     SkinShopHandler.HandleBuy(eventType, eventData)
+end
+
+-- ============================================================================
+-- 剑气长城副本 — 全局包装函数
+-- ============================================================================
+
+function HandleSwordWallClaim(eventType, eventData)
+    if SwordWallHandler then SwordWallHandler.HandleClaim(eventData["Connection"]:GetPtr("Connection"), eventData) end
+end
+
+function HandleSwordWallShopQuery(eventType, eventData)
+    if SwordWallHandler then SwordWallHandler.HandleShopQuery(eventData["Connection"]:GetPtr("Connection"), eventData) end
+end
+
+function HandleSwordWallShopBuy(eventType, eventData)
+    if SwordWallHandler then SwordWallHandler.HandleShopBuy(eventData["Connection"]:GetPtr("Connection"), eventData) end
 end
 
 -- ============================================================================

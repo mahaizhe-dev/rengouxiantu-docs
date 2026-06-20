@@ -471,7 +471,8 @@ function ArtifactUI_tiandi.Create(parentOverlay)
                                 height = T.size.dialogBtnH,
                                 fontSize = T.fontSize.md,
                                 borderRadius = T.radius.md,
-                                backgroundColor = {70, 60, 50, 220},
+                                backgroundColor = T.color.btnSecondary,
+                                fontColor = T.color.btnSecondaryFg,
                                 onClick = function() ArtifactUI_tiandi.HideConfirm() end,
                             },
                             UI.Button {
@@ -481,7 +482,8 @@ function ArtifactUI_tiandi.Create(parentOverlay)
                                 fontSize = T.fontSize.md,
                                 fontWeight = "bold",
                                 borderRadius = T.radius.md,
-                                backgroundColor = {210, 130, 30, 255},
+                                backgroundColor = T.color.btnSpend,
+                                fontColor = T.color.btnSpendFg,
                                 onClick = function() DoConfirmActivate() end,
                             },
                         },
@@ -666,7 +668,7 @@ function ArtifactUI_tiandi.Refresh()
             costLabel_:SetText("激活费用：" .. FormatGold(ArtifactTiandi.ACTIVATE_GOLD_COST)
                 .. "金币 + " .. ArtifactTiandi.ACTIVATE_LINGYUN_COST .. "灵韵 + 对应碎片")
         else
-            costLabel_:SetText("仙劫战场三格已满")
+            costLabel_:SetText("当前" .. ArtifactTiandi.GRID_COUNT .. "格已满，待后续战场开放更多")
         end
     end
 end

@@ -1954,3 +1954,226 @@ end
 - 竖屏优先单列布局（maxWidth=500, maxHeight=76%）
 
 ---
+
+## 附录 P：洗练界面（ForgeUI）Phase 3 — 规则沉淀
+
+### P.1 功能面板格子保持左对齐
+
+**问题**：将格子容器加 `justifyContent = "center"` 后，末行不满 7 格时格子浮到中间，视觉散乱。
+
+**规则**：功能面板（洗练、附灵等）中的装备格子使用标准左对齐 `flexWrap = "wrap"`，不加 `justifyContent = "center"`。居中仅适用于洗练信息块等独立功能区。
+
+```lua
+-- ✅ 正确：格子左对齐自然排列
+local row = UI.Panel { width = "100%", flexDirection = "row", flexWrap = "wrap", gap = SLOT_GAP }
+
+-- ❌ 错误：格子居中（末行散乱）
+local row = UI.Panel { width = "100%", flexDirection = "row", flexWrap = "wrap", gap = SLOT_GAP, justifyContent = "center" }
+```
+
+### P.2 NPC 头像必须使用项目已有资源
+
+**问题**：开发者编造 emoji/文字作为 portrait，不符合 S2.5 NPC 头像规范。
+
+**规则**：`PanelShell.portrait` 必须使用 `backgroundImage` 指向项目中已有的 NPC 头像资源。查找方式：`grep portrait scripts/config/zones/` 获取 NPC 配置中定义的头像路径。
+
+```lua
+-- ✅ 正确：使用项目资源
+backgroundImage = "Textures/npc_blacksmith.png",  -- 从 zones/town.lua 查得
+
+-- ❌ 错误：自编 emoji
+children = { UI.Label { text = "🔨", fontSize = 28 } }
+```
+
+### P.3 按钮语义色必须在首次实现时就接入
+
+**问题**：先写无色按钮，P2.5 审查时才发现缺失，返工成本高。
+
+**规则**：创建任何操作按钮时，必须立即确定其 S10 语义（btnSpend/btnSuccess/btnSecondary/btnDanger/btnDisabled），不允许留空。
+
+### P.4 结果文字不与按钮同行
+
+**问题**：`flexDirection = "row"` 放按钮和结果标签同行，长文本折行后挤压丑陋。
+
+**规则**：操作结果反馈 `resultLabel_` 始终独占一行（在按钮下方），不与按钮共享水平空间。
+
+### P.5 ui-rensheng-standard skill 触发时机
+
+**问题**：本次重构全程未触发 `ui-rensheng-standard` skill，导致大量返工。
+
+**规则**：**每次会话开始修改 `scripts/ui/*.lua` 文件前，必须先触发 `ui-rensheng-standard` skill**。这不是可选步骤。
+
+---
+
+## 附录 Q：洗练界面（ForgeUI）Phase 4 — 验收回归
+
+### Q.1 功能验收路径
+
+| # | 路径 | 预期 | 状态 |
+|---|------|------|:----:|
+| 1 | 打开洗练面板 | NPC 锻造师头像 + 标题"洗练" + 副标题 | ✅ |
+| 2 | 未选中状态 | 信息块显示"选择装备" + 按钮禁用（btnDisabled 灰色） | ✅ |
+| 3 | 点击身上装备格 | 信息块更新：装备名（品质色）+ 洗练属性 + 按钮启用（btnSpend 琥珀金） | ✅ |
+| 4 | 点击背包装备格 | 同上，source = "inventory" | ✅ |
+| 5 | 再次点击已选格 | 取消选中，回到未选中状态 | ✅ |
+| 6 | 金币充足时点击洗练 | 扣费 + 属性刷新 + 结果显示（绿色成功文字，独占行） | ✅ |
+| 7 | 金币不足时 | 按钮禁用（btnDisabled），点击无反应 | ✅ |
+| 8 | 防连点（0.5s 内重复点击） | 显示"操作过快" | ✅ |
+| 9 | 金币超万显示 | 按钮文字 "💰10.0w" 格式 | ✅ |
+| 10 | 关闭面板 | overlay 点击 / ✕ 按钮均可关闭，SaveSession.Flush() 触发 | ✅ |
+| 11 | footer 提示 | "每件装备可洗练1条额外属性，再次洗练会替换" | ✅ |
+
+### Q.2 规范验收（对照 ui-rensheng-standard）
+
+| 检查项 | 结果 |
+|--------|:----:|
+| Style 文件头标记 | ✅ |
+| 硬编码 RGBA = 0 | ✅ |
+| PanelShell 骨架（goldDark 边框 / maxH=76%） | ✅ |
+| NPC 头像 = backgroundImage 项目资源 | ✅ `npc_blacksmith.png` |
+| 按钮语义色（btnSpend / btnDisabled） | ✅ |
+| 金币超万缩写 | ✅ |
+| 格子左对齐 | ✅ |
+| 分区标题居中 | ✅ |
+| ScrollView 无 flexGrow=1 | ✅（无 ScrollView） |
+| 死代码已清理 | ✅ INV_COLS 已删 |
+| Build 通过 | ✅ |
+
+### Q.3 数据安全
+
+| 测试 | 结论 |
+|------|------|
+| 洗练逻辑（RollForgeStat/DoForge）未修改 | ✅ |
+| SaveSession.MarkDirty + Flush 保持 | ✅ |
+| 防连点节流 0.5s | ✅ |
+| 身上装备洗练后触发 RecalcEquipStats | ✅ |
+
+### Q.4 结论
+
+**洗练界面（ForgeUI）Phase 1-4 全部完成。**
+
+重构范围：
+- 从 630 行列表式面板重构为 ~600 行 PanelShell + 信息板 + 格子布局
+- 全量令牌化（~20 处硬编码 RGBA → 0）
+- 按钮接入 S10 语义色体系（btnSpend / btnDisabled）
+- 金币超万缩写（S8）
+- NPC 头像接入项目资源（S2.5）
+- 操作板居中 + 格子左对齐 + 结果独占行
+
+---
+
+## 附录 R：附灵师界面（TemperUI）Phase 3 — 规则沉淀
+
+### R.1 列表密集型面板使用固定高度卡片
+
+**问题**：PanelShell 自适应收缩（S0.2）适合内容较少的面板，但列表密集型面板（装备列表、物品选择）在内容少时显示极矮，体验差。
+
+**规则**：当面板核心功能是**可滚动列表选择**时，不使用 PanelShell，改用 S2.4 手动模板 + `height = "76%"`（固定高度）。内部 ScrollView 使用 `flexGrow = 1, flexShrink = 1, flexBasis = 0` 填满剩余空间。
+
+| 面板类型 | 高度策略 | 适用 |
+|---------|---------|------|
+| 功能面板（炼丹、商店卡片） | PanelShell `maxHeight = "76%"` 自适应 | 内容固定/少量 |
+| 列表选择面板（附灵、洗练旧版） | S2.4 手动 `height = "76%"` 固定 | 列表可滚动 |
+| 格子面板（洗练新版、背包） | PanelShell `maxHeight = "76%"` + 格子撑高 | 格子数量足够 |
+
+### R.2 预览格操作板模式
+
+**规则**：当操作需要用户"先选材料，再确认执行"时，使用**预览格操作板**（surfaceDeep + border 容器）：
+- 顶部放预览格子（展示已选物品）
+- 中部放状态提示 + 费用
+- 底部放操作按钮
+
+```lua
+-- 萃取：3格预览
+┌────┐ ┌────┐ ┌────┐
+│ 1  │ │ 2  │ │ 3  │
+└────┘ └────┘ └────┘
+已选 2/3（血煞）  消耗🔮100
+[萃取 btnSpend]
+
+-- 附灵：装备→灵玉 双格预览
+┌────┐   →   ┌────┐
+│装备│        │灵玉│
+└────┘        └────┘
+消耗🔮100  [附灵 btnSpend]
+```
+
+### R.3 Tab 切换禁止 Destroy/Recreate
+
+**问题**：旧 TemperUI 切 Tab 时销毁重建整个面板（含弹窗），极其浪费且弹窗状态丢失。
+
+**规则**：Tab 切换只做 `SetBackgroundColor` 更新按钮样式 + `ClearChildren/AddChild` 重建内容区。面板骨架（header/footer/弹窗）不重建。
+
+### R.4 关闭按钮背景色为 S2.4 模板标准值
+
+`{255, 100, 100, 30}` 是 S2.4 代码模板中的关闭按钮背景色标准值，不需要额外 token 化。所有手动构建的面板关闭按钮统一使用此值。
+
+---
+
+## 附录 S：附灵师界面（TemperUI）Phase 4 — 验收回归
+
+### S.1 功能验收路径
+
+| # | 路径 | 预期 | 状态 |
+|---|------|------|:----:|
+| 1 | 打开面板 | NPC 头像 + "附灵师" + "萃取·附灵" + goldDark 金边 | ✅ |
+| 2 | 面板高度 | 固定 76%，不随内容收缩 | ✅ |
+| 3 | 默认显示萃取 Tab | 3个空预览格 + "选择3件同套装装备" 提示 | ✅ |
+| 4 | 萃取：选择物品 | 点击列表项→填入预览格→计数更新 | ✅ |
+| 5 | 萃取：选不同套装 | 自动清空重选 | ✅ |
+| 6 | 萃取：满3件+灵韵足 | 按钮激活（btnSpend 琥珀金） | ✅ |
+| 7 | 萃取：执行成功 | 扣灵韵 + 删3件 + 获得附灵玉 + 成功弹窗 | ✅ |
+| 8 | 萃取：回滚机制 | AddConsumable 失败时恢复已删除装备 | ✅ |
+| 9 | 切换附灵 Tab | Tab 样式切换 + 内容重建 + 选择重置 | ✅ |
+| 10 | 附灵：选装备 | 点击装备行→预览格显示→再点取消 | ✅ |
+| 11 | 附灵：选附灵玉 | 点击灵玉行→预览格显示（backgroundImage） | ✅ |
+| 12 | 附灵：两者选中+灵韵足 | 按钮激活 | ✅ |
+| 13 | 附灵：执行成功 | 扣灵韵+消耗灵玉+写入enchantSetId+成功弹窗 | ✅ |
+| 14 | 弹窗确认关闭 | 点击"确认"隐藏弹窗 | ✅ |
+| 15 | overlay 点击关闭 | 点击空白区关闭面板 | ✅ |
+| 16 | ✕ 按钮关闭 | 右上角关闭 + SaveSession.Flush | ✅ |
+
+### S.2 规范验收（对照 ui-rensheng-standard）
+
+| 检查项 | 结果 |
+|--------|:----:|
+| Style 头标记 + @diagnostic | ✅ |
+| 硬编码 RGBA | 1处（关闭按钮 S2.4 标准值）✅ |
+| S2.4 手动模板结构 | ✅ height="76%" + goldDark + 无 header bg |
+| NPC 头像 = backgroundImage | ✅ `npc_temper_master.png` |
+| 关闭按钮右侧 | ✅ |
+| 按钮语义色 S10（≤3色） | ✅ btnSpend + btnDisabled + btnSecondary |
+| 弹窗 S0.5 宽度层级（88%/400） | ✅ |
+| ScrollView flexGrow+flexBasis=0（固定高度卡片内） | ✅ |
+| Tab 无 Destroy/Recreate | ✅ |
+| overlay 点击关闭 + footer 提示 | ✅ |
+| gap 全部 T.spacing.* | ✅ |
+| Build 通过 | ✅ |
+
+### S.3 数据安全
+
+| 测试 | 结论 |
+|------|------|
+| 萃取回滚（AddConsumable 失败恢复 3 件） | ✅ 逻辑保留 |
+| 附灵写入 enchantSetId + RecalcEquipStats | ✅ 逻辑保留 |
+| SaveSession.MarkDirty (萃取/附灵后) | ✅ |
+| SaveSession.Flush (关闭面板时) | ✅ |
+| 灵韵扣除在操作成功后（不白扣） | ✅ |
+
+### S.4 结论
+
+**附灵师界面（TemperUI）Phase 1-4 全部完成。**
+
+重构范围：
+- 从 1064 行自管理面板重构为 ~750 行 S2.4 手动模板
+- 全量令牌化（61 处硬编码 RGBA → 1 处标准值）
+- Tab 从 Destroy/Recreate 改为 Show/Hide 模式
+- 修复 UI.Image（不存在的组件）→ backgroundImage
+- 预览格操作板交互（萃取3格 / 附灵双格）
+- 按钮接入 S10 语义色（btnSpend / btnDisabled / btnSecondary）
+- NPC 头像接入项目资源（S2.5）
+- 卡片固定高度 76%（列表密集型面板标准）
+- 弹窗符合 S0.5 宽度层级
+- 新增 UITheme token：setXuesha / setQingyun / setFengmo / setHaoqi
+
+---

@@ -20,7 +20,7 @@ rift.spawns = {}
 -- 峡谷装饰物：三座桥头各放一块石碑
 rift.decorations = {
     { type = "stone_tablet", x = 11, y = 24, label = "仙劫战场" },
-    { type = "stone_tablet", x = 38, y = 24, label = "仙陨战场" },
+    { type = "stone_tablet", x = 38, y = 24, label = "仙灭战场" },
     { type = "stone_tablet", x = 65, y = 24, label = "仙殒战场" },
 }
 

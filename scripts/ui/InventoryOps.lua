@@ -81,7 +81,11 @@ function InventoryOps.DoBatchSell(qualities, sellFn)
     local count, gold, lingYun = sellFn(qualities)
     if count > 0 then
         local parts = {}
-        if gold and gold > 0 then parts[#parts + 1] = gold .. " 金币" end
+        if gold and gold > 0 then
+            -- S8: 超万缩写
+            local goldText = gold >= 10000 and string.format("%.1fw", gold / 10000) or tostring(gold)
+            parts[#parts + 1] = goldText .. " 金币"
+        end
         if lingYun and lingYun > 0 then parts[#parts + 1] = lingYun .. " 灵韵" end
         local earned = #parts > 0 and table.concat(parts, " + ") or "0"
         return true, "出售了 " .. count .. " 件，获得 " .. earned

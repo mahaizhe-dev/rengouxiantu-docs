@@ -701,6 +701,8 @@ function RebuildWorld(chapterId, spawnOverride)
     ChallengeUI.SetGameMap(gameMap_, camera_)
     TrialTowerUI.SetGameMap(gameMap_, camera_)
     PrisonTowerUI.SetGameMap(gameMap_, camera_)
+    local SwordWallUI = require("ui.SwordWallUI")
+    SwordWallUI.SetGameMap(gameMap_)
     MobileControls.SetGameMap(gameMap_)
 
     -- 7. 定位玩家/宠物到出生点
@@ -907,6 +909,11 @@ function InitGame(classId)
     TrialTowerSystem.Init()
     PrisonTowerSystem.Init()
     WineSystem.Init()
+    -- 剑气长城副本
+    local SwordWallSystem = require("systems.SwordWallSystem")
+    SwordWallSystem.Init()
+    local SwordWallUI = require("ui.SwordWallUI")
+    SwordWallUI.RegisterEvents()
 
     -- 重初始化存档系统状态
     -- 🔴 注意：不在此处设置 loaded=true！
@@ -1372,6 +1379,7 @@ function HandleUpdate(eventType, eventData)
     local px, py = player and player.x or 0, player and player.y or 0
     for i = 1, #GameState.monsters do
         local m = GameState.monsters[i]
+        if not m then goto continue_monster end
         if m.alive and player then
             local st = m.state
             -- 正在战斗或回巢的怪物始终每帧更新
@@ -1395,11 +1403,13 @@ function HandleUpdate(eventType, eventData)
                 end
             end
         end
+        ::continue_monster::
     end
     PerfMonitor.EndSegment("monsters")
 
     -- 更新怪物刷新（挑战/试炼/镇狱/多人副本中暂停刷怪）
-    if spawner_ and not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
+    local SwordWallSystem = require("systems.SwordWallSystem")
+    if spawner_ and not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not SwordWallSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
         spawner_:Update(dt)
     end
 
@@ -1411,6 +1421,13 @@ function HandleUpdate(eventType, eventData)
 
     -- 更新镇狱塔系统
     PrisonTowerSystem.Update(dt, gameMap_)
+
+    -- 更新剑气长城副本
+    local SwordWallSystem = require("systems.SwordWallSystem")
+    SwordWallSystem.Update(dt, gameMap_)
+    SwordWallSystem.UpdateReturn(dt, gameMap_)
+    local SwordWallUI = require("ui.SwordWallUI")
+    SwordWallUI.UpdateBanner(dt)
 
     -- 神器BOSS战流程
     ArtifactUI.TryStartPendingBossFight(gameMap_, camera_)
