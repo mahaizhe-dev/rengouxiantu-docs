@@ -36,7 +36,7 @@ local visible_ = false
 
 local localToast_ = nil
 local toastDismissTime_ = 0       -- toast 自动消失的目标时刻
-local TOAST_DURATION = 2.0        -- toast 显示秒数
+local TOAST_DURATION = 2.5        -- toast 显示秒数
 
 local currentPage_ = 1  -- 1=第一页, 2=第二页
 
@@ -57,33 +57,14 @@ local BuildContent
 local DestroyContent
 
 -- ============================================================================
--- 仓库内部 toast（自动消失，内部 Update 事件驱动）
+-- 仓库内部 toast
 -- ============================================================================
-local toastUpdateSubscribed_ = false
-
-function WarehouseUI_HandleToastUpdate(eventType, eventData)
-    if localToast_ and toastDismissTime_ > 0 then
-        if time.elapsedTime >= toastDismissTime_ then
-            localToast_:Destroy()
-            localToast_ = nil
-            toastDismissTime_ = 0
-            -- toast 已消失，取消订阅节省性能
-            UnsubscribeFromEvent("Update")
-            toastUpdateSubscribed_ = false
-        end
-    end
-end
-
 local function DismissLocalToast()
     if localToast_ then
         localToast_:Destroy()
         localToast_ = nil
     end
     toastDismissTime_ = 0
-    if toastUpdateSubscribed_ then
-        UnsubscribeFromEvent("Update")
-        toastUpdateSubscribed_ = false
-    end
 end
 
 local function ShowLocalToast(text)
@@ -121,11 +102,6 @@ local function ShowLocalToast(text)
         panel_:AddChild(localToast_)
     end
     toastDismissTime_ = time.elapsedTime + TOAST_DURATION
-    -- 订阅 Update 事件驱动定时消失
-    if not toastUpdateSubscribed_ then
-        SubscribeToEvent("Update", "WarehouseUI_HandleToastUpdate")
-        toastUpdateSubscribed_ = true
-    end
 end
 
 -- ============================================================================
@@ -677,6 +653,16 @@ function WarehouseUI.IsVisible()
     return visible_
 end
 
+
+--- 每帧更新：toast 定时消失
+---@param dt number
+function WarehouseUI.Update(dt)
+    if localToast_ and toastDismissTime_ > 0 then
+        if time.elapsedTime >= toastDismissTime_ then
+            DismissLocalToast()
+        end
+    end
+end
 
 function WarehouseUI.Destroy()
     WarehouseUI.Hide()

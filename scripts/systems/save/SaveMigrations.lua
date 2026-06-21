@@ -1349,6 +1349,124 @@ local MIGRATIONS = {
         data.version = 30
         return data
     end,
+
+    -- v30 → v31: 二次修复 — v30 上线时漏了挑战丹药+凝息丹，已跑过v30的玩家需要重算
+    [31] = function(data)
+        local player = data.player
+        if not player then
+            data.version = 31
+            return data
+        end
+
+        local GROWTH = { maxHp = 15, atk = 3, def = 2, hpRegen = 0.3 }
+        local REALM_ORDER = {
+            "lianqi_1", "lianqi_2", "lianqi_3",
+            "zhuji_1", "zhuji_2", "zhuji_3",
+            "jindan_1", "jindan_2", "jindan_3",
+            "yuanying_1", "yuanying_2", "yuanying_3",
+            "huashen_1", "huashen_2", "huashen_3",
+            "heti_1", "heti_2", "heti_3",
+            "dacheng_1", "dacheng_2", "dacheng_3", "dacheng_4",
+            "dujie_1", "dujie_2", "dujie_3", "dujie_4",
+        }
+        local REALM_REWARDS = {
+            lianqi_1    = { maxHp = 28,  atk = 6,   def = 4,  hpRegen = 0.6 },
+            lianqi_2    = { maxHp = 20,  atk = 4,   def = 3,  hpRegen = 0.4 },
+            lianqi_3    = { maxHp = 20,  atk = 4,   def = 2,  hpRegen = 0.4 },
+            zhuji_1     = { maxHp = 60,  atk = 12,  def = 8,  hpRegen = 1.2 },
+            zhuji_2     = { maxHp = 50,  atk = 10,  def = 7,  hpRegen = 1.0 },
+            zhuji_3     = { maxHp = 48,  atk = 10,  def = 6,  hpRegen = 1.0 },
+            jindan_1    = { maxHp = 95,  atk = 19,  def = 13, hpRegen = 1.9 },
+            jindan_2    = { maxHp = 78,  atk = 16,  def = 10, hpRegen = 1.6 },
+            jindan_3    = { maxHp = 75,  atk = 15,  def = 10, hpRegen = 1.5 },
+            yuanying_1  = { maxHp = 130, atk = 26,  def = 17, hpRegen = 2.6 },
+            yuanying_2  = { maxHp = 105, atk = 21,  def = 14, hpRegen = 2.1 },
+            yuanying_3  = { maxHp = 103, atk = 21,  def = 14, hpRegen = 2.1 },
+            huashen_1   = { maxHp = 170, atk = 34,  def = 30, hpRegen = 3.5 },
+            huashen_2   = { maxHp = 130, atk = 26,  def = 22, hpRegen = 2.7 },
+            huashen_3   = { maxHp = 130, atk = 26,  def = 23, hpRegen = 2.7 },
+            heti_1      = { maxHp = 210, atk = 42,  def = 45, hpRegen = 4.3 },
+            heti_2      = { maxHp = 155, atk = 31,  def = 30, hpRegen = 3.2 },
+            heti_3      = { maxHp = 155, atk = 32,  def = 30, hpRegen = 3.2 },
+            dacheng_1   = { maxHp = 280, atk = 56,  def = 65, hpRegen = 5.8 },
+            dacheng_2   = { maxHp = 191, atk = 39,  def = 42, hpRegen = 3.9 },
+            dacheng_3   = { maxHp = 191, atk = 39,  def = 41, hpRegen = 3.8 },
+            dacheng_4   = { maxHp = 191, atk = 39,  def = 41, hpRegen = 3.8 },
+            dujie_1     = { maxHp = 500, atk = 100, def = 80, hpRegen = 10.0 },
+            dujie_2     = { maxHp = 240, atk = 48,  def = 32, hpRegen = 3.2 },
+            dujie_3     = { maxHp = 248, atk = 50,  def = 33, hpRegen = 3.3 },
+            dujie_4     = { maxHp = 255, atk = 51,  def = 34, hpRegen = 3.4 },
+        }
+
+        -- 初始 + 等级成长
+        local newHp     = 100
+        local newAtk    = 15
+        local newDef    = 5
+        local newRegen  = 1.0
+        local level = player.level or 1
+        newHp    = newHp    + (level - 1) * GROWTH.maxHp
+        newAtk   = newAtk   + (level - 1) * GROWTH.atk
+        newDef   = newDef   + (level - 1) * GROWTH.def
+        newRegen = newRegen + (level - 1) * GROWTH.hpRegen
+
+        -- 境界突破
+        local currentRealm = player.realm or "mortal"
+        if currentRealm ~= "mortal" then
+            for _, realmId in ipairs(REALM_ORDER) do
+                local r = REALM_REWARDS[realmId]
+                if r then
+                    newHp    = newHp    + r.maxHp
+                    newAtk   = newAtk   + r.atk
+                    newDef   = newDef   + r.def
+                    newRegen = newRegen + r.hpRegen
+                end
+                if realmId == currentRealm then break end
+            end
+        end
+
+        -- A. 炼丹系统（player 层）
+        newHp  = newHp  + (player.tigerPillCount or 0) * 30 + (player.dragonBloodPillCount or 0) * 30
+        newAtk = newAtk + (player.snakePillCount or 0) * 10 + (player.swordIntentPillCount or 0) * 10
+        newDef = newDef + (player.diamondPillCount or 0) * 8 + (player.abyssSealPillCount or 0) * 8
+
+        -- B. 挑战系统（data.challenges 层）
+        local challenges = data.challenges or {}
+        local ningliCount   = challenges.ningliDanCount or 0
+        local ningjiaCount  = challenges.ningjiaDanCount or 0
+        local ningyuanCount = challenges.ningyuanDanCount or 0
+        local ningxiCount   = challenges.ningxiDanCount or 0
+        local xueshaDanCount = player.xueshaDanCount or 0
+        local haoqiDanCount  = player.haoqiDanCount or 0
+
+        -- 攻击：血煞旧部分*8 + 凝力新部分*10
+        local ningliNew = math.max(0, ningliCount - xueshaDanCount)
+        newAtk = newAtk + xueshaDanCount * 8 + ningliNew * 10
+        -- 防御：凝甲丹*8
+        newDef = newDef + ningjiaCount * 8
+        -- 生命：凝元丹*30（含旧浩气丹，两者同值）
+        newHp = newHp + ningyuanCount * 30
+        -- 回复：浩气丹遗留*0.5 + 凝息丹*6
+        newRegen = newRegen + haoqiDanCount * 0.5 + ningxiCount * 6
+
+        print(string.format(
+            "[SaveSystem] v30→v31 FINAL: realm=%s lv=%d | hp %d→%d | atk %d→%d | def %d→%d | regen %.1f→%.1f",
+            currentRealm, level, player.maxHp or 0, newHp, player.atk or 0, newAtk, player.def or 0, newDef, player.hpRegen or 0, newRegen
+        ))
+        print(string.format(
+            "[SaveSystem] v31 pills: alchemy(tiger=%d dragon=%d snake=%d sword=%d diamond=%d abyss=%d) challenge(ningli=%d ningjia=%d ningyuan=%d ningxi=%d xuesha=%d haoqi=%d)",
+            player.tigerPillCount or 0, player.dragonBloodPillCount or 0,
+            player.snakePillCount or 0, player.swordIntentPillCount or 0,
+            player.diamondPillCount or 0, player.abyssSealPillCount or 0,
+            ningliCount, ningjiaCount, ningyuanCount, ningxiCount, xueshaDanCount, haoqiDanCount
+        ))
+
+        player.maxHp   = newHp
+        player.atk     = newAtk
+        player.def     = newDef
+        player.hpRegen = newRegen
+        data.version = 31
+        return data
+    end,
 }
 
 -- ============================================================================

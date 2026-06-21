@@ -81,6 +81,8 @@ local AtlasUI = require("ui.AtlasUI")
 local FortuneFruitSystem = require("systems.FortuneFruitSystem")
 local XianyuanChestSystem = require("systems.XianyuanChestSystem")
 local XianyuanChestUI = require("ui.XianyuanChestUI")
+local _whOk, WarehouseUI = pcall(require, "ui.WarehouseUI")
+if not _whOk then WarehouseUI = nil end
 local WineSystem = require("systems.WineSystem")
 local BlackMerchantEntry = require("ui.BlackMerchantEntry")
 local TownReturnEntry = require("ui.TownReturnEntry")
@@ -1458,6 +1460,7 @@ function HandleUpdate(eventType, eventData)
     -- 仙缘宝箱读条 + UI 计时
     XianyuanChestSystem.Update(dt)
     XianyuanChestUI.Update(dt)
+    if WarehouseUI then WarehouseUI.Update(dt) end
 
     -- 封魔任务状态更新（超时/距离检测等）
     SealDemonSystem.Update(dt)
