@@ -9,7 +9,7 @@ local TradeLock = require("systems.BlackMarketTradeLock")
 
 local BackpackUtils = {}
 
-BackpackUtils.MAX_BACKPACK_SLOTS = 60  -- 与 GameConfig.BACKPACK_SIZE 一致（bag1: 1-30, bag2: 31-60）
+BackpackUtils.MAX_BACKPACK_SLOTS = 64  -- 与 GameConfig.BACKPACK_SIZE 一致
 BackpackUtils.MAX_STACK = 9999
 
 -- ============================================================================

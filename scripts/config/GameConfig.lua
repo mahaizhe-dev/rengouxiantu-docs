@@ -15,7 +15,7 @@ GameConfig.DUNGEON_ENABLED = false
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
 GameConfig.CODE_VERSION = 6
-GameConfig.DISPLAY_VERSION = "v1.12.13"
+GameConfig.DISPLAY_VERSION = "v1.12.14"
 
 -- 地图设置
 GameConfig.TILE_SIZE = 128         -- 每个瓦片的逻辑像素大小（基准值，不要直接用于渲染）
@@ -576,7 +576,7 @@ GameConfig.REALM_COMPAT = {
 }
 
 -- 背包
-GameConfig.BACKPACK_SIZE = 60
+GameConfig.BACKPACK_SIZE = 64
 GameConfig.BAG_SPLIT = 30  -- 背包拆分：bag1 存 1~30，bag2 存 31~60
 GameConfig.MAX_STACK_COUNT = 9999  -- 消耗品单堆叠上限，溢出创建新堆叠
 

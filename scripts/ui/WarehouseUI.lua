@@ -1,6 +1,8 @@
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 -- ============================================================================
 -- WarehouseUI.lua - 仓库面板（宝箱 NPC 交互打开）
--- 创建一次 + 数据更新模式，避免每次操作重建 108 个组件导致卡死
+-- Style: 仙侠暗金 (UITheme 规范化版)
+-- 特点: 创建/销毁模式 | 108格子按需构建 | 脏标记即时存档 | S2.4骨架
 -- ============================================================================
 
 local UI = require("urhox-libs/UI")
@@ -31,8 +33,12 @@ local panel_ = nil
 ---@type Panel|nil
 local outerPanel_ = nil
 local visible_ = false
-local goldLabel_ = nil
+
 local localToast_ = nil
+local toastDismissTime_ = 0       -- toast 自动消失的目标时刻
+local TOAST_DURATION = 2.0        -- toast 显示秒数
+
+local currentPage_ = 1  -- 1=第一页, 2=第二页
 
 -- 槽位缓存（创建一次，后续只更新数据）
 local whSlots_ = {}        -- [1..48] 仓库槽位 (ImageItemSlot)
@@ -40,7 +46,8 @@ local bagSlots_ = {}       -- [1..BACKPACK_SIZE] 背包槽位
 local whGrid_ = nil        -- 仓库网格面板
 local bagGrid_ = nil       -- 背包网格面板
 local whTitleLabel_ = nil  -- "📦 仓库 x/y" 标签
-local unlockBtn_ = nil     -- 解锁按钮
+local bagTitleLabel_ = nil -- "🎒 背包 x/y" 标签
+
 local contentBuilt_ = false
 local lastUnlockedRows_ = 0  -- 上次构建时的解锁行数
 
@@ -50,12 +57,32 @@ local BuildContent
 local DestroyContent
 
 -- ============================================================================
--- 仓库内部 toast
+-- 仓库内部 toast（自动消失，内部 Update 事件驱动）
 -- ============================================================================
+local toastUpdateSubscribed_ = false
+
+function WarehouseUI_HandleToastUpdate(eventType, eventData)
+    if localToast_ and toastDismissTime_ > 0 then
+        if time.elapsedTime >= toastDismissTime_ then
+            localToast_:Destroy()
+            localToast_ = nil
+            toastDismissTime_ = 0
+            -- toast 已消失，取消订阅节省性能
+            UnsubscribeFromEvent("Update")
+            toastUpdateSubscribed_ = false
+        end
+    end
+end
+
 local function DismissLocalToast()
     if localToast_ then
         localToast_:Destroy()
         localToast_ = nil
+    end
+    toastDismissTime_ = 0
+    if toastUpdateSubscribed_ then
+        UnsubscribeFromEvent("Update")
+        toastUpdateSubscribed_ = false
     end
 end
 
@@ -70,10 +97,10 @@ local function ShowLocalToast(text)
         alignItems = "center",
         children = {
             UI.Panel {
-                backgroundColor = {20, 22, 30, 240},
+                backgroundColor = T.color.surfaceDeep,
                 borderRadius = T.radius.md,
                 borderWidth = 1,
-                borderColor = {180, 220, 255, 255},
+                borderColor = T.color.info,
                 paddingTop = T.spacing.sm,
                 paddingBottom = T.spacing.sm,
                 paddingLeft = T.spacing.lg,
@@ -83,7 +110,7 @@ local function ShowLocalToast(text)
                         text = text,
                         fontSize = T.fontSize.md,
                         fontWeight = "bold",
-                        fontColor = {180, 220, 255, 255},
+                        fontColor = T.color.info,
                         textAlign = "center",
                     },
                 },
@@ -92,6 +119,12 @@ local function ShowLocalToast(text)
     }
     if panel_ then
         panel_:AddChild(localToast_)
+    end
+    toastDismissTime_ = time.elapsedTime + TOAST_DURATION
+    -- 订阅 Update 事件驱动定时消失
+    if not toastUpdateSubscribed_ then
+        SubscribeToEvent("Update", "WarehouseUI_HandleToastUpdate")
+        toastUpdateSubscribed_ = true
     end
 end
 
@@ -105,8 +138,16 @@ local function BuildWarehouseGrid()
     end
     whSlots_ = {}
 
-    local unlockedSlots = WarehouseSystem.GetUnlockedSlots()
-    lastUnlockedRows_ = WarehouseSystem.GetUnlockedRows()
+    local unlockedSlots, totalSlots
+    if currentPage_ == 1 then
+        unlockedSlots = WarehouseSystem.GetUnlockedSlots()
+        lastUnlockedRows_ = WarehouseSystem.GetUnlockedRows()
+        totalSlots = WarehouseConfig.MAX_ROWS * COLS
+    else
+        unlockedSlots = WarehouseSystem.GetPage2UnlockedSlots()
+        lastUnlockedRows_ = WarehouseSystem.GetPage2UnlockedRows and WarehouseSystem.GetPage2UnlockedRows() or 0
+        totalSlots = WarehouseConfig.PAGE2_MAX_ROWS * COLS
+    end
 
     whGrid_ = UI.Panel {
         flexDirection = "row",
@@ -114,17 +155,16 @@ local function BuildWarehouseGrid()
         gap = SLOT_GAP,
     }
 
-    local totalSlots = WarehouseConfig.MAX_ROWS * COLS
     for idx = 1, totalSlots do
         local isLocked = idx > unlockedSlots
         if isLocked then
             local locked = UI.Panel {
                 width = SLOT_SIZE,
                 height = SLOT_SIZE,
-                backgroundColor = {40, 40, 50, 150},
+                backgroundColor = T.color.surfaceDeep,
                 borderRadius = T.radius.sm,
                 borderWidth = 1,
-                borderColor = {60, 65, 80, 100},
+                borderColor = T.color.border,
                 justifyContent = "center",
                 alignItems = "center",
                 children = {
@@ -145,7 +185,12 @@ local function BuildWarehouseGrid()
                 showTypeIcon = false,
                 onSlotClick = function(slotWidget, clickedItem)
                     if clickedItem then
-                        local ok, err = WarehouseSystem.RetrieveItem(capturedIdx)
+                        local ok, err
+                        if currentPage_ == 1 then
+                            ok, err = WarehouseSystem.RetrieveItem(capturedIdx)
+                        else
+                            ok, err = WarehouseSystem.RetrieveFromPage2(capturedIdx)
+                        end
                         if ok then
                             ShowLocalToast("已取出到背包")
                         else
@@ -188,7 +233,12 @@ local function BuildBagGrid()
             showTypeIcon = false,
             onSlotClick = function(slotWidget, clickedItem)
                 if clickedItem then
-                    local ok, err = WarehouseSystem.StoreItem(capturedIdx)
+                    local ok, err
+                    if currentPage_ == 1 then
+                        ok, err = WarehouseSystem.StoreItem(capturedIdx)
+                    else
+                        ok, err = WarehouseSystem.StoreItemToPage2(capturedIdx)
+                    end
                     if ok then
                         ShowLocalToast("已存入仓库")
                     else
@@ -226,7 +276,7 @@ DestroyContent = function()
     whGrid_ = nil
     bagGrid_ = nil
     whTitleLabel_ = nil
-    unlockBtn_ = nil
+    bagTitleLabel_ = nil
     contentBuilt_ = false
     lastUnlockedRows_ = 0
 end
@@ -235,29 +285,76 @@ end
 -- 构建完整内容（仅 Show 时 / 解锁行时调用）
 -- ============================================================================
 BuildContent = function()
-    -- 仓库标题行（标题 + 整理按钮）
+    -- ── 仓库标题行：[页签] [仓库 x/y] ... [整理] [解锁] 同一行 ──
+    local rowChildren = {}
+
+    -- 页面切换 Tab（第一页满解锁后显示）
+    if WarehouseSystem.IsPage2Available() then
+        rowChildren[#rowChildren + 1] = UI.Button {
+            text = currentPage_ == 1 and "●一" or "○一",
+            height = 24,
+            paddingLeft = 4, paddingRight = 4,
+            fontSize = T.fontSize.xxs,
+            borderRadius = T.radius.sm,
+            backgroundColor = currentPage_ == 1 and T.color.tabActiveBg or T.color.tabInactiveBg,
+            fontColor = currentPage_ == 1 and T.color.tabActiveText or T.color.tabInactiveText,
+            onClick = function(self)
+                if currentPage_ ~= 1 then
+                    currentPage_ = 1
+                    DestroyContent()
+                    BuildContent()
+                    UpdateAllSlots()
+                end
+            end,
+        }
+        rowChildren[#rowChildren + 1] = UI.Button {
+            text = currentPage_ == 2 and "●二" or "○二",
+            height = 24,
+            paddingLeft = 4, paddingRight = 4,
+            fontSize = T.fontSize.xxs,
+            borderRadius = T.radius.sm,
+            backgroundColor = currentPage_ == 2 and T.color.tabActiveBg or T.color.tabInactiveBg,
+            fontColor = currentPage_ == 2 and T.color.tabActiveText or T.color.tabInactiveText,
+            onClick = function(self)
+                if currentPage_ ~= 2 then
+                    currentPage_ = 2
+                    DestroyContent()
+                    BuildContent()
+                    UpdateAllSlots()
+                end
+            end,
+        }
+    end
+
+    -- 仓库标题（缩小字号）
     whTitleLabel_ = UI.Label {
-        text = "📦 仓库  0/0",
-        fontSize = T.fontSize.md,
-        fontWeight = "bold",
+        text = "📦 0/0",
+        fontSize = T.fontSize.sm,
         fontColor = T.color.titleText,
-        flexShrink = 1,
+        flexGrow = 1, flexShrink = 1,
     }
-    local sortBtn = UI.Button {
+    rowChildren[#rowChildren + 1] = whTitleLabel_
+
+    -- 整理按钮
+    rowChildren[#rowChildren + 1] = UI.Button {
         text = "整理",
-        width = 56,
-        height = 28,
-        fontSize = T.fontSize.xs,
-        fontWeight = "bold",
+        width = 48, height = 24,
+        fontSize = T.fontSize.xxs, fontWeight = "bold",
         borderRadius = T.radius.sm,
-        backgroundColor = {60, 130, 90, 230},
+        backgroundColor = T.color.btnSecondary,
+        fontColor = T.color.btnSecondaryFg,
         onClick = function(self)
             local now = time.elapsedTime
             if now - lastSortTime_ < SORT_CD then
                 ShowLocalToast("操作太快，请稍后再试")
                 return
             end
-            local ok, err = WarehouseSystem.SortWarehouse()
+            local ok, err
+            if currentPage_ == 1 then
+                ok, err = WarehouseSystem.SortWarehouse()
+            else
+                ok, err = WarehouseSystem.SortPage2()
+            end
             if ok then
                 ShowLocalToast("仓库已整理")
                 lastSortTime_ = now
@@ -267,30 +364,24 @@ BuildContent = function()
             UpdateAllSlots()
         end,
     }
-    local titleRow = UI.Panel {
-        width = "100%",
-        flexDirection = "row",
-        justifyContent = "space-between",
-        alignItems = "center",
-        children = { whTitleLabel_, sortBtn },
-    }
-    outerPanel_:AddChild(titleRow)
-
-    -- 仓库网格
-    BuildWarehouseGrid()
-    outerPanel_:AddChild(whGrid_)
 
     -- 解锁按钮
-    unlockBtn_ = UI.Button {
+    rowChildren[#rowChildren + 1] = UI.Button {
+        id = "wh_unlock_btn_content",
         text = "",
-        width = "100%",
-        height = 36,
-        fontSize = T.fontSize.sm,
-        fontWeight = "bold",
+        height = 24,
+        paddingLeft = T.spacing.xs, paddingRight = T.spacing.xs,
+        fontSize = T.fontSize.xxs, fontWeight = "bold",
         borderRadius = T.radius.sm,
-        backgroundColor = {180, 140, 40, 255},
+        backgroundColor = T.color.btnSpend,
+        fontColor = T.color.btnSpendFg,
         onClick = function(self)
-            local ok, err = WarehouseSystem.UnlockNextRow()
+            local ok, err
+            if currentPage_ == 1 then
+                ok, err = WarehouseSystem.UnlockNextRow()
+            else
+                ok, err = WarehouseSystem.UnlockPage2NextRow()
+            end
             if ok then
                 ShowLocalToast("解锁成功！")
             else
@@ -299,22 +390,31 @@ BuildContent = function()
             UpdateAllSlots()
         end,
     }
-    outerPanel_:AddChild(unlockBtn_)
+
+    outerPanel_:AddChild(UI.Panel {
+        width = "100%", flexDirection = "row",
+        alignItems = "center", gap = T.spacing.xs,
+        children = rowChildren,
+    })
+
+    -- 仓库网格
+    BuildWarehouseGrid()
+    outerPanel_:AddChild(whGrid_)
 
     -- 分割线
     outerPanel_:AddChild(UI.Panel {
         width = "100%", height = 1,
-        backgroundColor = {80, 90, 110, 100},
-        marginTop = T.spacing.xs,
-        marginBottom = T.spacing.xs,
+        backgroundColor = T.color.borderLight,
+        marginTop = T.spacing.xs, marginBottom = T.spacing.xs,
     })
 
-    -- 背包标题
-    outerPanel_:AddChild(UI.Label {
-        text = "🎒 背包（点击物品存入仓库）",
+    -- 背包标题（缩小字号）
+    bagTitleLabel_ = UI.Label {
+        text = "🎒 0/" .. GameConfig.BACKPACK_SIZE,
         fontSize = T.fontSize.sm,
-        fontColor = {180, 180, 200, 200},
-    })
+        fontColor = T.color.titleText,
+    }
+    outerPanel_:AddChild(bagTitleLabel_)
 
     -- 背包网格
     BuildBagGrid()
@@ -328,11 +428,21 @@ end
 -- ============================================================================
 UpdateAllSlots = function()
     -- 仓库槽位
-    for idx = 1, WarehouseConfig.MAX_ROWS * COLS do
-        local slot = whSlots_[idx]
-        if slot then
-            local item = WarehouseSystem.GetItem(idx)
-            slot:SetItem(item)
+    if currentPage_ == 1 then
+        for idx = 1, WarehouseConfig.MAX_ROWS * COLS do
+            local slot = whSlots_[idx]
+            if slot then
+                local item = WarehouseSystem.GetItem(idx)
+                slot:SetItem(item)
+            end
+        end
+    else
+        for idx = 1, WarehouseConfig.PAGE2_MAX_ROWS * COLS do
+            local slot = whSlots_[idx]
+            if slot then
+                local item = WarehouseSystem.GetPage2Item(idx)
+                slot:SetItem(item)
+            end
         end
     end
 
@@ -347,35 +457,58 @@ UpdateAllSlots = function()
         end
     end
 
-    -- 仓库标题
+    -- 仓库标题（物品数/总空间）
     if whTitleLabel_ then
-        local itemCount = WarehouseSystem.GetItemCount()
-        local totalSlots = WarehouseSystem.GetUnlockedSlots()
-        whTitleLabel_:SetText("📦 仓库  " .. itemCount .. "/" .. totalSlots)
+        local itemCount, totalSlots
+        if currentPage_ == 1 then
+            itemCount = WarehouseSystem.GetItemCount()
+            totalSlots = WarehouseSystem.GetUnlockedSlots()
+        else
+            itemCount = WarehouseSystem.GetPage2ItemCount and WarehouseSystem.GetPage2ItemCount() or 0
+            totalSlots = WarehouseSystem.GetPage2UnlockedSlots()
+        end
+        whTitleLabel_:SetText("📦 " .. itemCount .. "/" .. totalSlots)
+    end
+
+    -- 背包标题（物品数/总空间）
+    if bagTitleLabel_ then
+        local InventorySystem = require("systems.InventorySystem")
+        local bagUsed = GameConfig.BACKPACK_SIZE - InventorySystem.GetFreeSlots()
+        bagTitleLabel_:SetText("🎒 " .. bagUsed .. "/" .. GameConfig.BACKPACK_SIZE)
     end
 
     -- 解锁按钮
-    local unlockedRows = WarehouseSystem.GetUnlockedRows()
-    if unlockBtn_ then
-        if unlockedRows < WarehouseConfig.MAX_ROWS then
+    local unlockedRows, maxRows, getCost, getRowFn
+    if currentPage_ == 1 then
+        unlockedRows = WarehouseSystem.GetUnlockedRows()
+        maxRows = WarehouseConfig.MAX_ROWS
+        getCost = function(r) return WarehouseConfig.GetRowCost(r) end
+    else
+        unlockedRows = WarehouseSystem.GetPage2UnlockedRows and WarehouseSystem.GetPage2UnlockedRows() or 0
+        maxRows = WarehouseConfig.PAGE2_MAX_ROWS
+        getCost = function(r) return WarehouseConfig.GetPage2RowCost and WarehouseConfig.GetPage2RowCost(r) or 0 end
+    end
+
+    local unlockBtnRef = panel_ and panel_:FindById("wh_unlock_btn_content")
+    if unlockBtnRef then
+        if unlockedRows < maxRows then
             local nextRow = unlockedRows + 1
-            local cost = WarehouseConfig.GetRowCost(nextRow)
-            unlockBtn_:SetText("🔓 解锁第" .. nextRow .. "排（" .. WarehouseSystem.FormatGold(cost) .. " 金币）")
-            unlockBtn_:SetVisible(true)
+            local cost = getCost(nextRow)
+            unlockBtnRef:SetText("🔓 解锁第" .. nextRow .. "排（" .. WarehouseSystem.FormatGold(cost) .. "）")
+            unlockBtnRef:SetVisible(true)
         else
-            unlockBtn_:SetVisible(false)
+            unlockBtnRef:SetVisible(false)
         end
     end
 
-    -- 金币
-    if goldLabel_ then
-        local player = GameState.player
-        local goldText = player and ("💰 " .. WarehouseSystem.FormatGold(player.gold)) or ""
-        goldLabel_:SetText(goldText)
-    end
-
     -- 如果解锁行数变了，需要重建整个内容（解锁操作极少，可接受）
-    if unlockedRows ~= lastUnlockedRows_ and outerPanel_ then
+    local currentUnlockedRows
+    if currentPage_ == 1 then
+        currentUnlockedRows = WarehouseSystem.GetUnlockedRows()
+    else
+        currentUnlockedRows = WarehouseSystem.GetPage2UnlockedRows and WarehouseSystem.GetPage2UnlockedRows() or 0
+    end
+    if currentUnlockedRows ~= lastUnlockedRows_ and outerPanel_ then
         DestroyContent()
         BuildContent()
         UpdateAllSlots()
@@ -392,10 +525,13 @@ function WarehouseUI.Create(parentOverlay)
     local gridW = COLS * SLOT_SIZE + (COLS - 1) * SLOT_GAP
     local panelW = gridW + T.spacing.md * 2 + 8
 
-    goldLabel_ = UI.Label {
-        text = "",
-        fontSize = T.fontSize.sm,
-        fontColor = {255, 215, 0, 230},
+    local portraitPanel = UI.Panel {
+        width = 64, height = 64,
+        borderRadius = T.radius.md,
+        backgroundColor = T.color.headerBg,
+        backgroundImage = "image/warehouse_chest_20260331104459.png",
+        backgroundFit = "cover",
+        overflow = "hidden",
     }
 
     outerPanel_ = UI.Panel {
@@ -408,6 +544,7 @@ function WarehouseUI.Create(parentOverlay)
         flexShrink = 1,
         width = "100%",
         overflow = "scroll",
+        padding = T.spacing.md,
         gap = T.spacing.sm,
         children = {
             outerPanel_,
@@ -419,7 +556,7 @@ function WarehouseUI.Create(parentOverlay)
         width = "100%", height = "100%",
         justifyContent = "center",
         alignItems = "center",
-        backgroundColor = {0, 0, 0, 150},
+        backgroundColor = T.color.overlay,
         zIndex = 900,
         visible = false,
         onClick = function(self)
@@ -428,44 +565,67 @@ function WarehouseUI.Create(parentOverlay)
         children = {
             UI.Panel {
                 width = panelW,
-                maxHeight = "90%",
-                backgroundColor = {25, 28, 38, 248},
+                maxHeight = "80%",
+                backgroundColor = T.color.panelBg,
                 borderRadius = T.radius.lg,
                 borderWidth = 1,
-                borderColor = {100, 120, 170, 150},
-                padding = T.spacing.md,
-                gap = T.spacing.sm,
+                borderColor = T.color.goldDark,
+                flexDirection = "column",
                 onClick = function(self) end,
                 children = {
-                    -- 标题栏（固定在滚动区外部）
+                    -- ── Header ──
                     UI.Panel {
                         width = "100%",
                         flexDirection = "row",
-                        justifyContent = "space-between",
                         alignItems = "center",
+                        paddingLeft = T.spacing.md,
+                        paddingRight = T.spacing.md,
+                        paddingTop = T.spacing.sm,
+                        paddingBottom = T.spacing.sm,
+                        borderBottomWidth = 1,
+                        borderColor = T.color.goldDark,
                         children = {
+                            portraitPanel,
+                            UI.Panel {
+                                flexGrow = 1, flexShrink = 1,
+                                marginLeft = T.spacing.sm,
+                                gap = T.spacing.xxs,
+                                children = {
+                                    UI.Label { text = "仓库", fontSize = T.fontSize.lg, fontWeight = "bold", fontColor = T.color.gold },
+                                    UI.Label { text = "点击仓库物品取出，点击背包物品存入", fontSize = T.fontSize.xs, fontColor = T.color.textMuted },
+                                },
+                            },
+                            -- 关闭按钮
                             UI.Button {
                                 text = "✕",
                                 width = T.size.closeButton,
                                 height = T.size.closeButton,
                                 fontSize = T.fontSize.md,
+                                fontWeight = "bold",
                                 borderRadius = T.radius.sm,
-                                backgroundColor = {80, 40, 40, 200},
+                                backgroundColor = {255, 100, 100, 30},
+                                fontColor = T.color.error,
+                                marginLeft = T.spacing.xs,
                                 onClick = function(self)
                                     WarehouseUI.Hide()
                                 end,
                             },
-                            UI.Label {
-                                text = "📦 百宝箱",
-                                fontSize = T.fontSize.lg,
-                                fontWeight = "bold",
-                                fontColor = T.color.titleText,
-                            },
-                            goldLabel_,
                         },
                     },
-                    -- 可滚动内容区
+                    -- ── 可滚动内容区 ──
                     scrollView_,
+                    -- ── Footer ──
+                    UI.Panel {
+                        width = "100%",
+                        alignItems = "center",
+                        paddingTop = T.spacing.xs,
+                        paddingBottom = T.spacing.sm,
+                        borderTopWidth = 1,
+                        borderColor = T.color.borderLight,
+                        children = {
+                            UI.Label { text = "点击空白处关闭", fontSize = T.fontSize.xs, fontColor = T.color.textMuted },
+                        },
+                    },
                 },
             },
         },
@@ -480,6 +640,8 @@ function WarehouseUI.Show(npc)
 
     WarehouseSystem.Init()
     WarehouseSystem.SetOpen(true)
+
+    currentPage_ = 1
 
     visible_ = true
     GameState.uiOpen = "warehouse"
@@ -515,6 +677,7 @@ function WarehouseUI.IsVisible()
     return visible_
 end
 
+
 function WarehouseUI.Destroy()
     WarehouseUI.Hide()
     if panel_ then
@@ -522,7 +685,7 @@ function WarehouseUI.Destroy()
         panel_ = nil
     end
     outerPanel_ = nil
-    goldLabel_ = nil
+
     parentOverlay_ = nil
 end
 

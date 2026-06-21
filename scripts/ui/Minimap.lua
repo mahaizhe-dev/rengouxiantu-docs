@@ -398,7 +398,26 @@ function MinimapWidget:Render(nvg)
                 local mx = l.x + m.x * scaleX
                 local my = l.y + m.y * scaleY
                 local cat = m.category or "normal"
-                if cat == "emperor_boss" then
+                if cat == "saint_boss" then
+                    -- 圣级BOSS：青色菱形 + 光晕 + 描边（与皇级同规格）
+                    local ds = 3.5
+                    local pulse = 0.6 + 0.4 * math.sin(time.elapsedTime * 3.0)
+                    nvgBeginPath(nvg)
+                    nvgCircle(nvg, mx, my, ds + 2.5)
+                    nvgFillColor(nvg, nvgRGBA(0, 200, 220, math.floor(35 * pulse)))
+                    nvgFill(nvg)
+                    nvgBeginPath(nvg)
+                    nvgMoveTo(nvg, mx, my - ds)
+                    nvgLineTo(nvg, mx + ds, my)
+                    nvgLineTo(nvg, mx, my + ds)
+                    nvgLineTo(nvg, mx - ds, my)
+                    nvgClosePath(nvg)
+                    nvgFillColor(nvg, nvgRGBA(0, 220, 240, 255))
+                    nvgFill(nvg)
+                    nvgStrokeColor(nvg, nvgRGBA(0, 220, 240, 200))
+                    nvgStrokeWidth(nvg, 1.0)
+                    nvgStroke(nvg)
+                elseif cat == "emperor_boss" then
                     -- 皇级BOSS：金色菱形 + 光晕 + 描边（与王级同尺寸）
                     local ds = 3.5
                     -- 脉冲光晕
@@ -651,7 +670,26 @@ function FullMapWidget:Render(nvg)
                 local mx = ox + m.x * scaleX
                 local my = oy + m.y * scaleY
                 local cat = m.category or "normal"
-                if cat == "emperor_boss" then
+                if cat == "saint_boss" then
+                    -- 圣级BOSS：青色菱形 + 光晕 + 描边（与皇级同规格）
+                    local ds = 5.0
+                    local pulse = 0.6 + 0.4 * math.sin(time.elapsedTime * 3.0)
+                    nvgBeginPath(nvg)
+                    nvgCircle(nvg, mx, my, ds + 3)
+                    nvgFillColor(nvg, nvgRGBA(0, 200, 220, math.floor(35 * pulse)))
+                    nvgFill(nvg)
+                    nvgBeginPath(nvg)
+                    nvgMoveTo(nvg, mx, my - ds)
+                    nvgLineTo(nvg, mx + ds, my)
+                    nvgLineTo(nvg, mx, my + ds)
+                    nvgLineTo(nvg, mx - ds, my)
+                    nvgClosePath(nvg)
+                    nvgFillColor(nvg, nvgRGBA(0, 220, 240, 255))
+                    nvgFill(nvg)
+                    nvgStrokeColor(nvg, nvgRGBA(0, 220, 240, 200))
+                    nvgStrokeWidth(nvg, 1.0)
+                    nvgStroke(nvg)
+                elseif cat == "emperor_boss" then
                     -- 皇级BOSS：金色菱形 + 光晕 + 描边（与王级同尺寸）
                     local ds = 5.0
                     -- 脉冲光晕

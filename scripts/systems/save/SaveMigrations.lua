@@ -1195,6 +1195,19 @@ local MIGRATIONS = {
             end
         end
 
+        -- 加回永久丹药贡献（直接加在基础属性上的）
+        -- 丹药计数存在 data.player 内（与 maxHp/atk 同级）
+        local tigerCount      = player.tigerPillCount or 0       -- 虎骨丹 maxHp+30
+        local dragonCount     = player.dragonBloodPillCount or 0 -- 龙血丹 maxHp+30
+        local snakeCount      = player.snakePillCount or 0       -- 灵蛇丹 atk+10
+        local swordCount      = player.swordIntentPillCount or 0 -- 太虚剑丹 atk+10
+        local diamondCount    = player.diamondPillCount or 0     -- 金刚丹 def+8
+        local abyssCount      = player.abyssSealPillCount or 0   -- 狱甲丹 def+8
+
+        newHp  = newHp  + tigerCount * 30 + dragonCount * 30
+        newAtk = newAtk + snakeCount * 10 + swordCount * 10
+        newDef = newDef + diamondCount * 8 + abyssCount * 8
+
         local oldHp = player.maxHp or 100
         local oldAtk = player.atk or 15
         local oldDef = player.def or 5
@@ -1210,6 +1223,130 @@ local MIGRATIONS = {
             currentRealm, level, oldHp, newHp, oldAtk, newAtk, oldDef, newDef, oldRegen, newRegen
         ))
         data.version = 29
+        return data
+    end,
+    -- v29 → v30: 修复 v29 丹药路径错误 — 重算裸属性（正确读取 player.xxxPillCount）
+    [30] = function(data)
+        local player = data.player
+        if not player then
+            data.version = 30
+            return data
+        end
+
+        local GROWTH = { maxHp = 15, atk = 3, def = 2, hpRegen = 0.3 }
+        local REALM_ORDER = {
+            "lianqi_1", "lianqi_2", "lianqi_3",
+            "zhuji_1", "zhuji_2", "zhuji_3",
+            "jindan_1", "jindan_2", "jindan_3",
+            "yuanying_1", "yuanying_2", "yuanying_3",
+            "huashen_1", "huashen_2", "huashen_3",
+            "heti_1", "heti_2", "heti_3",
+            "dacheng_1", "dacheng_2", "dacheng_3", "dacheng_4",
+            "dujie_1", "dujie_2", "dujie_3", "dujie_4",
+        }
+        local REALM_REWARDS = {
+            lianqi_1    = { maxHp = 28,  atk = 6,   def = 4,  hpRegen = 0.6 },
+            lianqi_2    = { maxHp = 20,  atk = 4,   def = 3,  hpRegen = 0.4 },
+            lianqi_3    = { maxHp = 20,  atk = 4,   def = 2,  hpRegen = 0.4 },
+            zhuji_1     = { maxHp = 60,  atk = 12,  def = 8,  hpRegen = 1.2 },
+            zhuji_2     = { maxHp = 50,  atk = 10,  def = 7,  hpRegen = 1.0 },
+            zhuji_3     = { maxHp = 48,  atk = 10,  def = 6,  hpRegen = 1.0 },
+            jindan_1    = { maxHp = 95,  atk = 19,  def = 13, hpRegen = 1.9 },
+            jindan_2    = { maxHp = 78,  atk = 16,  def = 10, hpRegen = 1.6 },
+            jindan_3    = { maxHp = 75,  atk = 15,  def = 10, hpRegen = 1.5 },
+            yuanying_1  = { maxHp = 130, atk = 26,  def = 17, hpRegen = 2.6 },
+            yuanying_2  = { maxHp = 105, atk = 21,  def = 14, hpRegen = 2.1 },
+            yuanying_3  = { maxHp = 103, atk = 21,  def = 14, hpRegen = 2.1 },
+            huashen_1   = { maxHp = 170, atk = 34,  def = 30, hpRegen = 3.5 },
+            huashen_2   = { maxHp = 130, atk = 26,  def = 22, hpRegen = 2.7 },
+            huashen_3   = { maxHp = 130, atk = 26,  def = 23, hpRegen = 2.7 },
+            heti_1      = { maxHp = 210, atk = 42,  def = 45, hpRegen = 4.3 },
+            heti_2      = { maxHp = 155, atk = 31,  def = 30, hpRegen = 3.2 },
+            heti_3      = { maxHp = 155, atk = 32,  def = 30, hpRegen = 3.2 },
+            dacheng_1   = { maxHp = 280, atk = 56,  def = 65, hpRegen = 5.8 },
+            dacheng_2   = { maxHp = 191, atk = 39,  def = 42, hpRegen = 3.9 },
+            dacheng_3   = { maxHp = 191, atk = 39,  def = 41, hpRegen = 3.8 },
+            dacheng_4   = { maxHp = 191, atk = 39,  def = 41, hpRegen = 3.8 },
+            dujie_1     = { maxHp = 500, atk = 100, def = 80, hpRegen = 10.0 },
+            dujie_2     = { maxHp = 240, atk = 48,  def = 32, hpRegen = 3.2 },
+            dujie_3     = { maxHp = 248, atk = 50,  def = 33, hpRegen = 3.3 },
+            dujie_4     = { maxHp = 255, atk = 51,  def = 34, hpRegen = 3.4 },
+        }
+
+        local newHp     = 100
+        local newAtk    = 15
+        local newDef    = 5
+        local newRegen  = 1.0
+
+        local level = player.level or 1
+        newHp    = newHp    + (level - 1) * GROWTH.maxHp
+        newAtk   = newAtk   + (level - 1) * GROWTH.atk
+        newDef   = newDef   + (level - 1) * GROWTH.def
+        newRegen = newRegen + (level - 1) * GROWTH.hpRegen
+
+        local currentRealm = player.realm or "mortal"
+        if currentRealm ~= "mortal" then
+            for _, realmId in ipairs(REALM_ORDER) do
+                local r = REALM_REWARDS[realmId]
+                if r then
+                    newHp    = newHp    + r.maxHp
+                    newAtk   = newAtk   + r.atk
+                    newDef   = newDef   + r.def
+                    newRegen = newRegen + r.hpRegen
+                end
+                if realmId == currentRealm then break end
+            end
+        end
+
+        -- ═══ 永久丹药贡献（全部来源） ═══
+
+        -- A. 炼丹系统丹药（存在 player 层）
+        local tigerCount      = player.tigerPillCount or 0       -- 虎骨丹 maxHp+30
+        local dragonCount     = player.dragonBloodPillCount or 0 -- 龙血丹 maxHp+30
+        local snakeCount      = player.snakePillCount or 0       -- 灵蛇丹 atk+10
+        local swordCount      = player.swordIntentPillCount or 0 -- 太虚剑丹 atk+10
+        local diamondCount    = player.diamondPillCount or 0     -- 金刚丹 def+8
+        local abyssCount      = player.abyssSealPillCount or 0   -- 狱甲丹 def+8
+
+        newHp  = newHp  + tigerCount * 30 + dragonCount * 30
+        newAtk = newAtk + snakeCount * 10 + swordCount * 10
+        newDef = newDef + diamondCount * 8 + abyssCount * 8
+
+        -- B. 挑战系统丹药（新版存在 data.challenges 层）
+        local challenges = data.challenges or {}
+        local ningliCount   = challenges.ningliDanCount or 0    -- 凝力丹 atk+10（含旧血煞丹迁移数）
+        local ningjiaCount  = challenges.ningjiaDanCount or 0   -- 凝甲丹 def+8
+        local ningyuanCount = challenges.ningyuanDanCount or 0  -- 凝元丹 maxHp+30（含旧浩气丹迁移数）
+
+        -- 血煞丹(废弃)每次+8，凝力丹每次+10；ningliDanCount 含旧计数
+        local xueshaDanCount = player.xueshaDanCount or 0
+        local haoqiDanCount  = player.haoqiDanCount or 0
+        -- 旧部分按+8计，新增部分按+10计
+        local ningliNew = math.max(0, ningliCount - xueshaDanCount)
+        newAtk = newAtk + xueshaDanCount * 8 + ningliNew * 10
+
+        -- 凝甲丹全部按+8（无旧版）
+        newDef = newDef + ningjiaCount * 8
+
+        -- 浩气丹(废弃)+30hp/+0.5regen，凝元丹+30hp；两者 maxHp 相同
+        newHp    = newHp + ningyuanCount * 30
+        newRegen = newRegen + haoqiDanCount * 0.5
+
+        print(string.format(
+            "[SaveSystem] v29→v30 hotfix: realm=%s lv=%d | hp %d→%d | atk %d→%d | def %d→%d | regen %.1f→%.1f",
+            currentRealm, level, player.maxHp or 0, newHp, player.atk or 0, newAtk, player.def or 0, newDef, player.hpRegen or 0, newRegen
+        ))
+        print(string.format(
+            "[SaveSystem] v30 pills: tiger=%d dragon=%d snake=%d sword=%d diamond=%d abyss=%d | ningli=%d ningjia=%d ningyuan=%d xuesha=%d haoqi=%d",
+            tigerCount, dragonCount, snakeCount, swordCount, diamondCount, abyssCount,
+            ningliCount, ningjiaCount, ningyuanCount, xueshaDanCount, haoqiDanCount
+        ))
+
+        player.maxHp   = newHp
+        player.atk     = newAtk
+        player.def     = newDef
+        player.hpRegen = newRegen
+        data.version = 30
         return data
     end,
 }

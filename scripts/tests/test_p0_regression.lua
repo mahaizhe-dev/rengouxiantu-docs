@@ -167,10 +167,10 @@ local function test_P0_1()
         return
     end
 
-    if GC.BACKPACK_SIZE == 60 then
-        PASS("P0-1 GameConfig.BACKPACK_SIZE = 60")
+    if GC.BACKPACK_SIZE == 64 then
+        PASS("P0-1 GameConfig.BACKPACK_SIZE = 64")
     else
-        FAIL("P0-1 BACKPACK_SIZE", "期望 60，实际 " .. tostring(GC.BACKPACK_SIZE))
+        FAIL("P0-1 BACKPACK_SIZE", "期望 64，实际 " .. tostring(GC.BACKPACK_SIZE))
     end
 
     -- 运行时检查：加载 RedeemHandler 模块，验证其 MAX_SLOTS 值

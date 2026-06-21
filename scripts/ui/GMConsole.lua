@@ -1369,12 +1369,9 @@ local GM_CATEGORIES = {
                 end
             end },
             { label = "剑气积分+500", action = function()
-                local GS = require("core.GameState")
-                local player = GS.player
-                if player then
-                    player.swordWallPoints = (player.swordWallPoints or 0) + 500
-                    ShowLog("剑气积分+500 (本地测试)", {255, 220, 100, 255})
-                end
+                SendGMCommand("add_sw_points", function()
+                    ShowLog("剑气积分 +500（服务端已写入）", {255, 220, 100, 255})
+                end)
             end },
             { label = "诛仙阵图自测", action = function()
                 package.loaded["tests.test_artifact_ch5"] = nil

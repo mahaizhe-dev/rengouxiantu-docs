@@ -357,10 +357,22 @@ local INTERACT_HANDLERS = {
     end,
     sword_wall_exit = function(_npc)
         local SwordWallSystem = require("systems.SwordWallSystem")
-        if SwordWallSystem.IsActive() then
-            local gameMap = SwordWallSystem._getGameMap()
-            SwordWallSystem.Fail(gameMap, "主动撤退")
-        end
+        if not SwordWallSystem.IsActive() then return end
+        ShowGenericDialog({
+            name = _npc.name or "传送法阵",
+            subtitle = "剑气传送",
+            dialog = "传送法阵散发着冷蓝色的灵力光芒——\n\n⚠️ 离开剑气长城将视为失败，不返还门票。\n\n确定要撤退吗？",
+            buttons = {
+                {
+                    text = "确认离开",
+                    onClick = function()
+                        HideGenericDialog()
+                        local gameMap = SwordWallSystem._getGameMap()
+                        SwordWallSystem.Fail(gameMap, "主动撤退")
+                    end,
+                },
+            },
+        })
     end,
     sword_wall_chest = function(_npc)
         local SwordWallSystem = require("systems.SwordWallSystem")

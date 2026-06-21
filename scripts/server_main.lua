@@ -220,6 +220,7 @@ function Start()
     RateLimitedSubscribe(SaveProtocol.C2S_SkinShopBuy, "HandleSkinShopBuy")
     -- 剑气长城副本
     if SwordWallHandler then
+        RateLimitedSubscribe(SaveProtocol.C2S_SwordWallStart, "HandleSwordWallStart")
         RateLimitedSubscribe(SaveProtocol.C2S_SwordWallClaim, "HandleSwordWallClaim")
         RateLimitedSubscribe(SaveProtocol.C2S_SwordWallShopQuery, "HandleSwordWallShopQuery")
         RateLimitedSubscribe(SaveProtocol.C2S_SwordWallShopBuy, "HandleSwordWallShopBuy")
@@ -984,6 +985,10 @@ end
 -- ============================================================================
 -- 剑气长城副本 — 全局包装函数
 -- ============================================================================
+
+function HandleSwordWallStart(eventType, eventData)
+    if SwordWallHandler then SwordWallHandler.HandleStart(eventData["Connection"]:GetPtr("Connection"), eventData) end
+end
 
 function HandleSwordWallClaim(eventType, eventData)
     if SwordWallHandler then SwordWallHandler.HandleClaim(eventData["Connection"]:GetPtr("Connection"), eventData) end

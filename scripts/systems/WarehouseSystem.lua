@@ -32,7 +32,16 @@ function WarehouseSystem.Init()
         GameState.warehouse = {
             unlockedRows = WarehouseConfig.INITIAL_UNLOCKED_ROWS,
             items = {},
+            page2UnlockedRows = 0,
+            page2Items = {},
         }
+    end
+    -- 兼容旧存档：补充第二页字段
+    if GameState.warehouse.page2UnlockedRows == nil then
+        GameState.warehouse.page2UnlockedRows = 0
+    end
+    if GameState.warehouse.page2Items == nil then
+        GameState.warehouse.page2Items = {}
     end
 end
 
@@ -317,12 +326,222 @@ function WarehouseSystem.SortWarehouse()
     return true, nil
 end
 
+-- ============================================================================
+-- 第二页 API
+-- ============================================================================
+
+--- 第二页是否已开启（第一页满解锁后可开启）
+---@return boolean
+function WarehouseSystem.IsPage2Available()
+    WarehouseSystem.Init()
+    return GameState.warehouse.unlockedRows >= WarehouseConfig.MAX_ROWS
+end
+
+--- 获取第二页已解锁排数
+---@return number
+function WarehouseSystem.GetPage2UnlockedRows()
+    WarehouseSystem.Init()
+    return GameState.warehouse.page2UnlockedRows or 0
+end
+
+--- 获取第二页已解锁格子总数
+---@return number
+function WarehouseSystem.GetPage2UnlockedSlots()
+    return WarehouseSystem.GetPage2UnlockedRows() * WarehouseConfig.ITEMS_PER_ROW
+end
+
+--- 获取第二页指定格子物品
+---@param slotIndex number 1-based
+---@return table|nil
+function WarehouseSystem.GetPage2Item(slotIndex)
+    WarehouseSystem.Init()
+    return GameState.warehouse.page2Items[slotIndex]
+end
+
+--- 存放物品到第二页：从背包移到第二页仓库
+---@param bagSlot number 背包槽位 (1-based)
+---@return boolean success
+---@return string|nil errMsg
+function WarehouseSystem.StoreItemToPage2(bagSlot)
+    WarehouseSystem.Init()
+    local InventorySystem = require("systems.InventorySystem")
+    local mgr = InventorySystem.GetManager()
+    if not mgr then return false, "背包未初始化" end
+
+    local item = mgr:GetInventoryItem(bagSlot)
+    if not item then return false, "该格子没有物品" end
+
+    local blocked, reason = TradeLock.IsOperationBlocked(item)
+    if blocked then return false, reason or TradeLock.LOCK_MESSAGE end
+
+    local maxSlot = WarehouseSystem.GetPage2UnlockedSlots()
+    if maxSlot <= 0 then return false, "第二页未解锁" end
+
+    local targetSlot = nil
+    for i = 1, maxSlot do
+        if not GameState.warehouse.page2Items[i] then
+            targetSlot = i
+            break
+        end
+    end
+    if not targetSlot then return false, "仓库第二页已满" end
+
+    GameState.warehouse.page2Items[targetSlot] = item
+    mgr:SetInventoryItem(bagSlot, nil)
+
+    WarehouseSystem._dirty = true
+    BlackMarketSyncState.MarkWarehouseOp("store_p2")
+    EventBus.Emit("warehouse_changed")
+    EventBus.Emit("inventory_changed")
+    EventBus.Emit("save_request")
+    print("[Warehouse] Store item '" .. (item.name or "?") .. "' bag#" .. bagSlot .. " -> p2#" .. targetSlot)
+    return true, nil
+end
+
+--- 从第二页取出物品到背包
+---@param whSlot number 第二页槽位 (1-based)
+---@return boolean success
+---@return string|nil errMsg
+function WarehouseSystem.RetrieveFromPage2(whSlot)
+    WarehouseSystem.Init()
+    local item = GameState.warehouse.page2Items[whSlot]
+    if not item then return false, "该格子没有物品" end
+
+    local blocked, reason = TradeLock.IsOperationBlocked(item)
+    if blocked then return false, reason or TradeLock.LOCK_MESSAGE end
+
+    local InventorySystem = require("systems.InventorySystem")
+    local mgr = InventorySystem.GetManager()
+    if not mgr then return false, "背包未初始化" end
+
+    local targetSlot = nil
+    for i = 1, GameConfig.BACKPACK_SIZE do
+        if not mgr:GetInventoryItem(i) then
+            targetSlot = i
+            break
+        end
+    end
+    if not targetSlot then return false, "背包已满" end
+
+    mgr:SetInventoryItem(targetSlot, item)
+    GameState.warehouse.page2Items[whSlot] = nil
+
+    WarehouseSystem._dirty = true
+    BlackMarketSyncState.MarkWarehouseOp("retrieve_p2")
+    EventBus.Emit("warehouse_changed")
+    EventBus.Emit("inventory_changed")
+    EventBus.Emit("save_request")
+    print("[Warehouse] Retrieve item '" .. (item.name or "?") .. "' p2#" .. whSlot .. " -> bag#" .. targetSlot)
+    return true, nil
+end
+
+--- 解锁第二页下一排
+---@return boolean success
+---@return string|nil errMsg
+function WarehouseSystem.UnlockPage2NextRow()
+    WarehouseSystem.Init()
+    if not WarehouseSystem.IsPage2Available() then
+        return false, "请先解锁第一页全部排"
+    end
+
+    local wh = GameState.warehouse
+    local nextRow = wh.page2UnlockedRows + 1
+
+    if nextRow > WarehouseConfig.PAGE2_MAX_ROWS then
+        return false, "第二页已达最大排数"
+    end
+
+    local cost = WarehouseConfig.GetPage2RowCost(nextRow)
+    local player = GameState.player
+    if not player then return false, "玩家数据未加载" end
+
+    if player.gold < cost then
+        return false, "金币不足（需要 " .. WarehouseSystem.FormatGold(cost) .. "）"
+    end
+
+    player.gold = player.gold - cost
+    wh.page2UnlockedRows = nextRow
+
+    WarehouseSystem._dirty = true
+    BlackMarketSyncState.MarkWarehouseOp("unlock_p2_row")
+    EventBus.Emit("warehouse_changed")
+    EventBus.Emit("gold_changed")
+    EventBus.Emit("save_request")
+    print("[Warehouse] Page2 unlocked row " .. nextRow .. ", cost " .. cost .. " gold")
+    return true, nil
+end
+
+--- 获取第二页物品数量
+---@return number
+function WarehouseSystem.GetPage2ItemCount()
+    WarehouseSystem.Init()
+    local count = 0
+    for i = 1, WarehouseSystem.GetPage2UnlockedSlots() do
+        if GameState.warehouse.page2Items[i] then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+--- 第二页整理（独立于第一页）
+---@return boolean success
+---@return string|nil errMsg
+function WarehouseSystem.SortPage2()
+    WarehouseSystem.Init()
+    if SortUtil._sorting then
+        return false, "排序进行中"
+    end
+    SortUtil._sorting = true
+
+    local wh = GameState.warehouse
+    local maxSlot = WarehouseSystem.GetPage2UnlockedSlots()
+
+    local items = {}
+    for i = 1, maxSlot do
+        if wh.page2Items[i] then
+            items[#items + 1] = wh.page2Items[i]
+        end
+    end
+
+    if #items == 0 then
+        SortUtil._sorting = false
+        return true, nil
+    end
+
+    local sorted, ok, msg = SortUtil.SortItems(items)
+    if not ok then
+        SortUtil._sorting = false
+        return false, msg
+    end
+
+    if #sorted > maxSlot then
+        SortUtil._sorting = false
+        return false, "物品数超过第二页容量"
+    end
+
+    for i = 1, maxSlot do
+        wh.page2Items[i] = nil
+    end
+    for i, item in ipairs(sorted) do
+        wh.page2Items[i] = item
+    end
+
+    SortUtil._sorting = false
+    WarehouseSystem._dirty = true
+    BlackMarketSyncState.MarkWarehouseOp("sort_p2")
+    EventBus.Emit("warehouse_changed")
+    EventBus.Emit("save_request")
+    print("[Warehouse] Page2 sorted: " .. #sorted .. " items")
+    return true, nil
+end
+
 --- 格式化金币显示
 ---@param gold number
 ---@return string
 function WarehouseSystem.FormatGold(gold)
     if gold >= 100000000 then
-        return string.format("%.1f亿", gold / 100000000)
+        return string.format("%.2f亿", gold / 100000000)
     elseif gold >= 10000 then
         return string.format("%.0fW", gold / 10000)
     else
@@ -344,9 +563,19 @@ function WarehouseSystem.Serialize()
         end
     end
 
+    -- 第二页序列化
+    local page2ItemsData = {}
+    for i = 1, WarehouseConfig.PAGE2_MAX_SLOTS do
+        if wh.page2Items and wh.page2Items[i] then
+            page2ItemsData[tostring(i)] = SaveSerializer.SerializeItemFull(wh.page2Items[i])
+        end
+    end
+
     return {
         unlockedRows = wh.unlockedRows,
         items = itemsData,
+        page2UnlockedRows = wh.page2UnlockedRows or 0,
+        page2Items = page2ItemsData,
     }
 end
 
@@ -358,6 +587,8 @@ function WarehouseSystem.Deserialize(data)
         GameState.warehouse = {
             unlockedRows = WarehouseConfig.INITIAL_UNLOCKED_ROWS,
             items = {},
+            page2UnlockedRows = 0,
+            page2Items = {},
         }
         return
     end
@@ -365,8 +596,11 @@ function WarehouseSystem.Deserialize(data)
     GameState.warehouse = {
         unlockedRows = data.unlockedRows or WarehouseConfig.INITIAL_UNLOCKED_ROWS,
         items = {},
+        page2UnlockedRows = data.page2UnlockedRows or 0,
+        page2Items = {},
     }
 
+    -- 第一页物品反序列化
     if data.items then
         local SaveSerializer = require("systems.save.SaveSerializer")
         local SaveMigrations = require("systems.save.SaveMigrations")
@@ -374,7 +608,6 @@ function WarehouseSystem.Deserialize(data)
         for slotStr, itemData in pairs(data.items) do
             local slotIdx = tonumber(slotStr)
             if slotIdx and slotIdx >= 1 and slotIdx <= WarehouseConfig.MAX_SLOTS then
-                -- 与背包反序列化一致：百分比属性归一化 + tier 补全 + 字段补全
                 NormalizePercentStats(itemData)
                 if itemData.slot and not itemData.tier then
                     itemData.tier = 1
@@ -387,7 +620,28 @@ function WarehouseSystem.Deserialize(data)
         end
     end
 
-    print("[Warehouse] Deserialized: " .. (data.unlockedRows or 1) .. " rows unlocked")
+    -- 第二页物品反序列化
+    if data.page2Items then
+        local SaveSerializer = require("systems.save.SaveSerializer")
+        local SaveMigrations = require("systems.save.SaveMigrations")
+        local NormalizePercentStats = SaveMigrations.NormalizePercentStats
+        for slotStr, itemData in pairs(data.page2Items) do
+            local slotIdx = tonumber(slotStr)
+            if slotIdx and slotIdx >= 1 and slotIdx <= WarehouseConfig.PAGE2_MAX_SLOTS then
+                NormalizePercentStats(itemData)
+                if itemData.slot and not itemData.tier then
+                    itemData.tier = 1
+                end
+                if itemData.slot and SaveSerializer.fillEquipFields then
+                    SaveSerializer.fillEquipFields(itemData)
+                end
+                GameState.warehouse.page2Items[slotIdx] = itemData
+            end
+        end
+    end
+
+    local p2Rows = data.page2UnlockedRows or 0
+    print("[Warehouse] Deserialized: " .. (data.unlockedRows or 1) .. " rows unlocked, page2: " .. p2Rows .. " rows")
 end
 
 -- ============================================================================

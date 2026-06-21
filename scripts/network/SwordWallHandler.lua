@@ -2,6 +2,7 @@
 -- SwordWallHandler.lua - 剑气长城副本服务端处理
 -- 积分结算（宝箱） + 积分商店购买
 -- 积分使用 serverCloud Money 域，同黑市仙石范式
+-- 装备由客户端收到成功回调后自行入库，auto-save 自然落盘
 -- ============================================================================
 
 local SwordWallHandler = {}
@@ -11,21 +12,25 @@ local SWC = require("config.SwordWallConfig")
 local Session = require("network.ServerSession")
 local Logger = require("utils.Logger")
 local LootSystem = require("systems.LootSystem")
-local GameConfig = require("config.GameConfig")
 
 -- 防并发锁
 local claimActive_ = {}   -- connKey -> true
 local shopActive_  = {}   -- connKey -> true
 
 -- 已结算 runId 本地缓存（防重入，最近 50 个）
-local claimedRuns_ = {}   -- { [runId] = true }
-local claimedRunsList_ = {}  -- 有序列表，用于淘汰旧 ID
+-- 存储结算结果用于幂等重试: { [runId] = { points=N, equipJson="..." } }
+local claimedRuns_ = {}
+local claimedRunsList_ = {}   -- 有序列表，用于淘汰旧 ID
+
+-- 副本开始注册（P0-1 防伪造）
+local activeRuns_ = {}        -- { [connKey] = { runId=string, startTime=number } }
 
 local MAX_CACHED_RUNS = 50
+local MIN_CLEAR_TIME = 25     -- 至少 25 秒才可能通关（3波怪最低时间）
 
-local function MarkRunClaimed(runId)
+local function MarkRunClaimed(runId, result)
     if claimedRuns_[runId] then return end
-    claimedRuns_[runId] = true
+    claimedRuns_[runId] = result or {}
     table.insert(claimedRunsList_, runId)
     if #claimedRunsList_ > MAX_CACHED_RUNS then
         local old = table.remove(claimedRunsList_, 1)
@@ -33,8 +38,29 @@ local function MarkRunClaimed(runId)
     end
 end
 
-local function IsRunClaimed(runId)
-    return claimedRuns_[runId] == true
+local function GetClaimedResult(runId)
+    return claimedRuns_[runId]
+end
+
+-- ============================================================================
+-- 副本开始注册（客户端进入副本时上报）
+-- ============================================================================
+
+function SwordWallHandler.HandleStart(connection, eventData)
+    local connKey = tostring(connection)
+    local userId = Session.GetUserId(connKey)
+    if not userId then return end
+
+    local runId = eventData["runId"] and eventData["runId"]:GetString() or ""
+    if runId == "" then return end
+
+    -- 注册此连接的活跃副本
+    activeRuns_[connKey] = {
+        runId = runId,
+        startTime = os.time(),
+    }
+
+    Logger.info("SwordWall", "Run started: userId=" .. userId .. " runId=" .. runId)
 end
 
 -- ============================================================================
@@ -74,54 +100,55 @@ function SwordWallHandler.HandleClaim(connection, eventData)
         return
     end
 
-    -- 本地防重
-    if IsRunClaimed(runId) then
-        SendResult(false, 0, "", "该副本已结算")
+    -- 幂等重试：已结算的 runId 返回缓存的成功结果（防止响应丢失导致装备丢失）
+    local cachedResult = GetClaimedResult(runId)
+    if cachedResult then
+        Logger.info("SwordWall", "Idempotent retry: runId=" .. runId .. " returning cached result")
+        SendResult(true, cachedResult.points or 0, cachedResult.equipJson or "", "")
         finish()
         return
     end
 
-    -- 生成奖励
+    -- P0-1 防伪造校验：检查副本是否由此连接注册
+    local runInfo = activeRuns_[connKey]
+    if not runInfo or runInfo.runId ~= runId then
+        Logger.warn("SwordWall", "Claim rejected: no registered run for " .. connKey
+            .. " runId=" .. runId)
+        SendResult(false, 0, "", "副本未注册")
+        finish()
+        return
+    end
+
+    -- 最短时间校验
+    local elapsed = os.time() - runInfo.startTime
+    if elapsed < MIN_CLEAR_TIME then
+        Logger.warn("SwordWall", "Claim rejected: too fast (" .. elapsed .. "s) for " .. connKey)
+        SendResult(false, 0, "", "通关时间异常")
+        finish()
+        return
+    end
+
+    -- 生成奖励（服务端权威生成）
     local points = math.random(SWC.REWARD_POINT_MIN, SWC.REWARD_POINT_MAX)
     local equipment = LootSystem.GenerateSwordWallRewardEquipment()
     local cjson = require("cjson")
     local equipJson = equipment and cjson.encode(equipment) or ""
 
-    -- 原子操作：加积分 + 写结算日志
+    -- 原子操作：加积分
     local commit = serverCloud:BatchCommit("剑气长城宝箱结算")
     commit:MoneyAdd(userId, SWC.POINT_KEY, points)
-    -- WAL: 装备数据（如果背包写入失败可补发）
-    commit:ListAdd(userId, SWC.WAL_ITEM_KEY, {
-        runId = runId,
-        equipment = equipJson,
-        time = os.time(),
-    })
     commit:Commit({
         ok = function()
-            MarkRunClaimed(runId)
+            -- 缓存结算结果（用于幂等重试）
+            MarkRunClaimed(runId, { points = points, equipJson = equipJson })
+            -- 清理活跃副本记录
+            activeRuns_[connKey] = nil
+
             Logger.info("SwordWall", "Claim OK: userId=" .. userId
                 .. " runId=" .. runId .. " points=" .. points
                 .. " equip=" .. (equipment and equipment.name or "nil"))
 
-            -- 写入背包存档
-            local slot = Session.connSlots_[connKey]
-            if slot and equipment then
-                local SaveLoadService = require("network.SaveLoadService")
-                SaveLoadService.ReadSlot(userId, slot, function(saveData)
-                    if saveData and saveData.inventory then
-                        table.insert(saveData.inventory, equipment)
-                        SaveLoadService.WriteSlot(userId, slot, saveData, function(writeOk)
-                            if writeOk then
-                                -- 清理 WAL
-                                serverCloud:ListRemove(userId, SWC.WAL_ITEM_KEY, { runId = runId })
-                            else
-                                Logger.warn("SwordWall", "背包写入失败，WAL保留: runId=" .. runId)
-                            end
-                        end)
-                    end
-                end)
-            end
-
+            -- 装备数据通过响应返回客户端，由客户端入库 + auto-save 落盘
             SendResult(true, points, equipJson, "")
             finish()
         end,
@@ -218,12 +245,12 @@ function SwordWallHandler.HandleShopBuy(connection, eventData)
                 return
             end
 
-            -- 构造奖励物品
+            -- 构造奖励物品数据（序列化后发给客户端入库）
             local rewardItem = nil
             if shopItem.itemType == "equipment" and shopItem.equipId then
                 rewardItem = LootSystem.CreateSpecialEquipment(shopItem.equipId)
             elseif shopItem.itemType == "consumable" and shopItem.consumableId then
-                rewardItem = { type = "consumable", consumableId = shopItem.consumableId, count = 1 }
+                rewardItem = { type = "consumable", consumableId = shopItem.consumableId, count = shopItem.count or 1 }
             end
 
             if not rewardItem then
@@ -232,54 +259,37 @@ function SwordWallHandler.HandleShopBuy(connection, eventData)
                 return
             end
 
-            -- 原子扣积分 + WAL
+            -- 原子扣积分
             local cjson = require("cjson")
             local commit = serverCloud:BatchCommit("剑气积分商店购买")
             commit:MoneyCost(userId, SWC.POINT_KEY, shopItem.price)
-            commit:ListAdd(userId, SWC.WAL_ITEM_KEY, {
-                shopItemId = shopItemId,
-                reward = cjson.encode(rewardItem),
-                time = os.time(),
-            })
             commit:Commit({
                 ok = function()
                     Logger.info("SwordWall", "Shop buy OK: userId=" .. userId
                         .. " item=" .. shopItemId .. " price=" .. shopItem.price)
 
-                    -- 写入背包
-                    local slot = Session.connSlots_[connKey]
-                    if slot then
-                        local SaveLoadService = require("network.SaveLoadService")
-                        SaveLoadService.ReadSlot(userId, slot, function(saveData)
-                            if saveData and saveData.inventory then
-                                if shopItem.itemType == "equipment" then
-                                    table.insert(saveData.inventory, rewardItem)
-                                else
-                                    -- consumable 加入 consumables
-                                    if not saveData.consumables then saveData.consumables = {} end
-                                    local cId = shopItem.consumableId
-                                    saveData.consumables[cId] = (saveData.consumables[cId] or 0) + 1
-                                end
-                                SaveLoadService.WriteSlot(userId, slot, saveData, function(writeOk)
-                                    if writeOk then
-                                        serverCloud:ListRemove(userId, SWC.WAL_ITEM_KEY, { shopItemId = shopItemId })
-                                    else
-                                        Logger.warn("SwordWall", "Shop背包写入失败，WAL保留: " .. shopItemId)
-                                    end
-                                end)
-                            end
-                        end)
-                    end
-
-                    -- 读新余额返回
+                    -- 读新余额返回（物品数据一并返回，客户端自行入库）
                     serverCloud.money:Get(userId, {
                         ok = function(newMoneys)
                             local newBal = (newMoneys and newMoneys[SWC.POINT_KEY]) or (balance - shopItem.price)
-                            SendResult(true, shopItemId, newBal, "")
+                            -- 附带物品数据
+                            local resp = VariantMap()
+                            resp["ok"] = Variant(true)
+                            resp["itemId"] = Variant(shopItemId)
+                            resp["balance"] = Variant(newBal)
+                            resp["error"] = Variant("")
+                            resp["reward"] = Variant(cjson.encode(rewardItem))
+                            connection:SendRemoteEvent(SaveProtocol.S2C_SwordWallShopBuyResult, true, resp)
                             finish()
                         end,
                         error = function()
-                            SendResult(true, shopItemId, balance - shopItem.price, "")
+                            local resp = VariantMap()
+                            resp["ok"] = Variant(true)
+                            resp["itemId"] = Variant(shopItemId)
+                            resp["balance"] = Variant(balance - shopItem.price)
+                            resp["error"] = Variant("")
+                            resp["reward"] = Variant(cjson.encode(rewardItem))
+                            connection:SendRemoteEvent(SaveProtocol.S2C_SwordWallShopBuyResult, true, resp)
                             finish()
                         end,
                     })
@@ -299,79 +309,9 @@ function SwordWallHandler.HandleShopBuy(connection, eventData)
     })
 end
 
--- ============================================================================
--- WAL 登录检查（补发未到账物品）
--- ============================================================================
-
-function SwordWallHandler.CheckWAL(userId, connKey)
-    serverCloud:ListGet(userId, SWC.WAL_ITEM_KEY, {
-        ok = function(items)
-            if not items or #items == 0 then return end
-            Logger.info("SwordWall", "WAL found " .. #items .. " pending items for userId=" .. userId)
-
-            local slot = Session.connSlots_[connKey]
-            if not slot then return end
-
-            local SaveLoadService = require("network.SaveLoadService")
-            SaveLoadService.ReadSlot(userId, slot, function(saveData)
-                if not saveData then return end
-
-                local cjson = require("cjson")
-                local delivered = 0
-                for _, walItem in ipairs(items) do
-                    local ok2, reward = pcall(cjson.decode, walItem.equipment or walItem.reward or "")
-                    if ok2 and reward then
-                        if reward.slot then
-                            -- equipment
-                            if not saveData.inventory then saveData.inventory = {} end
-                            table.insert(saveData.inventory, reward)
-                            delivered = delivered + 1
-                        elseif reward.consumableId then
-                            -- consumable
-                            if not saveData.consumables then saveData.consumables = {} end
-                            local cId = reward.consumableId
-                            saveData.consumables[cId] = (saveData.consumables[cId] or 0) + (reward.count or 1)
-                            delivered = delivered + 1
-                        end
-                    end
-                end
-
-                if delivered > 0 then
-                    SaveLoadService.WriteSlot(userId, slot, saveData, function(writeOk)
-                        if writeOk then
-                            -- 清空 WAL
-                            serverCloud:ListClear(userId, SWC.WAL_ITEM_KEY)
-                            Logger.info("SwordWall", "WAL delivered " .. delivered .. " items for userId=" .. userId)
-                        end
-                    end)
-                end
-            end)
-        end,
-        error = function() end,
-    })
-end
-
--- ============================================================================
--- 注册
--- ============================================================================
-
-function SwordWallHandler.Register()
-    SubscribeToEvent(SaveProtocol.C2S_SwordWallClaim, function(eventType, eventData)
-        local connection = eventData["Connection"]:GetPtr("Connection")
-        if connection then SwordWallHandler.HandleClaim(connection, eventData) end
-    end)
-
-    SubscribeToEvent(SaveProtocol.C2S_SwordWallShopQuery, function(eventType, eventData)
-        local connection = eventData["Connection"]:GetPtr("Connection")
-        if connection then SwordWallHandler.HandleShopQuery(connection, eventData) end
-    end)
-
-    SubscribeToEvent(SaveProtocol.C2S_SwordWallShopBuy, function(eventType, eventData)
-        local connection = eventData["Connection"]:GetPtr("Connection")
-        if connection then SwordWallHandler.HandleShopBuy(connection, eventData) end
-    end)
-
-    print("[SwordWallHandler] Registered")
+-- 连接断开时清理活跃副本注册
+function SwordWallHandler.OnDisconnect(connKey)
+    activeRuns_[connKey] = nil
 end
 
 return SwordWallHandler

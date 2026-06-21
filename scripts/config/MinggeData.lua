@@ -37,7 +37,7 @@ MinggeData.ALL_SLOTS = {
     "earth1", "earth2", "earth3",
 }
 
-MinggeData.BACKPACK_SIZE = 60
+MinggeData.BACKPACK_SIZE = 64
 
 -- ============================================================================
 -- 2. 品质定义

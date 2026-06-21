@@ -116,11 +116,10 @@ function SwordWallUI.Show()
 
     -- 按钮
     entryShell_:AddContent(UI.Button {
-        text = canEnter and "⚔️ 进入剑气长城" or "仙人精血不足",
+        text = canEnter and "⚔️ 进入剑气长城" or "⚔️ 仙人精血不足",
         width = "100%", height = 42,
         fontSize = T.fontSize.md, fontWeight = "bold",
-        backgroundColor = canEnter and T.color.primary or T.color.disabled,
-        fontColor = canEnter and {255, 255, 255, 255} or T.color.textMuted,
+        variant = canEnter and "primary" or "disabled",
         borderRadius = T.radius.md,
         disabled = not canEnter,
         onClick = function()
@@ -135,8 +134,7 @@ function SwordWallUI.Show()
         text = "📜 剑气积分商店",
         width = "100%", height = 36,
         fontSize = T.fontSize.sm,
-        backgroundColor = T.color.goldDark,
-        fontColor = T.color.gold,
+        variant = "secondary",
         borderRadius = T.radius.md,
         onClick = function()
             SwordWallUI.HideEntry()
@@ -217,9 +215,21 @@ function SwordWallUI._refreshShopContent(balance)
         },
     })
 
+    -- 背包空位校验
+    local freeSlots = InventorySystem.GetFreeSlots()
+    local bagFull = freeSlots < 1
+
+    if bagFull then
+        shopShell_:AddContent(UI.Label {
+            text = "⚠️ 背包已满，无法兑换",
+            fontSize = T.fontSize.xs, fontColor = T.color.error,
+            marginBottom = T.spacing.xs,
+        })
+    end
+
     -- 商品列表
     for _, item in ipairs(SWC.SHOP) do
-        local canBuy = balance >= item.price
+        local canBuy = balance >= item.price and not bagFull
         local rawIcon = item.icon or nil
         local iconPath = nil
         local emoji = nil
@@ -258,8 +268,7 @@ function SwordWallUI._refreshShopContent(balance)
                 UI.Button {
                     text = "兑换", width = 56, height = 28,
                     fontSize = T.fontSize.xs, borderRadius = T.radius.sm,
-                    backgroundColor = canBuy and T.color.primary or T.color.disabled,
-                    fontColor = canBuy and {255,255,255,255} or T.color.textMuted,
+                    variant = canBuy and "primary" or "disabled",
                     disabled = not canBuy,
                     onClick = function() SwordWallUI._doBuy(item.id) end,
                 },
@@ -269,6 +278,11 @@ function SwordWallUI._refreshShopContent(balance)
 end
 
 function SwordWallUI._doBuy(itemId)
+    -- 实时校验背包空位（防止面板缓存过期）
+    if InventorySystem.GetFreeSlots() < 1 then
+        if shopShell_ then shopShell_:SetResult("背包已满，无法兑换", T.color.error) end
+        return
+    end
     if not network or not network.serverConnection then return end
     local msg = VariantMap()
     msg["itemId"] = Variant(itemId)
@@ -362,13 +376,85 @@ function SwordWallUI._createRewardPanel()
     })
 end
 
---- 显示奖励弹窗（积分高亮 + 装备用标准 EquipTooltip 展示）
+--- 显示加载态弹窗（点击宝箱后立即弹出，等待服务端响应）
+function SwordWallUI.ShowRewardLoading()
+    if not parentOverlay_ then return end
+    if not rewardShell_ then SwordWallUI._createRewardPanel() end
+    rewardShell_:ClearContent()
+
+    rewardShell_:AddContent(UI.Panel {
+        width = "100%", height = 80, justifyContent = "center", alignItems = "center",
+        children = {
+            UI.Label { text = "⏳ 结算中...", fontSize = T.fontSize.md, fontColor = T.color.gold, textAlign = "center" },
+            UI.Label { text = "正在与服务器通信", fontSize = T.fontSize.xs, fontColor = T.color.textMuted, textAlign = "center", marginTop = T.spacing.xs },
+        },
+    })
+
+    rewardShell_:Show()
+end
+
+--- 服务端超时通知（弹窗已显示，更新为超时状态 + 重试按钮）
+function SwordWallUI.OnClaimTimeout()
+    if not rewardShell_ then return end
+    rewardShell_:ClearContent()
+
+    rewardShell_:AddContent(UI.Panel {
+        width = "100%", height = 60, justifyContent = "center", alignItems = "center",
+        children = {
+            UI.Label { text = "⚠️ 服务器响应超时", fontSize = T.fontSize.sm, fontColor = T.color.warning, textAlign = "center" },
+            UI.Label { text = "可重试或通过传送阵退出", fontSize = T.fontSize.xs, fontColor = T.color.textMuted, textAlign = "center", marginTop = T.spacing.xs },
+        },
+    })
+
+    rewardShell_:AddContent(UI.Panel { height = T.spacing.sm })
+
+    rewardShell_:AddContent(UI.Button {
+        text = "重试结算",
+        width = "100%", height = 36,
+        fontSize = T.fontSize.sm,
+        variant = "primary",
+        borderRadius = T.radius.md,
+        onClick = function()
+            local SWS = require("systems.SwordWallSystem")
+            -- 重置为可重试状态
+            SWS.chestOpened = false
+            SWS.state = "chest_ready"
+            if SWS.chestEntity then
+                SWS.chestEntity.interactable = true
+                SWS.chestEntity.icon = "📦"
+                SWS.chestEntity.name = "结算宝箱"
+                SWS.chestEntity.opened = false
+            end
+            SwordWallUI.HideReward()
+        end,
+    })
+
+    rewardShell_:AddContent(UI.Panel { height = T.spacing.xs })
+
+    rewardShell_:AddContent(UI.Button {
+        text = "通过传送阵退出",
+        width = "100%", height = 32,
+        fontSize = T.fontSize.xs,
+        variant = "secondary",
+        borderRadius = T.radius.md,
+        onClick = function()
+            SwordWallUI.HideReward()
+        end,
+    })
+end
+
+--- 显示奖励弹窗（积分高亮 + 装备 tips 样式内嵌）
+--- 由服务端成功响应后调用，覆盖加载态内容
 ---@param points number 剑气积分
 ---@param equipment table|nil 获得的装备
 function SwordWallUI.ShowReward(points, equipment)
     if not parentOverlay_ then return end
     if not rewardShell_ then SwordWallUI._createRewardPanel() end
     rewardShell_:ClearContent()
+
+    local StatNames = require("utils.StatNames")
+    local EquipmentData = require("config.EquipmentData")
+    local IconUtils = require("utils.IconUtils")
 
     -- ── 积分奖励（高亮金色）──
     rewardShell_:AddContent(UI.Panel {
@@ -388,12 +474,132 @@ function SwordWallUI.ShowReward(points, equipment)
         },
     })
 
+    -- ── 装备 Tips 样式（内嵌）──
+    if equipment then
+        local qualityColor = {100, 220, 255, 255}
+        local qCfg = GameConfig.QUALITY and GameConfig.QUALITY[equipment.quality]
+        if qCfg and qCfg.color then qualityColor = qCfg.color end
+        local qName = qCfg and qCfg.name or "灵器"
+        local slotName = EquipmentData.SLOT_NAMES and EquipmentData.SLOT_NAMES[equipment.slot] or equipment.slot or ""
+        local equipIcon = equipment.icon or nil
+        local equipIsImage = equipIcon and (equipIcon:find("%.") or equipIcon:find("/"))
+
+        local tipsChildren = {}
+
+        -- 头部：图标 + 名称
+        table.insert(tipsChildren, UI.Panel {
+            width = "100%", flexDirection = "row", alignItems = "center", gap = T.spacing.sm,
+            paddingBottom = T.spacing.xs,
+            borderBottomWidth = 1, borderColor = {200, 200, 200, 30},
+            children = {
+                equipIsImage and UI.Panel {
+                    width = 40, height = 40, borderRadius = T.radius.sm,
+                    backgroundImage = equipIcon, backgroundFit = "contain",
+                } or UI.Label { text = "🗡️", fontSize = 28 },
+                UI.Panel { gap = 2, children = {
+                    UI.Label { text = equipment.name or "灵器", fontSize = T.fontSize.md, fontWeight = "bold", fontColor = qualityColor },
+                    UI.Label { text = (equipment.tier or 10) .. "阶  [" .. qName .. "] " .. slotName,
+                        fontSize = T.fontSize.xs, fontColor = T.color.textMuted },
+                }},
+            },
+        })
+
+        -- 主属性区
+        if equipment.mainStat then
+            local mainRows = { UI.Label { text = "□ 主属性", fontSize = T.fontSize.xs, fontColor = T.color.textMuted } }
+            for stat, val in pairs(equipment.mainStat) do
+                local icon = StatNames.ICONS and StatNames.ICONS[stat] or "◆"
+                table.insert(mainRows, UI.Panel {
+                    width = "100%", flexDirection = "row", alignItems = "center",
+                    children = {
+                        UI.Label { text = icon .. " " .. (StatNames.NAMES[stat] or stat),
+                            fontSize = T.fontSize.sm, fontColor = {255, 255, 255, 255}, flex = 1 },
+                        UI.Label { text = "+" .. StatNames.FormatValue(stat, val),
+                            fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = qualityColor },
+                    },
+                })
+            end
+            table.insert(tipsChildren, UI.Panel {
+                width = "100%", padding = T.spacing.xs,
+                backgroundColor = {qualityColor[1], qualityColor[2], qualityColor[3], 15},
+                borderRadius = T.radius.sm, gap = 2, marginTop = T.spacing.xs,
+                children = mainRows,
+            })
+        end
+
+        -- 副属性区
+        if equipment.subStats and #equipment.subStats > 0 then
+            local subRows = { UI.Label { text = "□ 副属性", fontSize = T.fontSize.xs, fontColor = T.color.textMuted } }
+            for _, sub in ipairs(equipment.subStats) do
+                local icon = StatNames.ICONS and StatNames.ICONS[sub.stat] or "◇"
+                table.insert(subRows, UI.Panel {
+                    width = "100%", flexDirection = "row", alignItems = "center",
+                    children = {
+                        UI.Label { text = icon .. " " .. (sub.name or StatNames.NAMES[sub.stat] or sub.stat),
+                            fontSize = T.fontSize.xs, fontColor = T.color.textSecondary, flex = 1 },
+                        UI.Label { text = "+" .. StatNames.FormatValue(sub.stat, sub.value),
+                            fontSize = T.fontSize.xs, fontColor = T.color.textPrimary },
+                    },
+                })
+            end
+            table.insert(tipsChildren, UI.Panel {
+                width = "100%", gap = 2, marginTop = T.spacing.xs,
+                children = subRows,
+            })
+        end
+
+        -- 灵性属性区
+        if equipment.spiritStat then
+            local sp = equipment.spiritStat
+            local icon = StatNames.ICONS and StatNames.ICONS[sp.stat] or "✦"
+            table.insert(tipsChildren, UI.Panel {
+                width = "100%", padding = T.spacing.xs,
+                backgroundColor = {160, 120, 255, 15},
+                borderRadius = T.radius.sm, gap = 2, marginTop = T.spacing.xs,
+                children = {
+                    UI.Label { text = "□ 灵性属性", fontSize = T.fontSize.xs, fontColor = {200, 160, 255, 255} },
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", alignItems = "center",
+                        children = {
+                            UI.Label { text = icon .. " " .. (sp.name or StatNames.NAMES[sp.stat] or sp.stat),
+                                fontSize = T.fontSize.sm, fontColor = {200, 160, 255, 255}, flex = 1 },
+                            UI.Label { text = "+" .. StatNames.FormatValue(sp.stat, sp.value),
+                                fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = {200, 160, 255, 255} },
+                        },
+                    },
+                },
+            })
+        end
+
+        -- 套装信息
+        if equipment.setId then
+            local EquipmentData = require("config.EquipmentData")
+            local setData = EquipmentData.SetBonuses and EquipmentData.SetBonuses[equipment.setId]
+            local setDisplayName = setData and setData.name or equipment.setId
+            table.insert(tipsChildren, UI.Label {
+                text = "🔗 套装：" .. setDisplayName,
+                fontSize = T.fontSize.xs, fontColor = T.color.equipTipSetName or {180, 130, 255, 255}, marginTop = T.spacing.xs,
+            })
+        end
+
+        -- 组装 tips 面板
+        rewardShell_:AddContent(UI.Panel {
+            width = "100%",
+            padding = T.spacing.sm,
+            backgroundColor = {20, 25, 40, 220},
+            borderRadius = T.radius.md,
+            borderWidth = 1,
+            borderColor = {qualityColor[1], qualityColor[2], qualityColor[3], 60},
+            children = tipsChildren,
+        })
+    end
+
+    rewardShell_:AddContent(UI.Panel { height = T.spacing.sm })
     rewardShell_:AddContent(UI.Button {
         text = "确认返回",
         width = "100%", height = 40,
         fontSize = T.fontSize.md, fontWeight = "bold",
-        backgroundColor = T.color.primary,
-        fontColor = {255, 255, 255, 255},
+        variant = "primary",
         borderRadius = T.radius.md,
         onClick = function()
             SwordWallUI.HideReward()
@@ -407,14 +613,6 @@ function SwordWallUI.ShowReward(points, equipment)
     })
 
     rewardShell_:Show()
-
-    -- ── 装备用标准 EquipTooltip 展示完整属性 ──
-    if equipment then
-        local EquipTooltip = require("ui.EquipTooltip")
-        if EquipTooltip.IsInited() then
-            EquipTooltip.Show(equipment, "reward", nil, nil)
-        end
-    end
 end
 
 function SwordWallUI.HideReward()
@@ -490,6 +688,24 @@ function SwordWallUI_HandleShopBuyResult(eventType, eventData)
     local itemId = eventData["itemId"]:GetString()
     local balance = eventData["balance"]:GetInt()
     local errMsg = eventData["error"]:GetString()
+
+    -- 服务端返回的物品数据，客户端入库
+    if ok then
+        local rewardJson = eventData["reward"] and eventData["reward"]:GetString() or ""
+        if rewardJson ~= "" then
+            local cjson = require("cjson")
+            local decOk, rewardItem = pcall(cjson.decode, rewardJson)
+            if decOk and rewardItem then
+                local InventorySystem = require("systems.InventorySystem")
+                if rewardItem.type == "consumable" then
+                    InventorySystem.AddConsumable(rewardItem.consumableId, rewardItem.count or 1)
+                else
+                    InventorySystem.AddItem(rewardItem)
+                end
+            end
+        end
+    end
+
     SwordWallUI.OnShopBuyResult(ok, itemId, balance, errMsg)
 end
 

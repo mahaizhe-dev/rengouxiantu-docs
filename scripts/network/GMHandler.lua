@@ -44,6 +44,31 @@ function M.HandleGMCommand(eventType, eventData)
         return  -- 不走后续统一响应
     end
 
+    -- 剑气积分GM加点
+    if cmd == "add_sw_points" then
+        local SWC = require("config.SwordWallConfig")
+        local commit = serverCloud:BatchCommit("GM剑气积分+500")
+        commit:MoneyAdd(userId, SWC.POINT_KEY, 500)
+        commit:Commit({
+            ok = function()
+                local data = VariantMap()
+                data["ok"] = Variant(true)
+                data["cmd"] = Variant("add_sw_points")
+                data["msg"] = Variant("剑气积分+500")
+                Session.SafeSend(connection, SaveProtocol.S2C_GMCommandResult, data)
+                print("[Server][GM] add_sw_points OK for userId=" .. tostring(userId))
+            end,
+            error = function(code, reason)
+                local data = VariantMap()
+                data["ok"] = Variant(false)
+                data["cmd"] = Variant("add_sw_points")
+                data["msg"] = Variant("失败: " .. tostring(reason))
+                Session.SafeSend(connection, SaveProtocol.S2C_GMCommandResult, data)
+            end,
+        })
+        return
+    end
+
     -- 授权通过，回复客户端执行
     print("[Server][GM] Command AUTHORIZED: cmd=" .. cmd .. " userId=" .. tostring(userId))
     local data = VariantMap()

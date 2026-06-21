@@ -116,6 +116,14 @@ function SwordWallSystem.Enter(gameMap)
     player.y = SWC.PLAYER_ENTER_POS.y
     player:SetMoveDirection(0, 0)
 
+    -- 通知服务端副本开始（P0-1 防伪造注册）
+    if network and network.serverConnection then
+        local SaveProtocol = require("network.SaveProtocol")
+        local msg = VariantMap()
+        msg["runId"] = Variant(tostring(SwordWallSystem.runId))
+        network.serverConnection:SendRemoteEvent(SaveProtocol.C2S_SwordWallStart, true, msg)
+    end
+
     -- 生成退出传送阵
     SwordWallSystem._spawnExitPortal(gameMap)
 
@@ -141,6 +149,17 @@ function SwordWallSystem.Update(dt, gameMap)
         SwordWallSystem.clearDelayTimer = SwordWallSystem.clearDelayTimer - dt
         if SwordWallSystem.clearDelayTimer <= 0 then
             SwordWallSystem._spawnNextWave(gameMap)
+        end
+    elseif SwordWallSystem.state == "claiming" then
+        -- 服务端响应超时检测（仅通知UI显示超时状态，不本地生成奖励）
+        if SwordWallSystem._claimTimeout then
+            SwordWallSystem._claimTimeout = SwordWallSystem._claimTimeout - dt
+            if SwordWallSystem._claimTimeout <= 0 then
+                SwordWallSystem._claimTimeout = nil  -- 只触发一次
+                print("[SwordWall] Claim timeout - notifying UI")
+                local SwordWallUI = require("ui.SwordWallUI")
+                SwordWallUI.OnClaimTimeout()
+            end
         end
     end
 end
@@ -233,35 +252,44 @@ function SwordWallSystem.OpenChest()
 
     SwordWallSystem.chestOpened = true
     SwordWallSystem.state = "claiming"
+    SwordWallSystem._claimTimeout = 5.0  -- 5秒超时通知UI
 
-    -- 本地生成奖励（立即展示，不等服务端）
-    local points = math.random(SWC.REWARD_POINT_MIN, SWC.REWARD_POINT_MAX)
-    local equip = LootSystem.GenerateSwordWallRewardEquipment()
-
-    -- 装备入背包
-    if equip then
-        InventorySystem.AddItem(equip)
+    -- 宝箱状态切换为已开启（禁止交互 + 视觉变化）
+    if SwordWallSystem.chestEntity then
+        SwordWallSystem.chestEntity.interactable = false
+        SwordWallSystem.chestEntity.icon = "📭"
+        SwordWallSystem.chestEntity.name = "宝箱（已开启）"
+        SwordWallSystem.chestEntity.opened = true
     end
 
-    -- 立即展示奖励弹窗
-    SwordWallSystem.OnClaimSuccess(points, equip)
+    -- 立即弹出结算弹窗（加载态），确保玩家始终能看到弹窗
+    local SwordWallUI = require("ui.SwordWallUI")
+    SwordWallUI.ShowRewardLoading()
 
-    -- 异步上报服务端（积分写入云端）
+    -- 发送服务端结算请求（服务端是唯一奖励来源）
     SwordWallSystem._requestClaimReward()
 
     return true
 end
 
---- 服务端结算成功回调
+--- 服务端结算成功回调（由 UI 层收到 S2C 响应后调用）
+--- 奖励只来自服务端，客户端不生成任何奖励
 ---@param points number 获得的剑气积分
----@param equipment table 获得的装备
+---@param equipment table|nil 获得的装备（服务端生成）
 function SwordWallSystem.OnClaimSuccess(points, equipment)
     if not SwordWallSystem.active then return end
+    if SwordWallSystem.state == "completed" then return end  -- 幂等保护
 
+    SwordWallSystem._claimTimeout = nil
     SwordWallSystem.rewardClaimed = true
     SwordWallSystem.state = "completed"
 
-    -- 显示奖励弹窗（不自动返回，等玩家确认）
+    -- 服务端确认后入库（唯一入库路径）
+    if equipment then
+        InventorySystem.AddItem(equipment)
+    end
+
+    -- 更新弹窗为奖励内容（弹窗已在 OpenChest 时显示为加载态）
     local SwordWallUI = require("ui.SwordWallUI")
     SwordWallUI.ShowReward(points, equipment)
 
@@ -273,16 +301,35 @@ end
 ---@param reason string
 function SwordWallSystem.OnClaimFailed(reason)
     if not SwordWallSystem.active then return end
+    -- 幂等保护：已完成则忽略迟到的失败响应
+    if SwordWallSystem.state == "completed" then
+        print("[SwordWall] OnClaimFailed ignored: already completed")
+        return
+    end
+
+    SwordWallSystem._claimTimeout = nil
 
     -- 重置为可再次尝试
     SwordWallSystem.chestOpened = false
     SwordWallSystem.state = "chest_ready"
 
+    -- 恢复宝箱可交互
+    if SwordWallSystem.chestEntity then
+        SwordWallSystem.chestEntity.interactable = true
+        SwordWallSystem.chestEntity.icon = "📦"
+        SwordWallSystem.chestEntity.name = "结算宝箱"
+        SwordWallSystem.chestEntity.opened = false
+    end
+
+    -- 关闭加载态弹窗，用浮字提示
+    local SwordWallUI = require("ui.SwordWallUI")
+    SwordWallUI.HideReward()
+
     local player = GameState.player
     if player then
         CombatSystem.AddFloatingText(
             player.x, player.y - 1.5,
-            "结算失败: " .. (reason or "未知"), {255, 100, 100, 255}, 3.0
+            "结算失败: " .. (reason or "未知") .. "，请重试", {255, 100, 100, 255}, 3.0
         )
     end
 end
@@ -458,20 +505,14 @@ end
 --- 请求服务端结算
 function SwordWallSystem._requestClaimReward()
     local SaveProtocol = require("network.SaveProtocol")
-    -- 发送 C2S 结算请求
     if network and network.serverConnection then
         local msg = VariantMap()
         msg["runId"] = Variant(tostring(SwordWallSystem.runId))
         network.serverConnection:SendRemoteEvent(SaveProtocol.C2S_SwordWallClaim, true, msg)
     else
-        -- 单机 fallback（不应该出现在多人模式下，但防御性处理）
-        print("[SwordWall] WARNING: No server connection, using local fallback")
-        local points = math.random(SWC.REWARD_POINT_MIN, SWC.REWARD_POINT_MAX)
-        local equip = LootSystem.GenerateSwordWallRewardEquipment()
-        if equip then
-            InventorySystem.AddItem(equip)
-        end
-        SwordWallSystem.OnClaimSuccess(points, equip)
+        -- 无连接直接失败（不本地生成，保证奖励唯一来源）
+        print("[SwordWall] ERROR: No server connection for claim")
+        SwordWallSystem.OnClaimFailed("无服务器连接")
     end
 end
 

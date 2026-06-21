@@ -76,7 +76,7 @@ SwordWallConfig.SPAWN_POINTS   = {
 
 -- ── 传送/退出坐标 ──
 SwordWallConfig.PLAYER_ENTER_POS = { x = 67, y = 72 }  -- 玩家传入点（剑气长城中段）
-SwordWallConfig.EXIT_PORTAL_POS  = { x = 12, y = 72 }  -- 退出传送阵（左侧）
+SwordWallConfig.EXIT_PORTAL_POS  = { x = 67, y = 72 }  -- 退出传送阵（与入口同位置）
 SwordWallConfig.CHEST_POS        = { x = 40, y = 72 }  -- 宝箱生成位置（副本中央）
 SwordWallConfig.NPC_RETURN_POS   = { x = 67, y = 63 }  -- 返回入口NPC附近安全点(藏经阁底部)
 
