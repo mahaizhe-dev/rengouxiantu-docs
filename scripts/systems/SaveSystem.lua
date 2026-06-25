@@ -262,4 +262,64 @@ function SaveSystem.CheckSaveExists(callback)
     end)
 end
 
+-- ============================================================================
+-- P0-1: 保存状态只读查询（供黑市 UI / GM 诊断使用）
+-- ============================================================================
+
+---@return table status 保存系统当前状态快照
+function SaveSystem.GetSaveStatus()
+    return {
+        loaded              = SaveSystem.loaded == true,
+        activeSlot          = SaveSystem.activeSlot,
+        dirty               = SaveSystem._dirty == true,
+        dirtySinceFlush     = SaveSystem._dirtySinceFlush == true,
+        saving              = SaveSystem.saving == true,
+        retryTimer          = SaveSystem._retryTimer,
+        disconnected        = SaveSystem._disconnected == true,
+        consecutiveFailures = SaveSystem._consecutiveFailures or 0,
+        lastSaveTime        = SaveSystem._lastSaveTime or 0,
+        hasServerConn       = (not CloudStorage.IsNetworkMode()) or (network:GetServerConnection() ~= nil),
+    }
+end
+
+-- ============================================================================
+-- P0-2: 统一立即保存请求入口（不发 game_saved、不清 dirty）
+-- ============================================================================
+
+---@param reason string 调用原因（用于日志）
+---@return boolean ok 是否成功启动保存
+---@return string reason 原因码
+---@return table status 当前状态快照
+function SaveSystem.RequestImmediateSave(reason)
+    -- 确保 dirty 标记存在（即使已有 save_request 置脏，这里兜底）
+    if SaveSystem.loaded and SaveSystem.activeSlot then
+        SaveSystem._dirty = true
+    end
+
+    local status = SaveSystem.GetSaveStatus()
+
+    if not status.loaded then
+        return false, "not_loaded", status
+    end
+    if not status.activeSlot then
+        return false, "no_active_slot", status
+    end
+    if status.saving then
+        return false, "saving", status
+    end
+    if status.retryTimer then
+        return false, "retrying", status
+    end
+    if status.disconnected then
+        return false, "disconnected", status
+    end
+    if not status.hasServerConn then
+        return false, "no_server_conn", status
+    end
+
+    print("[SaveSystem] RequestImmediateSave: " .. tostring(reason))
+    SaveSystem.Save()
+    return true, "started", SaveSystem.GetSaveStatus()
+end
+
 return SaveSystem

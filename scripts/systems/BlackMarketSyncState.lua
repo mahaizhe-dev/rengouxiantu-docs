@@ -170,6 +170,8 @@ end
 -- ============================================================================
 
 EventBus.On("game_saved", function()
+    print("[BlackMarketSyncState] game_saved received! _dirtyWarehouse=" .. tostring(BlackMarketSyncState._dirtyWarehouse)
+        .. " _dirtyConsume=" .. tostring(BlackMarketSyncState._dirtyConsume))
     BlackMarketSyncState.ClearAll()
     -- BM-S4A: 存档成功 → 清除所有交易保护锁
     local ok, TradeLock = pcall(require, "systems.BlackMarketTradeLock")

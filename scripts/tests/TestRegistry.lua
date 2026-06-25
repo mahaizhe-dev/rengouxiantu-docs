@@ -484,6 +484,15 @@ TestRegistry.tests = {
         skip_reason   = nil,
     },
     {
+        id            = "save_request_immediate_status",
+        group         = "save",
+        path          = "scripts/tests/test_save_request_immediate_status.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+    {
         id            = "bm_warehouse_sell_sync_gate",
         group         = "system",
         path          = "scripts/tests/test_bm_warehouse_sell_sync_gate.lua",

@@ -1416,6 +1416,31 @@ local GM_CATEGORIES = {
                     ShowLog("保存链路P1: " .. f .. " 项失败 / " .. t .. " 项", {255, 100, 100, 255})
                 end
             end },
+            { label = "黑市保存诊断", action = function()
+                local lines = {}
+                pcall(function()
+                    local SaveSystem = require("systems.SaveSystem")
+                    local BMS = require("systems.BlackMarketSyncState")
+                    local st = SaveSystem.GetSaveStatus()
+                    local wi = BMS.GetWarehouseDirtyInfo()
+                    local ci = BMS.GetConsumeDirtyInfo()
+                    local diag = "[BM_SAVE_DIAG]"
+                        .. " bmWhDirty=" .. tostring(wi.dirty)
+                        .. " whElapsed=" .. string.format("%.1f", wi.elapsed or 0) .. "s"
+                        .. " whReason=" .. tostring(wi.reason)
+                        .. " consumeDirty=" .. tostring(ci.dirty)
+                        .. " consumeElapsed=" .. string.format("%.1f", ci.elapsed or 0) .. "s"
+                        .. " saveDirty=" .. tostring(st.dirty)
+                        .. " saving=" .. tostring(st.saving)
+                        .. " retry=" .. tostring(st.retryTimer)
+                        .. " disconnected=" .. tostring(st.disconnected)
+                        .. " hasConn=" .. tostring(st.hasServerConn)
+                        .. " failures=" .. tostring(st.consecutiveFailures)
+                    print(diag)
+                    lines[#lines+1] = diag
+                end)
+                ShowLog(lines[1] or "诊断失败", {200, 200, 255, 255})
+            end },
             { label = "仓库门禁P0自测", action = function()
                 local files = {
                     "tests.test_bm_warehouse_sell_sync_gate",

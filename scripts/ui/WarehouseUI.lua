@@ -172,6 +172,7 @@ local function BuildWarehouseGrid()
                             ok, err = WarehouseSystem.RetrieveFromPage2(capturedIdx)
                         end
                         if ok then
+                            changedThisOpen_ = true
                             ShowLocalToast("已取出到背包")
                         else
                             ShowLocalToast(err or "取出失败")
@@ -220,6 +221,7 @@ local function BuildBagGrid()
                         ok, err = WarehouseSystem.StoreItemToPage2(capturedIdx)
                     end
                     if ok then
+                        changedThisOpen_ = true
                         ShowLocalToast("已存入仓库")
                     else
                         ShowLocalToast(err or "存放失败")
@@ -336,6 +338,7 @@ BuildContent = function()
                 ok, err = WarehouseSystem.SortPage2()
             end
             if ok then
+                changedThisOpen_ = true
                 ShowLocalToast("仓库已整理")
                 lastSortTime_ = now
             else
@@ -363,6 +366,7 @@ BuildContent = function()
                 ok, err = WarehouseSystem.UnlockPage2NextRow()
             end
             if ok then
+                changedThisOpen_ = true
                 ShowLocalToast("解锁成功！")
             else
                 ShowLocalToast(err or "解锁失败")
@@ -643,6 +647,7 @@ function WarehouseUI.Hide()
     WarehouseSystem.SetOpen(false)
 
     -- P0-3: 关闭仓库时如有变更，立即尝试保存一次（加速 game_saved 解除黑市门禁）
+    print("[WarehouseUI] Hide: changedThisOpen_=" .. tostring(changedThisOpen_))
     if changedThisOpen_ then
         if os.clock() - lastCloseFlushTime_ >= 3 then
             lastCloseFlushTime_ = os.clock()
@@ -652,15 +657,14 @@ function WarehouseUI.Hide()
             end)
             pcall(function()
                 local SaveSystem = require("systems.SaveSystem")
-                if SaveSystem.loaded
-                        and SaveSystem.activeSlot
-                        and not SaveSystem.saving
-                        and not SaveSystem._retryTimer
-                        and not SaveSystem._disconnected then
-                    SaveSystem.Save()
-                end
+                local ok, reason, status = SaveSystem.RequestImmediateSave("warehouse_close")
+                print("[WarehouseUI] Close save request: ok=" .. tostring(ok)
+                    .. " reason=" .. tostring(reason)
+                    .. " saving=" .. tostring(status and status.saving)
+                    .. " retry=" .. tostring(status and status.retryTimer)
+                    .. " disconnected=" .. tostring(status and status.disconnected)
+                    .. " hasConn=" .. tostring(status and status.hasServerConn))
             end)
-            print("[WarehouseUI] Close flush requested: changed=true reason=warehouse_close")
         end
         changedThisOpen_ = false
     end
@@ -705,6 +709,8 @@ end
 
 -- ── P0-2: 订阅仓库变更事件，标记本次打开期间有成功操作 ──
 EventBus.On("warehouse_changed", function()
+    print("[WarehouseUI] warehouse_changed received! visible_=" .. tostring(visible_)
+        .. " changedThisOpen_=" .. tostring(changedThisOpen_))
     if visible_ then
         changedThisOpen_ = true
     end

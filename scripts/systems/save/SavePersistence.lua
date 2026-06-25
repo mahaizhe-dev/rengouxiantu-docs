@@ -398,6 +398,8 @@ function SavePersistence.DoSave(slot, callback, epoch)
                 onMigrateComplete()
                 print("[SaveSystem] Slot " .. slot .. " saved (data only, no index) [v11]")
                 EventBus.Emit("game_saved")
+                -- 防御性直接调用：EventBus.On 在部分环境下注册可能未生效
+                pcall(function() require("systems.BlackMarketSyncState").ClearAll() end)
                 if callback then callback(true) end
 
                 if isCheckpoint then
@@ -515,6 +517,8 @@ function SavePersistence.DoSave(slot, callback, epoch)
             local checkpointMsg = isCheckpoint and " [+checkpoint]" or ""
             print("[SaveSystem] Slot " .. slot .. " saved! [v11]" .. checkpointMsg)
             EventBus.Emit("game_saved")
+            -- 防御性直接调用：EventBus.On 在部分环境下注册可能未生效
+            pcall(function() require("systems.BlackMarketSyncState").ClearAll() end)
             if callback then callback(true) end
 
             if isCheckpoint then
