@@ -70,6 +70,7 @@ local activeTab_ = "consumable_mat"   -- "consumable_mat" | "herb" | "rake" | "b
 -- 轮询
 local POLL_INTERVAL = 30.0  -- P0: 降频，减少 SYSTEM_UID 热读压力
 local pollTimer_ = 0
+local _lastFlushTime = 0   -- WP-05b: flush 冷却防连点(os.clock)
 
 -- 防重复请求
 local pendingRequest_ = false
@@ -392,9 +393,12 @@ local function ShowConfirmDialog(action, itemId)
                                                 print("[BlackMerchantUI] CONFIRM BLOCKED (L1): " .. tostring(cfmDetail))
                                                 return
                                             elseif cfmReason == "global_unsync" then
-                                                -- P0.1: 本地未同步 → 主动落盘，禁止用旧快照卖出
-                                                EventBus.Emit("save_request")
-                                                pcall(function() require("systems.save.SaveSession").Flush() end)
+                                                -- P0.1+WP-05b: 本地未同步 → 落盘（3s 冷却防连点）
+                                                if os.clock() - _lastFlushTime >= 3.0 then
+                                                    _lastFlushTime = os.clock()
+                                                    EventBus.Emit("save_request")
+                                                    pcall(function() require("systems.save.SaveSession").Flush() end)
+                                                end
                                                 SetStatus("数据同步中，请稍后再出售", C.textError, 3)
                                                 print("[BlackMerchantUI] CONFIRM BLOCKED (L2 global_unsync): " .. tostring(cfmDetail))
                                                 return
@@ -640,10 +644,12 @@ local function BuildItemCard(itemId)
                                 print("[BlackMerchantUI] SELL BTN BLOCKED (L1): " .. tostring(curDetail))
                                 return
                             elseif curReason == "global_unsync" then
-                                -- P0.1: 本地消耗/仓库/会话未同步 → 主动落盘，禁止用旧快照卖出
-                                -- 落盘(game_saved)后未同步标记自动清除，玩家稍后重试即可成功
-                                EventBus.Emit("save_request")
-                                pcall(function() require("systems.save.SaveSession").Flush() end)
+                                -- P0.1+WP-05b: 本地未同步 → 落盘（3s 冷却防连点）
+                                if os.clock() - _lastFlushTime >= 3.0 then
+                                    _lastFlushTime = os.clock()
+                                    EventBus.Emit("save_request")
+                                    pcall(function() require("systems.save.SaveSession").Flush() end)
+                                end
                                 SetStatus("数据同步中，请稍后再出售", C.textError, 3)
                                 print("[BlackMerchantUI] SELL BTN BLOCKED (L2 global_unsync): " .. tostring(curDetail))
                                 return
@@ -1626,9 +1632,8 @@ function BlackMerchantUI_HandleBMResult(eventType, eventData)
     if not ok then
         local reason = eventData["reason"]:GetString()
         SetStatus(reason, C.textError, 3)
-        -- 交易失败，自动刷新数据（库存/余额可能已变）
-        pollTimer_ = 0
-        SendQuery()
+        -- WP-05f: 交易失败后延迟 2-3.5s 再刷新（多人同时失败时分散读请求，避免查询风暴）
+        pollTimer_ = POLL_INTERVAL - (2.0 + math.random() * 1.5)
         return
     end
 
@@ -1705,9 +1710,10 @@ function BlackMerchantUI_HandleBMResult(eventType, eventData)
         else
             localDeductOk = InventorySystem.ConsumeResellableConsumable(itemId, amount)
         end
-        -- HOTFIX-BM-01: 本地扣除失败 → 不请求保存（防止仓库副本覆盖服务端已扣数据）
+        -- WP-05d: 出售成功后不再触发客户端全量保存 —— 服务端 WP-04 已在最新快照上写回，
+        -- 客户端重复保存既浪费又可能用略旧本地状态覆盖服务端已正确的数据。
+        -- 本地扣除仅影响内存展示，下一次自动保存(2min)或其他 save_request 会最终持久化。
         if localDeductOk then
-            EventBus.Emit("save_request")
             SetStatus("售出 " .. itemName .. " ×" .. amount, C.textSuccess)
         else
             print("[BlackMerchantUI] WARNING: sell ok but local deduct FAILED for "
@@ -1729,9 +1735,8 @@ function BlackMerchantUI_HandleBMExchangeResult(eventType, eventData)
     if not ok then
         local reason = eventData["reason"]:GetString()
         SetStatus(reason, C.textError, 3)
-        -- 兑换失败，自动刷新数据
-        pollTimer_ = 0
-        SendQuery()
+        -- WP-05f: 兑换失败后延迟刷新
+        pollTimer_ = POLL_INTERVAL - (2.0 + math.random() * 1.5)
         -- 兑换失败且是灵韵→仙石方向：回退已扣的灵韵
         if pendingExchangeLingYunCost_ > 0 then
             local player = GameState.player
@@ -1765,7 +1770,8 @@ function BlackMerchantUI_HandleBMExchangeResult(eventType, eventData)
                 player.lingYun = player.lingYun + lingYunDelta
             end
             -- direction == "buy" 时灵韵已在客户端预扣，无需再处理
-            EventBus.Emit("save_request")
+            -- WP-05e: 不再立即触发 save_request —— 服务端 WriteSaveBack 已写最新快照，
+            -- 本地灵韵更新由下一次自动保存(2min)或其他 save_request 最终持久化。
         end
     end
 
@@ -1806,11 +1812,23 @@ end
 -- S2C 事件注册（模块加载时自动注册）
 -- ============================================================================
 
+--- WP-05a: S2C_RateLimited 处理（释放 pendingRequest_ 防 UI 永久卡住）
+function BlackMerchantUI_HandleRateLimited(eventType, eventData)
+    -- 仅当黑市面板打开且有 pending 时才处理
+    if not pendingRequest_ then return end
+    pendingRequest_ = false
+    SetStatus("操作过于频繁，请稍后重试", C.textError, 3)
+    -- WP-05f: 不立即刷新，用延迟轮询避免重试风暴
+    pollTimer_ = POLL_INTERVAL - (2.0 + math.random() * 1.5)
+    print("[BlackMerchantUI] S2C_RateLimited → released pending, delayed refresh")
+end
+
 do
     SubscribeToEvent(SaveProtocol.S2C_BlackMerchantData, "BlackMerchantUI_HandleBMData")
     SubscribeToEvent(SaveProtocol.S2C_BlackMerchantResult, "BlackMerchantUI_HandleBMResult")
     SubscribeToEvent(SaveProtocol.S2C_BlackMerchantExchangeResult, "BlackMerchantUI_HandleBMExchangeResult")
     SubscribeToEvent(SaveProtocol.S2C_BlackMerchantHistory, "BlackMerchantUI_HandleBMHistory")
+    SubscribeToEvent(SaveProtocol.S2C_RateLimited, "BlackMerchantUI_HandleRateLimited")  -- WP-05a
 end
 
 return BlackMerchantUI

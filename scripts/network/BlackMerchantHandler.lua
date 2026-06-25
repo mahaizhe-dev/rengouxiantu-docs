@@ -25,7 +25,9 @@ local playerRealms_ = {}
 
 -- §8 服务端内存锁：防止同一玩家并发买/卖请求
 local buyActive_  = {}  -- connKey -> true
-local sellActive_ = {}  -- connKey -> true
+local sellActive_ = {}  -- connKey -> true (per-connection 防同一玩家并发)
+local itemSellLock_ = {}  -- WP-05c: consumableId -> { connKey, time } (per-item 短锁防多人并发穿透)
+local ITEM_LOCK_TTL = 30  -- 秒（超时自动释放，防死锁）
 
 -- P0: SYSTEM_UID 库存缓存（避免每次 Query 都读 serverCloud.money:Get(SYSTEM_UID)）
 local systemStockCache_ = nil   -- { moneys = table, ts = number }
@@ -575,6 +577,21 @@ function M.HandleSell(eventType, eventData)
         return
     end
 
+    -- WP-05c: per-item 短锁 —— 同一商品同时只允许一个出售链路执行（防 TOCTOU stock 穿透）
+    local existingLock = itemSellLock_[consumableId]
+    if existingLock then
+        if os.time() - existingLock.time < ITEM_LOCK_TTL then
+            sellActive_[connKey] = nil
+            SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "该商品正在交易中，请稍后重试")
+            print("[BlackMerchant][Sell] WP-05c ITEM LOCK: " .. consumableId .. " held by " .. tostring(existingLock.connKey))
+            return
+        end
+        -- TTL 过期 → 清除死锁
+        print("[BlackMerchant][Sell] WP-05c stale lock cleared: " .. consumableId)
+        itemSellLock_[consumableId] = nil
+    end
+    itemSellLock_[consumableId] = { connKey = connKey, time = os.time() }
+
     print("[BlackMerchant][Sell] userId=" .. tostring(userId)
         .. " id=" .. consumableId .. " amount=" .. tostring(amount))
 
@@ -662,31 +679,50 @@ function M.HandleSell(eventType, eventData)
                     return
                 end
 
-                -- 6. BM-NORESELL: 只扣除【可回售】物品，永不扣黑市买入来源
-                -- （装备按 equipId 移除，不论附魔/洗练；黑市买入来源 bmNoResell=true 被跳过）
-                local removeRemaining
-                if isEquip then
-                    removeRemaining = RemoveResellableEquipmentFromBackpack(backpack, cfg.equipId or consumableId, amount)
-                else
-                    removeRemaining = RemoveResellableFromBackpack(backpack, consumableId, amount)
-                end
-                -- P0.3 二次断言：可回售扣除不足（统计与扣除函数不一致）→ 直接失败
-                -- 绝不写存档、不发仙石、不加库存，避免 remaining>0 时仍发奖造成不一致
-                if removeRemaining ~= 0 then
-                    sellActive_[connKey] = nil
-                    print("[BlackMerchant][Sell] ABORT remove mismatch: userId=" .. tostring(userId)
-                        .. " id=" .. consumableId .. " want=" .. tostring(amount)
-                        .. " remaining=" .. tostring(removeRemaining)
-                        .. " resellableHeld=" .. tostring(resellableHeld))
-                    SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "出售失败，请刷新后重试")
-                    return
-                end
-                saveData.backpack = backpack
+                -- 6. WP-04: 重读最新存档，避免旧快照覆盖新数据
+                -- （首次读仅用于初筛校验 + 决策意图；实际扣除和写回必须基于最新快照）
+                Session.ServerGetSlotData(userId, slot, function(latestSaveData)
+                    if not latestSaveData then
+                        sellActive_[connKey] = nil
+                        SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "存档读取失败，请重试")
+                        return
+                    end
+                    local latestBackpack = latestSaveData.backpack or {}
 
-                local charName = (saveData.player and saveData.player.charName)
-                    or "修仙者"
+                    -- WP-04: 在最新快照上重新校验可回售数量（首次读与当前可能已不一致）
+                    local latestResellable = CountItemResellable(latestBackpack, consumableId)
+                    if latestResellable < amount then
+                        sellActive_[connKey] = nil
+                        print("[BlackMerchant][Sell] WP-04 REJECT stale: userId=" .. tostring(userId)
+                            .. " id=" .. consumableId .. " firstRead=" .. tostring(resellableHeld)
+                            .. " latestRead=" .. tostring(latestResellable) .. " want=" .. tostring(amount))
+                        SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "持有量已变化，请刷新后重试")
+                        return
+                    end
 
-                WriteSaveBack(userId, slot, saveData,
+                    -- BM-NORESELL: 在最新快照上扣除【可回售】物品
+                    local removeRemaining
+                    if isEquip then
+                        removeRemaining = RemoveResellableEquipmentFromBackpack(latestBackpack, cfg.equipId or consumableId, amount)
+                    else
+                        removeRemaining = RemoveResellableFromBackpack(latestBackpack, consumableId, amount)
+                    end
+                    -- P0.3 二次断言
+                    if removeRemaining ~= 0 then
+                        sellActive_[connKey] = nil
+                        print("[BlackMerchant][Sell] ABORT remove mismatch on latest: userId=" .. tostring(userId)
+                            .. " id=" .. consumableId .. " want=" .. tostring(amount)
+                            .. " remaining=" .. tostring(removeRemaining)
+                            .. " latestResellable=" .. tostring(latestResellable))
+                        SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "出售失败，请刷新后重试")
+                        return
+                    end
+                    latestSaveData.backpack = latestBackpack
+
+                    local charName = (latestSaveData.player and latestSaveData.player.charName)
+                        or "修仙者"
+
+                WriteSaveBack(userId, slot, latestSaveData,
                     "黑商出售扣除背包: " .. consumableId .. " x" .. amount,
                     function() -- onOk: 存档已写，原子执行仙石+库存操作
                         -- 7. BatchCommit: 加仙石 + 入库（原子操作）
@@ -699,9 +735,10 @@ function M.HandleSell(eventType, eventData)
                                 serverCloud.money:Get(userId, {
                                     ok = function(playerMoneys)
                                         sellActive_[connKey] = nil
+                                        itemSellLock_[consumableId] = nil  -- WP-05c: 成功释放 per-item 锁
                                         local newXianshi = playerMoneys.xianshi or 0
                                         local newStock = stock + amount
-                                        local newHeld = resellableHeld - amount
+                                        local newHeld = latestResellable - amount
 
                                         TradeLogger.LogPublic(charName, "sell", consumableId,
                                             amount, cfg.buy_price, newXianshi)
@@ -725,8 +762,9 @@ function M.HandleSell(eventType, eventData)
                                     end,
                                     error = function(code, reason)
                                         sellActive_[connKey] = nil
+                                        itemSellLock_[consumableId] = nil  -- WP-05c
                                         -- 存档已扣、仙石已加，但读余额失败，用估算值
-                                        local newHeld = resellableHeld - amount
+                                        local newHeld = latestResellable - amount
 
                                         TradeLogger.LogPublic(charName, "sell", consumableId,
                                             amount, cfg.buy_price, total)
@@ -773,10 +811,12 @@ function M.HandleSell(eventType, eventData)
                     end,
                     function() -- onError: 存档写入失败，碎片未扣
                         sellActive_[connKey] = nil
+                        itemSellLock_[consumableId] = nil  -- WP-05c
                         SendError(connection, SaveProtocol.S2C_BlackMerchantResult,
                             "交易失败，请重试")
                     end
                 )
+                end)  -- WP-04: close ServerGetSlotData re-read callback
             end,
             error = function(code, reason)
                 sellActive_[connKey] = nil

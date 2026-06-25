@@ -387,7 +387,12 @@ function SavePersistence.DoSave(slot, callback, epoch)
                 SS._retryTimer = nil
                 SS._lastKnownCloudLevel = playerData.level or 1
                 SS._lastSaveTime = os.clock()
-                SS.saveTimer = 0  -- P0优化：成功保存后重置自动存档计时器，以"距上次成功保存"为基准
+                SS.saveTimer = 0  -- P0优化：成功保存后重置自动存档计时器
+
+                -- WP-02: 仅当飞行期间无新脏标记时才清除 dirty（保证新变更不丢失）
+                if not SS._dirtySinceFlush then
+                    SS._dirty = false
+                end
 
                 EventBus.Emit("save_warning_clear")
                 onMigrateComplete()
@@ -529,14 +534,24 @@ function SavePersistence.DoSave(slot, callback, epoch)
             if epoch and epoch ~= SS._saveEpoch then
                 print("[SaveSystem] Save error: stale epoch, ignoring")
                 SS.saving = false
-
                 if callback then callback(false, "存档纪元过期") end
                 return
             end
             SS.saving = false
             SS._saveTimeoutActive = false
-            SS._consecutiveFailures = SS._consecutiveFailures + 1
 
+            -- WP-03: 临时失败分类 —— slot_locked 是短暂冲突，不累计失败次数，短退避即可
+            local reasonStr = tostring(reason or "")
+            if reasonStr:find("slot_locked") or reasonStr:find("locked") then
+                SS._retryTimer = 3  -- 3 秒后重试（服务端写完即释放，通常 <2s）
+                print("[SaveSystem] Save deferred (slot_locked), retry in 3s")
+                -- WP-02: _dirty 保持 true（保存意图不丢）
+                if callback then callback(false, reason) end
+                return
+            end
+
+            -- 其他错误（网络中断/unknown）：累计失败 + 线性退避
+            SS._consecutiveFailures = SS._consecutiveFailures + 1
             local retryDelay = math.min(10 * SS._consecutiveFailures, 60)
             SS._retryTimer = retryDelay
 

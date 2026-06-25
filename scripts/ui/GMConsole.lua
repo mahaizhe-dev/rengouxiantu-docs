@@ -1394,6 +1394,17 @@ local GM_CATEGORIES = {
                     ShowLog("打造合同: " .. f .. " 项失败 / " .. t .. " 项", {255, 100, 100, 255})
                 end
             end },
+            { label = "保存链路P1自测", action = function()
+                package.loaded["tests.test_save_phase1_smoke"] = nil
+                local result = require("tests.test_save_phase1_smoke")
+                if result and result.failed == 0 then
+                    ShowLog("保存链路P1: 全部 " .. result.passed .. " 项通过!", {100, 255, 100, 255})
+                else
+                    local f = result and result.failed or -1
+                    local t = result and result.total or 0
+                    ShowLog("保存链路P1: " .. f .. " 项失败 / " .. t .. " 项", {255, 100, 100, 255})
+                end
+            end },
             { label = "黑市禁回售自测", action = function()
                 -- BM-NORESELL: 一键跑三个 run_file 测试（均用 mock 隔离，不碰真实玩家状态）
                 local files = {

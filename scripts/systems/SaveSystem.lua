@@ -45,6 +45,7 @@ function SaveSystem.Init()
     SaveSystem._disconnected = false
     NetworkStatus.Reset()
     SaveSystem._dirty = false
+    SaveSystem._dirtySinceFlush = false  -- WP-02: 飞行期间是否有新脏标记
     SaveSystem._lastSaveTime = 0
     -- 注意：_cachedSlotsIndex 和 _cachedCharName 由 CharacterSelectScreen 设置，
     -- 跨越 Init 生命周期，此处不清除。
@@ -57,6 +58,10 @@ function SaveSystem.Init()
     SaveSystem._onSaveRequest = function()
         if SaveSystem.loaded and SaveSystem.activeSlot then
             SaveSystem._dirty = true
+            -- WP-02: 若存档正在飞行中，标记"飞行期间有新变更"，ok 回调时不清 dirty
+            if SaveSystem.saving then
+                SaveSystem._dirtySinceFlush = true
+            end
         end
     end
     SaveSystem._onConnLost = function()
@@ -81,14 +86,16 @@ function SaveSystem.Init()
 end
 
 -- ============================================================================
--- Update（保留在编排器：涉及定时器 + EventBus + Save 调度）
+-- UpdateCritical（WP-01: 始终调用，不受玩法模式跳过）
+-- 职责：网络连接采样、存档超时检测、失败重试计时
+-- 这些必须在任何模式下持续运行，否则断线感知和重试在副本中完全停摆
 -- ============================================================================
 
-function SaveSystem.Update(dt)
+function SaveSystem.UpdateCritical(dt)
     if not SaveSystem.loaded then return end
     if not SaveSystem.activeSlot then return end
 
-    -- W1: 连接状态轮询（每 3s 采样，N1: 连续失败阈值+恢复滞回）
+    -- 连接状态轮询（每 3s 采样，N1: 连续失败阈值+恢复滞回）
     if CloudStorage.IsNetworkMode() then
         SaveSystem._connCheckTimer = SaveSystem._connCheckTimer + dt
         if SaveSystem._connCheckTimer >= 3 then
@@ -98,7 +105,6 @@ function SaveSystem.Update(dt)
             local event = NetworkStatus.RecordSample(connected, elapsed)
             if event then
                 EventBus.Emit(event)
-                -- 兼容已有逻辑：同步 _disconnected / _lastConnState
                 if event == "connection_lost" then
                     SaveSystem._lastConnState = false
                 elseif event == "connection_restored" then
@@ -114,6 +120,7 @@ function SaveSystem.Update(dt)
         if SaveSystem._saveTimeoutElapsed >= 15 then
             SaveSystem._saveTimeoutActive = false
             SaveSystem.saving = false
+            -- WP-02: 超时不清 _dirty（保存意图保留）
             SaveSystem._consecutiveFailures = SaveSystem._consecutiveFailures + 1
             local retryDelay = math.min(10 * SaveSystem._consecutiveFailures, 60)
             SaveSystem._retryTimer = retryDelay
@@ -122,7 +129,6 @@ function SaveSystem.Update(dt)
             if SaveSystem._consecutiveFailures >= 2 then
                 EventBus.Emit("save_warning", { failures = SaveSystem._consecutiveFailures })
             end
-            return
         end
     end
 
@@ -133,25 +139,36 @@ function SaveSystem.Update(dt)
             SaveSystem._retryTimer = nil
             print("[SaveSystem] Retrying save after failure...")
             SaveSystem.Save()
-            return
         end
     end
+end
 
-    -- 防抖刷写：脏标记存在且不在存档中时，检查距上次存档的间隔
+-- ============================================================================
+-- Update（自动保存调度，副本/挑战中可跳过）
+-- 职责：dirty 防抖刷写 + 定时自动保存
+-- ============================================================================
+
+function SaveSystem.Update(dt)
+    if not SaveSystem.loaded then return end
+    if not SaveSystem.activeSlot then return end
+
+    -- WP-01: 如果重试计时器正在等待，不在此处触发额外保存（让 UpdateCritical 的重试处理）
+    if SaveSystem._retryTimer then return end
+
+    -- WP-02 防抖刷写：脏标记存在且不在存档中时，检查距上次存档的间隔
+    -- _dirty 不再在此处清除 —— 仅在 ok 回调中确认落盘后才清
     if SaveSystem._dirty and not SaveSystem.saving then
         local elapsed = os.clock() - SaveSystem._lastSaveTime
         if elapsed >= SaveSystem.SAVE_DEBOUNCE_INTERVAL then
-            SaveSystem._dirty = false
+            SaveSystem._dirtySinceFlush = false  -- WP-02: 重置飞行期间脏标记
             SaveSystem.Save()
-            return  -- P0优化：本帧已触发保存，不再叠加 saveTimer，防止 off-by-one
+            return
         end
     end
 
     SaveSystem.saveTimer = SaveSystem.saveTimer + dt
     if SaveSystem.saveTimer >= SaveSystem.AUTO_SAVE_INTERVAL then
         SaveSystem.saveTimer = 0
-        -- 挑战副本进行中时抑制自动存档，防止中间状态（completed=true 但未领奖）被持久化
-        -- 这样强退/重启时 completed 不会被自动存档偷跑写入，玩家必须重新挑战
         local ChallengeSystem = require("systems.ChallengeSystem")
         if ChallengeSystem.active then
             print("[SaveSystem] AutoSave skipped: challenge in progress")

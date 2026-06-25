@@ -1481,8 +1481,10 @@ function HandleUpdate(eventType, eventData)
     SkillSystem.Update(dt)
     PerfMonitor.EndSegment("skills")
 
-    -- 更新存档系统（自动存档计时）— 副本中暂停自动存档
+    -- WP-01: 关键 tick 始终运行（网络采样 + 超时 + 重试），不受玩法模式影响
     PerfMonitor.StartSegment("save")
+    SaveSystem.UpdateCritical(dt)
+    -- 自动保存调度仅在非副本模式运行（副本中暂停自动存档，防中间状态持久化）
     if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
         SaveSystem.Update(dt)
     end
