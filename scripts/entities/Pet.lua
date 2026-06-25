@@ -620,11 +620,55 @@ end
 -- 战斗与行为（保持不变）
 -- ============================================================================
 
+--- 围绕目标点寻找最近的可行走位置（传送/复活落点用）
+--- 搜索顺序：原点 → 4方向0.5格 → 8方向1格 → 8方向1.5格
+---@param cx number 中心X
+---@param cy number 中心Y
+---@param gameMap table|nil
+---@return number, number 安全坐标
+function Pet:FindSafeSpot(cx, cy, gameMap)
+    if not gameMap or gameMap:IsWalkable(cx, cy) then return cx, cy end
+    -- 第一圈：4方向偏移 0.5
+    local offsets4 = {{-1,0},{1,0},{0,-1},{0,1}}
+    for _, o in ipairs(offsets4) do
+        local tx, ty = cx + o[1] * 0.5, cy + o[2] * 0.5
+        if gameMap:IsWalkable(tx, ty) then return tx, ty end
+    end
+    -- 第二圈：8方向偏移 1.0
+    local offsets8 = {{-1,0},{1,0},{0,-1},{0,1},{-1,-1},{1,-1},{-1,1},{1,1}}
+    for _, o in ipairs(offsets8) do
+        local tx, ty = cx + o[1], cy + o[2]
+        if gameMap:IsWalkable(tx, ty) then return tx, ty end
+    end
+    -- 第三圈：8方向偏移 1.5
+    for _, o in ipairs(offsets8) do
+        local tx, ty = cx + o[1] * 1.5, cy + o[2] * 1.5
+        if gameMap:IsWalkable(tx, ty) then return tx, ty end
+    end
+    return cx, cy  -- 无解退回原点，由卡墙自愈兜底
+end
+
 --- 更新宠物
 ---@param dt number
 ---@param gameMap table
 function Pet:Update(dt, gameMap)
     self.animTimer = self.animTimer + dt
+    self._lastGameMap = gameMap  -- 缓存供 Revive 等无参函数使用
+
+    -- 卡墙自愈：当前位置不可行走时，0.5s 后传送到主人安全落点
+    if self.alive and gameMap and not gameMap:IsWalkable(self.x, self.y) then
+        self._stuckTimer = (self._stuckTimer or 0) + dt
+        if self._stuckTimer > 0.5 then
+            local owner = self.owner
+            if owner then
+                local behindX = owner.facingRight and (owner.x - 0.8) or (owner.x + 0.8)
+                self.x, self.y = self:FindSafeSpot(behindX, owner.y, gameMap)
+            end
+            self._stuckTimer = 0
+        end
+    else
+        self._stuckTimer = 0
+    end
 
     -- 形态切换 CD 倒计时
     if self.formSwitchCD > 0 then
@@ -692,10 +736,11 @@ function Pet:Update(dt, gameMap)
     local distToOwnerSq = Utils.DistanceSq(self.x, self.y, owner.x, owner.y)
 
     if distToOwnerSq > PET_TELEPORT_DIST_SQ then
-        self.x = owner.x + 1
-        self.y = owner.y
+        local behindX = owner.facingRight and (owner.x - 0.8) or (owner.x + 0.8)
+        self.x, self.y = self:FindSafeSpot(behindX, owner.y, gameMap)
         self.target = nil
         self.state = "follow"
+        self._stuckTimer = 0
         return
     end
 
@@ -1082,10 +1127,11 @@ function Pet:Revive()
     self.hp = self.maxHp
     self.state = "follow"
     self.target = nil
+    self._stuckTimer = 0
 
     if self.owner then
-        self.x = self.owner.x + 1
-        self.y = self.owner.y
+        local behindX = self.owner.facingRight and (self.owner.x - 0.8) or (self.owner.x + 0.8)
+        self.x, self.y = self:FindSafeSpot(behindX, self.owner.y, self._lastGameMap)
     end
 
     EventBus.Emit("pet_revive")

@@ -51,6 +51,10 @@ local bagTitleLabel_ = nil -- "🎒 背包 x/y" 标签
 local contentBuilt_ = false
 local lastUnlockedRows_ = 0  -- 上次构建时的解锁行数
 
+-- ── P0-2: 本次打开期间是否有成功变更（用于 P0-3 关闭时触发保存） ──
+local changedThisOpen_ = false
+local lastCloseFlushTime_ = 0  -- 关闭保存防抖时间戳
+
 -- ── 前向声明（解决循环依赖）──
 local UpdateAllSlots
 local BuildContent
@@ -618,6 +622,7 @@ function WarehouseUI.Show(npc)
     WarehouseSystem.SetOpen(true)
 
     currentPage_ = 1
+    changedThisOpen_ = false  -- P0-2: 重置本次变更标记
 
     visible_ = true
     GameState.uiOpen = "warehouse"
@@ -636,6 +641,29 @@ function WarehouseUI.Hide()
 
     DismissLocalToast()
     WarehouseSystem.SetOpen(false)
+
+    -- P0-3: 关闭仓库时如有变更，立即尝试保存一次（加速 game_saved 解除黑市门禁）
+    if changedThisOpen_ then
+        if os.clock() - lastCloseFlushTime_ >= 3 then
+            lastCloseFlushTime_ = os.clock()
+            EventBus.Emit("save_request")
+            pcall(function()
+                require("systems.save.SaveSession").Flush()
+            end)
+            pcall(function()
+                local SaveSystem = require("systems.SaveSystem")
+                if SaveSystem.loaded
+                        and SaveSystem.activeSlot
+                        and not SaveSystem.saving
+                        and not SaveSystem._retryTimer
+                        and not SaveSystem._disconnected then
+                    SaveSystem.Save()
+                end
+            end)
+            print("[WarehouseUI] Close flush requested: changed=true reason=warehouse_close")
+        end
+        changedThisOpen_ = false
+    end
 
     -- 销毁内容，释放槽位
     DestroyContent()
@@ -674,5 +702,12 @@ function WarehouseUI.Destroy()
 
     parentOverlay_ = nil
 end
+
+-- ── P0-2: 订阅仓库变更事件，标记本次打开期间有成功操作 ──
+EventBus.On("warehouse_changed", function()
+    if visible_ then
+        changedThisOpen_ = true
+    end
+end)
 
 return WarehouseUI

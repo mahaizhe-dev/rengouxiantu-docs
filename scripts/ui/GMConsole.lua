@@ -1416,6 +1416,23 @@ local GM_CATEGORIES = {
                     ShowLog("保存链路P1: " .. f .. " 项失败 / " .. t .. " 项", {255, 100, 100, 255})
                 end
             end },
+            { label = "仓库门禁P0自测", action = function()
+                local files = {
+                    "tests.test_bm_warehouse_sell_sync_gate",
+                    "tests.test_bm_warehouse_close_flush",
+                }
+                local totalP, totalF = 0, 0
+                for _, m in ipairs(files) do
+                    package.loaded[m] = nil
+                    local ok2, r = pcall(require, m)
+                    if ok2 and r then totalP = totalP + r.passed; totalF = totalF + r.failed end
+                end
+                if totalF == 0 then
+                    ShowLog("仓库门禁P0: 全部 " .. totalP .. " 项通过!", {100, 255, 100, 255})
+                else
+                    ShowLog("仓库门禁P0: " .. totalF .. " 项失败 / " .. (totalP + totalF) .. " 项", {255, 100, 100, 255})
+                end
+            end },
             { label = "黑市禁回售自测", action = function()
                 -- BM-NORESELL: 一键跑三个 run_file 测试（均用 mock 隔离，不碰真实玩家状态）
                 local files = {

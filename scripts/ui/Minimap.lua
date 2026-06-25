@@ -892,6 +892,7 @@ function Minimap.Create(parentOverlay)
             fontColor = {210, 210, 220, 220},
             lineHeight = 1.3,
             width = "100%",
+            whiteSpace = "normal",
         }
         local descLabel = UI.Label {
             text = "",
@@ -899,6 +900,7 @@ function Minimap.Create(parentOverlay)
             fontColor = {170, 170, 180, 180},
             lineHeight = 1.2,
             width = "100%",
+            whiteSpace = "normal",
         }
         local entryPanel = UI.Panel {
             width = "100%",

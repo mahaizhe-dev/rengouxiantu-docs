@@ -483,6 +483,24 @@ TestRegistry.tests = {
         gate          = "blocking",
         skip_reason   = nil,
     },
+    {
+        id            = "bm_warehouse_sell_sync_gate",
+        group         = "system",
+        path          = "scripts/tests/test_bm_warehouse_sell_sync_gate.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+    {
+        id            = "bm_warehouse_close_flush",
+        group         = "system",
+        path          = "scripts/tests/test_bm_warehouse_close_flush.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
 
     ---------------------------------------------------------------------------
     -- engine_required: 依赖引擎运行时，第一版标记 skip

@@ -379,8 +379,9 @@ local function RebuildContent(pillarId)
                         player.x = target.x
                         player.y = target.y
                         if GameState.pet then
-                            GameState.pet.x = target.x + 0.5
-                            GameState.pet.y = target.y + 0.5
+                            local px, py = GameState.pet:FindSafeSpot(target.x + 0.5, target.y, GameState.pet._lastGameMap)
+                            GameState.pet.x = px
+                            GameState.pet.y = py
                         end
                         local CombatSystem = require("systems.CombatSystem")
                         CombatSystem.AddFloatingText(target.x, target.y - 0.5,

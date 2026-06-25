@@ -117,8 +117,9 @@ function DeathScreen.DoRevive()
         pet.state = "follow"
         pet.target = nil
         pet.deathTimer = 0
-        pet.x = spawn.x + 1
-        pet.y = spawn.y
+        local px, py = pet:FindSafeSpot(spawn.x + 1, spawn.y, pet._lastGameMap)
+        pet.x = px
+        pet.y = py
     end
 
     -- 4. 清除所有怪物的仇恨目标

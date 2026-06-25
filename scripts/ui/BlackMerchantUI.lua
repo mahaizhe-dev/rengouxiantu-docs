@@ -399,7 +399,16 @@ local function ShowConfirmDialog(action, itemId)
                                                     EventBus.Emit("save_request")
                                                     pcall(function() require("systems.save.SaveSession").Flush() end)
                                                 end
-                                                SetStatus("数据同步中，请稍后再出售", C.textError, 3)
+                                                -- P0-1: 根据具体原因显示精确文案
+                                                local blockMsg = "数据保存尚未完成，暂不能出售"
+                                                if cfmDetail and cfmDetail:find("warehouse") then
+                                                    blockMsg = "仓库道具变更尚未完成存档，暂不能出售"
+                                                elseif cfmDetail and cfmDetail:find("consume") then
+                                                    blockMsg = "道具消耗尚未完成存档，暂不能出售"
+                                                elseif cfmDetail and cfmDetail:find("save_session") then
+                                                    blockMsg = "近期操作正在保存，暂不能出售"
+                                                end
+                                                SetStatus(blockMsg, C.textError, 3)
                                                 print("[BlackMerchantUI] CONFIRM BLOCKED (L2 global_unsync): " .. tostring(cfmDetail))
                                                 return
                                             end
@@ -650,7 +659,16 @@ local function BuildItemCard(itemId)
                                     EventBus.Emit("save_request")
                                     pcall(function() require("systems.save.SaveSession").Flush() end)
                                 end
-                                SetStatus("数据同步中，请稍后再出售", C.textError, 3)
+                                -- P0-1: 根据具体原因显示精确文案
+                                local blockMsg = "数据保存尚未完成，暂不能出售"
+                                if curDetail and curDetail:find("warehouse") then
+                                    blockMsg = "仓库道具变更尚未完成存档，暂不能出售"
+                                elseif curDetail and curDetail:find("consume") then
+                                    blockMsg = "道具消耗尚未完成存档，暂不能出售"
+                                elseif curDetail and curDetail:find("save_session") then
+                                    blockMsg = "近期操作正在保存，暂不能出售"
+                                end
+                                SetStatus(blockMsg, C.textError, 3)
                                 print("[BlackMerchantUI] SELL BTN BLOCKED (L2 global_unsync): " .. tostring(curDetail))
                                 return
                             end
@@ -1505,6 +1523,15 @@ end
 
 function BlackMerchantUI.Show()
     if not panel_ then return end
+
+    -- P0-4: 打开黑市时关闭仓库 UI（互斥，防止并行操作）
+    pcall(function()
+        local WarehouseUI = require("ui.WarehouseUI")
+        if WarehouseUI.IsVisible and WarehouseUI.IsVisible() then
+            WarehouseUI.Hide()  -- 触发 P0-3 关闭保存
+            print("[BlackMerchantUI] Show: closed WarehouseUI (mutual exclusion)")
+        end
+    end)
 
     -- 重置状态
     activeTab_ = "consumable_mat"

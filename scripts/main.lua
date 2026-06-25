@@ -716,8 +716,9 @@ function RebuildWorld(chapterId, spawnOverride)
         player:SetMoveDirection(0, 0)
     end
     if GameState.pet then
-        GameState.pet.x = spawn.x + 0.5
-        GameState.pet.y = spawn.y + 0.5
+        local px, py = GameState.pet:FindSafeSpot(spawn.x + 0.5, spawn.y, gameMap_)
+        GameState.pet.x = px
+        GameState.pet.y = py
     end
     camera_.x = spawn.x
     camera_.y = spawn.y
