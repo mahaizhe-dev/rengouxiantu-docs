@@ -455,6 +455,26 @@ TestRegistry.tests = {
     ---------------------------------------------------------------------------
 
     {
+        id            = "save_phase3_smoke",
+        group         = "system",
+        path          = "scripts/tests/test_save_phase3_smoke.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "save_phase1_smoke",
+        group         = "save",
+        path          = "scripts/tests/test_save_phase1_smoke.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
         id            = "bm_noresell_warehouse",
         group         = "system",
         path          = "scripts/tests/test_bm_noresell_warehouse.lua",

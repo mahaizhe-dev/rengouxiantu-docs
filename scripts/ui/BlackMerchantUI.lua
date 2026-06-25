@@ -1813,14 +1813,19 @@ end
 -- ============================================================================
 
 --- WP-05a: S2C_RateLimited 处理（释放 pendingRequest_ 防 UI 永久卡住）
+--- 仅处理黑市相关 C2S 事件的限流，忽略其他模块（存档/炼丹等）
 function BlackMerchantUI_HandleRateLimited(eventType, eventData)
-    -- 仅当黑市面板打开且有 pending 时才处理
     if not pendingRequest_ then return end
+    -- 过滤：仅当被限流的 originEvent 是黑市事件时才处理
+    local originEvent = ""
+    pcall(function() originEvent = eventData["EventName"]:GetString() end)
+    if not (originEvent:find("BlackMerchant") or originEvent:find("BM")) then
+        return  -- 非黑市事件的限流，不释放黑市 pending
+    end
     pendingRequest_ = false
     SetStatus("操作过于频繁，请稍后重试", C.textError, 3)
-    -- WP-05f: 不立即刷新，用延迟轮询避免重试风暴
     pollTimer_ = POLL_INTERVAL - (2.0 + math.random() * 1.5)
-    print("[BlackMerchantUI] S2C_RateLimited → released pending, delayed refresh")
+    print("[BlackMerchantUI] S2C_RateLimited (" .. originEvent .. ") → released pending")
 end
 
 do

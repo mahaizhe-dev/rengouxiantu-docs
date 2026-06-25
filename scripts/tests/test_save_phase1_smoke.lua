@@ -72,11 +72,18 @@ test("T4. save_request 飞行期间 → _dirtySinceFlush=true（WP-02 核心）"
     local origLoaded = SaveSystem.loaded
     local origSlot = SaveSystem.activeSlot
 
+    -- 确保 save_request 事件 handler 已注册（SaveSystem.Init 在游戏启动时调用，
+    -- 但测试环境可能尚未走到 Init；若 _onSaveRequest 未注册则先调 Init）
+    if not SaveSystem._onSaveRequest then
+        SaveSystem.Init()
+    end
+
     -- 模拟：已加载、有 slot、正在存档
     SaveSystem.loaded = true
     SaveSystem.activeSlot = 1
     SaveSystem.saving = true
     SaveSystem._dirtySinceFlush = false
+    SaveSystem._dirty = false  -- 确保初始为 false 以验证 handler 设为 true
 
     -- 触发 save_request handler
     local EventBus = require("core.EventBus")

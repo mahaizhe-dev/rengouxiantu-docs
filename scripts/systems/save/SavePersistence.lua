@@ -499,7 +499,12 @@ function SavePersistence.DoSave(slot, callback, epoch)
             SS._consecutiveFailures = 0
             SS._retryTimer = nil
             SS._lastSaveTime = os.clock()
-            SS.saveTimer = 0  -- P0优化：成功保存后重置自动存档计时器，以"距上次成功保存"为基准
+            SS.saveTimer = 0  -- P0优化：成功保存后重置自动存档计时器
+
+            -- WP-02: 仅当飞行期间无新脏标记时才清除 dirty（保证新变更不丢失）
+            if not SS._dirtySinceFlush then
+                SS._dirty = false
+            end
 
             EventBus.Emit("save_warning_clear")
 

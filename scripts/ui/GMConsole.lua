@@ -1394,6 +1394,17 @@ local GM_CATEGORIES = {
                     ShowLog("打造合同: " .. f .. " 项失败 / " .. t .. " 项", {255, 100, 100, 255})
                 end
             end },
+            { label = "高峰P3自测", action = function()
+                package.loaded["tests.test_save_phase3_smoke"] = nil
+                local result = require("tests.test_save_phase3_smoke")
+                if result and result.failed == 0 then
+                    ShowLog("高峰P3: 全部 " .. result.passed .. " 项通过!", {100, 255, 100, 255})
+                else
+                    local f = result and result.failed or -1
+                    local t = result and result.total or 0
+                    ShowLog("高峰P3: " .. f .. " 项失败 / " .. t .. " 项", {255, 100, 100, 255})
+                end
+            end },
             { label = "保存链路P1自测", action = function()
                 package.loaded["tests.test_save_phase1_smoke"] = nil
                 local result = require("tests.test_save_phase1_smoke")
