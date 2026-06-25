@@ -126,6 +126,51 @@ local C = {
 }
 
 -- ============================================================================
+-- P1-2: 超时感知拦截文案
+-- ============================================================================
+
+local SELL_BLOCK_TIMEOUT = 10  -- 秒：超过此时间显示超时提示
+
+--- 根据 detail + elapsed 生成拦截文案（P1-2 超时分级）
+---@param detail string|nil GetSellBlockReason 返回的 detail
+---@return string blockMsg
+local function GetSellBlockMessage(detail)
+    -- 判断是否网络断线
+    local isDisconnected = false
+    pcall(function()
+        local NS = require("network.NetworkStatus")
+        isDisconnected = NS.IsDisconnected()
+    end)
+
+    if detail and detail:find("warehouse") then
+        if isDisconnected then
+            return "网络异常，仓库变更未完成存档，暂不能出售"
+        end
+        local info = BlackMarketSyncState.GetWarehouseDirtyInfo()
+        if info.elapsed and info.elapsed >= SELL_BLOCK_TIMEOUT then
+            return "仓库变更存档未完成（网络或服务器繁忙），暂不能出售"
+        end
+        return "仓库道具变更尚未完成存档，暂不能出售"
+    elseif detail and detail:find("consume") then
+        if isDisconnected then
+            return "网络异常，道具消耗未完成存档，暂不能出售"
+        end
+        local info = BlackMarketSyncState.GetConsumeDirtyInfo()
+        if info.elapsed and info.elapsed >= SELL_BLOCK_TIMEOUT then
+            return "道具消耗存档未完成（网络或服务器繁忙），暂不能出售"
+        end
+        return "道具消耗尚未完成存档，暂不能出售"
+    elseif detail and detail:find("save_session") then
+        return "近期操作正在保存，暂不能出售"
+    else
+        if isDisconnected then
+            return "网络异常，存档未完成，暂不能出售"
+        end
+        return "数据保存尚未完成，暂不能出售"
+    end
+end
+
+-- ============================================================================
 -- 网络通信
 -- ============================================================================
 
@@ -152,6 +197,7 @@ local function SendToServer(eventName, fields)
     local serverConn = network:GetServerConnection()
     if not serverConn then
         print("[BlackMerchantUI] No server connection")
+        pendingRequest_ = false  -- P0: 释放，避免 UI 永久卡死
         return false
     end
     local data = VariantMap()
@@ -399,17 +445,13 @@ local function ShowConfirmDialog(action, itemId)
                                                     EventBus.Emit("save_request")
                                                     pcall(function() require("systems.save.SaveSession").Flush() end)
                                                 end
-                                                -- P0-1: 根据具体原因显示精确文案
-                                                local blockMsg = "数据保存尚未完成，暂不能出售"
-                                                if cfmDetail and cfmDetail:find("warehouse") then
-                                                    blockMsg = "仓库道具变更尚未完成存档，暂不能出售"
-                                                elseif cfmDetail and cfmDetail:find("consume") then
-                                                    blockMsg = "道具消耗尚未完成存档，暂不能出售"
-                                                elseif cfmDetail and cfmDetail:find("save_session") then
-                                                    blockMsg = "近期操作正在保存，暂不能出售"
-                                                end
-                                                SetStatus(blockMsg, C.textError, 3)
-                                                print("[BlackMerchantUI] CONFIRM BLOCKED (L2 global_unsync): " .. tostring(cfmDetail))
+                                                -- P1-2: 超时感知 + 断线感知精确文案
+                                                SetStatus(GetSellBlockMessage(cfmDetail), C.textError, 3)
+                                                -- P1-3: 标准化日志含 elapsed
+                                                local _ei = BlackMarketSyncState.GetWarehouseDirtyInfo()
+                                                local _elapsed = _ei.elapsed or BlackMarketSyncState.GetConsumeDirtyInfo().elapsed or 0
+                                                print("[BlackMerchantUI] SELL BLOCKED " .. tostring(cfmDetail)
+                                                    .. " elapsed=" .. string.format("%.1f", _elapsed) .. "s")
                                                 return
                                             end
                                             SendSell(itemId, 1)
@@ -659,17 +701,13 @@ local function BuildItemCard(itemId)
                                     EventBus.Emit("save_request")
                                     pcall(function() require("systems.save.SaveSession").Flush() end)
                                 end
-                                -- P0-1: 根据具体原因显示精确文案
-                                local blockMsg = "数据保存尚未完成，暂不能出售"
-                                if curDetail and curDetail:find("warehouse") then
-                                    blockMsg = "仓库道具变更尚未完成存档，暂不能出售"
-                                elseif curDetail and curDetail:find("consume") then
-                                    blockMsg = "道具消耗尚未完成存档，暂不能出售"
-                                elseif curDetail and curDetail:find("save_session") then
-                                    blockMsg = "近期操作正在保存，暂不能出售"
-                                end
-                                SetStatus(blockMsg, C.textError, 3)
-                                print("[BlackMerchantUI] SELL BTN BLOCKED (L2 global_unsync): " .. tostring(curDetail))
+                                -- P1-2: 超时感知 + 断线感知精确文案
+                                SetStatus(GetSellBlockMessage(curDetail), C.textError, 3)
+                                -- P1-3: 标准化日志含 elapsed
+                                local _ei2 = BlackMarketSyncState.GetWarehouseDirtyInfo()
+                                local _elapsed2 = _ei2.elapsed or BlackMarketSyncState.GetConsumeDirtyInfo().elapsed or 0
+                                print("[BlackMerchantUI] SELL BLOCKED " .. tostring(curDetail)
+                                    .. " elapsed=" .. string.format("%.1f", _elapsed2) .. "s")
                                 return
                             end
                             local d = items_[itemId] or {}
