@@ -598,6 +598,7 @@ function M.HandleSell(eventType, eventData)
     -- 1. 境界校验
     if not IsRealmOk(connKey) then
         sellActive_[connKey] = nil
+        itemSellLock_[consumableId] = nil  -- WP-05c: 释放 per-item 锁
         SendError(connection, SaveProtocol.S2C_BlackMerchantResult,
             "境界不足，需筑基初期以上")
         return
@@ -607,6 +608,7 @@ function M.HandleSell(eventType, eventData)
     local cfg = BMConfig.ITEMS[consumableId]
     if not cfg then
         sellActive_[connKey] = nil
+        itemSellLock_[consumableId] = nil  -- WP-05c: 释放 per-item 锁
         SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "无效商品")
         return
     end
@@ -616,6 +618,7 @@ function M.HandleSell(eventType, eventData)
     -- 新增任何 itemType 必须先补齐 来源标记+可回售统计+扣除+测试 后才放行
     if cfg.itemType ~= nil and cfg.itemType ~= "equipment" then
         sellActive_[connKey] = nil
+        itemSellLock_[consumableId] = nil  -- WP-05c: 释放 per-item 锁
         SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "该商品类型暂不支持出售")
         return
     end
@@ -627,6 +630,7 @@ function M.HandleSell(eventType, eventData)
     -- 3. amount 校验
     if not amount or amount < 1 then
         sellActive_[connKey] = nil
+        itemSellLock_[consumableId] = nil  -- WP-05c: 释放 per-item 锁
         SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "数量无效")
         return
     end
@@ -638,6 +642,7 @@ function M.HandleSell(eventType, eventData)
     Session.ServerGetSlotData(userId, slot, function(saveData)
         if not saveData then
             sellActive_[connKey] = nil
+            itemSellLock_[consumableId] = nil  -- WP-05c: 释放 per-item 锁
             SendError(connection, SaveProtocol.S2C_BlackMerchantResult,
                 "存档读取失败，请重试")
             return
@@ -655,6 +660,7 @@ function M.HandleSell(eventType, eventData)
         -- BM-NORESELL: 可回售数量不足则拒绝（区分"黑市购入不可回售" vs "持有量不足"）
         if resellableHeld < amount then
             sellActive_[connKey] = nil
+            itemSellLock_[consumableId] = nil  -- WP-05c: 释放 per-item 锁
             if noResellHeld > 0 then
                 print("[BlackMerchant][Sell] REJECT no-resell: userId=" .. tostring(userId)
                     .. " id=" .. consumableId .. " resellable=" .. resellableHeld
@@ -674,6 +680,7 @@ function M.HandleSell(eventType, eventData)
                 local maxStock = cfg.max_stock or BMConfig.MAX_STOCK
                 if stock + amount > maxStock then
                     sellActive_[connKey] = nil
+                    itemSellLock_[consumableId] = nil  -- WP-05c: 释放 per-item 锁
                     SendError(connection, SaveProtocol.S2C_BlackMerchantResult,
                         "黑商仓库已满")
                     return
@@ -684,6 +691,7 @@ function M.HandleSell(eventType, eventData)
                 Session.ServerGetSlotData(userId, slot, function(latestSaveData)
                     if not latestSaveData then
                         sellActive_[connKey] = nil
+                        itemSellLock_[consumableId] = nil  -- WP-05c: 释放 per-item 锁
                         SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "存档读取失败，请重试")
                         return
                     end
@@ -693,6 +701,7 @@ function M.HandleSell(eventType, eventData)
                     local latestResellable = CountItemResellable(latestBackpack, consumableId)
                     if latestResellable < amount then
                         sellActive_[connKey] = nil
+                        itemSellLock_[consumableId] = nil  -- WP-05c: 释放 per-item 锁
                         print("[BlackMerchant][Sell] WP-04 REJECT stale: userId=" .. tostring(userId)
                             .. " id=" .. consumableId .. " firstRead=" .. tostring(resellableHeld)
                             .. " latestRead=" .. tostring(latestResellable) .. " want=" .. tostring(amount))
@@ -710,6 +719,7 @@ function M.HandleSell(eventType, eventData)
                     -- P0.3 二次断言
                     if removeRemaining ~= 0 then
                         sellActive_[connKey] = nil
+                        itemSellLock_[consumableId] = nil  -- WP-05c: 释放 per-item 锁
                         print("[BlackMerchant][Sell] ABORT remove mismatch on latest: userId=" .. tostring(userId)
                             .. " id=" .. consumableId .. " want=" .. tostring(amount)
                             .. " remaining=" .. tostring(removeRemaining)
@@ -792,6 +802,7 @@ function M.HandleSell(eventType, eventData)
                                 serverCloud.list:Add(userId, BMConfig.WAL_SELL_KEY, { xianshi = total }, {
                                     ok = function()
                                         sellActive_[connKey] = nil
+                                        itemSellLock_[consumableId] = nil  -- WP-05c: 释放 per-item 锁
                                         print("[BlackMerchant][Sell] WAL_SELL written: userId="
                                             .. tostring(userId) .. " xianshi=" .. tostring(total))
                                         SendError(connection, SaveProtocol.S2C_BlackMerchantResult,
@@ -799,6 +810,7 @@ function M.HandleSell(eventType, eventData)
                                     end,
                                     error = function(c2, r2)
                                         sellActive_[connKey] = nil
+                                        itemSellLock_[consumableId] = nil  -- WP-05c: 释放 per-item 锁
                                         print("[BlackMerchant][Sell] CRITICAL+WAL_SELL write failed: userId="
                                             .. tostring(userId) .. " xianshi=" .. tostring(total)
                                             .. " err=" .. tostring(r2))
@@ -820,6 +832,7 @@ function M.HandleSell(eventType, eventData)
             end,
             error = function(code, reason)
                 sellActive_[connKey] = nil
+                itemSellLock_[consumableId] = nil  -- WP-05c: 释放 per-item 锁
                 SendError(connection, SaveProtocol.S2C_BlackMerchantResult,
                     "服务器忙，请稍后重试")
             end,

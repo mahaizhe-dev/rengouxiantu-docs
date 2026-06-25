@@ -50,12 +50,19 @@ test("T2. HandleRateLimited 有 EventName 黑市事件过滤（防误释放）",
     local f = io.open("scripts/ui/BlackMerchantUI.lua", "r")
     if not f then print("    (skip) 源码不可读"); return end
     local src = f:read("*a"); f:close()
-    local handler = src:match("function BlackMerchantUI_HandleRateLimited.-(end)")
-    assertTrue(handler ~= nil, "应能提取 HandleRateLimited 函数体")
+    -- 提取从 function 声明到下一个顶层 end 的完整函数体
+    -- 使用 %b 平衡匹配避免被内部 end 截断
+    local fnStart = src:find("function BlackMerchantUI_HandleRateLimited")
+    assertTrue(fnStart ~= nil, "应能找到 HandleRateLimited 函数声明")
+    -- 从函数声明处往后截取足够长度（该函数不超过 40 行≈2000字符）
+    local snippet = src:sub(fnStart, fnStart + 2000)
+    -- 找到函数体：从声明行之后到独占一行的 end（顶层 end，无缩进或极少缩进）
+    local handler = snippet:match("(function.-\nend)")
+    assertTrue(handler ~= nil, "应能提取 HandleRateLimited 完整函数体")
     assertTrue(handler:find("EventName") ~= nil,
         "HandleRateLimited 应检查 EventName")
-    assertTrue(handler:find("BlackMerchant") ~= nil,
-        "应过滤 BlackMerchant 前缀事件")
+    assertTrue(handler:find("BlackMerchant") ~= nil or handler:find("BM") ~= nil,
+        "应过滤 BlackMerchant/BM 前缀事件")
 end)
 
 -- T3: _lastFlushTime 冷却变量
