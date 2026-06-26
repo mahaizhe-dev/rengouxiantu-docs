@@ -29,7 +29,6 @@ function SavePersistence.Save(callback)
             print("[SaveSystem] saving flag stuck for " .. elapsed .. "s, force unlocking")
             SS.saving = false
             SS._saveTimeoutActive = false
-            -- 方案4: 计入连续失败，触发退避重试
             SS._consecutiveFailures = SS._consecutiveFailures + 1
             local retryDelay = math.min(10 * SS._consecutiveFailures, 60)
             SS._retryTimer = retryDelay
@@ -38,23 +37,28 @@ function SavePersistence.Save(callback)
             if SS._consecutiveFailures >= 2 then
                 EventBus.Emit("save_warning", { failures = SS._consecutiveFailures })
             end
+            if callback then callback(false, "already_saving") end
             return
         else
             print("[SaveSystem] Save already in progress, skipping")
+            if callback then callback(false, "already_saving") end
             return
         end
     end
     if not SS.loaded then
         print("[SaveSystem] Not loaded, save skipped")
+        if callback then callback(false, "not_loaded") end
         return
     end
     if not SS.activeSlot then
         print("[SaveSystem] No active slot, save skipped")
+        if callback then callback(false, "no_active_slot") end
         return
     end
     -- W2: 断线期间暂停存档（避免无意义的失败重试）
     if SS._disconnected then
         print("[SaveSystem] Save skipped: disconnected")
+        if callback then callback(false, "disconnected") end
         return
     end
 
@@ -69,6 +73,7 @@ function SavePersistence.Save(callback)
             cloudLevel = SS._lastKnownCloudLevel,
             currentLevel = currentLevel,
         })
+        if callback then callback(false, "save_blocked") end
         return
     end
 
@@ -82,6 +87,7 @@ function SavePersistence.Save(callback)
         if SS._consecutiveFailures >= 2 then
             EventBus.Emit("save_warning", { failures = SS._consecutiveFailures })
         end
+        if callback then callback(false, "no_server_conn") end
         return
     end
 
@@ -386,7 +392,7 @@ function SavePersistence.DoSave(slot, callback, epoch)
                 SS._consecutiveFailures = 0
                 SS._retryTimer = nil
                 SS._lastKnownCloudLevel = playerData.level or 1
-                SS._lastSaveTime = os.clock()
+                SS._lastSaveTime = time.elapsedTime
                 SS.saveTimer = 0  -- P0优化：成功保存后重置自动存档计时器
 
                 -- WP-02: 仅当飞行期间无新脏标记时才清除 dirty（保证新变更不丢失）
@@ -400,6 +406,7 @@ function SavePersistence.DoSave(slot, callback, epoch)
                 EventBus.Emit("game_saved")
                 -- 防御性直接调用：EventBus.On 在部分环境下注册可能未生效
                 pcall(function() require("systems.BlackMarketSyncState").ClearAll() end)
+                pcall(function() require("systems.WarehouseSystem")._dirty = false end)
                 if callback then callback(true) end
 
                 if isCheckpoint then
@@ -500,7 +507,7 @@ function SavePersistence.DoSave(slot, callback, epoch)
             SS._saveTimeoutActive = false
             SS._consecutiveFailures = 0
             SS._retryTimer = nil
-            SS._lastSaveTime = os.clock()
+            SS._lastSaveTime = time.elapsedTime
             SS.saveTimer = 0  -- P0优化：成功保存后重置自动存档计时器
 
             -- WP-02: 仅当飞行期间无新脏标记时才清除 dirty（保证新变更不丢失）
@@ -519,6 +526,7 @@ function SavePersistence.DoSave(slot, callback, epoch)
             EventBus.Emit("game_saved")
             -- 防御性直接调用：EventBus.On 在部分环境下注册可能未生效
             pcall(function() require("systems.BlackMarketSyncState").ClearAll() end)
+            pcall(function() require("systems.WarehouseSystem")._dirty = false end)
             if callback then callback(true) end
 
             if isCheckpoint then

@@ -158,7 +158,7 @@ function SaveSystem.Update(dt)
     -- WP-02 防抖刷写：脏标记存在且不在存档中时，检查距上次存档的间隔
     -- _dirty 不再在此处清除 —— 仅在 ok 回调中确认落盘后才清
     if SaveSystem._dirty and not SaveSystem.saving then
-        local elapsed = os.clock() - SaveSystem._lastSaveTime
+        local elapsed = time.elapsedTime - SaveSystem._lastSaveTime
         if elapsed >= SaveSystem.SAVE_DEBOUNCE_INTERVAL then
             SaveSystem._dirtySinceFlush = false  -- WP-02: 重置飞行期间脏标记
             SaveSystem.Save()

@@ -46,7 +46,7 @@ BlackMarketSyncState._dirtyConsumeItem     = nil  ---@type string|nil
 ---@param consumableId string 消耗品 ID（仅用于日志）
 function BlackMarketSyncState.MarkConsumeUsed(consumableId)
     BlackMarketSyncState._dirtyConsume = true
-    BlackMarketSyncState._dirtyConsumeSince = BlackMarketSyncState._dirtyConsumeSince or os.clock()
+    BlackMarketSyncState._dirtyConsumeSince = BlackMarketSyncState._dirtyConsumeSince or time.elapsedTime
     BlackMarketSyncState._dirtyConsumeItem = consumableId
     print("[BlackMarketSyncState] consume dirty: " .. tostring(consumableId))
     -- P0: 消耗置脏后立即请求保存，加速 game_saved 清除门禁（已有 3s debounce）
@@ -57,7 +57,7 @@ end
 ---@param reason string 操作原因（仅用于日志）
 function BlackMarketSyncState.MarkWarehouseOp(reason)
     BlackMarketSyncState._dirtyWarehouse = true
-    BlackMarketSyncState._dirtyWarehouseSince = BlackMarketSyncState._dirtyWarehouseSince or os.clock()
+    BlackMarketSyncState._dirtyWarehouseSince = BlackMarketSyncState._dirtyWarehouseSince or time.elapsedTime
     BlackMarketSyncState._dirtyWarehouseReason = reason
     print("[BlackMarketSyncState] warehouse dirty: " .. tostring(reason))
 end
@@ -148,7 +148,7 @@ function BlackMarketSyncState.GetWarehouseDirtyInfo()
     return {
         dirty   = BlackMarketSyncState._dirtyWarehouse == true,
         since   = since,
-        elapsed = since and (os.clock() - since) or nil,
+        elapsed = since and (time.elapsedTime - since) or nil,
         reason  = BlackMarketSyncState._dirtyWarehouseReason,
     }
 end
@@ -160,7 +160,7 @@ function BlackMarketSyncState.GetConsumeDirtyInfo()
     return {
         dirty   = BlackMarketSyncState._dirtyConsume == true,
         since   = since,
-        elapsed = since and (os.clock() - since) or nil,
+        elapsed = since and (time.elapsedTime - since) or nil,
         item    = BlackMarketSyncState._dirtyConsumeItem,
     }
 end

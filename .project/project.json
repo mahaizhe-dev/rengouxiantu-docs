@@ -7,7 +7,7 @@
   "entry": "main.lua",
   "entry@client": "client_main.lua",
   "entry@server": "server_main.lua",
-  "version": "1.0.990",
+  "version": "1.0.991",
   "taptap_publish": {
     "title": "人狗仙途",
     "description": "一人一狗，共踏仙途！从凡人起步，带着忠犬伙伴闯荡修仙世界。炼丹锻造、挑战Boss、探索秘境，在两界村结识各路仙友，一路从凡人修炼至飞升成仙。像素风修仙冒险，等你来战！",

@@ -70,7 +70,7 @@ local activeTab_ = "consumable_mat"   -- "consumable_mat" | "herb" | "rake" | "b
 -- 轮询
 local POLL_INTERVAL = 30.0  -- P0: 降频，减少 SYSTEM_UID 热读压力
 local pollTimer_ = 0
-local _lastFlushTime = 0   -- WP-05b: flush 冷却防连点(os.clock)
+local _lastFlushTime = -999   -- WP-05b: flush 冷却防连点（初始 -999 确保第一次必触发）
 
 -- 防重复请求
 local pendingRequest_ = false
@@ -192,14 +192,16 @@ end
 --- P0-4: 统一保存收口 — 黑市被拦时主动推动保存完成
 ---@param reason string 调用原因
 local function RequestSaveForSellBlock(reason)
-    if os.clock() - _lastFlushTime < 3.0 then return end
-    _lastFlushTime = os.clock()
+    local now = time.elapsedTime
+    if _lastFlushTime and now - _lastFlushTime < 3.0 then return end
+    _lastFlushTime = now
 
     EventBus.Emit("save_request")
-    pcall(function()
+    local ok1, err1 = pcall(function()
         require("systems.save.SaveSession").Flush()
     end)
-    pcall(function()
+    if not ok1 then print("[BlackMerchantUI] Flush ERROR: " .. tostring(err1)) end
+    local ok2, err2 = pcall(function()
         local SaveSystem = require("systems.SaveSystem")
         local ok, saveReason, status = SaveSystem.RequestImmediateSave(reason)
         print("[BlackMerchantUI] RequestSaveForSellBlock ok=" .. tostring(ok)
@@ -209,6 +211,7 @@ local function RequestSaveForSellBlock(reason)
             .. " disconnected=" .. tostring(status and status.disconnected)
             .. " hasConn=" .. tostring(status and status.hasServerConn))
     end)
+    if not ok2 then print("[BlackMerchantUI] RequestSaveForSellBlock ERROR: " .. tostring(err2)) end
 end
 
 -- ============================================================================

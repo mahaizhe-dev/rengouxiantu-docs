@@ -972,7 +972,11 @@ function InitGame(classId)
     end)
 
     -- 监听存档连续失败警告（方案2: 连续 ≥2 次失败时提示玩家）
+    local _lastSaveWarningTime = -999  -- P0-2: 节流
     EventBus.On("save_warning", function(data)
+        local now = time.elapsedTime
+        if now - _lastSaveWarningTime < 10.0 then return end  -- P0-2: 10秒内最多显示一次
+        _lastSaveWarningTime = now
         local player = GameState.player
         if player then
             local failures = data and data.failures or 0

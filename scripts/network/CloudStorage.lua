@@ -65,7 +65,7 @@ end
 local function RegisterCallback(events)
     local id = NextRequestId()
     -- P1-SAVE-2: 记录注册时间，用于超时清理
-    _pendingCallbacks[id] = { events = events, registeredAt = os.clock() }
+    _pendingCallbacks[id] = { events = events, registeredAt = time.elapsedTime }
     return id
 end
 
@@ -83,19 +83,19 @@ end
 local CALLBACK_TIMEOUT = 30  -- 秒
 
 -- N1: 延迟任务队列（由 CloudStorage.Tick() 驱动）
-local _delayedTasks = {}  -- { { deadline = os.clock()+delay, fn = function } }
+local _delayedTasks = {}  -- { { deadline = time.elapsedTime+delay, fn = function } }
 
 --- 注册延迟执行任务（仅 CloudStorage 内部使用）
 ---@param delaySec number
 ---@param fn function
 local function ScheduleDelayedLocal(delaySec, fn)
-    table.insert(_delayedTasks, { deadline = os.clock() + delaySec, fn = fn })
+    table.insert(_delayedTasks, { deadline = time.elapsedTime + delaySec, fn = fn })
 end
 
 --- 定期调用，清理超时的 pending 回调（防止内存泄漏）
 --- 由外部 Update 循环每隔一段时间调用
 function CloudStorage.Tick()
-    local now = os.clock()
+    local now = time.elapsedTime
     -- P1-SAVE-2: 回调超时清理
     for id, entry in pairs(_pendingCallbacks) do
         if now - entry.registeredAt > CALLBACK_TIMEOUT then
@@ -402,6 +402,7 @@ function CloudStorage.BatchSet()
                 serverConn:SendRemoteEvent(SaveProtocol.C2S_SaveGame, true, eventData)
             else
                 Logger.error("CloudStorage", "No server connection for Save")
+                _pendingCallbacks[requestId] = nil  -- P0-4: 释放 pending，避免残留
                 if events and events.error then
                     events.error(-1, "No server connection")
                 end
@@ -553,6 +554,7 @@ function CloudStorage.GetRankList(key, start, count, events, ...)
             end)
         else
             Logger.error("CloudStorage", "No server connection for GetRankList")
+            _pendingCallbacks[requestId] = nil  -- P0-4: 释放 pending
             if events and events.error then
                 events.error(-1, "No server connection")
             end

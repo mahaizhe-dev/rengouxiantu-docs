@@ -53,7 +53,7 @@ local lastUnlockedRows_ = 0  -- 上次构建时的解锁行数
 
 -- ── P0-2: 本次打开期间是否有成功变更（用于 P0-3 关闭时触发保存） ──
 local changedThisOpen_ = false
-local lastCloseFlushTime_ = 0  -- 关闭保存防抖时间戳
+local lastCloseFlushTime_ = -999  -- 关闭保存防抖（初始 -999 确保第一次必触发）
 
 -- ── 前向声明（解决循环依赖）──
 local UpdateAllSlots
@@ -649,13 +649,15 @@ function WarehouseUI.Hide()
     -- P0-3: 关闭仓库时如有变更，立即尝试保存一次（加速 game_saved 解除黑市门禁）
     print("[WarehouseUI] Hide: changedThisOpen_=" .. tostring(changedThisOpen_))
     if changedThisOpen_ then
-        if os.clock() - lastCloseFlushTime_ >= 3 then
-            lastCloseFlushTime_ = os.clock()
+        local now = time.elapsedTime
+        if not lastCloseFlushTime_ or now - lastCloseFlushTime_ >= 3 then
+            lastCloseFlushTime_ = now
             EventBus.Emit("save_request")
-            pcall(function()
+            local ok1, err1 = pcall(function()
                 require("systems.save.SaveSession").Flush()
             end)
-            pcall(function()
+            if not ok1 then print("[WarehouseUI] Flush ERROR: " .. tostring(err1)) end
+            local ok2, err2 = pcall(function()
                 local SaveSystem = require("systems.SaveSystem")
                 local ok, reason, status = SaveSystem.RequestImmediateSave("warehouse_close")
                 print("[WarehouseUI] Close save request: ok=" .. tostring(ok)
@@ -665,6 +667,7 @@ function WarehouseUI.Hide()
                     .. " disconnected=" .. tostring(status and status.disconnected)
                     .. " hasConn=" .. tostring(status and status.hasServerConn))
             end)
+            if not ok2 then print("[WarehouseUI] RequestImmediateSave ERROR: " .. tostring(err2)) end
         end
         changedThisOpen_ = false
     end

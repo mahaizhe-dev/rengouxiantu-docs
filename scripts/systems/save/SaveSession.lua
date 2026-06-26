@@ -27,7 +27,7 @@ local MAX_DURATION_SECS    = 20  -- 会话持续 N 秒未落盘则强制收口
 -- ============================================================================
 
 local _opCount    = 0     -- 当前会话中的操作计数
-local _startTime  = 0     -- 会话首次操作的 os.clock() 时间戳
+local _startTime  = 0     -- 会话首次操作的 time.elapsedTime 时间戳
 local _active     = false -- 是否有活跃的脏会话
 
 -- ============================================================================
@@ -39,7 +39,7 @@ local function _flush(reason)
     if not _active then return end
     print("[SaveSession] Flush: " .. (reason or "unknown")
         .. " (ops=" .. _opCount
-        .. ", elapsed=" .. string.format("%.1f", os.clock() - _startTime) .. "s)")
+        .. ", elapsed=" .. string.format("%.1f", time.elapsedTime - _startTime) .. "s)")
     _active   = false
     _opCount  = 0
     _startTime = 0
@@ -53,7 +53,7 @@ end
 --- 记录一次操作（替代直接 EventBus.Emit("save_request")）
 --- 当操作次数或持续时间达到阈值时自动收口。
 function SaveSession.MarkDirty()
-    local now = os.clock()
+    local now = time.elapsedTime
 
     if not _active then
         -- 开启新会话
@@ -104,7 +104,7 @@ function SaveSession.ClearOnSave()
     if _active then
         print("[SaveSession] ClearOnSave: cleared stale session"
             .. " (ops=" .. _opCount
-            .. ", elapsed=" .. string.format("%.1f", os.clock() - _startTime) .. "s)")
+            .. ", elapsed=" .. string.format("%.1f", time.elapsedTime - _startTime) .. "s)")
     end
     _active    = false
     _opCount   = 0

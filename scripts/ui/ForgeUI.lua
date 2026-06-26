@@ -37,9 +37,16 @@ local resultLabel_ = nil      -- 操作结果反馈
 -- 格子引用
 local equipSlots_ = {}        -- 身上装备 slot widgets（key=slotId）
 local invSlots_ = {}          -- 背包装备 slot widgets（key=index）
+local equipStatLabels_ = {}   -- 身上装备洗练属性 label（key=slotId）
+local invStatLabels_ = {}     -- 背包装备洗练属性 label（key=index）
+
+-- 背包grid容器引用（用于Show()时重建）
+local invGridPanel_ = nil
+local contentWrapper_ = nil
 
 -- ── 常量 ─────────────────────────────────────────────────────────────────────
-local SLOT_SIZE = T.size.slotSize
+local SLOT_SIZE = 58              -- 洗练面板格子略大于标准(56)，为下方文字留视觉平衡
+local SLOT_WRAP_W = 62            -- 格子外包宽度（图标+呼吸空间）
 local SLOT_GAP = T.spacing.xs
 
 -- 洗练费用（按阶级）
@@ -174,6 +181,19 @@ function ForgeUI.FormatStatValue(sub)
     else
         return tostring(math.floor(sub.value))
     end
+end
+
+--- 格式化洗练属性为短文本（用于格子下方小字）
+---@param forgeStat table {stat, name, value}
+---@return string 如 "攻+12" "暴伤+15%"
+local function FormatForgeShort(forgeStat)
+    if not forgeStat then return "" end
+    -- 缩短属性名（取前2字）
+    local shortName = forgeStat.name
+    if #shortName > 6 then  -- UTF8 中文2字=6字节
+        shortName = shortName:sub(1, 6)
+    end
+    return shortName .. "+" .. ForgeUI.FormatStatValue(forgeStat)
 end
 
 --- 执行洗练
@@ -445,7 +465,7 @@ local function CreateEquipGrid()
         width = "100%",
     })
 
-    -- 7列格子（左对齐自然排列）
+    -- 格子行（flex-wrap）
     local row = UI.Panel { width = "100%", flexDirection = "row", flexWrap = "wrap", gap = SLOT_GAP }
     for _, slotId in ipairs(EQUIP_SLOT_ORDER) do
         local capturedSlotId = slotId
@@ -458,16 +478,34 @@ local function CreateEquipGrid()
                 SelectEquipSlot(capturedSlotId)
             end,
         }
+        local statLabel = UI.Label {
+            text = "未洗练",
+            fontSize = 9,
+            fontColor = T.color.textMuted,
+            textAlign = "center",
+            width = SLOT_WRAP_W,
+        }
         equipSlots_[slotId] = slot
-        row:AddChild(slot)
+        equipStatLabels_[slotId] = statLabel
+        -- 外包容器：图标 + 文字
+        row:AddChild(UI.Panel {
+            width = SLOT_WRAP_W,
+            alignItems = "center",
+            gap = T.spacing.xxs,
+            children = { slot, statLabel },
+        })
     end
     gridPanel:AddChild(row)
 
     return gridPanel
 end
 
---- 创建背包装备格子区（仅显示装备类物品）
+--- 创建背包装备格子区（仅显示装备类物品，每次 Show 时重建）
 local function CreateInvGrid()
+    -- 清理旧引用
+    invSlots_ = {}
+    invStatLabels_ = {}
+
     local gridPanel = UI.Panel {
         width = "100%",
         gap = T.spacing.xs,
@@ -482,13 +520,15 @@ local function CreateInvGrid()
         width = "100%",
     })
 
-    -- 7列格子（左对齐自然排列）
+    -- 格子行（flex-wrap）
     local row = UI.Panel { width = "100%", flexDirection = "row", flexWrap = "wrap", gap = SLOT_GAP }
     local manager = InventorySystem.GetManager()
+    local hasEquip = false
     for i = 1, GameConfig.BACKPACK_SIZE do
         local item = manager and manager:GetInventoryItem(i) or nil
         -- 只为装备类物品创建格子（跳过空位和消耗品）
         if item and item.quality and item.category ~= "consumable" then
+            hasEquip = true
             local capturedIdx = i
             local slot = ImageItemSlot {
                 slotId = i,
@@ -500,12 +540,39 @@ local function CreateInvGrid()
                 end,
             }
             slot:SetItem(item)
+
+            local forgeText = item.forgeStat and FormatForgeShort(item.forgeStat) or "未洗练"
+            local forgeColor = item.forgeStat and T.color.success or T.color.textMuted
+            local statLabel = UI.Label {
+                text = forgeText,
+                fontSize = 9,
+                fontColor = forgeColor,
+                textAlign = "center",
+                width = SLOT_WRAP_W,
+            }
+
             invSlots_[i] = slot
-            row:AddChild(slot)
+            invStatLabels_[i] = statLabel
+            row:AddChild(UI.Panel {
+                width = SLOT_WRAP_W,
+                alignItems = "center",
+                gap = T.spacing.xxs,
+                children = { slot, statLabel },
+            })
         end
     end
-    gridPanel:AddChild(row)
 
+    if not hasEquip then
+        row:AddChild(UI.Label {
+            text = "背包中无装备",
+            fontSize = T.fontSize.xs,
+            fontColor = T.color.textMuted,
+            width = "100%",
+            textAlign = "center",
+        })
+    end
+
+    gridPanel:AddChild(row)
     return gridPanel
 end
 
@@ -538,27 +605,39 @@ function ForgeUI.Create(parentOverlay)
     panel_ = shell_.panel
 
     -- 组装内容（居中对齐）
-    local contentWrapper = UI.Panel {
+    invGridPanel_ = CreateInvGrid()
+    contentWrapper_ = UI.Panel {
         width = "100%",
         alignItems = "center",
         gap = T.spacing.sm,
         children = {
             CreateInfoPanel(),
             CreateEquipGrid(),
-            CreateInvGrid(),
+            invGridPanel_,
         },
     }
-    shell_:AddContent(contentWrapper)
+    shell_:AddContent(contentWrapper_)
 
     -- 初始刷新格子
     ForgeUI.RefreshSlots()
+end
+
+--- 重建背包格子区（Show 时调用，确保反映最新背包状态）
+local function RebuildInvGrid()
+    if not contentWrapper_ or not invGridPanel_ then return end
+    -- 销毁旧的
+    contentWrapper_:RemoveChild(invGridPanel_)
+    invGridPanel_:Destroy()
+    -- 创建新的
+    invGridPanel_ = CreateInvGrid()
+    contentWrapper_:AddChild(invGridPanel_)
 end
 
 -- ============================================================================
 -- 刷新
 -- ============================================================================
 
---- 刷新所有格子显示
+--- 刷新所有格子显示（含洗练属性文字）
 function ForgeUI.RefreshSlots()
     local manager = InventorySystem.GetManager()
     if not manager then return end
@@ -567,6 +646,19 @@ function ForgeUI.RefreshSlots()
     for slotId, slotWidget in pairs(equipSlots_) do
         local item = manager:GetEquipmentItem(slotId)
         slotWidget:SetItem(item)
+        -- 更新洗练属性 label
+        local label = equipStatLabels_[slotId]
+        if label then
+            if item and item.forgeStat then
+                label:SetText(FormatForgeShort(item.forgeStat))
+                label:SetStyle({ fontColor = T.color.success })
+            elseif item and item.quality then
+                label:SetText("未洗练")
+                label:SetStyle({ fontColor = T.color.textMuted })
+            else
+                label:SetText("")
+            end
+        end
     end
 
     -- 背包格子（已创建的）
@@ -574,8 +666,20 @@ function ForgeUI.RefreshSlots()
         local item = manager:GetInventoryItem(idx)
         if item and item.quality and item.category ~= "consumable" then
             slotWidget:SetItem(item)
+            local label = invStatLabels_[idx]
+            if label then
+                if item.forgeStat then
+                    label:SetText(FormatForgeShort(item.forgeStat))
+                    label:SetStyle({ fontColor = T.color.success })
+                else
+                    label:SetText("未洗练")
+                    label:SetStyle({ fontColor = T.color.textMuted })
+                end
+            end
         else
             slotWidget:SetItem(nil)
+            local label = invStatLabels_[idx]
+            if label then label:SetText("") end
         end
     end
 end
@@ -599,6 +703,8 @@ function ForgeUI.Show()
         selectedSource_ = nil
         selectedSlot_ = nil
         if resultLabel_ then resultLabel_:SetText("") end
+        -- 每次打开时重建背包格子区（修复：背包变化后格子不更新的BUG）
+        RebuildInvGrid()
         ForgeUI.Refresh()
     end
 end
@@ -641,6 +747,10 @@ function ForgeUI.Destroy()
     ForgeUI._previewSlot = nil
     equipSlots_ = {}
     invSlots_ = {}
+    equipStatLabels_ = {}
+    invStatLabels_ = {}
+    invGridPanel_ = nil
+    contentWrapper_ = nil
 end
 
 return ForgeUI

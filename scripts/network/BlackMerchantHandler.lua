@@ -1647,6 +1647,14 @@ end
 
 function M.OnDisconnect(connKey)
     playerRealms_[connKey] = nil
+    buyActive_[connKey] = nil
+    sellActive_[connKey] = nil
+    -- P0-5: 释放该连接持有的 per-item 锁
+    for itemId, lock in pairs(itemSellLock_) do
+        if lock and lock.connKey == connKey then
+            itemSellLock_[itemId] = nil
+        end
+    end
 end
 
 return M
