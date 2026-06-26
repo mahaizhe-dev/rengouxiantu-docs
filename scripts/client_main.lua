@@ -184,6 +184,7 @@ function InitializeNetwork(serverConn)
     SubscribeToEvent(SaveProtocol.S2C_ForceUpdate, "HandleForceUpdate")
     SubscribeToEvent(SaveProtocol.S2C_Maintenance, "HandleMaintenance")
     SubscribeToEvent(SaveProtocol.S2C_RateLimited, "HandleRateLimited")
+    SubscribeToEvent(SaveProtocol.S2C_Heartbeat, "HandleHeartbeatAck")  -- P1: 心跳 ACK
 
     -- 5b. 副本系统初始化（自包含模块，内部订阅所有副本事件）
     -- pcall 防护：即使副本模块初始化失败，也不能阻断后续 SaveSystemNet.OnNetworkReady()
@@ -306,6 +307,14 @@ end
 -- ============================================================================
 -- 服务端限流反馈处理
 -- ============================================================================
+
+-- P1 阶段1：心跳 ACK 处理
+function HandleHeartbeatAck(eventType, eventData)
+    local requestId = 0
+    pcall(function() requestId = eventData["requestId"]:GetInt() end)
+    local NetworkStatus = require("network.NetworkStatus")
+    NetworkStatus.OnHeartbeatAck(requestId)
+end
 
 function HandleRateLimited(eventType, eventData)
     local originEvent = eventData["EventName"]:GetString()

@@ -141,6 +141,11 @@ function SaveSystem.UpdateCritical(dt)
             SaveSystem.Save()
         end
     end
+
+    -- P1 阶段1：驱动心跳发送（被动观测，不改行为）
+    if CloudStorage.IsNetworkMode() then
+        NetworkStatus.HeartbeatTick(dt)
+    end
 end
 
 -- ============================================================================

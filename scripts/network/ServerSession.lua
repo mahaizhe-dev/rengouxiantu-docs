@@ -54,7 +54,7 @@ M.rateLimitCounters_ = {}  -- connKey -> { count=number, windowStart=number }
 ---@param connKey string
 ---@return boolean
 function M.CheckRateLimit(connKey)
-    local now = os.clock()
+    local now = os.time()  -- 服务端用 os.time()（秒级精度，无 WASM 不递增风险）
     local entry = M.rateLimitCounters_[connKey]
     if not entry then
         M.rateLimitCounters_[connKey] = { count = 1, windowStart = now }

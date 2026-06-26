@@ -114,6 +114,77 @@ function NetworkStatus.Reset()
     NetworkStatus._state = NetworkStatus.STATE_CONNECTED
     NetworkStatus._consecutiveFailCount = 0
     NetworkStatus._consecutiveSuccessCount = 0
+    -- P1: 重置心跳状态
+    NetworkStatus._heartbeatSeq = 0
+    NetworkStatus._heartbeatTimer = 0
+    NetworkStatus._lastAckTime = 0
+    NetworkStatus._lastRtt = 0
+    NetworkStatus._missedCount = 0
+end
+
+-- ============================================================================
+-- P1 阶段 1：被动心跳（只观测，不改行为）
+-- ============================================================================
+
+NetworkStatus.HEARTBEAT_INTERVAL = 5.0  -- 发送间隔（秒）
+
+-- 心跳状态（阶段1仅记录，不影响业务判断）
+NetworkStatus._heartbeatSeq = 0       -- 已发送的序号
+NetworkStatus._heartbeatTimer = 0     -- 距上次发送的累计时间
+NetworkStatus._lastAckTime = 0        -- 最后一次收到 ACK 的 time.elapsedTime
+NetworkStatus._lastRtt = 0            -- 最后一次 RTT（ms）
+NetworkStatus._missedCount = 0        -- 连续未收到 ACK 的心跳数
+NetworkStatus._pendingSendTime = {}   -- requestId -> sendTime 映射
+
+--- 心跳 Tick（由 SaveSystem.UpdateCritical 每帧调用）
+---@param dt number
+function NetworkStatus.HeartbeatTick(dt)
+    NetworkStatus._heartbeatTimer = NetworkStatus._heartbeatTimer + dt
+
+    if NetworkStatus._heartbeatTimer < NetworkStatus.HEARTBEAT_INTERVAL then
+        return
+    end
+    NetworkStatus._heartbeatTimer = 0
+
+    -- 发送心跳
+    local serverConn = network:GetServerConnection()
+    if not serverConn then return end
+
+    NetworkStatus._heartbeatSeq = NetworkStatus._heartbeatSeq + 1
+    local seq = NetworkStatus._heartbeatSeq
+    local sendTime = time.elapsedTime
+
+    NetworkStatus._pendingSendTime[seq] = sendTime
+
+    local SaveProtocol = require("network.SaveProtocol")
+    local data = VariantMap()
+    data["requestId"] = Variant(seq)
+    data["clientTime"] = Variant(math.floor(sendTime * 1000))  -- ms
+    serverConn:SendRemoteEvent(SaveProtocol.C2S_Heartbeat, true, data)
+
+    -- 检查 missed：如果上一个心跳还没收到 ACK
+    if seq > 1 and NetworkStatus._pendingSendTime[seq - 1] then
+        NetworkStatus._missedCount = NetworkStatus._missedCount + 1
+        NetworkStatus._pendingSendTime[seq - 1] = nil  -- 放弃过期 pending
+        if NetworkStatus._missedCount <= 3 then
+            print("[Heartbeat] missed seq=" .. (seq - 1) .. " total_missed=" .. NetworkStatus._missedCount)
+        end
+    end
+end
+
+--- 心跳 ACK 处理（由 S2C_Heartbeat 事件回调调用）
+---@param requestId number
+function NetworkStatus.OnHeartbeatAck(requestId)
+    local sendTime = NetworkStatus._pendingSendTime[requestId]
+    if not sendTime then return end  -- 过期或重复的 ACK
+
+    NetworkStatus._pendingSendTime[requestId] = nil
+    local rtt = math.floor((time.elapsedTime - sendTime) * 1000)
+    NetworkStatus._lastRtt = rtt
+    NetworkStatus._lastAckTime = time.elapsedTime
+    NetworkStatus._missedCount = 0
+
+    print("[Heartbeat] ack seq=" .. requestId .. " rtt=" .. rtt .. "ms")
 end
 
 return NetworkStatus

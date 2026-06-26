@@ -1557,18 +1557,23 @@ function SystemMenu.DoSaveAndExit()
         return
     end
 
-    SaveSystem.Save(function(success)
-        print("[SystemMenu] Save result: " .. tostring(success))
+    SaveSystem.Save(function(success, reason)
+        print("[SystemMenu] Save result: " .. tostring(success) .. " reason=" .. tostring(reason))
 
         if success then
             ShowToast("保存成功，正在退出...", {100, 220, 130, 255}, 2.5)
-            -- 用模块内 timer 驱动延迟退出，由 SystemMenu.Update(dt) 递减
-            -- 🔴 从 0.8s 增至 3s：给云端足够的持久化同步时间
-            -- 防止 FetchSlots 在 Save 云端尚未同步时读到 nil
             exitTimer_ = 3.0
         else
-            ShowToast("保存失败，请稍后重试", {240, 80, 80, 255}, 2.5)
-            -- 保存失败不退出，留在游戏内
+            -- P0 残口修复：根据失败原因分级提示
+            local msg = "保存失败，请稍后重试"
+            if reason == "disconnected" or reason == "no_server_conn" then
+                msg = "服务器连接未恢复，当前无法保存退出"
+            elseif reason == "already_saving" then
+                msg = "正在保存中，请稍后再试"
+            elseif reason == "save_blocked" then
+                msg = "存档异常，请联系客服"
+            end
+            ShowToast(msg, {240, 80, 80, 255}, 3.0)
         end
     end)
 end

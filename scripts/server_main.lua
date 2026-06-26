@@ -192,6 +192,7 @@ function Start()
     RateLimitedSubscribe(SaveProtocol.C2S_MigrateData, "HandleMigrateData")
     RateLimitedSubscribe(SaveProtocol.C2S_GetRankList, "HandleGetRankList")
     SubscribeToEvent(SaveProtocol.C2S_VersionHandshake, "HandleVersionHandshake")  -- 握手不限流
+    SubscribeToEvent(SaveProtocol.C2S_Heartbeat, "HandleHeartbeat")  -- P1: 心跳不限流（独立轻量 echo）
     RateLimitedSubscribe(SaveProtocol.C2S_DaoTreeStart, "HandleDaoTreeStart")
     RateLimitedSubscribe(SaveProtocol.C2S_DaoTreeComplete, "HandleDaoTreeComplete")
     RateLimitedSubscribe(SaveProtocol.C2S_GMResetDaily, "HandleGMResetDaily")
@@ -393,6 +394,20 @@ function HandleVersionHandshake(eventType, eventData)
         print("[Server] ForceUpdate sent to userId=" .. tostring(userId))
     end
     -- 如果客户端版本 >= 服务端，无需响应（正常继续）
+end
+
+-- ============================================================================
+-- P1 阶段1：心跳 echo（纯转发，不做业务，不限流）
+-- ============================================================================
+function HandleHeartbeat(eventType, eventData)
+    local ok, connection = pcall(function() return eventData["Connection"]:GetPtr("Connection") end)
+    if not ok or not connection then return end
+    local requestId = 0
+    pcall(function() requestId = eventData["requestId"]:GetInt() end)
+    local resp = VariantMap()
+    resp["requestId"] = Variant(requestId)
+    resp["serverTime"] = Variant(os.time())
+    connection:SendRemoteEvent(SaveProtocol.S2C_Heartbeat, true, resp)
 end
 
 -- ============================================================================

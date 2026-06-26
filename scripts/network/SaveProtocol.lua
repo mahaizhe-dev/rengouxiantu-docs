@@ -144,6 +144,9 @@ SaveProtocol.C2S_SwordWallShopBuy   = "C2S_SWShopBuy"      -- 商店购买
 SaveProtocol.S2C_SwordWallClaimResult  = "S2C_SWClaimResult"   -- 宝箱结算结果
 SaveProtocol.S2C_SwordWallShopData     = "S2C_SWShopData"      -- 商店数据（余额+商品）
 SaveProtocol.S2C_SwordWallShopBuyResult = "S2C_SWShopBuyResult" -- 商店购买结果
+-- 心跳（P1 阶段 1：被动观测，不改行为）
+SaveProtocol.C2S_Heartbeat    = "C2S_Heartbeat"        -- 客户端心跳
+SaveProtocol.S2C_Heartbeat    = "S2C_Heartbeat"        -- 服务端心跳 ACK
 -- 通用
 SaveProtocol.S2C_RateLimited  = "S2C_RateLimited"     -- 服务端速率限制反馈
 
@@ -269,6 +272,9 @@ SaveProtocol.ALL_EVENTS = {
     SaveProtocol.S2C_SwordWallClaimResult,
     SaveProtocol.S2C_SwordWallShopData,
     SaveProtocol.S2C_SwordWallShopBuyResult,
+    -- 心跳
+    SaveProtocol.C2S_Heartbeat,
+    SaveProtocol.S2C_Heartbeat,
     -- 通用
     SaveProtocol.S2C_RateLimited,
 }
