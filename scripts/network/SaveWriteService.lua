@@ -150,6 +150,12 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
         Logger.info("SaveGame", "account_cosmetics written for userId=" .. tostring(userId))
     end
 
+    -- ── [账号级旁路] account_immortal_bodies ──
+    if coreData.accountImmortalBodies then
+        batch:Set("account_immortal_bodies", coreData.accountImmortalBodies)
+        Logger.info("SaveGame", "account_immortal_bodies written for userId=" .. tostring(userId))
+    end
+
     -- ── [版本守卫] player_level ──
     local playerLevel = eventData["playerLevel"]:GetInt()
     if playerLevel and playerLevel > 0 then

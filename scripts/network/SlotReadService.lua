@@ -64,6 +64,7 @@ function SlotReadService.Execute(connection, connKey, userId)
         :Key("account_bulletin")
         :Key("account_atlas")
         :Key("account_cosmetics")
+        :Key("account_immortal_bodies")
         :Key("rank_score_1")
         :Key("rank_score_2")
         :Key("rank_score_3")
@@ -324,6 +325,11 @@ function SlotReadService.Execute(connection, connKey, userId)
                 local accountCosmetics = scores["account_cosmetics"]
                 if accountCosmetics then
                     resultData["accountCosmetics"] = Variant(cjson.encode(accountCosmetics))
+                end
+                -- [账号级旁路] account_immortal_bodies
+                local accountImmBodies = scores["account_immortal_bodies"]
+                if accountImmBodies then
+                    resultData["accountImmortalBodies"] = Variant(cjson.encode(accountImmBodies))
                 end
                 SafeSend(connection, SaveProtocol.S2C_SlotsData, resultData)
 
