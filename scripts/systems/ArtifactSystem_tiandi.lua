@@ -168,6 +168,7 @@ function ArtifactTiandi.RecalcAttributes()
     player.artifactTiandiKillHeal = killHeal
     player.artifactTiandiHpRegen  = hpRegen
 
+    player:InvalidateStatsCache()
     print("[ArtifactTiandi] atk=" .. atk .. " killHeal=" .. killHeal .. " hpRegen=" .. hpRegen)
 end
 

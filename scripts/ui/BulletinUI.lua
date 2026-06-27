@@ -23,12 +23,12 @@ local visible_ = false
 
 ---@type {rewardId: string, title: string, desc: string, items: {type: string, id: string|nil, name: string, icon: string, count: number}[]}|nil
 local ACTIVE_REWARD = {
-    rewardId = "update_reward_v1.12.12",
-    title = "端午节福利",
-    desc = "端午节快乐！祝各位道友端午安康，感谢大家的支持。",
+    rewardId = "update_reward_v1.12.18",
+    title = "更新福利",
+    desc = "传送阵优化、青云试炼修复，感谢各位道友的支持。",
     items = {
-        { type = "lingYun", count = 500, name = "灵韵", icon = "✨" },
-        { type = "consumable", id = "gold_bar", count = 100, name = "金条", icon = "🥇" },
+        { type = "lingYun", count = 100, name = "灵韵", icon = "✨" },
+        { type = "consumable", id = "gold_bar", count = 10, name = "金条", icon = "🥇" },
     },
 }
 

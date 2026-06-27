@@ -360,14 +360,17 @@ function AlchemySystem.CraftPermanent(recipeId)
     local value = recipe.bonusValue
     if stat == "maxHp" then
         player.maxHp = player.maxHp + value
+        player:InvalidateStatsCache()
         if recipe.alsoHeal then
             player.hp = math.min(player.hp + value, player:GetTotalMaxHp())
         end
     elseif stat == "pillConstitution" then
         player.pillConstitution = (player.pillConstitution or 0) + value
+        player:InvalidateStatsCache()
     else
         -- atk, def 等直接字段
         player[stat] = (player[stat] or 0) + value
+        player:InvalidateStatsCache()
     end
 
     -- 生成成功消息

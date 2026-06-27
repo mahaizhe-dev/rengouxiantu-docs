@@ -971,25 +971,57 @@ function InitGame(classId)
         end
     end)
 
-    -- 监听存档连续失败警告（方案2: 连续 ≥2 次失败时提示玩家）
-    local _lastSaveWarningTime = -999  -- P0-2: 节流
+    -- P0 提示降噪：状态式保存警告（不再每 10s 无脑飘字）
+    local _saveWarningState = "ok"  -- ok / retrying / disconnected
+    local _lastSaveWarningTime = -999
+    local _saveWarningShownAt = -999  -- 上次实际显示的时间
+
     EventBus.On("save_warning", function(data)
         local now = time.elapsedTime
-        if now - _lastSaveWarningTime < 10.0 then return end  -- P0-2: 10秒内最多显示一次
-        _lastSaveWarningTime = now
+        pcall(function() require("network.NetDiagClient").RecordSaveWarning() end)
+        local failures = data and data.failures or 0
         local player = GameState.player
-        if player then
-            local failures = data and data.failures or 0
-            CombatSystem.AddFloatingText(
-                player.x, player.y - 2.0,
-                "存档同步中，请保持网络连接...", {255, 200, 50, 255}, 3.0
-            )
-            print("[Main] save_warning: " .. failures .. " consecutive failures")
+        if not player then return end
+
+        -- 判断状态
+        local SaveSystem = require("systems.SaveSystem")
+        local status = SaveSystem.GetSaveStatus()
+        local newState = "retrying"
+        if status.disconnected or not status.hasServerConn then
+            newState = "disconnected"
+        end
+
+        -- 状态变化时立即提示
+        local shouldShow = false
+        if newState ~= _saveWarningState then
+            _saveWarningState = newState
+            shouldShow = true
+        else
+            -- 同状态：retrying 30s 最多一次，disconnected 60s 最多一次
+            local interval = (newState == "disconnected") and 60 or 30
+            if now - _saveWarningShownAt >= interval then
+                shouldShow = true
+            end
+        end
+
+        if shouldShow then
+            _saveWarningShownAt = now
+            local msg, color
+            if newState == "disconnected" then
+                msg = "服务器连接未恢复，暂不能保存"
+                color = {255, 100, 80, 255}
+            else
+                msg = "存档暂未完成，正在自动重试"
+                color = {255, 200, 50, 255}
+            end
+            CombatSystem.AddFloatingText(player.x, player.y - 2.0, msg, color, 3.0)
+            print("[Main] save_warning: state=" .. newState .. " failures=" .. failures)
         end
     end)
 
-    -- 存档恢复正常时清除警告
+    -- 存档恢复正常时清除警告状态
     EventBus.On("save_warning_clear", function()
+        _saveWarningState = "ok"
         print("[Main] save_warning_clear: save succeeded, warnings cleared")
     end)
 

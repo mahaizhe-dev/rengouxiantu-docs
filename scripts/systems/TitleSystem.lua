@@ -333,6 +333,7 @@ function TitleSystem.RecalcBonuses()
     player.titleExpBonus = totalExpBonus
     player.titleAtkBonus = totalAtkBonus
 
+    player:InvalidateStatsCache()
     EventBus.Emit("title_stats_changed")
 end
 

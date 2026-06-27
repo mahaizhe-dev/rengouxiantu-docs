@@ -243,6 +243,7 @@ function FortuneFruitSystem.Collect(fruit)
 
     -- 增加福源
     player.fruitFortune = (player.fruitFortune or 0) + 1
+    player:InvalidateStatsCache()
 
     print("[FortuneFruit] Collected at (" .. fruit.x .. "," .. fruit.y .. ") fortune now: " .. player:GetTotalFortune())
 

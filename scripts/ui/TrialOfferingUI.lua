@@ -145,6 +145,20 @@ local function BuildOfferingPanel(npc)
             backgroundColor = btnColor,
             onClick = btnDisabled and nil or function(self)
                 if _isThrottled(claimingAt_) then return end
+
+                -- P0-B: 试炼进度未同步到云端时阻断领取（避免服务端校验用旧数据）
+                local okSS, SaveSystem = pcall(require, "systems.SaveSystem")
+                if okSS and SaveSystem and SaveSystem.GetSaveStatus then
+                    local st = SaveSystem.GetSaveStatus()
+                    if st.dirty or st.saving then
+                        self:SetText("进度同步中...")
+                        self:SetStyle({ backgroundColor = {120, 120, 80, 200} })
+                        -- 推动保存
+                        pcall(function() SaveSystem.RequestImmediateSave("trial_claim_blocked") end)
+                        return
+                    end
+                end
+
                 claimingAt_ = os.clock()
                 claimBtn_ = self
                 -- ③ 立即禁用按钮，阻止重复点击

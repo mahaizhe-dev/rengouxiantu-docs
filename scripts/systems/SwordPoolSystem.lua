@@ -192,6 +192,8 @@ function SwordPoolSystem.ApplyAllBonuses()
     player.swordPoolDef = bonuses.def
     player.swordPoolMaxHp = bonuses.maxHp
     player.swordPoolHpRegen = bonuses.hpRegen
+
+    player:InvalidateStatsCache()
 end
 
 -- ============================================================================

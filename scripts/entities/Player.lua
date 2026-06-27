@@ -276,6 +276,12 @@ local function GetCombatSystem()
     return _CombatSystem
 end
 
+--- 强制失效属性缓存，使下次 GetTotal*() 调用触发重算
+--- 用于：装备重算、升级、突破、神器激活、丹药使用等修改属性来源后立即调用
+function Player:InvalidateStatsCache()
+    self._statsCacheFrame = -1
+end
+
 --- P2-PERF-2: 批量重算所有 GetTotal* 缓存（每帧最多调用一次）
 function Player:_RecalcStatsCache()
     if self._statsCacheFrame == _frameCounter then return end
@@ -1192,6 +1198,9 @@ function Player:LevelUp()
     self.atk = self.atk + growth.atk
     self.def = self.def + growth.def
     self.hpRegen = self.hpRegen + growth.hpRegen
+
+    -- 基础属性变更后失效缓存，确保 GetTotalMaxHp 返回新值
+    self:InvalidateStatsCache()
 
     -- 升级回满血
     self.hp = self:GetTotalMaxHp()

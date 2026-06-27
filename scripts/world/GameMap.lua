@@ -26,6 +26,7 @@ require("world.mapgen.Chapter2")(GameMap, _zdProxy)
 require("world.mapgen.Chapter3")(GameMap, _zdProxy)
 require("world.mapgen.Chapter4")(GameMap, _zdProxy)
 require("world.mapgen.Chapter5")(GameMap, _zdProxy)
+require("world.mapgen.Chapter6")(GameMap, _zdProxy)
 
 --- 创建地图
 ---@param zoneDataOverride table|nil 可选的 ZoneData 模块（用于多章节切换），不传则使用默认 ZoneData
@@ -292,6 +293,12 @@ function GameMap:Generate()
     self:ClearTownBuffer(3)
 
     -- ================================================================
+    -- 第六章两界村之影地形后处理（复刻第一章 + 独立出生安全区）
+    -- 必须在第一章道路/缓冲逻辑之后执行，避免出生安全区被覆盖。
+    -- ================================================================
+    self:BuildCh6Terrain()
+
+    -- ================================================================
     -- 仙缘宝箱藏宝室（5×5 独立房间，必须在最后覆写）
     -- ================================================================
     self:BuildXianyuanRooms()
@@ -338,6 +345,16 @@ end
 ---@param y number
 ---@return string
 function GameMap:GetZoneAt(x, y)
+    local priorities = activeZoneData.REGION_PRIORITY
+    if priorities then
+        for _, name in ipairs(priorities) do
+            local region = activeZoneData.Regions[name]
+            if region and x >= region.x1 and x <= region.x2 and y >= region.y1 and y <= region.y2 then
+                return region.zone
+            end
+        end
+    end
+
     for name, region in pairs(activeZoneData.Regions) do
         if x >= region.x1 and x <= region.x2 and y >= region.y1 and y <= region.y2 then
             return region.zone

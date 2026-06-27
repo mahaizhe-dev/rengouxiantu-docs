@@ -101,7 +101,16 @@ shared.GOURD_QUALITY_ICONS = {
 ---@param monsterLevel number
 ---@return number[]
 function shared.GetAvailableTiers(monsterLevel)
-    if monsterLevel >= 121 then return { 9, 10, 11 }
+    -- 仙装阶段（121+）：T11=仙1, T12=仙2...T20=仙10
+    if monsterLevel >= 281 then return { 17, 18, 19 }     -- 混元段：仙7-仙9
+    elseif monsterLevel >= 261 then return { 16, 17, 18 } -- 大罗段：仙6-仙8
+    elseif monsterLevel >= 241 then return { 15, 16, 17 } -- 太乙段：仙5-仙7
+    elseif monsterLevel >= 221 then return { 14, 15, 16 } -- 金仙段：仙4-仙6
+    elseif monsterLevel >= 201 then return { 13, 14, 15 } -- 玄仙段：仙3-仙5
+    elseif monsterLevel >= 181 then return { 12, 13, 14 } -- 天仙段：仙2-仙4
+    elseif monsterLevel >= 161 then return { 11, 12, 13 } -- 地仙段：仙1-仙3
+    elseif monsterLevel >= 141 then return { 10, 11, 12 } -- 人仙段：T10-仙2
+    elseif monsterLevel >= 121 then return { 9, 10, 11 }  -- 谪仙段：T9-仙1
     elseif monsterLevel >= 101 then return { 8, 9, 10 }
     elseif monsterLevel >= 86  then return { 7, 8, 9 }
     elseif monsterLevel >= 71  then return { 6, 7, 8 }

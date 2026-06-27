@@ -484,6 +484,15 @@ TestRegistry.tests = {
         skip_reason   = nil,
     },
     {
+        id            = "net_diag_client",
+        group         = "system",
+        path          = "scripts/tests/test_net_diag_client.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+    {
         id            = "save_exit_callback_reasons",
         group         = "save",
         path          = "scripts/tests/test_save_exit_callback_reasons.lua",

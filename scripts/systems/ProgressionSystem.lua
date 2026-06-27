@@ -205,6 +205,9 @@ function ProgressionSystem.Breakthrough(targetRealm)
         player.hpRegen = player.hpRegen + (rewards.hpRegen or 0)
     end
 
+    -- 基础属性/境界变更后失效缓存
+    player:InvalidateStatsCache()
+
     -- 回满血
     player.hp = player:GetTotalMaxHp()
 

@@ -93,6 +93,7 @@ function NetworkStatus.RecordSample(connected, dt)
         -- 采样失败
         NetworkStatus._consecutiveSuccessCount = 0
         NetworkStatus._consecutiveFailCount = NetworkStatus._consecutiveFailCount + 1
+        pcall(function() require("network.NetDiagClient").RecordTransportNil() end)
 
         if NetworkStatus._consecutiveFailCount == 1 and oldState == NetworkStatus.STATE_CONNECTED then
             -- 第一次失败：进入不稳定状态
@@ -162,6 +163,10 @@ function NetworkStatus.HeartbeatTick(dt)
     data["clientTime"] = Variant(math.floor(sendTime * 1000))  -- ms
     serverConn:SendRemoteEvent(SaveProtocol.C2S_Heartbeat, true, data)
 
+    -- C+: 采集
+    local okNDC, NDC = pcall(require, "network.NetDiagClient")
+    if okNDC and NDC then NDC.RecordHeartbeatSent() end
+
     -- 检查 missed：如果上一个心跳还没收到 ACK
     if seq > 1 and NetworkStatus._pendingSendTime[seq - 1] then
         NetworkStatus._missedCount = NetworkStatus._missedCount + 1
@@ -169,7 +174,11 @@ function NetworkStatus.HeartbeatTick(dt)
         if NetworkStatus._missedCount <= 3 then
             print("[Heartbeat] missed seq=" .. (seq - 1) .. " total_missed=" .. NetworkStatus._missedCount)
         end
+        if okNDC and NDC then NDC.RecordHeartbeatMissed() end
     end
+
+    -- C+: 更新 shadow 状态
+    NetworkStatus.UpdateShadowState()
 end
 
 --- 心跳 ACK 处理（由 S2C_Heartbeat 事件回调调用）
@@ -184,7 +193,50 @@ function NetworkStatus.OnHeartbeatAck(requestId)
     NetworkStatus._lastAckTime = time.elapsedTime
     NetworkStatus._missedCount = 0
 
+    -- C+: 采集
+    local ok, NDC = pcall(require, "network.NetDiagClient")
+    if ok and NDC then NDC.RecordHeartbeatAck(rtt) end
+
     print("[Heartbeat] ack seq=" .. requestId .. " rtt=" .. rtt .. "ms")
+end
+
+-- ============================================================================
+-- C+ Shadow 状态机（只记录，不影响业务判断）
+-- ============================================================================
+
+NetworkStatus.SHADOW_NO_ACK_UNSTABLE     = 10   -- 秒
+NetworkStatus.SHADOW_NO_ACK_RECONNECTING = 25
+NetworkStatus.SHADOW_NO_ACK_DISCONNECTED = 60
+
+NetworkStatus._shadowState = "connected"
+
+--- 更新 shadow 状态（由 HeartbeatTick 每次发送后调用）
+function NetworkStatus.UpdateShadowState()
+    if NetworkStatus._lastAckTime <= 0 then return end
+    local noAckSec = time.elapsedTime - NetworkStatus._lastAckTime
+    local newState = "connected"
+
+    if noAckSec > NetworkStatus.SHADOW_NO_ACK_DISCONNECTED then
+        newState = "disconnected"
+    elseif noAckSec > NetworkStatus.SHADOW_NO_ACK_RECONNECTING then
+        newState = "reconnecting"
+    elseif noAckSec > NetworkStatus.SHADOW_NO_ACK_UNSTABLE then
+        newState = "unstable"
+    end
+
+    if newState ~= NetworkStatus._shadowState then
+        print("[NetworkStatus] shadow state: " .. NetworkStatus._shadowState .. " → " .. newState
+            .. " (noAck=" .. string.format("%.1f", noAckSec) .. "s)")
+        NetworkStatus._shadowState = newState
+        -- C+: 记录状态变化
+        local ok, NDC = pcall(require, "network.NetDiagClient")
+        if ok and NDC then NDC.RecordShadowState(newState, noAckSec) end
+    end
+end
+
+--- 获取 shadow 状态（只读，供 GM 诊断）
+function NetworkStatus.GetShadowState()
+    return NetworkStatus._shadowState
 end
 
 return NetworkStatus

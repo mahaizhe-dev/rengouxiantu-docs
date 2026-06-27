@@ -15,6 +15,7 @@ local QuestData = require("config.QuestData")
 local QuestSystem = require("systems.QuestSystem")
 local EffectRenderer = require("rendering.EffectRenderer")
 local TileRenderer = require("rendering.TileRenderer")
+local ChapterAmbientRenderer = require("rendering.ChapterAmbientRenderer")
 local RenderUtils = require("rendering.RenderUtils")
 local EntityRenderer = require("rendering.EntityRenderer")
 local DecorationRenderers = require("rendering.DecorationRenderers")
@@ -119,6 +120,9 @@ function WorldRenderer:Render(nvg)
 
         -- 处理灵韵拾取粒子队列（世界坐标→屏幕坐标）
         LingYunFx.ProcessPending(camera, l)
+
+        -- 绘制章节级世界氛围（只覆盖世界区域，不影响 UI）
+        ChapterAmbientRenderer.Render(nvg, l, camera)
 
         -- GM：鼠标悬停显示瓦片坐标
         if GameConfig.GM_SHOW_COORDS then

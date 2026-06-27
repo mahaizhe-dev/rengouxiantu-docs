@@ -469,6 +469,7 @@ function PrisonTowerSystem._applyMilestoneBonuses()
     player.prisonTowerMaxHp = totals.maxHp
     player.prisonTowerHpRegen = totals.hpRegen
 
+    player:InvalidateStatsCache()
     print("[PrisonTowerSystem] Milestone bonuses applied: atk=" .. totals.atk
         .. " def=" .. totals.def .. " maxHp=" .. totals.maxHp
         .. " hpRegen=" .. totals.hpRegen)

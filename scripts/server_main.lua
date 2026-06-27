@@ -193,6 +193,7 @@ function Start()
     RateLimitedSubscribe(SaveProtocol.C2S_GetRankList, "HandleGetRankList")
     SubscribeToEvent(SaveProtocol.C2S_VersionHandshake, "HandleVersionHandshake")  -- 握手不限流
     SubscribeToEvent(SaveProtocol.C2S_Heartbeat, "HandleHeartbeat")  -- P1: 心跳不限流（独立轻量 echo）
+    SubscribeToEvent(SaveProtocol.C2S_NetDiagReport, "HandleNetDiagReport")  -- C+: 诊断上报不限流
     RateLimitedSubscribe(SaveProtocol.C2S_DaoTreeStart, "HandleDaoTreeStart")
     RateLimitedSubscribe(SaveProtocol.C2S_DaoTreeComplete, "HandleDaoTreeComplete")
     RateLimitedSubscribe(SaveProtocol.C2S_GMResetDaily, "HandleGMResetDaily")
@@ -394,6 +395,15 @@ function HandleVersionHandshake(eventType, eventData)
         print("[Server] ForceUpdate sent to userId=" .. tostring(userId))
     end
     -- 如果客户端版本 >= 服务端，无需响应（正常继续）
+end
+
+-- ============================================================================
+-- C+: 诊断上报接收（不限流，独立限频）
+-- ============================================================================
+local NetDiagHandler = require("network.NetDiagHandler")
+
+function HandleNetDiagReport(eventType, eventData)
+    NetDiagHandler.HandleReport(eventType, eventData)
 end
 
 -- ============================================================================
@@ -1118,5 +1128,7 @@ function HandleServerUpdate(eventType, eventData)
         local ok2, err2 = pcall(BlackMerchantHandler.RecycleTick, dt)
         if not ok2 then print("[Server] BlackMerchantHandler.RecycleTick pcall error: " .. tostring(err2)) end
     end
+    -- C+: 诊断聚合 Tick
+    pcall(NetDiagHandler.Tick, dt)
 end
 

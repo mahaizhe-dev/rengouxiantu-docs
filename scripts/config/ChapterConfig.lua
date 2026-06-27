@@ -13,7 +13,9 @@ ChapterConfig.bypassRequirements = false
 ChapterConfig.CHAPTERS = {
     [1] = {
         id = 1,
-        name = "初章·两界村",
+        name = "初章·缘起两界村",
+        shortName = "缘起两界村",
+        chapterLabel = "初章",
         zoneDataModule = "config.ZoneData",
         spawnPoint = { x = 40.5, y = 40.5 },
         mapWidth = 80,
@@ -22,7 +24,9 @@ ChapterConfig.CHAPTERS = {
     },
     [2] = {
         id = 2,
-        name = "贰章·乌家堡",
+        name = "贰章·血战乌家堡",
+        shortName = "血战乌家堡",
+        chapterLabel = "贰章",
         zoneDataModule = "config.ZoneData_ch2",
         spawnPoint = { x = 7.5, y = 40.5 },
         mapWidth = 80,
@@ -35,6 +39,8 @@ ChapterConfig.CHAPTERS = {
     [3] = {
         id = 3,
         name = "叁章·万里黄沙",
+        shortName = "万里黄沙",
+        chapterLabel = "叁章",
         zoneDataModule = "config.ZoneData_ch3",
         spawnPoint = { x = 15.5, y = 10.5 },   -- 第九寨安全区（上半区）
         mapWidth = 80,
@@ -47,6 +53,8 @@ ChapterConfig.CHAPTERS = {
     [4] = {
         id = 4,
         name = "肆章·八卦海",
+        shortName = "八卦海",
+        chapterLabel = "肆章",
         zoneDataModule = "config.ZoneData_ch4",
         spawnPoint = { x = 39.5, y = 39.5 },   -- 龟背岛中央
         mapWidth = 80,
@@ -60,6 +68,8 @@ ChapterConfig.CHAPTERS = {
     [5] = {
         id = 5,
         name = "伍章·太虚之殇",
+        shortName = "太虚之殇",
+        chapterLabel = "伍章",
         zoneDataModule = "config.ZoneData_ch5",
         spawnPoint = { x = 40.5, y = 9.5 },    -- 前营出生点（ZoneData_ch5 已定义）
         mapWidth = 80,
@@ -72,11 +82,39 @@ ChapterConfig.CHAPTERS = {
     },
 
     -- ========================================================================
+    -- 第 6-10 章（placeholder，暂未开启）
+    -- ========================================================================
+    [6] = {
+        id = 6,
+        name = "陆章·两界村之影",
+        shortName = "两界村之影",
+        chapterLabel = "陆章",
+        zoneDataModule = "config.ZoneData_ch6",
+        spawnPoint = { x = 76.5, y = 40.5 },    -- 蛛网小径右侧影入口
+        mapWidth = 80,
+        mapHeight = 80,
+        requirements = {
+            minRealm = "dujie_1",          -- 谪仙初期
+            prevChapterId = 5,
+        },
+    },
+    [7] = {
+        id = 7,
+        name = "柒章·破碎界海",
+        shortName = "破碎界海",
+        chapterLabel = "柒章",
+        placeholder = true,
+    },
+
+
+    -- ========================================================================
     -- 特殊章节（100+ ID 段，与剧情章节隔离）
     -- ========================================================================
     [101] = {
         id = 101,
         name = "中洲",
+        shortName = "中洲",
+        chapterLabel = "人族主城",
         group = "special",              -- 标记为特殊章节（供 TeleportUI 分组）
         zoneDataModule = "config.ZoneData_mz",
         spawnPoint = { x = 40.5, y = 59.5 },   -- 青云城中央
@@ -103,6 +141,11 @@ function ChapterConfig.CheckRequirements(chapterId)
     -- GM 绕过
     if ChapterConfig.bypassRequirements then
         return true, nil
+    end
+
+    -- placeholder 章节（暂未开启）直接拒绝
+    if chapter.placeholder then
+        return false, "暂未开启"
     end
 
     local req = chapter.requirements

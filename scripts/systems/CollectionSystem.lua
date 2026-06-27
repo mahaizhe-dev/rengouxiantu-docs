@@ -165,6 +165,7 @@ function CollectionSystem.RecalcBonuses()
     player.collectionConstitution = totalConstitution
     player.collectionPhysique = totalPhysique
 
+    player:InvalidateStatsCache()
     EventBus.Emit("collection_stats_changed")
 end
 

@@ -35,11 +35,14 @@ local SafeSend            = Session.SafeSend
 local NormalizeSlotsIndex = Session.NormalizeSlotsIndex
 local IsSlotLocked        = Session.IsSlotLocked
 
-local function SendResult(connection, eventName, success, message)
+local function SendResult(connection, eventName, success, message, requestId)
     local data = VariantMap()
     data["ok"] = Variant(success)
     if message then
         data["message"] = Variant(message)
+    end
+    if requestId then
+        data["requestId"] = Variant(requestId)
     end
     SafeSend(connection, eventName, data)
 end
@@ -74,7 +77,7 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
     -- ── [主存档正文] slot 写入锁保护 ──
     if IsSlotLocked(userId, slot) then
         Logger.warn("SaveGame", "DEFERRED: slot " .. slot .. " is locked (reward write in progress), userId=" .. tostring(userId))
-        SendResult(connection, SaveProtocol.S2C_SaveResult, false, "slot_locked")
+        SendResult(connection, SaveProtocol.S2C_SaveResult, false, "slot_locked", requestId)
         return
     end
 

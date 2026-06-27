@@ -355,6 +355,7 @@ function SealDemonSystem._applyRewardLocally(isQuest, isDaily)
                 local current = player.pillPhysique or 0
                 if current < maxPill then
                     player.pillPhysique = math.min(current + daily.reward.physiquePill, maxPill)
+                    player:InvalidateStatsCache()
                 end
             end
         end

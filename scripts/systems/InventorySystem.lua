@@ -130,6 +130,8 @@ function InventorySystem.SellItem(slotIndex)
     local currencyName = item.sellCurrency == "lingYun" and "灵韵" or "金币"
     manager_:SetInventoryItem(slotIndex, nil)
     EventBus.Emit("item_sold", item, price, item.sellCurrency)
+    -- P0: 出售后标记脏，由 SaveSession 合并保存
+    pcall(function() require("systems.save.SaveSession").MarkDirty() end)
     print("[InventorySystem] Sold " .. item.name .. " x" .. count .. " for " .. price .. " " .. currencyName)
     return true
 end
@@ -179,6 +181,8 @@ function InventorySystem.SellByQuality(qualitySetOrMax)
             if totalLingYun > 0 then player:GainLingYun(totalLingYun) end
         end
         EventBus.Emit("batch_sold", soldCount, totalGold, totalLingYun)
+        -- P0: 批量出售结束后只 MarkDirty 一次（不逐件保存）
+        pcall(function() require("systems.save.SaveSession").MarkDirty() end)
         local msg = "[InventorySystem] Batch sold " .. soldCount .. " items for " .. totalGold .. " gold"
         if totalLingYun > 0 then msg = msg .. " + " .. totalLingYun .. " lingYun" end
         print(msg)

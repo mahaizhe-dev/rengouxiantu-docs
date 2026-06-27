@@ -167,6 +167,9 @@ function M.RecalcEquipStats(IS)
     end
     player.equipSpecialEffects = specialEffects
 
+    -- 失效属性缓存，确保下面 GetTotalMaxHp() 读到最新值
+    player:InvalidateStatsCache()
+
     -- 装备变动后，确保当前 hp 不超过新的最大生命值
     local newMaxHp = player:GetTotalMaxHp()
     if player.hp > newMaxHp then

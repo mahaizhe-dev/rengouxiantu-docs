@@ -182,6 +182,8 @@ function WineSystem.RecalcWineStats()
     player.wineFortune = fort
     player.winePhysique = phy
     player.wineCritRate = critRate
+
+    player:InvalidateStatsCache()
 end
 
 --- 获取葫芦技能的实际饮用持续时间（基础10 + 漠商醇3）

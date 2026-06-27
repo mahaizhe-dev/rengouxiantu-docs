@@ -126,6 +126,7 @@ function SaveSystem.UpdateCritical(dt)
             SaveSystem._retryTimer = retryDelay
             print("[SaveSystem] Save TIMEOUT (no response in 15s), "
                 .. SaveSystem._consecutiveFailures .. " consecutive failures, retry in " .. retryDelay .. "s")
+            pcall(function() require("network.NetDiagClient").RecordSaveTimeout() end)
             if SaveSystem._consecutiveFailures >= 2 then
                 EventBus.Emit("save_warning", { failures = SaveSystem._consecutiveFailures })
             end
@@ -145,6 +146,8 @@ function SaveSystem.UpdateCritical(dt)
     -- P1 阶段1：驱动心跳发送（被动观测，不改行为）
     if CloudStorage.IsNetworkMode() then
         NetworkStatus.HeartbeatTick(dt)
+        -- C+: 驱动诊断上报
+        pcall(function() require("network.NetDiagClient").Tick(dt) end)
     end
 end
 

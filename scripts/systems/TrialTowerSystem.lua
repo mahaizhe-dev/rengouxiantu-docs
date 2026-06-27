@@ -523,7 +523,14 @@ function TrialTowerSystem.Exit(gameMap, camera)
 
     EventBus.Emit("trial_tower_exited", {})
 
-    -- P2优化：取消退出保存（低价值失败态，由 auto-save 兜底）
+    -- P0 修复：退出试炼后立即保存（确保 highestFloor 落盘，服务端领奖能读到最新值）
+    -- 此时 active=false + _rollback 已恢复正常坐标，保存内容安全
+    EventBus.Emit("save_request")
+    pcall(function()
+        local SaveSystem = require("systems.SaveSystem")
+        local ok, reason = SaveSystem.RequestImmediateSave("trial_exit")
+        print("[TrialTowerSystem] Exit save: ok=" .. tostring(ok) .. " reason=" .. tostring(reason))
+    end)
 
     if player then
         CombatSystem.AddFloatingText(

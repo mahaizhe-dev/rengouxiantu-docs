@@ -492,6 +492,8 @@ local function ShowConfirmDialog(action, itemId)
                                                 local _elapsed = _ei.elapsed or BlackMarketSyncState.GetConsumeDirtyInfo().elapsed or 0
                                                 print("[BlackMerchantUI] SELL BLOCKED " .. tostring(cfmDetail)
                                                     .. " elapsed=" .. string.format("%.1f", _elapsed) .. "s")
+                                                -- C+: 诊断采集
+                                                pcall(function() require("network.NetDiagClient").RecordBMSellBlock(cfmDetail, _elapsed) end)
                                                 return
                                             end
                                             SendSell(itemId, 1)
@@ -744,6 +746,8 @@ local function BuildItemCard(itemId)
                                 local _elapsed2 = _ei2.elapsed or BlackMarketSyncState.GetConsumeDirtyInfo().elapsed or 0
                                 print("[BlackMerchantUI] SELL BLOCKED " .. tostring(curDetail)
                                     .. " elapsed=" .. string.format("%.1f", _elapsed2) .. "s")
+                                -- C+: 诊断采集
+                                pcall(function() require("network.NetDiagClient").RecordBMSellBlock(curDetail, _elapsed2) end)
                                 return
                             end
                             local d = items_[itemId] or {}

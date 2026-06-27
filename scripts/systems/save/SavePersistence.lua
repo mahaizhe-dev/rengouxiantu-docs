@@ -22,6 +22,15 @@ local SavePersistence = {}
 -- ============================================================================
 
 function SavePersistence.Save(callback)
+    -- C+: 包装 callback，失败时自动采集
+    local origCallback = callback
+    callback = origCallback and function(ok, reason)
+        if not ok then
+            pcall(function() require("network.NetDiagClient").RecordSaveFail(reason) end)
+        end
+        origCallback(ok, reason)
+    end or nil
+
     -- 超时自动解锁：如果 saving 卡死超过 30 秒，强制解锁并计入失败
     if SS.saving then
         local elapsed = os.time() - SS._savingStartTime
@@ -96,9 +105,15 @@ function SavePersistence.Save(callback)
     -- 方案1补充: 网络模式下激活 15s 响应超时检测
     SS._saveTimeoutElapsed = 0
     SS._saveTimeoutActive = CloudStorage.IsNetworkMode()
+    -- C+: 采集
+    pcall(function() require("network.NetDiagClient").RecordSaveStart() end)
 
-    local epoch = SS._saveEpoch  -- 捕获当前纪元
-    SavePersistence.DoSave(slot, callback, epoch)
+    -- P0: 每次 Save 递增 attemptId（比 epoch 更精细，防超时后旧回调污染状态）
+    SS._saveAttemptId = (SS._saveAttemptId or 0) + 1
+    local attemptId = SS._saveAttemptId
+
+    local epoch = SS._saveEpoch  -- 捕获当前纪元（Init 级隔离）
+    SavePersistence.DoSave(slot, callback, epoch, attemptId)
 end
 
 -- ============================================================================
@@ -108,7 +123,8 @@ end
 ---@param slot number 槽位号
 ---@param callback function|nil
 ---@param epoch number 捕获的纪元
-function SavePersistence.DoSave(slot, callback, epoch)
+---@param attemptId number|nil 保存尝试 ID（防超时后旧回调污染）
+function SavePersistence.DoSave(slot, callback, epoch, attemptId)
     -- 安全闸门：未正常加载存档时禁止写入
     if not SS.loaded then
         print("[SaveSystem] DoSave BLOCKED: data not loaded (forward version check or load failure)")
@@ -383,8 +399,18 @@ function SavePersistence.DoSave(slot, callback, epoch)
                 if epoch and epoch ~= SS._saveEpoch then
                     print("[SaveSystem] Save ok (data only): stale epoch, discarding")
                     SS.saving = false
-
                     if callback then callback(false, "存档纪元过期") end
+                    return
+                end
+                if attemptId and attemptId ~= SS._saveAttemptId then
+                    print("[SaveSystem] Save ok (data only): stale attemptId=" .. attemptId
+                        .. " current=" .. tostring(SS._saveAttemptId) .. ", accepting game_saved but not clearing state")
+                    -- 服务端确实成功了，触发 game_saved 清 dirty，但不改 saving/retry
+                    EventBus.Emit("game_saved")
+                    pcall(function() require("systems.BlackMarketSyncState").ClearAll() end)
+                    pcall(function() require("systems.WarehouseSystem")._dirty = false end)
+                    pcall(function() require("network.NetDiagClient").RecordSaveOk() end)
+                    if callback then callback(true) end
                     return
                 end
                 SS.saving = false
@@ -407,6 +433,7 @@ function SavePersistence.DoSave(slot, callback, epoch)
                 -- 防御性直接调用：EventBus.On 在部分环境下注册可能未生效
                 pcall(function() require("systems.BlackMarketSyncState").ClearAll() end)
                 pcall(function() require("systems.WarehouseSystem")._dirty = false end)
+                pcall(function() require("network.NetDiagClient").RecordSaveOk() end)
                 if callback then callback(true) end
 
                 if isCheckpoint then
@@ -431,9 +458,12 @@ function SavePersistence.DoSave(slot, callback, epoch)
                 if epoch and epoch ~= SS._saveEpoch then
                     print("[SaveSystem] Save error (data only): stale epoch, ignoring")
                     SS.saving = false
-
                     if callback then callback(false, "存档纪元过期") end
                     return
+                end
+                if attemptId and attemptId ~= SS._saveAttemptId then
+                    print("[SaveSystem] Save error (data only): stale attemptId=" .. attemptId .. ", ignoring")
+                    return  -- 不改 saving/retry/failures
                 end
                 SS.saving = false
                 SS._saveTimeoutActive = false
@@ -499,8 +529,17 @@ function SavePersistence.DoSave(slot, callback, epoch)
             if epoch and epoch ~= SS._saveEpoch then
                 print("[SaveSystem] Save ok: stale epoch, discarding")
                 SS.saving = false
-
                 if callback then callback(false, "存档纪元过期") end
+                return
+            end
+            if attemptId and attemptId ~= SS._saveAttemptId then
+                print("[SaveSystem] Save ok: stale attemptId=" .. attemptId
+                    .. " current=" .. tostring(SS._saveAttemptId) .. ", accepting game_saved")
+                EventBus.Emit("game_saved")
+                pcall(function() require("systems.BlackMarketSyncState").ClearAll() end)
+                pcall(function() require("systems.WarehouseSystem")._dirty = false end)
+                pcall(function() require("network.NetDiagClient").RecordSaveOk() end)
+                if callback then callback(true) end
                 return
             end
             SS.saving = false
@@ -527,6 +566,7 @@ function SavePersistence.DoSave(slot, callback, epoch)
             -- 防御性直接调用：EventBus.On 在部分环境下注册可能未生效
             pcall(function() require("systems.BlackMarketSyncState").ClearAll() end)
             pcall(function() require("systems.WarehouseSystem")._dirty = false end)
+            pcall(function() require("network.NetDiagClient").RecordSaveOk() end)
             if callback then callback(true) end
 
             if isCheckpoint then
@@ -552,6 +592,10 @@ function SavePersistence.DoSave(slot, callback, epoch)
                 print("[SaveSystem] Save error: stale epoch, ignoring")
                 SS.saving = false
                 if callback then callback(false, "存档纪元过期") end
+                return
+            end
+            if attemptId and attemptId ~= SS._saveAttemptId then
+                print("[SaveSystem] Save error: stale attemptId=" .. attemptId .. ", ignoring")
                 return
             end
             SS.saving = false

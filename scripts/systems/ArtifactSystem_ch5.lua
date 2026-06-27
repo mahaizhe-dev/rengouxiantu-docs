@@ -273,6 +273,7 @@ function ArtifactCh5.RecalcAttributes()
     player.artifactCh5Constitution = constitution
     player.artifactCh5Physique     = physique
 
+    player:InvalidateStatsCache()
     print("[ArtifactCh5] Attributes: wisdom=" .. wisdom
         .. " constitution=" .. constitution
         .. " physique=" .. physique)

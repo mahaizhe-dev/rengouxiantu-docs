@@ -301,6 +301,7 @@ function ArtifactSystem.RecalcAttributes()
     player.artifactConstitution = constitution
     player.artifactPhysique = physique
 
+    player:InvalidateStatsCache()
     print("[ArtifactSystem] Attributes: heavyHit=" .. heavyHit .. " constitution=" .. constitution .. " physique=" .. physique)
 end
 

@@ -273,6 +273,7 @@ function ArtifactCh4.RecalcAttributes()
     player.artifactCh4Fortune = fortune
     player.artifactCh4Defense = defense
 
+    player:InvalidateStatsCache()
     print("[ArtifactCh4] Attributes: wisdom=" .. wisdom .. " fortune=" .. fortune .. " defense=" .. defense)
 end
 

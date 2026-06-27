@@ -690,6 +690,7 @@ function AtlasSystem.RecalcMedalBonuses()
     player.medalFuyuan    = bonuses.fuyuan
     player.medalTipo      = bonuses.tipo
 
+    player:InvalidateStatsCache()
     print("[AtlasSystem] Medal bonuses: HP+" .. bonuses.hp
         .. " ATK+" .. bonuses.atk .. " DEF+" .. bonuses.def
         .. " HpRegen+" .. bonuses.hpRegen

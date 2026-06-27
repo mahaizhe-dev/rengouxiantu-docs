@@ -281,6 +281,8 @@ function M._SellBatchConsumable(IS, consumableId, count)
 
     -- 复用 item_sold 事件（与单件出售兼容）
     EventBus.Emit("item_sold", { name = cfgData.name, consumableId = consumableId, count = count, sellPrice = unitPrice, sellCurrency = sellCurrency }, totalPrice, sellCurrency)
+    -- P0: 批量消耗品出售后 MarkDirty 一次
+    pcall(function() require("systems.save.SaveSession").MarkDirty() end)
 
     local currencyName = sellCurrency == "lingYun" and "灵韵" or "金币"
     local msg = "出售 " .. count .. " 个" .. cfgData.name .. "，获得 " .. totalPrice .. " " .. currencyName .. "！"
@@ -370,7 +372,8 @@ function M._UseBatchPremiumZong(IS, count)
     if not player.pillCounts then player.pillCounts = {} end
     player.pillCounts.zong = player.premiumZongEaten
 
-    -- 缓存按帧自动重算（_statsCacheFrame），下帧 GetTotalFortune() 即刻生效
+    -- 立即失效缓存，确保同帧 GetTotalFortune() 返回新值
+    player:InvalidateStatsCache()
 
     EventBus.Emit("premium_zong_used", actualCount)
 

@@ -633,6 +633,8 @@ function InventoryUI.Hide()
         if sellMenu_ and sellMenu_:IsVisible() then sellMenu_:Hide() end
         EquipTooltip.Hide()
         MinggePage.OnHide()
+        -- P0: 关闭背包时 flush 未落盘的出售/操作（合并保存）
+        pcall(function() require("systems.save.SaveSession").Flush() end)
     end
 end
 

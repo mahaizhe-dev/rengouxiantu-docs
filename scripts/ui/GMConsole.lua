@@ -1416,30 +1416,42 @@ local GM_CATEGORIES = {
                     ShowLog("保存链路P1: " .. f .. " 项失败 / " .. t .. " 项", {255, 100, 100, 255})
                 end
             end },
+            { label = "网络诊断60min", action = function()
+                SendGMCommand("net_diag_60", function(msg)
+                    local text = msg or "无数据"
+                    -- 逐行 print 到错误日志（可通过反馈系统拉取）
+                    print("[GM][NET_DIAG_60] ========== 网络诊断报告 START ==========")
+                    for line in text:gmatch("[^\n]+") do
+                        print("[GM][NET_DIAG_60] " .. line)
+                    end
+                    print("[GM][NET_DIAG_60] ========== 网络诊断报告 END ==========")
+                    -- ShowLog 只显示第一行摘要
+                    local firstLine = text:match("^([^\n]*)")
+                    ShowLog(firstLine or text, {180, 220, 255, 255})
+                end)
+            end },
             { label = "黑市保存诊断", action = function()
-                local lines = {}
-                pcall(function()
+                local ok2, err2 = pcall(function()
                     local SaveSystem = require("systems.SaveSystem")
                     local BMS = require("systems.BlackMarketSyncState")
                     local st = SaveSystem.GetSaveStatus()
                     local wi = BMS.GetWarehouseDirtyInfo()
                     local ci = BMS.GetConsumeDirtyInfo()
-                    local diag = "[BM_SAVE_DIAG]"
-                        .. " bmWhDirty=" .. tostring(wi.dirty)
-                        .. " whElapsed=" .. string.format("%.1f", wi.elapsed or 0) .. "s"
-                        .. " whReason=" .. tostring(wi.reason)
-                        .. " consumeDirty=" .. tostring(ci.dirty)
-                        .. " consumeElapsed=" .. string.format("%.1f", ci.elapsed or 0) .. "s"
-                        .. " saveDirty=" .. tostring(st.dirty)
-                        .. " saving=" .. tostring(st.saving)
-                        .. " retry=" .. tostring(st.retryTimer)
-                        .. " disconnected=" .. tostring(st.disconnected)
-                        .. " hasConn=" .. tostring(st.hasServerConn)
-                        .. " failures=" .. tostring(st.consecutiveFailures)
-                    print(diag)
-                    lines[#lines+1] = diag
+                    -- 逐行输出到错误日志
+                    print("[GM][BM_DIAG] ========== 黑市保存诊断 START ==========")
+                    print("[GM][BM_DIAG] bmWhDirty=" .. tostring(wi.dirty) .. " whElapsed=" .. string.format("%.1f", wi.elapsed or 0) .. "s whReason=" .. tostring(wi.reason))
+                    print("[GM][BM_DIAG] consumeDirty=" .. tostring(ci.dirty) .. " consumeElapsed=" .. string.format("%.1f", ci.elapsed or 0) .. "s")
+                    print("[GM][BM_DIAG] saveDirty=" .. tostring(st.dirty) .. " saving=" .. tostring(st.saving) .. " retry=" .. tostring(st.retryTimer))
+                    print("[GM][BM_DIAG] disconnected=" .. tostring(st.disconnected) .. " hasConn=" .. tostring(st.hasServerConn) .. " failures=" .. tostring(st.consecutiveFailures))
+                    print("[GM][BM_DIAG] ========== 黑市保存诊断 END ==========")
+                    -- ShowLog 显示简要摘要
+                    local summary = "wh=" .. tostring(wi.dirty) .. " con=" .. tostring(ci.dirty) .. " save=" .. tostring(st.saving) .. " fail=" .. tostring(st.consecutiveFailures)
+                    ShowLog("[BM诊断] " .. summary, {200, 200, 255, 255})
                 end)
-                ShowLog(lines[1] or "诊断失败", {200, 200, 255, 255})
+                if not ok2 then
+                    print("[GM][BM_DIAG] ERROR: " .. tostring(err2))
+                    ShowLog("诊断失败: " .. tostring(err2), {255, 100, 100, 255})
+                end
             end },
             { label = "仓库门禁P0自测", action = function()
                 local files = {

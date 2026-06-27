@@ -51,6 +51,9 @@ end
 
 local _requestId = 0
 local _pendingCallbacks = {}  -- requestId -> events table
+local _expiredIds = {}  -- P0: 已超时的 requestId 集合（防晚到回包重复触发）
+local _expiredIdsCount = 0
+local EXPIRED_IDS_MAX = 200
 
 --- 生成唯一 requestId
 ---@return integer
@@ -73,6 +76,13 @@ end
 ---@param requestId integer
 ---@return table|nil
 local function PopCallback(requestId)
+    -- P0: 已超时的请求，晚到回包直接丢弃
+    if _expiredIds[requestId] then
+        Logger.warn("CloudStorage", "LATE ARRIVAL: requestId=" .. requestId .. " already expired, discarding")
+        _expiredIds[requestId] = nil
+        _expiredIdsCount = math.max(0, _expiredIdsCount - 1)
+        return nil
+    end
     local entry = _pendingCallbacks[requestId]
     _pendingCallbacks[requestId] = nil
     if entry then return entry.events end
@@ -100,7 +110,13 @@ function CloudStorage.Tick()
     for id, entry in pairs(_pendingCallbacks) do
         if now - entry.registeredAt > CALLBACK_TIMEOUT then
             Logger.warn("CloudStorage", "TIMEOUT: callback id=" .. id .. " expired after " .. CALLBACK_TIMEOUT .. "s")
+            pcall(function() require("network.NetDiagClient").RecordCloudPendingTimeout() end)
             _pendingCallbacks[id] = nil
+            -- P0: 标记已超时，防晚到回包重复触发
+            if _expiredIdsCount < EXPIRED_IDS_MAX then
+                _expiredIds[id] = true
+                _expiredIdsCount = _expiredIdsCount + 1
+            end
             if entry.events and entry.events.error then
                 local ok, err = pcall(entry.events.error, -2, "请求超时")
                 if not ok then
@@ -402,6 +418,7 @@ function CloudStorage.BatchSet()
                 serverConn:SendRemoteEvent(SaveProtocol.C2S_SaveGame, true, eventData)
             else
                 Logger.error("CloudStorage", "No server connection for Save")
+                pcall(function() require("network.NetDiagClient").RecordCloudNoConn("save") end)
                 _pendingCallbacks[requestId] = nil  -- P0-4: 释放 pending，避免残留
                 if events and events.error then
                     events.error(-1, "No server connection")
@@ -554,6 +571,7 @@ function CloudStorage.GetRankList(key, start, count, events, ...)
             end)
         else
             Logger.error("CloudStorage", "No server connection for GetRankList")
+            pcall(function() require("network.NetDiagClient").RecordCloudNoConn("rank") end)
             _pendingCallbacks[requestId] = nil  -- P0-4: 释放 pending
             if events and events.error then
                 events.error(-1, "No server connection")

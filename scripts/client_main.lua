@@ -319,6 +319,8 @@ end
 function HandleRateLimited(eventType, eventData)
     local originEvent = eventData["EventName"]:GetString()
     print("[ClientMain] RateLimited by server, origin=" .. tostring(originEvent))
+    -- C+: 采集
+    pcall(function() require("network.NetDiagClient").RecordRateLimited(originEvent) end)
 
     -- 如果正在存档中，解除 saving 锁并标记脏以便重试
     local ok2, _ = pcall(function()

@@ -197,6 +197,8 @@ function SeaPillarSystem.ApplyAllBonuses()
     player.seaPillarAtk = bonuses.atk
     player.seaPillarMaxHp = bonuses.maxHp
     player.seaPillarHpRegen = bonuses.hpRegen
+
+    player:InvalidateStatsCache()
 end
 
 -- ============================================================================

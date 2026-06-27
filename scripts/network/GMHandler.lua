@@ -69,6 +69,55 @@ function M.HandleGMCommand(eventType, eventData)
         return
     end
 
+    -- C+: 网络诊断摘要查询
+    if cmd == "net_diag_60" or cmd == "net_diag_1440" or cmd == "net_diag_current" then
+        local NDH = require("network.NetDiagHandler")
+        if cmd == "net_diag_current" then
+            -- 返回服务端当前内存桶（不查 serverCloud）
+            local data = VariantMap()
+            data["ok"] = Variant(true)
+            data["cmd"] = Variant(cmd)
+            data["msg"] = Variant("诊断数据见日志")
+            Session.SafeSend(connection, SaveProtocol.S2C_GMCommandResult, data)
+            print("[Server][GM] net_diag_current: (in-memory bucket printed by Tick)")
+            return
+        end
+        local minutes = (cmd == "net_diag_60") and 60 or 1440
+        local queryFn = NDH.GetSummary(minutes)
+        queryFn(function(sum, err)
+            local msg
+            if not sum then
+                msg = "查询失败: " .. tostring(err)
+            else
+                local avgRtt = (sum.hbRttCount > 0) and math.floor(sum.hbRttSum / sum.hbRttCount) or 0
+                local lossRate = (sum.hbSent > 0) and string.format("%.1f", sum.hbMissed / sum.hbSent * 100) or "0"
+                msg = "网络诊断 最近" .. minutes .. "分钟"
+                    .. "\n样本: " .. (sum.reports or 0) .. "报告 " .. (sum._buckets or 0) .. "桶"
+                    .. "\n心跳: sent=" .. (sum.hbSent or 0) .. " ack=" .. (sum.hbAck or 0)
+                    .. " missed=" .. (sum.hbMissed or 0) .. " 丢失率=" .. lossRate .. "%"
+                    .. "\nRTT: avg=" .. avgRtt .. "ms max=" .. (sum.hbRttMax or 0) .. "ms"
+                    .. "\nShadow: unstable=" .. (sum.shadowUnstable or 0)
+                    .. " reconnecting=" .. (sum.shadowReconnecting or 0)
+                    .. " disconnected=" .. (sum.shadowDisconnected or 0)
+                    .. "\n保存: start=" .. (sum.saveStart or 0) .. " ok=" .. (sum.saveOk or 0)
+                    .. " fail=" .. (sum.saveFail or 0) .. " timeout=" .. (sum.saveTimeout or 0)
+                    .. " noConn=" .. (sum.saveNoServerConn or 0)
+                    .. "\n黑市拦截: wh=" .. (sum.bmSellBlockWarehouse or 0)
+                    .. " consume=" .. (sum.bmSellBlockConsume or 0)
+                    .. " maxElapsed=" .. (sum.bmSellBlockMaxElapsed or 0) .. "s"
+                    .. "\n限流: total=" .. (sum.rateLimitedTotal or 0)
+                    .. " bm=" .. (sum.rateLimitedBM or 0) .. " save=" .. (sum.rateLimitedSave or 0)
+            end
+            local data = VariantMap()
+            data["ok"] = Variant(sum ~= nil)
+            data["cmd"] = Variant(cmd)
+            data["msg"] = Variant(msg)
+            Session.SafeSend(connection, SaveProtocol.S2C_GMCommandResult, data)
+            print("[Server][GM] " .. cmd .. ": " .. msg)
+        end)
+        return
+    end
+
     -- 授权通过，回复客户端执行
     print("[Server][GM] Command AUTHORIZED: cmd=" .. cmd .. " userId=" .. tostring(userId))
     local data = VariantMap()
