@@ -73,6 +73,14 @@ PillRecipes.CONSUMABLES = {
         cost = 1000,
         outputId = "dujie_dan",
     },
+    one_turn_tribulation_pill = {
+        id = "one_turn_tribulation_pill",
+        name = "一转仙劫丹",
+        chapter = 6,
+        cost = 10000,           -- 灵韵
+        goldCost = 1000000,     -- 金币（扩展字段）
+        outputId = "one_turn_tribulation_pill",
+    },
 }
 
 -- ══════════════════════════════════════════════════════════════════════════════

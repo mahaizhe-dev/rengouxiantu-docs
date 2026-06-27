@@ -87,14 +87,21 @@ SwordWallConfig.NPC_POS  = { x = 12, y = 63 }  -- 栖剑别院底部靠近回廊
 
 -- ── 积分商店 ──
 SwordWallConfig.SHOP = {
-    { id = "sword_zhu",  name = "封印古剑·诛仙", itemType = "equipment", equipId = "fengyin_zhuxian_ch5",  price = 2000, icon = "image/icon_fengyin_zhuxian_ch5_20260518083648.png" },
-    { id = "sword_xian", name = "封印古剑·陷仙", itemType = "equipment", equipId = "fengyin_xianxian_ch5", price = 2000, icon = "image/icon_fengyin_xianxian_ch5_20260518085543.png" },
-    { id = "sword_lu",   name = "封印古剑·戮仙", itemType = "equipment", equipId = "fengyin_luxian_ch5",   price = 2000, icon = "image/icon_fengyin_luxian_ch5_20260518083709.png" },
-    { id = "sword_jue",  name = "封印古剑·绝仙", itemType = "equipment", equipId = "fengyin_juexian_ch5",  price = 2000, icon = "image/icon_fengyin_juexian_ch5_20260518083649.png" },
+    -- 仙劫丹（置顶，金色品质，限购 10）
+    { id = "one_turn_tribulation_pill", name = "一转仙劫丹", itemType = "consumable", consumableId = "one_turn_tribulation_pill", price = 2000, limit = 10, quality = "orange", icon = "image/icon_one_turn_tribulation_pill.png" },
+    -- 封印古剑（3000 积分）
+    { id = "sword_zhu",  name = "封印古剑·诛仙", itemType = "equipment", equipId = "fengyin_zhuxian_ch5",  price = 3000, icon = "image/icon_fengyin_zhuxian_ch5_20260518083648.png" },
+    { id = "sword_xian", name = "封印古剑·陷仙", itemType = "equipment", equipId = "fengyin_xianxian_ch5", price = 3000, icon = "image/icon_fengyin_xianxian_ch5_20260518085543.png" },
+    { id = "sword_lu",   name = "封印古剑·戮仙", itemType = "equipment", equipId = "fengyin_luxian_ch5",   price = 3000, icon = "image/icon_fengyin_luxian_ch5_20260518083709.png" },
+    { id = "sword_jue",  name = "封印古剑·绝仙", itemType = "equipment", equipId = "fengyin_juexian_ch5",  price = 3000, icon = "image/icon_fengyin_juexian_ch5_20260518083649.png" },
+    -- 消耗品
     { id = "spirit_pill_5",          name = "灵兽丹·伍",   itemType = "consumable", consumableId = "spirit_pill_5",          price = 500 },
     { id = "lingyun_fruit_superior", name = "上品灵韵果",  itemType = "consumable", consumableId = "lingyun_fruit_superior", price = 200 },
     { id = "exp_pill_superior",      name = "上品修炼果",  itemType = "consumable", consumableId = "exp_pill_superior",      price = 150 },
     { id = "gold_brick",             name = "金砖",        itemType = "consumable", consumableId = "gold_brick",             price = 100 },
 }
+
+-- 限购追踪 key 前缀（serverCloud score 域: "{prefix}_{userId}_{itemId}"）
+SwordWallConfig.SHOP_LIMIT_KEY_PREFIX = "sw_shop_bought"
 
 return SwordWallConfig

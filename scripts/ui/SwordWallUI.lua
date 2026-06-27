@@ -23,6 +23,7 @@ local parentOverlay_ = nil
 local entryShell_ = nil
 local shopShell_ = nil
 local shopBalance_ = 0
+local shopBoughtCounts_ = {}  -- { [itemId] = bought_count } 限购商品已购次数
 local gameMapRef_ = nil
 local bannerLabel_ = nil
 local bannerTimer_ = 0
@@ -250,8 +251,17 @@ function SwordWallUI._refreshShopContent(balance)
             emoji = "📦"
         end
 
-        local qualityStr = "cyan"
-        if item.itemType == "consumable" then qualityStr = "purple" end
+        local qualityStr = item.quality or "cyan"
+        if not item.quality and item.itemType == "consumable" then qualityStr = "purple" end
+
+        -- 限购显示
+        local limitLabel = nil
+        if item.limit and item.limit > 0 then
+            local bought = shopBoughtCounts_ and shopBoughtCounts_[item.id] or 0
+            local remaining = item.limit - bought
+            limitLabel = "限购 " .. remaining .. "/" .. item.limit
+            if remaining <= 0 then canBuy = false end
+        end
 
         shopShell_:AddContent(UI.Panel {
             width = "100%", height = 56, flexDirection = "row", alignItems = "center",
@@ -262,11 +272,12 @@ function SwordWallUI._refreshShopContent(balance)
                 ItemSlot.Create({ icon = iconPath, emoji = emoji, quality = qualityStr, size = 44 }),
                 UI.Panel { flex = 1, marginLeft = T.spacing.sm, gap = 2, children = {
                     UI.Label { text = item.name, fontSize = T.fontSize.sm, fontColor = T.color.textPrimary },
-                    UI.Label { text = item.price .. " 积分", fontSize = T.fontSize.xs,
+                    UI.Label { text = item.price .. " 积分" .. (limitLabel and ("  " .. limitLabel) or ""), fontSize = T.fontSize.xs,
                         fontColor = canBuy and T.color.gold or T.color.error },
                 }},
                 UI.Button {
-                    text = "兑换", width = 56, height = 28,
+                    text = (limitLabel and canBuy == false) and "已满" or "兑换",
+                    width = 56, height = 28,
                     fontSize = T.fontSize.xs, borderRadius = T.radius.sm,
                     variant = canBuy and "primary" or "disabled",
                     disabled = not canBuy,
@@ -641,6 +652,8 @@ end
 function SwordWallUI.OnShopBuyResult(ok, itemId, balance, errMsg)
     if ok then
         shopBalance_ = balance
+        -- 限购计数递增（客户端侧追踪，下次打开商店服务端会校正）
+        shopBoughtCounts_[itemId] = (shopBoughtCounts_[itemId] or 0) + 1
         SwordWallUI._refreshShopContent(shopBalance_)
         if shopShell_ then shopShell_:SetResult("兑换成功！", T.color.success) end
     else
@@ -679,6 +692,16 @@ function SwordWallUI_HandleShopData(eventType, eventData)
     local ok = eventData["ok"]:GetBool()
     if ok then
         local balance = eventData["balance"]:GetInt()
+        -- 解析限购已购次数
+        local boughtJson = nil
+        pcall(function() boughtJson = eventData["boughtCounts"]:GetString() end)
+        if boughtJson and boughtJson ~= "" then
+            local cjson = require("cjson")
+            local decOk, counts = pcall(cjson.decode, boughtJson)
+            if decOk and counts then
+                shopBoughtCounts_ = counts
+            end
+        end
         SwordWallUI.OnShopDataReceived(balance)
     end
 end

@@ -63,7 +63,7 @@ C.IMMORTAL_BODY_SWITCH_COST_LINGYUN = 1000
 -- 等级成长模板（从 Lv1 开始计算）
 C.GROWTH_PROFILES = {
     mortal = {
-        name = "凡人",
+        name = "凡夫俗子",
         maxHp = 15, atk = 3, def = 2, hpRegen = 0.3,
     },
     immortal_body_1 = {
@@ -229,5 +229,33 @@ C.SWORD_WALL_PILL_LIMIT = 10         -- 每角色永久限购 10 颗
 -- ============================================================================
 C.ALCHEMY_PILL_GOLD_COST = 1000000   -- 100 万金币
 C.ALCHEMY_PILL_LINGYUN_COST = 10000  -- 1 万灵韵
+
+-- ============================================================================
+-- 13. 注册仙阶假 realm 到 GameConfig.REALMS（供 BreakthroughCelebration 使用）
+-- ============================================================================
+local realmsRegistered_ = false
+
+function C.EnsureRealmsRegistered()
+    if realmsRegistered_ then return end
+    realmsRegistered_ = true
+
+    local GameConfig = require("config.GameConfig")
+    if not GameConfig.REALMS then return end
+
+    for _, entry in ipairs(C.ASCENSION_REWARDS) do
+        local realmId = "asc_" .. entry.totalIndex
+        if not GameConfig.REALMS[realmId] then
+            GameConfig.REALMS[realmId] = {
+                name = entry.displayName,
+                isMajor = entry.isMajor,
+                order = 22 + entry.totalIndex,
+                maxLevel = entry.maxLevel or 300,
+                requiredLevel = 120,
+                attackSpeedBonus = 1.0,
+                rewards = entry.rewards,
+            }
+        end
+    end
+end
 
 return C

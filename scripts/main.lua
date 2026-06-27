@@ -67,6 +67,7 @@ local TrialTowerSystem = require("systems.TrialTowerSystem")
 local TrialTowerUI = require("ui.TrialTowerUI")
 local PrisonTowerUI = require("ui.PrisonTowerUI")
 local PrisonTowerSystem = require("systems.PrisonTowerSystem")
+local TribulationScene = require("systems.TribulationScene")
 local VersionGuard = require("systems.VersionGuard")
 local LingYunFx = require("rendering.LingYunFx")
 local ArtifactUI = require("ui.ArtifactUI")
@@ -958,6 +959,14 @@ function InitGame(classId)
         SwitchChapter(targetChapterId)
     end)
 
+    -- 监听渡劫进入事件（TribulationSystem.Enter → 场景创建）
+    EventBus.On("tribulation_enter", function(stageIndex, runId)
+        local ok, msg = TribulationScene.Enter(gameMap_, camera_)
+        if not ok then
+            print("[Main] TribulationScene.Enter failed: " .. tostring(msg))
+        end
+    end)
+
     -- 监听存档保护拦截事件（本地安全阀触发时通知玩家）
     EventBus.On("save_blocked", function(data)
         local player = GameState.player
@@ -1259,6 +1268,14 @@ function CreateUI()
     -- 创建境界突破面板
     RealmPanel.Create(overlay)
 
+    -- 创建仙体切换面板（独立弹窗模式，已废弃，保留兼容）
+    local ImmortalBodyUI = require("ui.ImmortalBodyUI")
+    ImmortalBodyUI.Create(overlay)
+
+    -- 仙体 Tab 面板 overlay 注入（用于确认弹窗）
+    local ImmortalBodyPanel = require("ui.ImmortalBodyPanel")
+    ImmortalBodyPanel.Init(overlay)
+
     -- 创建境界突破庆典弹框（粒子特效层）
     BreakthroughCelebration.Create(overlay)
 
@@ -1396,7 +1413,7 @@ function HandleUpdate(eventType, eventData)
         player:Update(dt, gameMap_)
 
         -- 区域切换检测（委托给 ZoneManager）— 副本/挑战/试炼/镇狱中跳过（坐标不属于正常地图）
-        if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
+        if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not TribulationScene.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
             ZoneManager.CheckZoneChange(gameMap_, player, uiRoot_)
         end
 
@@ -1448,7 +1465,7 @@ function HandleUpdate(eventType, eventData)
 
     -- 更新怪物刷新（挑战/试炼/镇狱/多人副本中暂停刷怪）
     local SwordWallSystem = require("systems.SwordWallSystem")
-    if spawner_ and not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not SwordWallSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
+    if spawner_ and not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not TribulationScene.IsActive() and not SwordWallSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
         spawner_:Update(dt)
     end
 
@@ -1460,6 +1477,9 @@ function HandleUpdate(eventType, eventData)
 
     -- 更新镇狱塔系统
     PrisonTowerSystem.Update(dt, gameMap_)
+
+    -- 更新渡劫场景
+    TribulationScene.Update(dt)
 
     -- 更新剑气长城副本
     local SwordWallSystem = require("systems.SwordWallSystem")
@@ -1522,7 +1542,7 @@ function HandleUpdate(eventType, eventData)
     PerfMonitor.StartSegment("save")
     SaveSystem.UpdateCritical(dt)
     -- 自动保存调度仅在非副本模式运行（副本中暂停自动存档，防中间状态持久化）
-    if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
+    if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not TribulationScene.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
         SaveSystem.Update(dt)
     end
     PerfMonitor.EndSegment("save")
@@ -1750,6 +1770,12 @@ function HandleKeyDown(eventType, eventData)
     -- T 键尝试境界突破
     if key == KEY_T then
         if not GameState.IsUIBlocking() and not DeathScreen.IsVisible() then
+            -- 120级后按T打开境界面板（仙阶突破tab）
+            local AscensionSystem = require("systems.AscensionSystem")
+            if AscensionSystem.IsEnabled() then
+                RealmPanel.Show()  -- 默认 tab 会自动选仙阶突破
+                return
+            end
             local nextRealm = ProgressionSystem.GetNextBreakthrough()
             if nextRealm then
                 local oldRealm = GameState.player.realm

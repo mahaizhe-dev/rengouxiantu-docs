@@ -1170,338 +1170,50 @@ local GM_CATEGORIES = {
         name = "测试",
         color = {255, 150, 150, 255},
         commands = {
-            { label = "P0-1钩子自测", action = function()
-                local TestHooks = require("tests.test_pre_damage_hooks")
-                local passed, failed = TestHooks.RunAll()
-                if failed == 0 then
-                    ShowLog("P0-1钩子: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("P0-1钩子: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "P0-2回调自测", action = function()
-                local TestBuff = require("tests.test_buff_skill_callbacks")
-                local passed, failed = TestBuff.RunAll()
-                if failed == 0 then
-                    ShowLog("P0-2回调: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("P0-2回调: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "P1P2P3重构自测", action = function()
-                local TestRefactor = require("tests.test_p1p2p3_refactor")
-                local passed, failed = TestRefactor.RunAll()
-                if failed == 0 then
-                    ShowLog("P1P2P3重构: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("P1P2P3重构: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "P1回归自测", action = function()
-                package.loaded["tests.test_p1_regression"] = nil
-                local TestP1 = require("tests.test_p1_regression")
-                local passed, failed = TestP1.RunAll()
-                if failed == 0 then
-                    ShowLog("P1回归: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("P1回归: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "法宝挑战自测", action = function()
-                local TestFabao = require("tests.test_challenge_fabao")
-                local passed, failed = TestFabao.RunAll()
-                if failed == 0 then
-                    ShowLog("法宝挑战: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("法宝挑战: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "批量消耗品自测", action = function()
-                package.loaded["tests.test_batch_consumable"] = nil
-                local TestBatch = require("tests.test_batch_consumable")
-                local ok, passed, failed = TestBatch.RunAll()
-                if failed == 0 then
-                    ShowLog("批量消耗品: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("批量消耗品: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "P0回归自测", action = function()
-                package.loaded["tests.test_p0_regression"] = nil
-                local TestP0 = require("tests.test_p0_regression")
-                local ok = TestP0.RunAll()
-                if ok then
-                    ShowLog("P0回归: 全部通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("P0回归: 有失败项，请查看控制台", {255, 100, 100, 255})
-                end
-            end },
-            { label = "问心自测", action = function()
-                package.loaded["tests.test_dao_question"] = nil
-                local TestDao = require("tests.test_dao_question")
-                local passed, failed = TestDao.RunAll()
-                if failed == 0 then
-                    ShowLog("问心自测: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("问心自测: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "战斗管线回归", action = function()
-                package.loaded["tests.test_battle_pipeline_regression"] = nil
-                local TestBP = require("tests.test_battle_pipeline_regression")
-                local passed, failed = TestBP.RunAll()
-                if failed == 0 then
-                    ShowLog("战斗管线: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("战斗管线: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "目标选择器回归", action = function()
-                package.loaded["tests.test_target_selector"] = nil
-                local TestTS = require("tests.test_target_selector")
-                local passed, failed = TestTS.RunAll()
-                if failed == 0 then
-                    ShowLog("目标选择器: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("目标选择器: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "命中解析器回归", action = function()
-                package.loaded["tests.test_hit_resolver"] = nil
-                local TestHR = require("tests.test_hit_resolver")
-                local passed, failed = TestHR.RunAll()
-                if failed == 0 then
-                    ShowLog("命中解析器: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("命中解析器: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "连击调度器回归", action = function()
-                package.loaded["tests.test_combo_runner"] = nil
-                local TestCR = require("tests.test_combo_runner")
-                local passed, failed = TestCR.RunAll()
-                if failed == 0 then
-                    ShowLog("连击调度器: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("连击调度器: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "祀剑池自测", action = function()
-                package.loaded["tests.test_sword_pool"] = nil
-                local TestSP = require("tests.test_sword_pool")
-                local passed, failed = TestSP.RunAll()
-                if failed == 0 then
-                    ShowLog("祀剑池: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("祀剑池: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "仓库整理自测", action = function()
-                package.loaded["tests.test_warehouse_sort"] = nil
-                local TestWS = require("tests.test_warehouse_sort")
-                local passed, failed = TestWS.RunAll()
-                if failed == 0 then
-                    ShowLog("仓库整理: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("仓库整理: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "快捷回城自测", action = function()
-                package.loaded["tests.test_town_return_system"] = nil
-                local TestTR = require("tests.test_town_return_system")
-                local passed, failed = TestTR.RunAll()
-                if failed == 0 then
-                    ShowLog("快捷回城: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("快捷回城: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "GM神剑(测试)", action = function()
-                local InventorySystem = require("systems.InventorySystem")
-                local Utils = require("core.Utils")
-                if InventorySystem.GetFreeSlots() < 1 then ShowLog("背包已满！", {255, 120, 100, 255}); return end
-                local sword = {
-                    id = Utils.NextId(),
-                    name = "GM·诛天神剑",
-                    slot = "weapon",
-                    icon = "image/icon_fengyin_zhuxian_ch5_20260518083648.png",
-                    quality = "red",
-                    tier = 10,
-                    mainStat = { atk = 9999 },
-                    subStats = {
-                        { stat = "critRate", name = "暴击率", value = 1.0 },
-                        { stat = "critDmg", name = "暴击伤害", value = 6.0 },
-                        { stat = "maxHp", name = "生命上限", value = 99999 },
-                        { stat = "speed", name = "速度", value = 3.0 },
-                    },
-                    sellPrice = 0,
-                }
-                InventorySystem.AddItem(sword)
-                ShowLog("已发放 GM·诛天神剑", {255, 50, 50, 255})
-            end },
-            { label = "剑气长城(免票)", action = function()
-                local SwordWallSystem = require("systems.SwordWallSystem")
-                local InventorySystem = require("systems.InventorySystem")
-                local SwordWallUI = require("ui.SwordWallUI")
-                -- 给门票然后进入
-                InventorySystem.AddConsumable("immortal_essence_blood", 1)
-                SwordWallUI.Hide()
-                SwordWallUI._doEnter()
-                ShowLog("剑气长城副本进入中...", {100, 255, 200, 255})
-            end },
-            { label = "剑气长城(退出)", action = function()
-                local SwordWallSystem = require("systems.SwordWallSystem")
-                if SwordWallSystem.IsActive() then
-                    SwordWallSystem.Fail(SwordWallSystem._getGameMap(), "GM强制退出")
-                    ShowLog("已退出剑气长城副本", {255, 200, 100, 255})
-                else
-                    ShowLog("当前不在副本中", {200, 200, 200, 255})
-                end
+            { label = "仙阶系统自测", action = function()
+                SendGMCommand("run_test_ascension", function()
+                    package.loaded["tests.test_ascension_system"] = nil
+                    local ok, result = pcall(require, "tests.test_ascension_system")
+                    if ok and type(result) == "table" then
+                        ShowLog("仙阶: " .. result.passed .. "/" .. result.total .. " 通过", result.failed == 0 and {100, 255, 100, 255} or {255, 100, 100, 255})
+                    else
+                        ShowLog("测试出错: " .. tostring(result), {255, 100, 100, 255})
+                    end
+                end)
             end },
             { label = "剑气长城自测", action = function()
-                package.loaded["tests.test_sword_wall"] = nil
-                local TestSW = require("tests.test_sword_wall")
-                local passed, failed = TestSW.RunAll()
-                if failed == 0 then
-                    ShowLog("剑气长城: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("剑气长城: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "剑气积分+500", action = function()
-                SendGMCommand("add_sw_points", function()
-                    ShowLog("剑气积分 +500（服务端已写入）", {255, 220, 100, 255})
-                end)
-            end },
-            { label = "诛仙阵图自测", action = function()
-                package.loaded["tests.test_artifact_ch5"] = nil
-                local TestA5 = require("tests.test_artifact_ch5")
-                local passed, failed = TestA5.RunAll()
-                if failed == 0 then
-                    ShowLog("诛仙阵图: 全部 " .. passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("诛仙阵图: " .. failed .. " 项失败 / " .. (passed + failed) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "打造合同自测", action = function()
-                package.loaded["tests.test_forge_contract"] = nil
-                local result = require("tests.test_forge_contract")
-                if result and result.failed == 0 then
-                    ShowLog("打造合同: 全部 " .. result.passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    local f = result and result.failed or -1
-                    local t = result and result.total or 0
-                    ShowLog("打造合同: " .. f .. " 项失败 / " .. t .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "高峰P3自测", action = function()
-                package.loaded["tests.test_save_phase3_smoke"] = nil
-                local result = require("tests.test_save_phase3_smoke")
-                if result and result.failed == 0 then
-                    ShowLog("高峰P3: 全部 " .. result.passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    local f = result and result.failed or -1
-                    local t = result and result.total or 0
-                    ShowLog("高峰P3: " .. f .. " 项失败 / " .. t .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "保存链路P1自测", action = function()
-                package.loaded["tests.test_save_phase1_smoke"] = nil
-                local result = require("tests.test_save_phase1_smoke")
-                if result and result.failed == 0 then
-                    ShowLog("保存链路P1: 全部 " .. result.passed .. " 项通过!", {100, 255, 100, 255})
-                else
-                    local f = result and result.failed or -1
-                    local t = result and result.total or 0
-                    ShowLog("保存链路P1: " .. f .. " 项失败 / " .. t .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "网络诊断60min", action = function()
-                SendGMCommand("net_diag_60", function(msg)
-                    local text = msg or "无数据"
-                    -- 逐行 print 到错误日志（可通过反馈系统拉取）
-                    print("[GM][NET_DIAG_60] ========== 网络诊断报告 START ==========")
-                    for line in text:gmatch("[^\n]+") do
-                        print("[GM][NET_DIAG_60] " .. line)
-                    end
-                    print("[GM][NET_DIAG_60] ========== 网络诊断报告 END ==========")
-                    -- ShowLog 只显示第一行摘要
-                    local firstLine = text:match("^([^\n]*)")
-                    ShowLog(firstLine or text, {180, 220, 255, 255})
-                end)
-            end },
-            { label = "黑市保存诊断", action = function()
-                local ok2, err2 = pcall(function()
-                    local SaveSystem = require("systems.SaveSystem")
-                    local BMS = require("systems.BlackMarketSyncState")
-                    local st = SaveSystem.GetSaveStatus()
-                    local wi = BMS.GetWarehouseDirtyInfo()
-                    local ci = BMS.GetConsumeDirtyInfo()
-                    -- 逐行输出到错误日志
-                    print("[GM][BM_DIAG] ========== 黑市保存诊断 START ==========")
-                    print("[GM][BM_DIAG] bmWhDirty=" .. tostring(wi.dirty) .. " whElapsed=" .. string.format("%.1f", wi.elapsed or 0) .. "s whReason=" .. tostring(wi.reason))
-                    print("[GM][BM_DIAG] consumeDirty=" .. tostring(ci.dirty) .. " consumeElapsed=" .. string.format("%.1f", ci.elapsed or 0) .. "s")
-                    print("[GM][BM_DIAG] saveDirty=" .. tostring(st.dirty) .. " saving=" .. tostring(st.saving) .. " retry=" .. tostring(st.retryTimer))
-                    print("[GM][BM_DIAG] disconnected=" .. tostring(st.disconnected) .. " hasConn=" .. tostring(st.hasServerConn) .. " failures=" .. tostring(st.consecutiveFailures))
-                    print("[GM][BM_DIAG] ========== 黑市保存诊断 END ==========")
-                    -- ShowLog 显示简要摘要
-                    local summary = "wh=" .. tostring(wi.dirty) .. " con=" .. tostring(ci.dirty) .. " save=" .. tostring(st.saving) .. " fail=" .. tostring(st.consecutiveFailures)
-                    ShowLog("[BM诊断] " .. summary, {200, 200, 255, 255})
-                end)
-                if not ok2 then
-                    print("[GM][BM_DIAG] ERROR: " .. tostring(err2))
-                    ShowLog("诊断失败: " .. tostring(err2), {255, 100, 100, 255})
-                end
-            end },
-            { label = "仓库门禁P0自测", action = function()
-                local files = {
-                    "tests.test_bm_warehouse_sell_sync_gate",
-                    "tests.test_bm_warehouse_close_flush",
-                }
-                local totalP, totalF = 0, 0
-                for _, m in ipairs(files) do
-                    package.loaded[m] = nil
-                    local ok2, r = pcall(require, m)
-                    if ok2 and r then totalP = totalP + r.passed; totalF = totalF + r.failed end
-                end
-                if totalF == 0 then
-                    ShowLog("仓库门禁P0: 全部 " .. totalP .. " 项通过!", {100, 255, 100, 255})
-                else
-                    ShowLog("仓库门禁P0: " .. totalF .. " 项失败 / " .. (totalP + totalF) .. " 项", {255, 100, 100, 255})
-                end
-            end },
-            { label = "黑市禁回售自测", action = function()
-                -- BM-NORESELL: 一键跑三个 run_file 测试（均用 mock 隔离，不碰真实玩家状态）
-                local files = {
-                    "tests.test_bm_noresell",          -- 标记/统计/合并隔离/序列化
-                    "tests.test_bm_noresell_consume",  -- P2 消耗优先级 + 混合消耗
-                    "tests.test_bm_noresell_warehouse",-- 买入→存仓→重登→取出 端到端
-                }
-                local totP, totF, totT, crashed = 0, 0, 0, 0
-                for _, mod in ipairs(files) do
-                    package.loaded[mod] = nil  -- 清缓存确保重跑
-                    local ok, result = pcall(require, mod)
+                SendGMCommand("run_test_sword", function()
+                    package.loaded["tests.test_sword_wall"] = nil
+                    local ok, result = pcall(require, "tests.test_sword_wall")
                     if ok and type(result) == "table" then
-                        totP = totP + (result.passed or 0)
-                        totF = totF + (result.failed or 0)
-                        totT = totT + (result.total or 0)
+                        ShowLog("剑气长城: " .. result.passed .. "/" .. result.total .. " 通过", result.failed == 0 and {100, 255, 100, 255} or {255, 100, 100, 255})
                     else
-                        crashed = crashed + 1
-                        ShowLog("黑市禁回售: 模块崩溃 " .. mod .. " -> " .. tostring(result), {255, 100, 100, 255})
+                        ShowLog("测试出错: " .. tostring(result), {255, 100, 100, 255})
                     end
-                end
-                if totF == 0 and crashed == 0 then
-                    ShowLog("黑市禁回售自测: 全部 " .. totP .. " 项通过! (" .. #files .. " 文件)", {100, 255, 100, 255})
-                else
-                    ShowLog("黑市禁回售自测: " .. totF .. " 失败 / " .. totT .. " (崩溃 " .. crashed .. ")", {255, 100, 100, 255})
-                end
+                end)
             end },
-            -- [已禁用] 解封流水线自测 / 铸剑地炉综合自测
-            -- 这两个测试在真实引擎中会通过 require() 触发顶层 package.loaded 改写
-            -- 和 InventorySystem.SetManager(mock)，导致玩家背包被 mock 替换。
-            -- mock 无 GetAllEquipment，任何后续背包操作均崩溃（线上事故级）。
-            -- 必须通过 lupa 离线运行：python3 scripts/tests/_run_via_lupa.py
-            -- 禁止在 GMConsole 中恢复此入口。
+            { label = "镇狱塔自测", action = function()
+                SendGMCommand("run_test_prison", function()
+                    package.loaded["tests.test_prison_tower"] = nil
+                    local ok, result = pcall(require, "tests.test_prison_tower")
+                    if ok and type(result) == "table" then
+                        ShowLog("镇狱塔: " .. result.passed .. "/" .. result.total .. " 通过", result.failed == 0 and {100, 255, 100, 255} or {255, 100, 100, 255})
+                    else
+                        ShowLog("测试出错: " .. tostring(result), {255, 100, 100, 255})
+                    end
+                end)
+            end },
+            { label = "试炼塔自测", action = function()
+                SendGMCommand("run_test_trial", function()
+                    package.loaded["tests.test_trial_tower"] = nil
+                    local ok, result = pcall(require, "tests.test_trial_tower")
+                    if ok and type(result) == "table" then
+                        ShowLog("试炼塔: " .. result.passed .. "/" .. result.total .. " 通过", result.failed == 0 and {100, 255, 100, 255} or {255, 100, 100, 255})
+                    else
+                        ShowLog("测试出错: " .. tostring(result), {255, 100, 100, 255})
+                    end
+                end)
+            end },
         },
     },
     {
@@ -1606,6 +1318,80 @@ local GM_CATEGORIES = {
                     CS.AddRakeStrikeEffect(player, 0, 2.0, 1.5, 0.5)
                 end
                 ShowLog("已生成全类型特效 @ zoom=" .. cam.zoom, {100, 255, 255, 255})
+            end },
+        },
+    },
+    -- ══════════════════════════════════════════════════════════════════════
+    -- 仙阶/渡劫/仙体
+    -- ══════════════════════════════════════════════════════════════════════
+    {
+        name = "仙阶系统",
+        color = {255, 200, 80, 255},
+        commands = {
+            { label = "仙劫丹 +10", action = function()
+                SendGMCommand("give_trib_pill", function()
+                    local InventorySystem = require("systems.InventorySystem")
+                    InventorySystem.AddConsumable("one_turn_tribulation_pill", 10)
+                    EventBus.Emit("save_request")
+                    ShowLog("发放 10 一转仙劫丹", {255, 200, 80, 255})
+                end)
+            end },
+            { label = "仙阶进度=满", action = function()
+                SendGMCommand("asc_fill_progress", function()
+                    local AscensionSystem = require("systems.AscensionSystem")
+                    local required = AscensionSystem.GetRequiredProgress()
+                    local state = AscensionSystem.GetState()
+                    state.progress = required
+                    EventBus.Emit("save_request")
+                    ShowLog("仙阶进度已满: " .. required, {255, 200, 80, 255})
+                end)
+            end },
+            { label = "渡劫成功", action = function()
+                SendGMCommand("asc_trib_success", function()
+                    local TribulationSystem = require("systems.TribulationSystem")
+                    local TribulationScene = require("systems.TribulationScene")
+                    -- 如果在渡劫场景中，直接触发成功
+                    if TribulationScene.IsActive() then
+                        TribulationScene.Exit("success")
+                        ShowLog("渡劫场景→成功", {100, 255, 100, 255})
+                    else
+                        -- 不在场景中：直接调 OnSuccess（模拟）
+                        local tState = TribulationSystem.GetState()
+                        tState.tribState = "inProgress"
+                        TribulationSystem.OnSuccess()
+                        ShowLog("渡劫结算→成功（模拟）", {100, 255, 100, 255})
+                    end
+                end)
+            end },
+            { label = "清渡劫CD", action = function()
+                SendGMCommand("asc_clear_cd", function()
+                    local TribulationSystem = require("systems.TribulationSystem")
+                    local tState = TribulationSystem.GetState()
+                    tState.tribState = "none"
+                    tState.cooldownUntil = 0
+                    EventBus.Emit("save_request")
+                    ShowLog("渡劫冷却已清除", {100, 255, 150, 255})
+                end)
+            end },
+            { label = "解锁仙体1", action = function()
+                SendGMCommand("asc_unlock_body", function()
+                    local ImmortalBodySystem = require("systems.ImmortalBodySystem")
+                    ImmortalBodySystem.UnlockBody("immortal_body_1", "gm_command")
+                    EventBus.Emit("save_request")
+                    ShowLog("已解锁: 仙人之体", {180, 255, 200, 255})
+                end)
+            end },
+            { label = "等级=121", action = function()
+                SendGMCommand("asc_set_121", function()
+                    local player = GameState.player
+                    if player then
+                        player.level = 121
+                        player.exp = 0
+                        player.realm = "dacheng_4"
+                        EventBus.Emit("save_request")
+                        ShowLog("等级→121, 境界→大乘巅峰", {255, 200, 80, 255})
+                    end
+                end)
             end },
         },
     },

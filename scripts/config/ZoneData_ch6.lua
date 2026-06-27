@@ -101,7 +101,26 @@ ZoneData_ch6.REGION_PRIORITY = { "shadow_spawn_safe", "village_north_ruins" }
 -- 明确清空运行期实体，避免把第一章 NPC、装饰、刷怪点带入第六章。
 ZoneData_ch6.SpawnPoints = {}
 ZoneData_ch6.TownDecorations = {}
-ZoneData_ch6.NPCs = {}
+ZoneData_ch6.NPCs = {
+    -- ── 传送法阵（影入口安全区） ──
+    {
+        id = "ch6_teleport_array", name = "传送法阵", subtitle = "跨章传送",
+        x = 76, y = 39, icon = "🌀",
+        interactType = "teleport_array", zone = "shadow_spawn_safe",
+        isObject = true, label = "传送法阵",
+        decorationType = "teleport_array",
+        color = {100, 150, 255, 200},
+        dialog = "法阵幽光闪烁，可传送至其他界域。",
+    },
+    -- ── 炼丹炉 ──
+    {
+        id = "ch6_alchemy", name = "炼丹炉", subtitle = "炼丹",
+        x = 78, y = 41, icon = "🔥",
+        interactType = "alchemy", zone = "shadow_spawn_safe",
+        portrait = "Textures/npc_alchemy_furnace.png",
+        dialog = "炼丹炉被幽冥之火点燃，可在此炼制仙劫丹。",
+    },
+}
 
 -- 第六章两界村保留入口形态，门洞由 Chapter6 后处理改为封印光幕。
 ZoneData_ch6.TOWN_GATES = copyTable(townData.gates) or {}

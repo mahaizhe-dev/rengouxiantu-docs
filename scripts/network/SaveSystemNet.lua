@@ -334,6 +334,18 @@ function SaveSystemNet_HandleSlotsData(eventType, eventData)
         end
     end
 
+    -- 反序列化 account_immortal_bodies（账号级仙体，登录即可用，所有角色共享）
+    local immBodiesJson = nil
+    pcall(function() immBodiesJson = eventData["accountImmortalBodies"]:GetString() end)
+    if immBodiesJson and immBodiesJson ~= "" then
+        local ok5, immData = pcall(cjson.decode, immBodiesJson)
+        if ok5 and immData then
+            local ImmortalBodySystem = require("systems.ImmortalBodySystem")
+            ImmortalBodySystem.DeserializeAccount(immData)
+            Logger.info("SaveSystemNet", "account_immortal_bodies loaded at login")
+        end
+    end
+
     -- 正常路径
     local slotCount = 0
     if slotsIndex.slots then for _ in pairs(slotsIndex.slots) do slotCount = slotCount + 1 end end

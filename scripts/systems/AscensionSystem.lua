@@ -37,6 +37,8 @@ function AscensionSystem.Init()
         lastCritType = "normal",
         firstTribulationCompleted = false,
     }
+    -- 延迟注册仙阶假 realm（避免模块加载时循环依赖）
+    AscensionConfig.EnsureRealmsRegistered()
 end
 
 function AscensionSystem.GetState()
@@ -52,8 +54,21 @@ function AscensionSystem.IsEnabled()
     if not AscensionConfig.FEATURE_ENABLED then return false end
     local player = GameState.player
     if not player then return false end
-    return player.realm == "dacheng_4" and player.level >= 120
-        or state.totalIndex > 0
+    -- 纯用玩家数据判断（不依赖模块 state，避免多角色切换时 state 残留）
+    local realmData = GameConfig.REALMS[player.realm]
+    local order = realmData and realmData.order or 0
+    return order >= 22 and player.level >= 120  -- dacheng_4 order=22，及以上
+end
+
+--- 是否可见（大乘初期起显示 tab，但不一定可操作）
+function AscensionSystem.IsVisible()
+    if not AscensionConfig.FEATURE_ENABLED then return false end
+    local player = GameState.player
+    if not player then return false end
+    -- 大乘初期 order=19
+    local realmData = GameConfig.REALMS[player.realm]
+    local order = realmData and realmData.order or 0
+    return order >= 19 or state.totalIndex > 0
 end
 
 --- 获取当前目标仙阶信息
@@ -76,13 +91,14 @@ end
 
 --- 获取当前使用的材料 ID
 function AscensionSystem.GetCurrentMaterial()
-    -- 首版只有一转仙劫丹
-    if state.totalIndex < 9 then
+    -- 谪仙（大仙阶1, totalIndex 1-9）：一转仙劫丹
+    -- 人仙及以后（大仙阶2+, totalIndex 10+）：二转仙劫丹
+    local stageIdx = math.ceil(math.max(state.totalIndex + 1, 1) / 9)  -- 目标大仙阶序号 1-9
+    if stageIdx <= 1 then
         return AscensionConfig.ITEM_ONE_TURN_PILL
-    elseif state.totalIndex < 18 then
+    else
         return AscensionConfig.ITEM_TWO_TURN_PILL
     end
-    return AscensionConfig.ITEM_ONE_TURN_PILL  -- fallback
 end
 
 --- 进度是否已满
@@ -154,7 +170,7 @@ function AscensionSystem.ConsumePill()
     state.lastCritType = critType
 
     EventBus.Emit("ascension_pill_consumed", gain, critType, state.progress, req)
-    EventBus.Emit("save_request")
+    -- 不在此处 save_request（高频操作），由面板关闭时统一保存
 
     print(string.format("[AscensionSystem] Pill consumed: +%d (%s), progress=%d/%d",
         gain, critType, state.progress, req))
@@ -183,16 +199,21 @@ function AscensionSystem.BreakthroughMinor()
     -- 发放属性
     AscensionSystem._ApplyRewards(target.rewards)
 
-    -- 清进度
-    state.progress = 0
+    -- 进度处理：小阶保留溢出到下一级
+    local req = AscensionSystem.GetRequiredProgress()
+    local overflow = math.max(0, state.progress - req)
+    state.progress = overflow  -- 保留溢出部分
     state.lastGain = 0
     state.lastCritType = "normal"
 
-    EventBus.Emit("ascension_minor_breakthrough", target)
+    -- 弹窗：传入 old/new 仙阶 realm ID（格式 "asc_N"）
+    local oldRealmId = "asc_" .. (target.totalIndex - 1)
+    local newRealmId = "asc_" .. target.totalIndex
+    EventBus.Emit("ascension_minor_breakthrough", target, oldRealmId, newRealmId)
     EventBus.Emit("save_request")
 
-    print("[AscensionSystem] Minor breakthrough: " .. target.displayName)
-    return true, "突破成功！进入" .. target.displayName
+    print("[AscensionSystem] Minor breakthrough: " .. target.displayName .. " overflow=" .. overflow)
+    return true, oldRealmId, newRealmId
 end
 
 --- 大仙阶渡劫成功后的结算（由 TribulationSystem 调用）
@@ -223,9 +244,11 @@ function AscensionSystem.CompleteMajorBreakthrough()
     state.lastGain = 0
     state.lastCritType = "normal"
 
-    EventBus.Emit("ascension_major_breakthrough", target)
+    local oldRealmId = "asc_" .. (target.totalIndex - 1)
+    local newRealmId = "asc_" .. target.totalIndex
+    EventBus.Emit("ascension_major_breakthrough", target, oldRealmId, newRealmId)
     print("[AscensionSystem] Major breakthrough: " .. target.displayName)
-    return true
+    return true, oldRealmId, newRealmId
 end
 
 -- ── 内部函数 ─────────────────────────────────────────────────────────────────
@@ -269,6 +292,7 @@ function AscensionSystem.Deserialize(data)
         AscensionSystem.Init()
         return
     end
+    AscensionConfig.EnsureRealmsRegistered()
     state.stageIndex   = data.stageIndex or 0
     state.minorIndex   = data.minorIndex or 0
     state.totalIndex   = data.totalIndex or 0

@@ -280,22 +280,36 @@ function ImmortalBodySystem.SerializeAccount()
     }
 end
 
---- 账号级反序列化
+--- 账号级反序列化（合并模式：只添加不覆盖，保留已有解锁）
 function ImmortalBodySystem.DeserializeAccount(data)
     if not data then
-        accountState = {
-            unlockedBodies = { mortal = { unlockedAt = 0, source = "default" } },
-            version = 1,
-        }
+        -- 首次调用且无数据时初始化
+        if not accountState.unlockedBodies or not next(accountState.unlockedBodies) then
+            accountState.unlockedBodies = { mortal = { unlockedAt = 0, source = "default" } }
+            accountState.version = 1
+        end
         return
     end
-    accountState.unlockedBodies = data.unlockedBodies or { mortal = { unlockedAt = 0, source = "default" } }
-    accountState.version = data.version or 1
+
+    -- 合并解锁数据：新数据中有的 body，如果当前没有，则添加
+    local incoming = data.unlockedBodies or {}
+    if not accountState.unlockedBodies then
+        accountState.unlockedBodies = {}
+    end
+    for bodyId, info in pairs(incoming) do
+        if not accountState.unlockedBodies[bodyId] then
+            accountState.unlockedBodies[bodyId] = info
+        end
+    end
+
+    -- 版本取较大值
+    accountState.version = math.max(accountState.version or 1, data.version or 1)
+
     -- 确保 mortal 总是解锁
     if not accountState.unlockedBodies.mortal then
         accountState.unlockedBodies.mortal = { unlockedAt = 0, source = "default" }
     end
-    print("[ImmortalBodySystem] Account deserialized: " .. #ImmortalBodySystem.GetUnlockedList() .. " bodies unlocked")
+    print("[ImmortalBodySystem] Account deserialized (merge): " .. #ImmortalBodySystem.GetUnlockedList() .. " bodies unlocked")
 end
 
 return ImmortalBodySystem

@@ -123,10 +123,11 @@ function TribulationSystem.OnSuccess()
         return false
     end
 
-    -- 首次渡劫成功→解锁仙体
-    if state.stageIndex == 1 then
-        local ImmortalBodySystem = require("systems.ImmortalBodySystem")
+    -- 首次渡劫成功→解锁仙体（stageIndex==1 或尚未解锁）
+    local ImmortalBodySystem = require("systems.ImmortalBodySystem")
+    if not ImmortalBodySystem.IsUnlocked("immortal_body_1") then
         ImmortalBodySystem.UnlockBody("immortal_body_1", "first_tribulation")
+        print("[TribulationSystem] Unlocked immortal_body_1 on first tribulation success")
     end
 
     EventBus.Emit("tribulation_success", state.stageIndex, state.runId)

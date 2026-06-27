@@ -532,6 +532,15 @@ function GameEvents.Register(refs)
             return
         end
 
+        -- 渡劫场景中死亡：自动退出（触发失败结算）
+        local okTB, TribulationScene = pcall(require, "systems.TribulationScene")
+        if okTB and TribulationScene and TribulationScene.IsActive() then
+            local player = GameState.player
+            if player then player.alive = true end
+            TribulationScene.Exit("fail")
+            return
+        end
+
         -- 剑气长城副本中死亡：自动失败退出
         local okSW, SwordWallSystem = pcall(require, "systems.SwordWallSystem")
         if okSW and SwordWallSystem and SwordWallSystem.IsActive() then

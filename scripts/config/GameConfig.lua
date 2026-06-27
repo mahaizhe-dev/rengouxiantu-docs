@@ -190,8 +190,8 @@ GameConfig.PET_MATERIALS = {
     dujie_dan = { name = "渡劫丹", icon = "icon_dujie_dan.png", sellPrice = 0, quality = "red", desc = "以九天雷髓与万年灵液淬炼而成的极品仙丹，丹中隐现雷纹。\n用途：大乘境界突破的必需品。\n炼制：1000灵韵 → 1颗（第五章炼丹炉）\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
     xian_dan = { name = "仙丹", icon = "icon_dujie_dan.png", sellPrice = 0, quality = "red", desc = "传说中仙人留下的至宝灵丹，丹体通透如琉璃，散发七彩仙光。\n用途：谪仙境界突破的必需品（旧版，已废弃）。\n获取：已废弃" },
     -- 仙阶突破材料（120级后）
-    one_turn_tribulation_pill = { name = "一转仙劫丹", icon = "icon_dujie_dan.png", sellPrice = 0, quality = "gold", desc = "以九天雷髓与万年灵液经九转淬炼而成的仙品丹药，丹体流转雷纹金光。\n用途：120级后仙阶突破进度材料。\n获取：剑气长城积分商店（限购10颗）/ 第六章炼丹炉（100万金+1万灵韵）" },
-    two_turn_tribulation_pill = { name = "二转仙劫丹", icon = "icon_dujie_dan.png", sellPrice = 0, quality = "gold", desc = "以更高阶灵药淬炼的二转仙劫丹，蕴含更浓厚的天劫之力。\n用途：人仙阶段仙阶突破进度材料。\n获取：暂未开放" },
+    one_turn_tribulation_pill = { name = "一转仙劫丹", icon = "image/icon_one_turn_tribulation_pill.png", sellPrice = 0, quality = "gold", desc = "以九天雷髓与万年灵液经九转淬炼而成的仙品丹药，丹体流转雷纹金光。\n用途：120级后仙阶突破进度材料。\n获取：剑气长城积分商店（限购10颗）/ 第六章炼丹炉（100万金+1万灵韵）" },
+    two_turn_tribulation_pill = { name = "二转仙劫丹", icon = "image/icon_two_turn_tribulation_pill.png", sellPrice = 0, quality = "gold", desc = "以更高阶灵药淬炼的二转仙劫丹，蕴含更浓厚的天劫之力。\n用途：人仙阶段仙阶突破进度材料。\n获取：暂未开放" },
     -- 纯卖钱物品
     gold_bar = { name = "金条", icon = "icon_gold_bar.png", sellPrice = 1000, quality = "orange", desc = "沉甸甸的金条，闪耀着诱人的光泽。\n用途：出售给商人换取金币。" },
     gold_brick = { name = "金砖", icon = "icon_gold_bar.png", sellPrice = 100000, quality = "cyan", desc = "由万年灵金铸炼而成的实心金砖，沉如磐石，金光内敛。\n用途：出售给商人换取大量金币。" },

@@ -211,6 +211,13 @@ function AlchemySystem.CanCraftConsumable(recipeId)
         return false, "灵韵不足！炼制需要 " .. recipe.cost .. " 灵韵"
     end
 
+    -- 金币检查（扩展字段）
+    if recipe.goldCost and recipe.goldCost > 0 then
+        if (player.gold or 0) < recipe.goldCost then
+            return false, "金币不足！炼制需要 " .. recipe.goldCost .. " 金币"
+        end
+    end
+
     -- 背包空间检查
     local canAdd = InventorySystem.CountConsumable(recipe.outputId) > 0
         or InventorySystem.GetFreeSlots() > 0
@@ -305,12 +312,17 @@ function AlchemySystem.CraftConsumable(recipeId)
 
     -- 二次校验（防止并发/延迟场景）
     if player.lingYun < recipe.cost then return false, nil end
+    if recipe.goldCost and recipe.goldCost > 0 and (player.gold or 0) < recipe.goldCost then return false, nil end
     local canAdd = InventorySystem.CountConsumable(recipe.outputId) > 0
         or InventorySystem.GetFreeSlots() > 0
     if not canAdd then return false, nil end
 
     -- 扣除灵韵
     player.lingYun = player.lingYun - recipe.cost
+    -- 扣除金币（扩展字段）
+    if recipe.goldCost and recipe.goldCost > 0 then
+        player.gold = (player.gold or 0) - recipe.goldCost
+    end
     -- 添加产出到背包
     InventorySystem.AddConsumable(recipe.outputId, 1)
 

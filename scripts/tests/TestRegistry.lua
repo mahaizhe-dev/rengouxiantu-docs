@@ -150,26 +150,6 @@ TestRegistry.tests = {
     },
 
     {
-        id            = "bm_warehouse_consistency_01a",
-        group         = "system",
-        path          = "scripts/tests/test_black_merchant_warehouse_consistency.lua",
-        mode          = "skip",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "lupa_only: 使用 InventorySystem.SetManager() 注入 mock，在真实引擎中会替换玩家背包并触发自动存档，只能在离线 lupa 环境运行",
-    },
-
-    {
-        id            = "bm_s2_unified_sync_gate",
-        group         = "system",
-        path          = "scripts/tests/test_bm_s2_unified_sync_gate.lua",
-        mode          = "skip",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "lupa_only: 使用 InventorySystem.SetManager() 注入 mock，在真实引擎中会替换玩家背包并触发自动存档，只能在离线 lupa 环境运行",
-    },
-
-    {
         id            = "bm_s3_sell_guard",
         group         = "system",
         path          = "scripts/tests/test_bm_s3_sell_guard.lua",
@@ -204,20 +184,6 @@ TestRegistry.tests = {
     },
 
     ---------------------------------------------------------------------------
-    -- BM-S4AR: 黑市交易保护锁强制分堆
-    ---------------------------------------------------------------------------
-
-    {
-        id            = "bm_s4ar_force_new_stack",
-        group         = "system",
-        path          = "scripts/tests/test_bm_s4ar_force_new_stack.lua",
-        mode          = "skip",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "BM-NORESELL(P1) 临时锁退役：买入不再写 bmLock*/强制分堆，改为同源合并 bmNoResell。本测试断言的'强制新堆+临时锁'模型已废弃；锁判定函数级覆盖见 test_bm_s4a_trade_lock，禁回售行为见 test_bm_noresell",
-    },
-
-    ---------------------------------------------------------------------------
     -- BM-S4B: 解锁闭环与整类禁售
     ---------------------------------------------------------------------------
 
@@ -229,20 +195,6 @@ TestRegistry.tests = {
         enabled       = true,
         gate          = "non_blocking",
         skip_reason   = "BM-NORESELL(P1) 降级：'整类禁售'语义已退役。仍运行以守护两项过渡兼容保证 —— SerializeItemFull 剥离 bmLock* 不落盘、HasAnyLockedConsumable 对残留临时锁的纯逻辑；不再阻断门禁",
-    },
-
-    ---------------------------------------------------------------------------
-    -- BM-S4C: 卖出拦截模型收口
-    ---------------------------------------------------------------------------
-
-    {
-        id            = "bm_s4c_sell_block_model",
-        group         = "system",
-        path          = "scripts/tests/test_bm_s4c_sell_block_model.lua",
-        mode          = "skip",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "BM-NORESELL(P1) 退役整类禁售：服务端 HandleSell 改按可回售数量放行，BackpackUtils.HasAnyLockedItem 已无生产调用方(死函数)。本测试 A7/E2 断言的'整类禁售为现行规则'与新模型矛盾；SyncState/L1/L2 分支覆盖见 test_bm_s4e_sell_block_consistency，禁回售见 test_bm_noresell",
     },
 
     ---------------------------------------------------------------------------
@@ -375,34 +327,6 @@ TestRegistry.tests = {
         enabled       = true,
         gate          = "blocking",
         skip_reason   = nil,
-    },
-
-    ---------------------------------------------------------------------------
-    -- 解封古剑打造流水线集成测试（属性/背包/存档/消耗/道具扣除）
-    ---------------------------------------------------------------------------
-
-    {
-        id            = "jiefeng_forge_pipeline",
-        group         = "system",
-        path          = "scripts/tests/test_jiefeng_forge_pipeline.lua",
-        mode          = "skip",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "lupa_only: 使用 InventorySystem.SetManager() 注入 mock，在真实引擎中会替换玩家背包并触发自动存档，只能在离线 lupa 环境运行",
-    },
-
-    ---------------------------------------------------------------------------
-    -- 铸剑地炉综合集成测试（圣器/龙魂令/原地变换/实时检测/装备扣除/数据完整性）
-    ---------------------------------------------------------------------------
-
-    {
-        id            = "sword_forge_comprehensive",
-        group         = "system",
-        path          = "scripts/tests/test_sword_forge_comprehensive.lua",
-        mode          = "skip",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "lupa_only: 使用 InventorySystem.SetManager() 注入 mock，在真实引擎中会替换玩家背包并触发自动存档，只能在离线 lupa 环境运行",
     },
 
     ---------------------------------------------------------------------------
@@ -553,164 +477,10 @@ TestRegistry.tests = {
         note          = "GM命令'活动自测'触发; 依赖: config.EventConfig, systems.EventSystem, systems.LootSystem, systems.MilestoneLogic; 覆盖里程碑协议一致性/计数/基线迁移/领取(T17-T23)",
     },
 
-    {
-        id            = "target_selector",
-        group         = "combat",
-        path          = "scripts/tests/test_target_selector.lua",
-        mode          = "skip",
-        entry         = "tests.test_target_selector",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: core.GameState, systems.combat.TargetSelector",
-    },
-
-    {
-        id            = "pre_damage_hooks",
-        group         = "combat",
-        path          = "scripts/tests/test_pre_damage_hooks.lua",
-        mode          = "skip",
-        entry         = "tests.test_pre_damage_hooks",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: core.GameState (player.AddPreDamageHook)",
-    },
-
-    {
-        id            = "buff_skill_callbacks",
-        group         = "combat",
-        path          = "scripts/tests/test_buff_skill_callbacks.lua",
-        mode          = "skip",
-        entry         = "tests.test_buff_skill_callbacks",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: config.SkillData",
-    },
-
-    {
-        id            = "p1p2p3_refactor",
-        group         = "regression",
-        path          = "scripts/tests/test_p1p2p3_refactor.lua",
-        mode          = "skip",
-        entry         = "tests.test_p1p2p3_refactor",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: systems.SkillSystem, config.SkillData, systems.CombatSystem",
-    },
-
-    {
-        id            = "challenge_fabao",
-        group         = "system",
-        path          = "scripts/tests/test_challenge_fabao.lua",
-        mode          = "skip",
-        entry         = "tests.test_challenge_fabao",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: config.GameConfig, config.EquipmentData, systems.ChallengeSystem",
-    },
-
-    {
-        id            = "batch_consumable",
-        group         = "system",
-        path          = "scripts/tests/test_batch_consumable.lua",
-        mode          = "skip",
-        entry         = "tests.test_batch_consumable",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: config.GameConfig, core.GameState, systems.InventorySystem",
-    },
-
-    {
-        id            = "dao_question",
-        group         = "system",
-        path          = "scripts/tests/test_dao_question.lua",
-        mode          = "skip",
-        entry         = "tests.test_dao_question",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: systems.DaoQuestionSystem",
-    },
-
-    {
-        id            = "p0_regression",
-        group         = "regression",
-        path          = "scripts/tests/test_p0_regression.lua",
-        mode          = "skip",
-        entry         = "tests.test_p0_regression",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: systems.ArtifactSystem_tiandi, core.EventBus, network.RedeemHandler",
-    },
-
-    {
-        id            = "p1_regression",
-        group         = "regression",
-        path          = "scripts/tests/test_p1_regression.lua",
-        mode          = "skip",
-        entry         = "tests.test_p1_regression",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: systems.InventorySystem, core.GameState, cache:GetFile",
-    },
-
-    {
-        id            = "hit_resolver",
-        group         = "combat",
-        path          = "scripts/tests/test_hit_resolver.lua",
-        mode          = "skip",
-        entry         = "tests.test_hit_resolver",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: config.GameConfig, systems.combat.HitResolver",
-    },
-
-    {
-        id            = "combo_runner",
-        group         = "combat",
-        path          = "scripts/tests/test_combo_runner.lua",
-        mode          = "skip",
-        entry         = "tests.test_combo_runner",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: core.GameState, systems.combat.ComboRunner, systems.CombatSystem",
-    },
-
-    {
-        id            = "battle_pipeline_regression",
-        group         = "regression",
-        path          = "scripts/tests/test_battle_pipeline_regression.lua",
-        mode          = "skip",
-        entry         = "tests.test_battle_pipeline_regression",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: config.GameConfig, core.EventBus, systems.combat.BattleContracts",
-    },
-
-    {
-        id            = "c4c5_server",
-        group         = "system",
-        path          = "scripts/tests/c4c5_server_test.lua",
-        mode          = "skip",
-        entry         = "tests.c4c5_server_test",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: server-only, needs sCloud/serverCloud async runtime",
-    },
-
     ---------------------------------------------------------------------------
     -- 第五章神器：诛仙阵图（ArtifactSystem_ch5）完整测试
     -- 覆盖：激活/消耗/账号属性/仙途录同步/挑战/BOSS战/神器技能/存档
     ---------------------------------------------------------------------------
-
-    {
-        id            = "artifact_ch5",
-        group         = "system",
-        path          = "scripts/tests/test_artifact_ch5.lua",
-        mode          = "skip",
-        entry         = "tests.test_artifact_ch5",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: systems.ArtifactSystem_ch5, systems.AtlasSystem, config.GameConfig, config.MonsterData",
-    },
 
     ---------------------------------------------------------------------------
     -- T10 制式套装掉落链路（配置验证 + 可选引擎链路）
@@ -865,59 +635,17 @@ TestRegistry.tests = {
     },
 
     ---------------------------------------------------------------------------
-    -- MINGGE: 五行命格系统逻辑（引擎依赖）
+    -- 仙阶/渡劫/仙体系统测试
     ---------------------------------------------------------------------------
 
     {
-        id            = "mingge_system",
+        id            = "ascension_system",
         group         = "system",
-        path          = "scripts/tests/test_mingge_system.lua",
-        mode          = "skip",
-        enabled       = false,
+        path          = "scripts/tests/test_ascension_system.lua",
+        mode          = "run_file",
+        enabled       = true,
         gate          = "non_blocking",
-        skip_reason   = "engine_required: MinggeSystem.GenerateItem 依赖 math.random 种子控制，需离线 lupa 环境",
-    },
-
-    ---------------------------------------------------------------------------
-    -- MINGGE: 五行命格掉落流程（引擎依赖）
-    ---------------------------------------------------------------------------
-
-    {
-        id            = "mingge_drop_flow",
-        group         = "system",
-        path          = "scripts/tests/test_mingge_drop_flow.lua",
-        mode          = "skip",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: 依赖 GameState.player, GameEvents 运行时",
-    },
-
-    ---------------------------------------------------------------------------
-    -- MINGGE: 五行命格存档往返（引擎依赖）
-    ---------------------------------------------------------------------------
-
-    {
-        id            = "mingge_save_roundtrip",
-        group         = "save",
-        path          = "scripts/tests/test_mingge_save_roundtrip.lua",
-        mode          = "skip",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: 依赖 SaveSerializer/SaveLoader 完整存档链路",
-    },
-
-    ---------------------------------------------------------------------------
-    -- MINGGE: 天诛桥接验证（引擎依赖）
-    ---------------------------------------------------------------------------
-
-    {
-        id            = "mingge_tianzhu_bridge",
-        group         = "system",
-        path          = "scripts/tests/test_mingge_tianzhu_bridge.lua",
-        mode          = "skip",
-        enabled       = false,
-        gate          = "non_blocking",
-        skip_reason   = "engine_required: 依赖 HitResolver.tianzhu 链路和 RecalcStats 实际效果",
+        skip_reason   = nil,
     },
 }
 

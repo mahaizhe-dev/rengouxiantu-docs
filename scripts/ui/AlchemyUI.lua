@@ -59,6 +59,8 @@ local PILL_ICONS = {
     dragon_blood    = "icon_spirit_pill_5.png",
     sword_intent    = "icon_spirit_pill_2.png",
     abyss_seal      = "icon_spirit_pill_3.png",
+    one_turn_tribulation_pill  = "image/icon_one_turn_tribulation_pill.png",
+    two_turn_tribulation_pill  = "image/icon_two_turn_tribulation_pill.png",
 }
 
 local FURNACE_IMAGE = "Textures/npc_alchemy_furnace.png"
@@ -233,10 +235,14 @@ end
 local function CreateConsumableCard(cfg)
     local player = GameState.player
     local lingYun = player and player.lingYun or 0
+    local gold = player and player.gold or 0
     local count = InventorySystem.CountConsumable(cfg.recipeId)
     local canCraft = lingYun >= cfg.cost
+    if cfg.goldCost and cfg.goldCost > 0 then
+        canCraft = canCraft and gold >= cfg.goldCost
+    end
     local iconFile = PILL_ICONS[cfg.recipeId] or "icon_qi_pill.png"
-    local quality = GetItemQuality(cfg.recipeId)
+    local quality = cfg.quality or GetItemQuality(cfg.recipeId)
 
     return UI.Panel {
         width = "100%",
@@ -284,7 +290,8 @@ local function CreateConsumableCard(cfg)
                     },
                     -- 炼制消耗
                     UI.Label {
-                        text = "炼制消耗：灵韵×" .. FormatPrice(cfg.cost),
+                        text = "炼制消耗：灵韵×" .. FormatPrice(cfg.cost)
+                            .. (cfg.goldCost and cfg.goldCost > 0 and ("，金币×" .. FormatPrice(cfg.goldCost)) or ""),
                         fontSize = T.fontSize.xs,
                         fontColor = canCraft and T.color.warning or T.color.error,
                         marginLeft = ICON_SIZE + T.spacing.sm,
@@ -521,6 +528,12 @@ local function BuildCh5Content()
     }
 end
 
+local function BuildCh6Content()
+    return {
+        CreateConsumableCard({ name = "一转仙劫丹", recipeId = "one_turn_tribulation_pill", cost = 10000, goldCost = 1000000, desc = "仙阶突破材料", quality = "orange" }),
+    }
+end
+
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 中洲·阵营丹药
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -651,6 +664,8 @@ local function RefreshUI()
     local children
     if chapter >= 101 then
         children = BuildMidlandContent()
+    elseif chapter >= 6 then
+        children = BuildCh6Content()
     elseif chapter >= 5 then
         children = BuildCh5Content()
     elseif chapter >= 4 then

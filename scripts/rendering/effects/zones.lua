@@ -415,4 +415,108 @@ function M.RenderBarrierZones(nvg, l, camera)
     end
 end
 
+--- 渲染渡劫场景预警（雷击圈 + 火场 + 安全区 + HUD 倒计时）
+function M.RenderTribulationWarnings(nvg, l, camera)
+    local okTS, TribulationScene = pcall(require, "systems.TribulationScene")
+    if not okTS or not TribulationScene or not TribulationScene.IsActive() then return end
+
+    local tileSize = camera:GetTileSize()
+    local circles = TribulationScene.GetWarningCircles()
+
+    for _, c in ipairs(circles) do
+        local sx = (c.x - camera.x) * tileSize + l.w / 2 + l.x
+        local sy = (c.y - camera.y) * tileSize + l.h / 2 + l.y
+        local radius = c.radius * tileSize
+        local col = c.color
+        local progress = c.progress or 0
+
+        if c.type == "lightning" then
+            -- 雷击预警：蓝白色圆圈 + 脉冲
+            local pulseFreq = 3.0 + progress * 8.0
+            local pulse = 0.5 + 0.5 * math.sin(progress * pulseFreq * math.pi * 2)
+            local alpha = (0.4 + progress * 0.6) * (0.6 + 0.4 * pulse)
+
+            -- 填充
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, sx, sy, radius)
+            nvgFillColor(nvg, nvgRGBA(col[1], col[2], col[3], math.floor((col[4] or 180) * alpha)))
+            nvgFill(nvg)
+
+            -- 边框
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, sx, sy, radius)
+            nvgStrokeColor(nvg, nvgRGBA(200, 220, 255, math.floor(255 * alpha)))
+            nvgStrokeWidth(nvg, 2.0)
+            nvgStroke(nvg)
+
+            -- 雷击符号
+            if progress > 0.5 then
+                nvgFontFace(nvg, "sans")
+                nvgFontSize(nvg, 14)
+                nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+                nvgFillColor(nvg, nvgRGBA(255, 255, 255, math.floor(255 * alpha)))
+                nvgText(nvg, sx, sy, "⚡", nil)
+            end
+
+        elseif c.type == "fire_field" then
+            -- 全场火海：大红圈
+            local pulse = 0.6 + 0.4 * math.sin(progress * 6.0 * math.pi)
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, sx, sy, radius)
+            nvgFillColor(nvg, nvgRGBA(col[1], col[2], col[3], math.floor((col[4] or 120) * pulse)))
+            nvgFill(nvg)
+
+        elseif c.type == "safe_zone" then
+            -- 安全区：绿色闪烁圈
+            local pulse = 0.6 + 0.4 * math.sin(progress * 8.0 * math.pi)
+            -- 填充
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, sx, sy, radius)
+            nvgFillColor(nvg, nvgRGBA(col[1], col[2], col[3], math.floor((col[4] or 200) * 0.4 * pulse)))
+            nvgFill(nvg)
+            -- 边框
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, sx, sy, radius)
+            nvgStrokeColor(nvg, nvgRGBA(col[1], col[2], col[3], math.floor((col[4] or 200) * pulse)))
+            nvgStrokeWidth(nvg, 2.5)
+            nvgStroke(nvg)
+            -- 标记
+            nvgFontFace(nvg, "sans")
+            nvgFontSize(nvg, 12)
+            nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+            nvgFillColor(nvg, nvgRGBA(50, 255, 100, math.floor(255 * pulse)))
+            nvgText(nvg, sx, sy, "安全", nil)
+        end
+    end
+
+    -- ── HUD 倒计时 ──
+    local phase = TribulationScene.GetPhase()
+    local hudText, hudColor
+    if phase == "warmup" then
+        local remaining = TribulationScene.GetWarmupRemaining()
+        hudText = "准备... " .. math.ceil(remaining)
+        hudColor = {255, 255, 200, 255}
+    elseif phase == "combat" then
+        local remaining = TribulationScene.GetTimeRemaining()
+        hudText = "剩余 " .. math.ceil(remaining) .. " 秒"
+        hudColor = remaining <= 10 and {255, 80, 80, 255} or {255, 220, 100, 255}
+    elseif phase == "ending" then
+        hudText = "渡劫成功！"
+        hudColor = {100, 255, 150, 255}
+    end
+
+    if hudText then
+        nvgFontFace(nvg, "sans")
+        nvgFontSize(nvg, 22)
+        nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_TOP)
+        nvgFillColor(nvg, nvgRGBA(hudColor[1], hudColor[2], hudColor[3], hudColor[4]))
+        nvgText(nvg, l.w / 2 + l.x, l.y + 20, hudText, nil)
+
+        -- 副标题
+        nvgFontSize(nvg, 13)
+        nvgFillColor(nvg, nvgRGBA(200, 200, 200, 200))
+        nvgText(nvg, l.w / 2 + l.x, l.y + 46, "— 雷火劫 —", nil)
+    end
+end
+
 return M

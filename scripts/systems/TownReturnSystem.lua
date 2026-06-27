@@ -88,6 +88,12 @@ function TownReturnSystem.CanUse()
         return false, "镇狱塔中无法回城"
     end
 
+    -- 渡劫场景
+    local okTB, TribulationScene = pcall(require, "systems.TribulationScene")
+    if okTB and TribulationScene and TribulationScene.IsActive and TribulationScene.IsActive() then
+        return false, "渡劫中无法回城"
+    end
+
     -- 剑气长城副本
     local okSW, SwordWallSystem = pcall(require, "systems.SwordWallSystem")
     if okSW and SwordWallSystem and SwordWallSystem.IsActive and SwordWallSystem.IsActive() then

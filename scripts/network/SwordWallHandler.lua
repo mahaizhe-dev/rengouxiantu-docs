@@ -174,11 +174,51 @@ function SwordWallHandler.HandleShopQuery(connection, eventData)
         ok = function(moneys)
             local balance = (moneys and moneys[SWC.POINT_KEY]) or 0
             local cjson = require("cjson")
-            local resp = VariantMap()
-            resp["ok"] = Variant(true)
-            resp["balance"] = Variant(balance)
-            resp["shop"] = Variant(cjson.encode(SWC.SHOP))
-            connection:SendRemoteEvent(SaveProtocol.S2C_SwordWallShopData, true, resp)
+
+            -- 查询限购商品的已购次数
+            local limitItems = {}
+            for _, item in ipairs(SWC.SHOP) do
+                if item.limit and item.limit > 0 then
+                    limitItems[#limitItems + 1] = item.id
+                end
+            end
+
+            if #limitItems > 0 then
+                -- 逐个查询限购计数（score:Get 单 key 模式）
+                local prefix = SWC.SHOP_LIMIT_KEY_PREFIX or "sw_shop_bought"
+                local boughtCounts = {}
+                local remaining = #limitItems
+                local function tryFinish()
+                    remaining = remaining - 1
+                    if remaining > 0 then return end
+                    local resp = VariantMap()
+                    resp["ok"] = Variant(true)
+                    resp["balance"] = Variant(balance)
+                    resp["shop"] = Variant(cjson.encode(SWC.SHOP))
+                    resp["boughtCounts"] = Variant(cjson.encode(boughtCounts))
+                    connection:SendRemoteEvent(SaveProtocol.S2C_SwordWallShopData, true, resp)
+                end
+                for _, id in ipairs(limitItems) do
+                    local limitKey = prefix .. "_" .. id
+                    serverCloud.score:Get(userId, limitKey, {
+                        ok = function(val)
+                            boughtCounts[id] = val or 0
+                            tryFinish()
+                        end,
+                        error = function()
+                            boughtCounts[id] = 0
+                            tryFinish()
+                        end,
+                    })
+                end
+            else
+                local resp = VariantMap()
+                resp["ok"] = Variant(true)
+                resp["balance"] = Variant(balance)
+                resp["shop"] = Variant(cjson.encode(SWC.SHOP))
+                resp["boughtCounts"] = Variant("{}")
+                connection:SendRemoteEvent(SaveProtocol.S2C_SwordWallShopData, true, resp)
+            end
         end,
         error = function(code, reason)
             local resp = VariantMap()
@@ -235,6 +275,34 @@ function SwordWallHandler.HandleShopBuy(connection, eventData)
         return
     end
 
+    -- 限购检查（有 limit 字段的商品）
+    if shopItem.limit and shopItem.limit > 0 then
+        local limitKey = (SWC.SHOP_LIMIT_KEY_PREFIX or "sw_shop_bought") .. "_" .. shopItemId
+        serverCloud.score:Get(userId, limitKey, {
+            ok = function(bought)
+                bought = bought or 0
+                if bought >= shopItem.limit then
+                    SendResult(false, shopItemId, 0, "已达限购上限（" .. shopItem.limit .. "）")
+                    finish()
+                    return
+                end
+                -- 限购未满，继续走余额检查 + 购买流程
+                SwordWallHandler._doBuy(connection, userId, shopItem, shopItemId, SendResult, finish, limitKey)
+            end,
+            error = function(code, reason)
+                -- 查不到计数，默认 0，继续购买
+                SwordWallHandler._doBuy(connection, userId, shopItem, shopItemId, SendResult, finish, limitKey)
+            end,
+        })
+        return
+    end
+
+    -- 无限购限制，直接购买
+    SwordWallHandler._doBuy(connection, userId, shopItem, shopItemId, SendResult, finish, nil)
+end
+
+--- 实际执行购买（余额检查 + 扣积分 + 限购计数）
+function SwordWallHandler._doBuy(connection, userId, shopItem, shopItemId, SendResult, finish, limitKey)
     -- 查询余额
     serverCloud.money:Get(userId, {
         ok = function(moneys)
@@ -259,10 +327,14 @@ function SwordWallHandler.HandleShopBuy(connection, eventData)
                 return
             end
 
-            -- 原子扣积分
+            -- 原子扣积分 + 限购计数
             local cjson = require("cjson")
             local commit = serverCloud:BatchCommit("剑气积分商店购买")
             commit:MoneyCost(userId, SWC.POINT_KEY, shopItem.price)
+            -- 限购商品：原子递增已购计数
+            if limitKey then
+                commit:ScoreAdd(userId, limitKey, 1)
+            end
             commit:Commit({
                 ok = function()
                     Logger.info("SwordWall", "Shop buy OK: userId=" .. userId

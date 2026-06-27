@@ -11,8 +11,12 @@ local BreakthroughCelebration = require("ui.BreakthroughCelebration")
 local InventorySystem = require("systems.InventorySystem")
 local PanelShell = require("ui.components.PanelShell")
 local T = require("config.UITheme")
+local EventBus = require("core.EventBus")
 
 local RealmPanel = {}
+
+-- ── Tab 状态 ──
+local activeTab_ = "realm"  -- "realm" | "ascension"
 
 -- ── 职业精灵图映射（与 CharacterUI 保持一致） ──
 local CLASS_PORTRAITS = {
@@ -226,6 +230,61 @@ end
 -- 内容构建（角色展示 + 境界进度 + 条件 + 突破按钮）
 -- ============================================================================
 
+--- 构建 Tab 切换按钮
+local function BuildTabBar()
+    local AscensionSystem = require("systems.AscensionSystem")
+    local showAscension = AscensionSystem.IsVisible()  -- 大乘初期起显示仙阶 tab
+
+    local function TabBtn(label, tabId)
+        local isActive = (activeTab_ == tabId)
+        return UI.Panel {
+            flex = 1, padding = T.spacing.sm, alignItems = "center",
+            backgroundColor = isActive and T.color.primaryDark or T.color.cardBg,
+            borderBottomWidth = isActive and 2 or 0,
+            borderColor = T.color.gold,
+            onClick = function()
+                if activeTab_ ~= tabId then
+                    -- 离开仙阶tab时保存（炼化积累）
+                    if activeTab_ == "ascension" then
+                        EventBus.Emit("save_request")
+                    end
+                    activeTab_ = tabId
+                    RebuildContent()
+                    -- realm tab 动态内容需要 Refresh 填充
+                    if tabId == "realm" then
+                        RealmPanel.Refresh()
+                    end
+                end
+            end,
+            children = {
+                UI.Label {
+                    text = label,
+                    fontSize = T.fontSize.sm, fontWeight = isActive and "bold" or "normal",
+                    fontColor = isActive and T.color.gold or T.color.textSecondary,
+                },
+            },
+        }
+    end
+
+    -- 仙体 tab 始终可见；仙阶突破 tab 大乘初期后可见
+    local tabs = {
+        TabBtn("境界突破", "realm"),
+    }
+    if showAscension then
+        tabs[#tabs + 1] = TabBtn("仙阶突破", "ascension")
+    end
+    tabs[#tabs + 1] = TabBtn("仙体", "immortal_body")
+
+    return UI.Panel {
+        width = "100%", flexDirection = "row",
+        backgroundColor = T.color.headerBg,
+        borderRadius = T.radius.sm,
+        marginBottom = T.spacing.sm,
+        overflow = "hidden",
+        children = tabs,
+    }
+end
+
 --- 重建面板内容
 function RebuildContent()
     if not shell_ then return end
@@ -234,8 +293,66 @@ function RebuildContent()
     local player = GameState.player
     if not player then return end
 
+    -- Tab 栏（120后显示）
+    local tabBar = BuildTabBar()
+    if tabBar then
+        shell_:AddContent(tabBar)
+    end
+
+    -- 仙阶突破 tab → 委托 AscensionPanel
+    if activeTab_ == "ascension" then
+        local AscensionPanel = require("ui.AscensionPanel")
+        AscensionPanel.BuildInto(shell_)
+        return
+    end
+
+    -- 仙体 tab → 内嵌仙体面板（不再弹出独立窗口）
+    if activeTab_ == "immortal_body" then
+        local ImmortalBodyPanel = require("ui.ImmortalBodyPanel")
+        ImmortalBodyPanel.BuildInto(shell_)
+        return
+    end
+
     local realmData = GameConfig.REALMS[player.realm]
     local currentOrder = realmData and realmData.order or 0
+
+    -- ═══ 境界完成态：已达大乘巅峰且仙阶已启用 ═══
+    local AscensionSystem = require("systems.AscensionSystem")
+    if AscensionSystem.IsEnabled() then
+        shell_:AddContent(UI.Panel {
+            width = "100%", alignItems = "center", justifyContent = "center",
+            paddingTop = 40, paddingBottom = 40, gap = T.spacing.md,
+            children = {
+                UI.Label {
+                    text = "境界修炼 · 圆满",
+                    fontSize = T.fontSize.lg, fontWeight = "bold",
+                    fontColor = T.color.gold,
+                },
+                UI.Label {
+                    text = realmData and realmData.name or player.realm,
+                    fontSize = T.fontSize.md, fontColor = T.color.jade,
+                },
+                UI.Panel {
+                    width = "60%", height = 1, backgroundColor = T.color.border,
+                },
+                UI.Label {
+                    text = "凡间境界已臻极致\n请前往【仙阶突破】继续修炼之路",
+                    fontSize = T.fontSize.sm, fontColor = T.color.textSecondary,
+                    textAlign = "center",
+                },
+                UI.Button {
+                    text = "前往仙阶突破",
+                    fontSize = T.fontSize.sm, fontWeight = "bold",
+                    backgroundColor = T.color.primary, borderRadius = T.radius.md,
+                    onClick = function()
+                        activeTab_ = "ascension"
+                        RebuildContent()
+                    end,
+                },
+            },
+        })
+        return
+    end
 
     -- ═══ 角色展示 banner ═══
     shell_:AddContent(UI.Panel {
@@ -412,6 +529,17 @@ function RealmPanel.Show()
     if not shell_ or visible_ then return end
     visible_ = true
     GameState.uiOpen = "realm"
+
+    -- 已启用仙阶（dacheng_4+Lv120）默认打开仙阶 tab，大乘期间可见但默认 realm
+    local player = GameState.player
+    local AscensionSystem = require("systems.AscensionSystem")
+    if AscensionSystem.IsEnabled() then
+        activeTab_ = "ascension"
+    else
+        activeTab_ = "realm"
+    end
+
+    RebuildContent()
     RealmPanel.Refresh()
     shell_:Show()
 end
@@ -422,6 +550,10 @@ function RealmPanel.Hide()
     shell_:Hide()
     if GameState.uiOpen == "realm" then
         GameState.uiOpen = nil
+    end
+    -- 仙阶tab关闭时统一保存（炼化高频操作不逐次保存）
+    if activeTab_ == "ascension" then
+        EventBus.Emit("save_request")
     end
 end
 
@@ -439,6 +571,12 @@ end
 
 function RealmPanel.Refresh()
     if not shell_ or not visible_ then return end
+
+    -- 仙阶/仙体 tab 直接重建（这两个 tab 内容完全由 BuildInto 生成）
+    if activeTab_ == "ascension" or activeTab_ == "immortal_body" then
+        RebuildContent()
+        return
+    end
 
     local player = GameState.player
     if not player then return end

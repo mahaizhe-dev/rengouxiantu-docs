@@ -94,7 +94,8 @@ ChapterConfig.CHAPTERS = {
         mapWidth = 80,
         mapHeight = 80,
         requirements = {
-            minRealm = "dujie_1",          -- 谪仙初期
+            minRealm = "dacheng_4",        -- 大乘巅峰
+            questChain = "taixu_zone",     -- 第五章主线完成
             prevChapterId = 5,
         },
     },
