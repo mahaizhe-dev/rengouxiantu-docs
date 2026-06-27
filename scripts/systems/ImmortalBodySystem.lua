@@ -65,6 +65,22 @@ function ImmortalBodySystem.GetActiveProfile()
     return AscensionConfig.GROWTH_PROFILES[charState.activeBodyId]
 end
 
+--- 获取当前仙体的每级成长数值（供 Player:LevelUp 使用）
+--- 若无激活仙体或为凡人体，返回 nil（调用方回退到 GameConfig.LEVEL_GROWTH）
+---@return table|nil { maxHp, atk, def, hpRegen }
+function ImmortalBodySystem.GetActiveGrowth()
+    local profile = AscensionConfig.GROWTH_PROFILES[charState.activeBodyId]
+    if not profile or charState.activeBodyId == "mortal" then
+        return nil  -- 凡人体回退到默认
+    end
+    return {
+        maxHp   = profile.maxHp   or 15,
+        atk     = profile.atk     or 3,
+        def     = profile.def     or 2,
+        hpRegen = profile.hpRegen or 0.3,
+    }
+end
+
 --- 获取已解锁仙体列表
 ---@return table[] { {id, name, unlocked, unlockedAt, source} }
 function ImmortalBodySystem.GetUnlockedList()

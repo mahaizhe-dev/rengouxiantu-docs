@@ -90,6 +90,13 @@ function TribulationSystem.Enter()
     local AscensionSystem = require("systems.AscensionSystem")
     local ascState = AscensionSystem.GetState()
 
+    -- 保存旧状态用于回滚（P1-7 修复）
+    local prevTribState = state.tribState
+    local prevStageIndex = state.stageIndex
+    local prevStartedAt = state.startedAt
+    local prevRunId = state.runId
+    local prevLastResult = state.lastResult
+
     state.tribState = "inProgress"
     state.stageIndex = ascState.stageIndex + 1  -- 下一个大仙阶的渡劫
     state.startedAt = os.time()
@@ -97,10 +104,21 @@ function TribulationSystem.Enter()
     state.lastResult = "none"
 
     EventBus.Emit("tribulation_enter", state.stageIndex, state.runId)
+
+    -- 等待场景实际创建成功后再保存；若事件监听端返回失败则回滚
+    -- 注：tribulation_enter 监听端（main.lua）会调用 TribulationScene.Enter()
+    -- 如果场景创建失败，通过 tribulation_scene_failed 事件回滚
     EventBus.Emit("save_request")
 
     print("[TribulationSystem] Entered tribulation stage=" .. state.stageIndex .. " runId=" .. state.runId)
     return true, nil
+end
+
+--- 场景创建失败时回滚渡劫状态（由 main.lua 调用）
+function TribulationSystem.RollbackEnter()
+    print("[TribulationSystem] Rolling back enter state")
+    state.tribState = "none"
+    state.lastResult = "none"
 end
 
 -- ============================================================================

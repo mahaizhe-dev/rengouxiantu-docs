@@ -614,6 +614,9 @@ function ReturnToLogin()
     WineSystem.Init()       -- 重置美酒状态
     MinggeSystem.Init()     -- 重置命格状态
     require("systems.AlchemySystem").ResetRuntimeState() -- 重置炼丹炉计数
+    require("systems.AscensionSystem").Init()           -- 重置仙阶状态
+    require("systems.TribulationSystem").Init()         -- 重置渡劫状态
+    require("systems.ImmortalBodySystem").Init()        -- 重置角色级仙体状态
 
     -- 🔴 重置副本状态（isDungeonMode_/savedPosition_ 等）
     -- 不清理则: 自动存档永久阻塞 + 后续手动存档使用陈旧 savedPosition_ 覆盖正确坐标
@@ -964,6 +967,9 @@ function InitGame(classId)
         local ok, msg = TribulationScene.Enter(gameMap_, camera_)
         if not ok then
             print("[Main] TribulationScene.Enter failed: " .. tostring(msg))
+            -- P1-7 修复：场景创建失败时回滚渡劫状态
+            TribulationSystem.RollbackEnter()
+            EventBus.Emit("show_toast", "渡劫场景创建失败: " .. tostring(msg))
         end
     end)
 

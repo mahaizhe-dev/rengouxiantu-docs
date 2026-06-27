@@ -50,10 +50,15 @@ function ProgressionSystem.CanBreakthrough(targetRealm)
     local player = GameState.player
     if not player then return false, "玩家不存在" end
 
-    -- 拦截：120后仙阶突破走 AscensionSystem，不走旧路径
-    if targetRealm == "dujie_1" then
-        local AscensionConfig = require("config.AscensionConfig")
-        if AscensionConfig.FEATURE_ENABLED and player.realm == "dacheng_4" and player.level >= 120 then
+    -- P1-1 修复：进入仙阶系统后，完全拦截旧突破路线
+    local AscensionConfig = require("config.AscensionConfig")
+    if AscensionConfig.FEATURE_ENABLED then
+        -- 已在仙阶中（realm 是 asc_N 格式），不允许走旧路径
+        if player.realm and player.realm:sub(1, 4) == "asc_" then
+            return false, "当前境界由仙阶系统管理，请前往仙阶突破"
+        end
+        -- 大乘巅峰+120级想进入 dujie_1 也拦截
+        if targetRealm == "dujie_1" and player.realm == "dacheng_4" and player.level >= 120 then
             return false, "120级后请前往仙阶突破"
         end
     end

@@ -193,14 +193,25 @@ function AscensionSystem.BreakthroughMinor()
     if not target then return false, "已达最高仙阶" end
     if target.isMajor then return false, "大仙阶需要渡劫" end
 
+    -- 溢出计算：在推进前获取当前需求（P1-4 修复）
+    local req = AscensionSystem.GetRequiredProgress()
+
     -- 推进仙阶
     AscensionSystem._AdvanceToIndex(target.totalIndex)
+
+    -- 更新 player.realm 到新仙阶（P0-3 修复）
+    local newRealmId = "asc_" .. target.totalIndex
+    local player = GameState.player
+    if player then
+        player.realm = newRealmId
+        local realmCfg = GameConfig.REALMS[newRealmId]
+        player.realmAtkSpeedBonus = realmCfg and realmCfg.attackSpeedBonus or 1.0
+    end
 
     -- 发放属性
     AscensionSystem._ApplyRewards(target.rewards)
 
     -- 进度处理：小阶保留溢出到下一级
-    local req = AscensionSystem.GetRequiredProgress()
     local overflow = math.max(0, state.progress - req)
     state.progress = overflow  -- 保留溢出部分
     state.lastGain = 0
@@ -208,7 +219,6 @@ function AscensionSystem.BreakthroughMinor()
 
     -- 弹窗：传入 old/new 仙阶 realm ID（格式 "asc_N"）
     local oldRealmId = "asc_" .. (target.totalIndex - 1)
-    local newRealmId = "asc_" .. target.totalIndex
     EventBus.Emit("ascension_minor_breakthrough", target, oldRealmId, newRealmId)
     EventBus.Emit("save_request")
 
@@ -226,18 +236,20 @@ function AscensionSystem.CompleteMajorBreakthrough()
     -- 推进仙阶
     AscensionSystem._AdvanceToIndex(target.totalIndex)
 
-    -- 发放属性
-    AscensionSystem._ApplyRewards(target.rewards)
-
-    -- 设兼容 realm（首次渡劫设 dujie_1）
+    -- 更新 player.realm 到新仙阶（P0-3 修复：所有大仙阶都要更新）
+    local newRealmId = "asc_" .. target.totalIndex
+    local player = GameState.player
+    if player then
+        player.realm = newRealmId
+        local realmCfg = GameConfig.REALMS[newRealmId]
+        player.realmAtkSpeedBonus = realmCfg and realmCfg.attackSpeedBonus or 1.0
+    end
     if target.totalIndex == 1 then
-        local player = GameState.player
-        if player then
-            player.realm = "dujie_1"
-            player.realmAtkSpeedBonus = GameConfig.REALMS.dujie_1 and GameConfig.REALMS.dujie_1.attackSpeedBonus or 1.0
-        end
         state.firstTribulationCompleted = true
     end
+
+    -- 发放属性
+    AscensionSystem._ApplyRewards(target.rewards)
 
     -- 清进度
     state.progress = 0

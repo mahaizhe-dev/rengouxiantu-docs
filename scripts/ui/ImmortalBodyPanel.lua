@@ -299,11 +299,16 @@ function ImmortalBodyPanel._ShowConfirm(targetBodyId, targetProfile, cost)
                                     end
                                     -- 2. 立即应用属性变化
                                     ImmortalBodySystem.ApplyPending()
-                                    -- 3. 强制保存 → 退出到登录
+                                    -- 3. 强制保存 → 退出到登录（P0-2 修复：检查保存结果）
                                     ImmortalBodyPanel._HideConfirm()
                                     local SaveSystem = require("systems.SaveSystem")
-                                    SaveSystem.Save(function()
-                                        if ReturnToLogin then ReturnToLogin() end
+                                    SaveSystem.Save(function(ok, reason)
+                                        if ok then
+                                            if ReturnToLogin then ReturnToLogin() end
+                                        else
+                                            print("[ImmortalBodyPanel] Save failed: " .. tostring(reason))
+                                            EventBus.Emit("show_toast", "保存失败，请稍后重试：" .. tostring(reason))
+                                        end
                                     end)
                                 end,
                             },

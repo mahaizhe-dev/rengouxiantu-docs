@@ -69,6 +69,9 @@ local DTO_FIELDS = {
     openedXianyuanChests = true, -- 仙缘宝箱（XianyuanChestSystem.Serialize）
     bossKillTimes   = true,  -- BOSS击杀冷却
     mingge          = true,  -- 五行命格数据（SaveSerializer.SerializeMingge）
+    ascension       = true,  -- 仙阶系统数据（AscensionSystem.Serialize）
+    tribulation     = true,  -- 渡劫系统数据（TribulationSystem.Serialize）
+    immortalBody    = true,  -- 角色级仙体数据（ImmortalBodySystem.SerializeChar）
 }
 
 --- DoSave 构建 coreData 时附加的 7 个信封/元数据字段
@@ -94,6 +97,7 @@ local PASSTHROUGH_FIELDS = {
     atlas                  = true,
     accountCosmetics       = true,
     pendingXianyuanRewards = true,
+    accountImmortalBodies  = true,  -- 账号级仙体解锁数据
 }
 
 -- ═══════════════════════════════════════════════════════════════════════════

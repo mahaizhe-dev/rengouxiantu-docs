@@ -1193,7 +1193,18 @@ end
 --- 升级
 function Player:LevelUp()
     self.level = self.level + 1
+
+    -- P0-1 修复：从 ImmortalBodySystem 读取当前仙体的成长模板
+    -- 如果仙体系统不可用或无激活仙体，回退到默认成长
     local growth = GameConfig.LEVEL_GROWTH
+    local ok, IBS = pcall(require, "systems.ImmortalBodySystem")
+    if ok and IBS and IBS.GetActiveGrowth then
+        local bodyGrowth = IBS.GetActiveGrowth()
+        if bodyGrowth then
+            growth = bodyGrowth
+        end
+    end
+
     self.maxHp = self.maxHp + growth.maxHp
     self.atk = self.atk + growth.atk
     self.def = self.def + growth.def
