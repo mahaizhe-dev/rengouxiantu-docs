@@ -250,6 +250,23 @@ function SavePersistence.DoSave(slot, callback, epoch, attemptId)
         -- v26: audioSettings 已迁移到本地文件（AudioSystem 自管理），不再写入云存档
         -- v27: 五行命格系统
         mingge = SaveSerializer.SerializeMingge(),
+        -- v31+: 仙阶/渡劫/仙体系统
+        ascension = (function()
+            local AscensionSystem = require("systems.AscensionSystem")
+            return AscensionSystem.Serialize()
+        end)(),
+        tribulation = (function()
+            local TribulationSystem = require("systems.TribulationSystem")
+            return TribulationSystem.Serialize()
+        end)(),
+        immortalBody = (function()
+            local ImmortalBodySystem = require("systems.ImmortalBodySystem")
+            return ImmortalBodySystem.SerializeCharacter()
+        end)(),
+        accountImmortalBodies = (function()
+            local ImmortalBodySystem = require("systems.ImmortalBodySystem")
+            return ImmortalBodySystem.SerializeAccount()
+        end)(),
     }
 
     -- P0-3: SAVE_PIPELINE_V2 影子校验 — 检查 coreData 字段边界

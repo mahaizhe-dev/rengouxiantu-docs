@@ -441,6 +441,24 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
             SaveSerializer.DeserializeMingge(saveData.mingge)
         end
 
+        -- v31+: 仙阶/渡劫/仙体系统
+        do
+            local AscensionSystem = require("systems.AscensionSystem")
+            AscensionSystem.Deserialize(saveData.ascension)
+
+            local TribulationSystem = require("systems.TribulationSystem")
+            TribulationSystem.Deserialize(saveData.tribulation)
+            TribulationSystem.PostLoadCheck()
+
+            local ImmortalBodySystem = require("systems.ImmortalBodySystem")
+            ImmortalBodySystem.DeserializeCharacter(saveData.immortalBody)
+            ImmortalBodySystem.DeserializeAccount(saveData.accountImmortalBodies)
+            -- 应用 pending 仙体切换（若有）
+            if ImmortalBodySystem.ApplyPending() then
+                print("[SaveLoader] ImmortalBody pending applied")
+            end
+        end
+
         -- 账号级外观数据（account_cosmetics）— PA-4: 已在 DeserializePet 前提前加载，此处幂等保留
         -- （如果未来有其他系统在此之间修改了 accountCosmetics，此行保证最终一致）
         if saveData.accountCosmetics and type(saveData.accountCosmetics) == "table" then

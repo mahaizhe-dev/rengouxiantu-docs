@@ -1467,6 +1467,47 @@ local MIGRATIONS = {
         data.version = 31
         return data
     end,
+
+    -- v31 → v32: 仙阶/渡劫/仙体系统字段初始化
+    [32] = function(data)
+        -- 仙阶系统默认值
+        if not data.ascension then
+            data.ascension = {
+                stageIndex = 0, minorIndex = 0, totalIndex = 0,
+                progress = 0, lastGain = 0, lastCritType = "normal",
+                firstTribulationCompleted = false,
+            }
+        end
+        -- 渡劫系统默认值
+        if not data.tribulation then
+            data.tribulation = {
+                tribState = "none", stageIndex = 0,
+                startedAt = 0, cooldownUntil = 0,
+                lastResult = "none", runId = "",
+            }
+        end
+        -- 角色级仙体默认值
+        if not data.immortalBody then
+            data.immortalBody = {
+                activeBodyId = "mortal",
+                baseGrowthProfileId = "mortal",
+                baseStatsRecalcVer = 0,
+                lastSwitchAt = 0,
+                switchCount = 0,
+                pending = nil,
+            }
+        end
+        -- 账号级仙体默认值
+        if not data.accountImmortalBodies then
+            data.accountImmortalBodies = {
+                unlockedBodies = { mortal = { unlockedAt = 0, source = "default" } },
+                version = 1,
+            }
+        end
+        print("[SaveSystem] v31→v32 migration: ascension/tribulation/immortalBody fields initialized")
+        data.version = 32
+        return data
+    end,
 }
 
 -- ============================================================================

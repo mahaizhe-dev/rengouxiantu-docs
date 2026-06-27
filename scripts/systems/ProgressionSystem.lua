@@ -50,6 +50,14 @@ function ProgressionSystem.CanBreakthrough(targetRealm)
     local player = GameState.player
     if not player then return false, "玩家不存在" end
 
+    -- 拦截：120后仙阶突破走 AscensionSystem，不走旧路径
+    if targetRealm == "dujie_1" then
+        local AscensionConfig = require("config.AscensionConfig")
+        if AscensionConfig.FEATURE_ENABLED and player.realm == "dacheng_4" and player.level >= 120 then
+            return false, "120级后请前往仙阶突破"
+        end
+    end
+
     local targetData = GameConfig.REALMS[targetRealm]
     if not targetData then return false, "未知境界" end
 
