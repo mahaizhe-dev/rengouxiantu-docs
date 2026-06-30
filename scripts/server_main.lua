@@ -13,6 +13,10 @@
 local FeatureFlags = require("config.FeatureFlags")
 local SaveProtocol = require("network.SaveProtocol")
 local GameConfig = require("config.GameConfig")
+
+-- R1 修复：服务端启动时注册仙阶 realm（asc_1..asc_81），
+-- 确保 RankHandler/SaveWriteService/SlotReadService 能识别仙阶境界
+require("config.AscensionConfig").EnsureRealmsRegistered()
 local DungeonConfig = require("config.DungeonConfig")
 local SealDemonConfig = require("config.SealDemonConfig")
 local Logger = require("utils.Logger")

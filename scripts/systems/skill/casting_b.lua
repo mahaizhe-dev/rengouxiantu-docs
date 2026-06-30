@@ -8,6 +8,7 @@ local shared = require("systems.skill.shared")
 local GameConfig    = shared.GameConfig
 local GameState     = shared.GameState
 local CombatSystem  = shared.CombatSystem
+local SkillData     = shared.SkillData
 local TargetSelector = shared.TargetSelector
 local HitResolver   = shared.HitResolver
 local ComboRunner   = shared.ComboRunner
@@ -260,6 +261,7 @@ end
 function M.CastHpDamageSkill(skill, player)
     -- 必须有目标
     if not player.target or not player.target.alive then return false end
+    skill = SkillData.CreateRuntimeSkill(skill, player)
 
     local maxHp = player:GetTotalMaxHp()
     local hpCost = math_floor(maxHp * (skill.hpCost or 0))
@@ -271,7 +273,7 @@ function M.CastHpDamageSkill(skill, player)
     player.hp = math_max(1, player.hp - hpCost)
 
     -- 累计消耗（供血爆读取）
-    if skill.feedsAccumulator then
+    if skill.feedsAccumulator or skill.feedsAccumulatorExtraCost then
         player._bloodAccumulator = (player._bloodAccumulator or 0) + hpCost
     end
 
@@ -331,6 +333,10 @@ function M.CastHpDamageSkill(skill, player)
     CombatSystem.AddSkillEffect(player, skill.id, skill.range or 1.5, skill.effectColor, "melee_aoe", {
         targetAngle = targetAngle,
         centerOffset = skill.centerOffset,
+        effectVariant = skill.effectVariant,
+        outerShockwaveScale = skill.outerShockwaveScale,
+        outerShockwaveDelay = skill.outerShockwaveDelay,
+        duration = skill.effectDuration or (skill.outerShockwaveScale and 0.9 or nil),
     })
 
     print("[SkillSystem] " .. skill.name .. ": cost " .. hpCost .. " HP, hit " .. hitCount .. " targets")

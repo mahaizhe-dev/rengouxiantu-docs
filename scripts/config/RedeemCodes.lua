@@ -277,6 +277,16 @@ RedeemCodes.CODES = {
         perUser   = 1,
         note      = "1W灵韵，限5次，每人1次",
     },
+    {
+        code      = "SH5XQTR7",
+        rewards   = {
+            { type = "title", id = "pioneer" },
+            { type = "item", id = "item_guardian_token", amount = 1 },
+        },
+        maxUses   = 5,
+        perUser   = 1,
+        note      = "先行者称号+守护者证明x1，限5次，每人1次",
+    },
 }
 
 return RedeemCodes

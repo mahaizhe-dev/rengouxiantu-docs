@@ -295,18 +295,50 @@ GameConfig.CODE_VERSION = 4  -- 每次发版递增
 
 ---
 
-## 六、构建规范（多人游戏 entry 参数）🔴
+## 六、构建规范（多人游戏 entry 参数与线上多人配置）🔴
 
-> 触发事件: 多次构建遗漏 entry_client 导致多人模式不可用
+> 触发事件: 多次构建遗漏 entry_client 导致多人模式不可用；多次误传 build.multiplayer 覆盖线上多人配置，导致匹配/后台匹配参数被改坏。
 
-**每次调用 build 必须显式传入：**
+### 6.1 标准构建命令
+
+**每次调用 build 必须显式传入客户端和服务端入口：**
 
 ```
-✅ build(entry_client="client_main.lua", entry_server="server_main.lua")
+✅ build(entry_client="client_main.lua", entry_server="server_main.lua", scriptsPath="scripts")
 ❌ build() / build(entry="main.lua")  — 绝对禁止
 ```
 
-构建后验证：`grep '"entry"' /workspace/dist/<version>/manifest-*.json`，不应出现 `"entry": "main.lua"`。
+### 6.2 绝对禁止在标准构建时传 `multiplayer` 参数
+
+`build` 工具的 `multiplayer` 参数不是临时参数，传入后会写入 `.project/settings.json`。
+
+```
+🔴 标准构建时禁止传 multiplayer 字段。
+🔴 用户只说“构建”“构建版本”“标准构建”时，只传 entry_client / entry_server / scriptsPath。
+🔴 除非用户明确要求“修改多人配置”，否则不得传 multiplayer，不得重写 .project/settings.json。
+```
+
+### 6.3 当前线上多人配置（不得擅自改动）
+
+`.project/settings.json` 中 `@runtime.multiplayer` 必须保持：
+
+```json
+{
+  "enabled": true,
+  "max_players": 8,
+  "background_match": true,
+  "match_info": {
+    "desc_name": "free_match_with_ai",
+    "player_number": 1,
+    "match_timeout": 3,
+    "immediately_start": true
+  }
+}
+```
+
+构建前后如需核对，必须确认上述值没有被改成默认测试配置，例如 `max_players=4`、`background_match=false`、`free_match`、`match_timeout=0`。
+
+构建后验证：`grep '"entry"' /workspace/dist/<version>/manifest-*.json`，必须只出现 `client_main.lua` 和 `server_main.lua`，不应出现 `"entry": "main.lua"`。
 
 ---
 

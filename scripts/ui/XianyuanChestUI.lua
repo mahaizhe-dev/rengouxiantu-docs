@@ -297,7 +297,7 @@ local function BuildEquipCard(item, index)
     local qName = qualityCfg and qualityCfg.name or "普通"
     local qColor = qualityCfg and qualityCfg.color or {200, 200, 200, 255}
     local slotName = EquipmentData.SLOT_NAMES[item.slot] or item.slot or ""
-    local tierStr = item.tier and (item.tier .. "阶") or ""
+    local tierStr = EquipmentData.GetTierDisplayName(item.tier)
 
     -- 名称行
     local displayIcon = IconUtils.GetTextIcon(item.icon, "")

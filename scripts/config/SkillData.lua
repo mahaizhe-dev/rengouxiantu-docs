@@ -3,6 +3,36 @@
 -- ============================================================================
 
 local SkillData = {}
+local GameConfig = require("config.GameConfig")
+
+local function GetCurrentPlayer()
+    local ok, GameState = pcall(require, "core.GameState")
+    if ok and GameState then
+        return GameState.player
+    end
+    return nil
+end
+
+local function ShallowCopy(src)
+    local dst = {}
+    for k, v in pairs(src or {}) do
+        dst[k] = v
+    end
+    return dst
+end
+
+local function ApplyFields(dst, src)
+    for k, v in pairs(src or {}) do
+        if k ~= "keepCombo" then
+            dst[k] = v
+        end
+    end
+end
+
+local function RealmOrder(realmId)
+    local data = realmId and GameConfig.REALMS[realmId]
+    return data and data.order or 0
+end
 
 -- 技能类型：
 --   melee_aoe    - 近战范围攻击
@@ -145,8 +175,18 @@ SkillData.Skills = {
         cooldown = 0,  -- 无CD，由内部逻辑管理
         maxSwords = 3,
         damageReducePercent = 0.30,
+        breakHealPercent = 0.08,
         recoverInterval = 20.0,
         effectColor = {120, 200, 255, 255},  -- 浅蓝剑影
+        descriptionProvider = function(skill, maxHp)
+            local player = GetCurrentPlayer()
+            local totalMaxHp = player and player.GetTotalMaxHp and player:GetTotalMaxHp() or maxHp or 0
+            local heal = math.floor(totalMaxHp * (skill.breakHealPercent or 0))
+            return string.format(
+                "被动：3柄灵剑环绕护体，受击时自动格挡30%%伤害；每消耗1柄灵剑立即回复8%%最大生命（当前+%d）；消耗后每20秒恢复1柄，释放技能额外恢复1柄",
+                heal
+            )
+        end,
     },
 
     -- ===================== 太虚：筑基阶段 =====================
@@ -155,7 +195,7 @@ SkillData.Skills = {
         name = "一剑开天",
         icon = "🗡️",
         classId = "taixu",
-        description = "被动：每释放8次技能，从天召唤巨剑，对前方圆形范围造成300%攻击力伤害，击杀目标时回血翻倍",
+        description = "被动：每释放8次技能，从天召唤巨剑，对前方圆形范围造成300%攻击力伤害，触发时按总击杀回血回复生命",
         type = "nth_cast_trigger",
         unlockLevel = 25,
         unlockRealm = "zhuji_1",
@@ -166,8 +206,20 @@ SkillData.Skills = {
         triggerDamageMultiplier = 3.0,
         triggerRange = 1.5,
         triggerMaxTargets = 5,
-        triggerKillHealMultiplier = 2,
+        triggerOnHitHealFromKillHealMultiplier = 8,
         effectColor = {80, 160, 255, 255},  -- 深蓝剑光（与巨剑一致）
+        descriptionProvider = function(skill)
+            local player = GetCurrentPlayer()
+            local totalKillHeal = SkillData.GetTotalKillHeal(player)
+            local triggerHeal = math.floor(totalKillHeal * (skill.triggerOnHitHealFromKillHealMultiplier or 0))
+            return string.format(
+                "被动：每释放%d次技能，从天召唤巨剑，对前方圆形范围造成%.0f%%攻击力伤害；触发时立即回复当前总击杀回血×%d（当前+%d）",
+                skill.triggerEveryN or 8,
+                (skill.triggerDamageMultiplier or 3.0) * 100,
+                skill.triggerOnHitHealFromKillHealMultiplier or 8,
+                triggerHeal
+            )
+        end,
     },
 
     -- ===================== 专属装备技能 =====================
@@ -730,8 +782,84 @@ SkillData.RealmEnhancements = {
             enhancedSkill = "blood_burn",
         },
     },
+    -- ===== 元婴初期：三职业 1 技能强化 =====
+    yuanying_1 = {
+        monk = {
+            name = "金刚地印",
+            icon = "🖐️",
+            description = "金刚掌命中后，在掌击区域留下金刚印：每0.5秒造成防御×0.25的普通伤害，持续3秒，可暴击。",
+            enhancedSkill = "ice_slash",
+            followupGroundZone = {
+                tickInterval = 0.5,
+                duration = 3.0,
+                damageSource = "def",
+                damageCoeff = 0.25,
+                usesCalcDamage = true,
+                canCrit = true,
+                shape = "same_as_hit_area",
+                zoneVisualKey = "monk_seal_zone",
+                showZoneLabel = false,
+                tickFlashColor = {255, 230, 120, 180},
+            },
+            descriptionProvider = function(enhancement, player)
+                local totalDef = player and player.GetTotalDef and player:GetTotalDef() or 0
+                local tickBase = math.floor(totalDef * (enhancement.followupGroundZone.damageCoeff or 0))
+                return string.format(
+                    "金刚掌命中后留下金刚印：每0.5秒造成防御×0.25的普通伤害（当前单跳基础%d），持续3秒，可暴击。",
+                    tickBase
+                )
+            end,
+        },
+        taixu = {
+            name = "大破剑式",
+            icon = "⚔️",
+            description = "破剑式有20%概率升级为大破剑式：五剑、宽扇形、250%攻击力、最多命中5个目标，且可连击。",
+            enhancedSkill = "three_swords",
+            upgradeChance = 0.20,
+            upgradeVariant = {
+                swordCount = 5,
+                damageMultiplier = 2.5,
+                coneAngle = 90,
+                maxTargets = 5,
+                keepCombo = true,
+                effectVariant = "great_break_sword",
+            },
+            descriptionProvider = function(enhancement, player)
+                local totalAtk = player and player.GetTotalAtk and player:GetTotalAtk() or 0
+                local raw = math.floor(totalAtk * (enhancement.upgradeVariant.damageMultiplier or 2.5))
+                return string.format(
+                    "破剑式有20%%概率升级为大破剑式：250%%攻击力（当前基础%d）、五剑、宽扇形、最多5目标、可连击。",
+                    raw
+                )
+            end,
+        },
+        zhenyue = {
+            name = "裂山崩岳",
+            icon = "👊",
+            description = "裂山范围扩大0.5格，消耗6%最大生命，造成12%最大生命伤害，额外扣血继续计入血神。",
+            enhancedSkill = "mountain_fist",
+            skillOverrides = {
+                range = 2.0,
+                hpCost = 0.06,
+                hpCoefficient = 0.12,
+                feedsAccumulatorExtraCost = true,
+                effectVariant = "yuanying_mountain_fist",
+                outerShockwaveScale = 1.25,
+                outerShockwaveDelay = 0.08,
+            },
+            descriptionProvider = function(enhancement, player)
+                local totalMaxHp = player and player.GetTotalMaxHp and player:GetTotalMaxHp() or 0
+                local hpCost = math.floor(totalMaxHp * (enhancement.skillOverrides.hpCost or 0))
+                local raw = math.floor(totalMaxHp * (enhancement.skillOverrides.hpCoefficient or 0))
+                return string.format(
+                    "裂山范围扩大0.5格；消耗6%%最大生命（当前%d），造成12%%最大生命伤害（当前基础%d），额外扣血计入血神。",
+                    hpCost,
+                    raw
+                )
+            end,
+        },
+    },
     -- ===== 后续境界可继续在此扩展 =====
-    -- yuanying_1 = { ... },
     -- huashen_1 = { ... },
 }
 
@@ -743,6 +871,110 @@ function SkillData.GetRealmEnhancement(realmId, classId)
     local realmEnhance = SkillData.RealmEnhancements[realmId]
     if not realmEnhance then return nil end
     return realmEnhance[classId]
+end
+
+--- 判断玩家是否达到指定境界
+---@param player table|nil 玩家对象
+---@param realmId string 目标境界 ID
+---@return boolean
+function SkillData.IsRealmReached(player, realmId)
+    if not player or not realmId then return false end
+    return RealmOrder(player.realm or "mortal") >= RealmOrder(realmId)
+end
+
+--- 获取指定技能当前生效的境界强化
+---@param skillId string 技能 ID
+---@param player table|nil 玩家对象
+---@param realmId string|nil 指定境界 ID；为空时取所有已达到境界中的最高阶强化
+---@return table|nil enhancement
+---@return string|nil enhancementRealmId
+function SkillData.GetActiveRealmEnhancementForSkill(skillId, player, realmId)
+    if not skillId or not player then return nil, nil end
+    local classId = player.classId or GameConfig.PLAYER_CLASS
+
+    if realmId then
+        if not SkillData.IsRealmReached(player, realmId) then return nil, nil end
+        local enhancement = SkillData.GetRealmEnhancement(realmId, classId)
+        if enhancement and enhancement.enhancedSkill == skillId then
+            return enhancement, realmId
+        end
+        return nil, nil
+    end
+
+    local bestEnhancement = nil
+    local bestRealmId = nil
+    local bestOrder = -1
+    for rid, classMap in pairs(SkillData.RealmEnhancements) do
+        if SkillData.IsRealmReached(player, rid) then
+            local enhancement = classMap and classMap[classId]
+            local order = RealmOrder(rid)
+            if enhancement and enhancement.enhancedSkill == skillId and order > bestOrder then
+                bestEnhancement = enhancement
+                bestRealmId = rid
+                bestOrder = order
+            end
+        end
+    end
+    return bestEnhancement, bestRealmId
+end
+
+--- 创建本次施法使用的技能快照，避免污染 SkillData 原表
+---@param skill table 技能配置
+---@param player table|nil 玩家对象
+---@return table runtimeSkill
+function SkillData.CreateRuntimeSkill(skill, player)
+    if not skill then return skill end
+    local enhancement, realmId = SkillData.GetActiveRealmEnhancementForSkill(skill.id, player)
+    if not enhancement then return skill end
+
+    local runtimeSkill = ShallowCopy(skill)
+    runtimeSkill._activeRealmEnhancement = enhancement
+    runtimeSkill._activeRealmEnhancementRealm = realmId
+
+    if enhancement.skillOverrides then
+        ApplyFields(runtimeSkill, enhancement.skillOverrides)
+    end
+
+    if enhancement.upgradeChance and enhancement.upgradeVariant then
+        if math.random() < enhancement.upgradeChance then
+            ApplyFields(runtimeSkill, enhancement.upgradeVariant)
+            runtimeSkill._upgradeVariantTriggered = true
+        else
+            runtimeSkill._upgradeVariantTriggered = false
+        end
+    end
+
+    return runtimeSkill
+end
+
+--- 统一计算总击杀回血，口径与 GameEvents.monster_death 保持一致
+---@param player table|nil 玩家对象
+---@return number totalKillHeal
+function SkillData.GetTotalKillHeal(player)
+    if not player then return 0 end
+    return math.floor(
+        (player.equipKillHeal or 0)
+        + (player.titleKillHeal or 0)
+        + (player.collectionKillHeal or 0)
+        + (player.pillKillHeal or 0)
+        + (player.artifactTiandiKillHeal or 0)
+        + (player.minggeKillHeal or 0)
+    )
+end
+
+--- 获取境界强化动态描述
+---@param realmId string 境界 ID
+---@param classId string 职业 ID
+---@param player table|nil 玩家对象
+---@return string
+function SkillData.GetRealmEnhancementDynamicDescription(realmId, classId, player)
+    local enhancement = SkillData.GetRealmEnhancement(realmId, classId)
+    if not enhancement then return "" end
+    if enhancement.descriptionProvider then
+        local ok, result = pcall(enhancement.descriptionProvider, enhancement, player or GetCurrentPlayer())
+        if ok and result then return result end
+    end
+    return enhancement.description or ""
 end
 
 return SkillData

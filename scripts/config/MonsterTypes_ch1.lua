@@ -391,4 +391,30 @@ return function(M)
             { chance = 0.01, type = "world_drop", pool = "ch1" },
         },
     }
+
+    local ch1TypeIds = {
+        "spider_trail",
+        "boar_patrol",
+        "spider_small",
+        "spider_elite",
+        "spider_queen",
+        "boar_small",
+        "boar_captain",
+        "boar_king",
+        "bandit_small",
+        "bandit_guard",
+        "bandit_second",
+        "bandit_strategist",
+        "bandit_guard_back",
+        "bandit_chief",
+        "tiger_elite",
+        "tiger_king",
+    }
+
+    for _, typeId in ipairs(ch1TypeIds) do
+        local data = M.Types[typeId]
+        if data then
+            data["chapter"] = 1
+        end
+    end
 end

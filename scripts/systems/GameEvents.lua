@@ -7,6 +7,7 @@ local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
 local Utils = require("core.Utils")
 local GameConfig = require("config.GameConfig")
+local SkillData = require("config.SkillData")
 local PetFormConfig = require("config.PetFormConfig")
 local CombatSystem = require("systems.CombatSystem")
 local LootSystem = require("systems.LootSystem")
@@ -58,15 +59,20 @@ function GameEvents.Register(refs)
 
         -- BOSS击杀冷却记录（防止切换章节刷新BOSS）— 封魔BOSS不影响原BOSS刷新
         if GameConfig.BOSS_CATEGORIES[monster.category] and not monster.isSealDemon and not monster.isSwordWall then
-            GameState.bossKillTimes[monster.typeId] = {
-                killTime = GameState.gameTime,
-                respawnTime = monster.respawnTime,
-            }
             GameState.bossKills = (GameState.bossKills or 0) + 1
-            print("[GameEvents] Boss kill recorded: " .. monster.typeId
-                .. " at gameTime=" .. string.format("%.1f", GameState.gameTime)
-                .. " (respawn in " .. monster.respawnTime .. "s)"
-                .. " total=" .. GameState.bossKills)
+            if not monster.localRespawn then
+                GameState.bossKillTimes[monster.typeId] = {
+                    killTime = GameState.gameTime,
+                    respawnTime = monster.respawnTime,
+                }
+                print("[GameEvents] Boss kill recorded: " .. monster.typeId
+                    .. " at gameTime=" .. string.format("%.1f", GameState.gameTime)
+                    .. " (respawn in " .. monster.respawnTime .. "s)"
+                    .. " total=" .. GameState.bossKills)
+            else
+                print("[GameEvents] Local-respawn boss kill counted: " .. monster.typeId
+                    .. " total=" .. GameState.bossKills)
+            end
         end
 
         -- 任务系统击杀追踪
@@ -77,7 +83,7 @@ function GameEvents.Register(refs)
 
         -- 击杀回血（装备 + 图录 + 称号 + 丹药）
         local player = GameState.player
-        local killHeal = player and ((player.equipKillHeal or 0) + (player.titleKillHeal or 0) + (player.collectionKillHeal or 0) + (player.pillKillHeal or 0) + (player.artifactTiandiKillHeal or 0) + (player.minggeKillHeal or 0)) or 0
+        local killHeal = SkillData.GetTotalKillHeal(player)
         if killHeal > 0 and player.alive then
             local maxHp = player:GetTotalMaxHp()
             local healAmt = math.floor(killHeal)

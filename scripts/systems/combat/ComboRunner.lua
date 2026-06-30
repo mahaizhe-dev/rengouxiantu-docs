@@ -70,6 +70,10 @@ function ComboRunner.Schedule(player, skill, targetAngle, comboHitFn)
                 rectLength = skill.rectLength,
                 rectWidth = skill.rectWidth,
                 targetAngle = targetAngle,
+                effectVariant = skill.effectVariant,
+                swordCount = skill.swordCount,
+                outerShockwaveScale = skill.outerShockwaveScale,
+                outerShockwaveDelay = skill.outerShockwaveDelay,
             })
             -- 连击也计入技能释放次数（触发 nth_cast_trigger 等被动）
             EventBus.Emit("skill_cast", skill.id, skill)

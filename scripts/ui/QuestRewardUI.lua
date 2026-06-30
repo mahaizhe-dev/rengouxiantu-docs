@@ -56,7 +56,7 @@ local function CreateItemCard(item, index)
     local slotName = EquipmentData.SLOT_NAMES[item.slot] or item.slot or ""
 
     -- 阶级名
-    local tierStr = item.tier and (item.tier .. "阶") or ""
+    local tierStr = EquipmentData.GetTierDisplayName(item.tier)
 
     -- 子标题行：阶级 + 品质 + 部位
     local subLine = slotName

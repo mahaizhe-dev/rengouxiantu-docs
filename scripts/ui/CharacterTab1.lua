@@ -157,7 +157,8 @@ function CharacterTab1.Build(refreshFn)
 
     -- 减伤/速度
     table.insert(sec, StatRow.Create("减伤", fmtVal((player.equipDmgReduce or 0) * 100, "%.1f%%"), {180, 140, 255, 255}))
-    table.insert(sec, StatRow.Create("移动速度", fmtVal((player.equipSpeed or 0) * 100, "+%.1f%%"), {100, 220, 255, 255}))
+    local totalMoveSpeed = (player.equipSpeed or 0) + (player._skinMoveSpeedPct or 0) + (player.minggeSpeed or 0)
+    table.insert(sec, StatRow.Create("移动速度", fmtVal(totalMoveSpeed * 100, "+%.1f%%"), {100, 220, 255, 255}))
     table.insert(sec, StatRow.Create("攻击速度", fmtVal(player:GetAttackSpeed(), "%.2fx"), {255, 180, 150, 255}))
 
     -- ── 洗髓境 ──

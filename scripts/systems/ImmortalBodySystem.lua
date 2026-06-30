@@ -197,6 +197,20 @@ function ImmortalBodySystem.RequestSwitch(targetBodyId)
     return true, "切换已保存，重新登录后生效"
 end
 
+--- R2: 保存失败时回滚切换（恢复灵韵 + 清 pending）
+function ImmortalBodySystem.RollbackSwitch()
+    if not charState.pending then return end
+
+    local player = GameState.player
+    if player and charState.pending.paidLingYun then
+        player.lingYun = player.lingYun + charState.pending.paidLingYun
+        EventBus.Emit("player_lingyun_change", player.lingYun)
+    end
+
+    print("[ImmortalBodySystem] RollbackSwitch: restored " .. (charState.pending.paidLingYun or 0) .. " lingYun")
+    charState.pending = nil
+end
+
 -- ============================================================================
 -- Post-Load 应用 Pending
 -- ============================================================================

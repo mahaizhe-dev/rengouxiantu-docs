@@ -193,7 +193,7 @@ local function BuildForgePreviewRows(targetDef)
     local qMult  = GameConfig.QUALITY["red"] and GameConfig.QUALITY["red"].multiplier or 2.1
 
     -- 装备名称 & 阶位
-    local tierLabel = targetDef.tier and (targetDef.tier .. "阶") or "9阶"
+    local tierLabel = targetDef.tier and EquipmentData.GetTierDisplayName(targetDef.tier) or "9阶"
     local slotLabel = EquipmentData.SLOT_NAMES and EquipmentData.SLOT_NAMES[targetDef.slot] or (targetDef.slot or "装备")
     table.insert(rows, UI.Label {
         text = targetDef.name,
@@ -587,7 +587,7 @@ local function ShowForgeSuccess(item, title, subtitle)
                     UI.Panel { width = "80%", height = 1, backgroundColor = {qColor[1], qColor[2], qColor[3], 60} },
                     UI.Label { text = item.name, fontSize = T.fontSize.lg, fontWeight = "bold",
                                fontColor = {qColor[1], qColor[2], qColor[3], 255}, textAlign = "center" },
-                    UI.Label { text = item.tier .. "阶 [" .. qualityName .. "] " .. slotName,
+                    UI.Label { text = EquipmentData.GetTierDisplayName(item.tier) .. " [" .. qualityName .. "] " .. slotName,
                                fontSize = T.fontSize.sm,
                                fontColor = {qColor[1], qColor[2], qColor[3], 180}, textAlign = "center" },
                     UI.Panel { width = "80%", height = 1, backgroundColor = {qColor[1], qColor[2], qColor[3], 40} },

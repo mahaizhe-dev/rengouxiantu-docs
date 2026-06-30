@@ -65,12 +65,6 @@ function BlackMerchantEntry.Create(parentOverlay)
     else
         -- 降级：直接挂到 overlay（绝对定位在左上角）
         print("[BlackMerchantEntry] WARN: minimapContainer not found, fallback to overlay")
-        btn_:SetStyle({
-            position = "absolute",
-            top = 300,
-            left = 8,
-            zIndex = 5,
-        })
         parentOverlay:AddChild(btn_)
     end
 end

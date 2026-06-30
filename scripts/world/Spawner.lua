@@ -9,12 +9,19 @@ local Monster = require("entities.Monster")
 local GameState = require("core.GameState")
 local GameConfig = require("config.GameConfig")
 
+---@class Spawner
+---@field spawnPoints table[]
 local Spawner = {}
 Spawner.__index = Spawner
 
+local function UsesBossCooldown(monsterType)
+    return GameConfig.BOSS_CATEGORIES[monsterType.category] and not rawget(monsterType, "localRespawn")
+end
+
 --- 创建刷新管理器
----@return table
+---@return Spawner
 function Spawner.New()
+    ---@type Spawner
     local self = setmetatable({}, Spawner)
 
     -- 刷新点数据：每个记录原始数据 + 对应怪物实例 + 重生计时
@@ -52,7 +59,7 @@ function Spawner:Init(gameMap)
     for i, sp in ipairs(ActiveZoneData.Get().SpawnPoints or {}) do
         local monsterType = MonsterData.Types[sp.type]
         if monsterType then
-            local sx, sy = sp.x, sp.y
+            local sx, sy = tonumber(sp.x) or 0, tonumber(sp.y) or 0
 
             -- 验证刷怪点是否在可通行区域，如果不是则自动修正
             if gameMap and not gameMap:IsWalkable(sx, sy) then
@@ -81,12 +88,17 @@ function Spawner:Init(gameMap)
                 x = sx,
                 y = sy,
                 monster = monster,
-                respawnTimer = 0,
+                respawnTimer = 0.0,
                 needsRespawn = false,
             }
 
+            if rawget(monsterType, "localRespawn") and GameState.bossKillTimes[sp.type] then
+                GameState.bossKillTimes[sp.type] = nil
+                print("[Spawner] Cleared local-respawn boss cooldown: " .. sp.type)
+            end
+
             -- BOSS击杀冷却检查：如果该BOSS在冷却期内，生成时直接标记为死亡
-            if GameConfig.BOSS_CATEGORIES[monsterType.category]
+            if UsesBossCooldown(monsterType)
                 and GameState.bossKillTimes[sp.type] then
                 local bossRecord = GameState.bossKillTimes[sp.type]
                 local killTime = type(bossRecord) == "table" and bossRecord.killTime or bossRecord
@@ -126,7 +138,8 @@ function Spawner:SyncBossCooldowns()
     for i = 1, #self.spawnPoints do
         local sp = self.spawnPoints[i]
         local monster = sp.monster
-        if monster and GameConfig.BOSS_CATEGORIES[monster.category]
+        if monster and not monster.localRespawn
+            and GameConfig.BOSS_CATEGORIES[monster.category]
             and monster.alive
             and GameState.bossKillTimes[sp.type] then
             local bossRecord = GameState.bossKillTimes[sp.type]

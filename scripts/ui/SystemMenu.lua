@@ -51,16 +51,20 @@ local ZONE_NAMES = {}
 local CHAPTERS = {}
 for _, chapterId in ipairs(ChapterConfig.GetAllChapterIds()) do
     local chapter = ChapterConfig.Get(chapterId)
-    local ok, zd = pcall(require, chapter.zoneDataModule)
-    if ok and zd and zd.BESTIARY_ZONES and #(zd.BESTIARY_ZONES.order or {}) > 0 then
-        local bz = zd.BESTIARY_ZONES
-        for k, v in pairs(bz.names) do
-            ZONE_NAMES[k] = v
+    if chapter then
+        local ok, zd = pcall(require, chapter.zoneDataModule)
+        if ok and zd and zd.BESTIARY_ZONES and #(zd.BESTIARY_ZONES.order or {}) > 0 then
+            local bz = zd.BESTIARY_ZONES
+            for k, v in pairs(bz.names) do
+                ZONE_NAMES[k] = v
+            end
+            table.insert(CHAPTERS, {
+                id = chapterId,
+                name = chapter.name:match("·(.+)") and chapter.name or chapter.name,
+                zones = bz.order,
+                monsterChapter = zd.CHAPTER_ID,
+            })
         end
-        table.insert(CHAPTERS, {
-            name = chapter.name:match("·(.+)") and chapter.name or chapter.name,
-            zones = bz.order,
-        })
     end
 end
 
@@ -357,11 +361,17 @@ local function BuildBestiaryContent(chapterIndex)
     -- 按区域分组
     local zoneMonsters = {}
     for mId, mData in pairs(MonsterData.Types) do
-        local zone = mData.zone or "unknown"
-        if not zoneMonsters[zone] then
-            zoneMonsters[zone] = {}
+        local include = true
+        if chapter.monsterChapter then
+            include = rawget(mData, "chapter") == chapter.monsterChapter
         end
-        table.insert(zoneMonsters[zone], { id = mId, data = mData })
+        if include then
+            local zone = mData.zone or "unknown"
+            if not zoneMonsters[zone] then
+                zoneMonsters[zone] = {}
+            end
+            table.insert(zoneMonsters[zone], { id = mId, data = mData })
+        end
     end
 
     -- 每个区域内按等级排序
@@ -379,8 +389,8 @@ local function BuildBestiaryContent(chapterIndex)
     local children = {}
 
     for _, zoneId in ipairs(chapter.zones) do
-        local monsters = zoneMonsters[zoneId]
-        if monsters and #monsters > 0 then
+        local monsters = zoneMonsters[zoneId] or {}
+        if #monsters > 0 then
             local zoneName = ZONE_NAMES[zoneId] or zoneId
 
             -- 区域标题
@@ -1555,6 +1565,12 @@ function SystemMenu.DoSaveAndExit()
     if not player then
         print("[SystemMenu] DoSaveAndExit: player is nil, cannot save")
         return
+    end
+
+    -- R6 修复：渡劫中保存退出，先结算失败（触发 10 分钟 CD）
+    local okTs, TribulationScene = pcall(require, "systems.TribulationScene")
+    if okTs and TribulationScene and TribulationScene.IsActive and TribulationScene.IsActive() then
+        TribulationScene.Exit("quit")
     end
 
     SaveSystem.Save(function(success, reason)

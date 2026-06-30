@@ -1,7 +1,7 @@
 -- ============================================================================
 -- MonsterTypes_xianyun.lua - 中洲城·仙殒战场
 -- ============================================================================
--- 域外天魔（Lv.120 谪仙境）：皇级BOSS单位，自带魔化BUFF
+-- 域外天魔（Lv.120 谪仙1阶）：皇级BOSS单位，自带魔化BUFF
 -- 掉落：T10装备（灵器套装概率）、龙髓/修炼果/灵韵果、渡劫丹/上品修炼果/金砖/上品灵韵果/仙人精血、天帝剑痕碎片
 -- ============================================================================
 
@@ -87,18 +87,19 @@ local XIANJIE_SET_IDS = { "xuesha", "qingyun", "fengmo", "haoqi" }
 -- =====================================================================
 M.Types.outer_celestial_boss = {
     name = "域外天魔",
-    icon = "👿",
+    icon = "👹",
     portrait = "image/edited_monster_outer_celestial_20260619095204.png",
     zone = "xianyun_battlefield",
     category = "emperor_boss",
     race = "outer_celestial",
     level = 120,
-    realm = "dujie_1",
+    realm = "zhexian_1",
     bodyColor = { 40, 20, 120, 255 },
     clawColor = { 100, 60, 220 },
     skillTextColor = { 140, 80, 255, 255 },
     warningColorOverride = { 60, 20, 140, 120 },
     spawnCount = 5,
+    localRespawn = true,
     demonBuff = true,           -- 自带魔化BUFF（视觉+属性强化）
     phases = 3,
     skills = { "void_triple_slash", "celestial_impact", "doom_wave_ex" },  -- P1基础三技能，P2新增连弹

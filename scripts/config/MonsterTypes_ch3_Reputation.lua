@@ -213,7 +213,7 @@ M.Types.challenge_shenmo_r7 = {
     berserkBuff = { atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 },
 }
 
--- 声望等级8: T10 渡劫初期（3阶段，圣者Boss，血印强化）
+-- 声望等级8: T10 谪仙1阶（3阶段，圣者Boss，血印强化）
 M.Types.challenge_shenmo_r8 = {
     name = "沈墨",
     icon = "🗡️",
@@ -222,7 +222,7 @@ M.Types.challenge_shenmo_r8 = {
     category = "saint_boss",
     race = "human",
     level = 120,
-    realm = "dujie_1",
+    realm = "zhexian_1",
     bodyColor = {255, 0, 0, 255},
     clawColor = {220, 20, 20},
     skillTextColor = {255, 60, 40, 255},
@@ -454,7 +454,7 @@ M.Types.challenge_luqingyun_r7 = {
     berserkBuff = { atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 },
 }
 
--- 声望等级8: T10 渡劫初期（3阶段，圣者Boss，结界强化）
+-- 声望等级8: T10 谪仙1阶（3阶段，圣者Boss，结界强化）
 M.Types.challenge_luqingyun_r8 = {
     name = "陆青云",
     icon = "⚔️",
@@ -463,7 +463,7 @@ M.Types.challenge_luqingyun_r8 = {
     category = "saint_boss",
     race = "human",
     level = 120,
-    realm = "dujie_1",
+    realm = "zhexian_1",
     bodyColor = {30, 70, 200, 255},
     clawColor = {240, 200, 50},
     skillTextColor = {255, 230, 80, 255},
@@ -696,7 +696,7 @@ M.Types.challenge_yunshang_r7 = {
     berserkBuff = { atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 },
 }
 
--- 声望等级8: T10 渡劫初期（3阶段，圣者Boss，玉甲强化）
+-- 声望等级8: T10 谪仙1阶（3阶段，圣者Boss，玉甲强化）
 M.Types.challenge_yunshang_r8 = {
     name = "云裳",
     icon = "🌿",
@@ -705,7 +705,7 @@ M.Types.challenge_yunshang_r8 = {
     category = "saint_boss",
     race = "human",
     level = 120,
-    realm = "dujie_1",
+    realm = "zhexian_1",
     bodyColor = {30, 180, 80, 255},
     clawColor = {60, 220, 100},
     skillTextColor = {80, 255, 120, 255},
@@ -940,7 +940,7 @@ M.Types.challenge_liwuji_r7 = {
     berserkBuff = { atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 },
 }
 
--- 声望等级8: T10 渡劫初期（3阶段，圣者Boss，封印强化）
+-- 声望等级8: T10 谪仙1阶（3阶段，圣者Boss，封印强化）
 M.Types.challenge_liwuji_r8 = {
     name = "凌战",
     icon = "🔮",
@@ -949,7 +949,7 @@ M.Types.challenge_liwuji_r8 = {
     category = "saint_boss",
     race = "human",
     level = 120,
-    realm = "dujie_1",
+    realm = "zhexian_1",
     bodyColor = {140, 40, 200, 255},
     clawColor = {200, 60, 240},
     skillTextColor = {220, 100, 255, 255},

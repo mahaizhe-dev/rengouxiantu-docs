@@ -295,7 +295,8 @@ local function GetZoneLabels()
     cachedZoneLabels = {}
     local R = zd.Regions
     if not R then return cachedZoneLabels end
-    for _, def in ipairs(REGION_LABEL_DEFS) do
+    local labelDefs = zd.MINIMAP_LABELS or REGION_LABEL_DEFS
+    for _, def in ipairs(labelDefs) do
         local region = R[def.key]
         if region then
             table.insert(cachedZoneLabels, {

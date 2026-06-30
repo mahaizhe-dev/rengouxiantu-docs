@@ -62,6 +62,68 @@ local function SkillCard(slotIndex, player)
     })
 end
 
+local function YuanyingEnhancementCard(player)
+    local enhancement = SkillData.GetRealmEnhancement("yuanying_1", player.classId)
+    if not enhancement then return nil end
+
+    local slotPreview = SkillData.GetSlotPreview and SkillData.GetSlotPreview(player.classId) or SkillData.SlotPreview
+    if not slotPreview or enhancement.enhancedSkill ~= slotPreview[1] then return nil end
+
+    local unlocked = SkillData.IsRealmReached(player, "yuanying_1")
+    local descText = unlocked
+        and SkillData.GetRealmEnhancementDynamicDescription("yuanying_1", player.classId, player)
+        or "元婴期解锁强化"
+
+    return UI.Panel {
+        backgroundColor = T.color.surfaceDeep,
+        borderRadius = T.radius.sm,
+        borderWidth = 1,
+        borderColor = unlocked and T.color.goldBgSubtle or T.color.borderLight,
+        padding = T.spacing.sm,
+        gap = T.spacing.xs,
+        children = {
+            UI.Panel {
+                width = "100%",
+                height = 1,
+                backgroundColor = unlocked and T.color.goldBgSubtle or T.color.borderLight,
+            },
+            UI.Panel {
+                flexDirection = "row",
+                alignItems = "center",
+                gap = T.spacing.sm,
+                children = {
+                    UI.Label {
+                        text = enhancement.icon or "⬆️",
+                        fontSize = T.fontSize.lg,
+                        width = 28,
+                        textAlign = "center",
+                    },
+                    UI.Panel {
+                        flexGrow = 1,
+                        flexShrink = 1,
+                        flexBasis = 0,
+                        gap = 2,
+                        children = {
+                            UI.Label {
+                                text = "元婴强化 · " .. (enhancement.name or "") .. (unlocked and "" or " (未解锁)"),
+                                fontSize = T.fontSize.xs,
+                                fontWeight = "bold",
+                                fontColor = unlocked and T.color.gold or T.color.disabled,
+                            },
+                            UI.Label {
+                                text = descText,
+                                fontSize = T.fontSize.xs,
+                                fontColor = unlocked and T.color.goldSoft or T.color.textMuted,
+                                whiteSpace = "normal",
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
+end
+
 --- 构建 Tab2 内容
 ---@return table[] children
 function CharacterTab2.Build()
@@ -200,6 +262,12 @@ function CharacterTab2.Build()
     table.insert(children, SectionHeader.Create({ text = "技能配置", showDivider = false }))
     for i = 1, SkillData.MAX_SKILL_SLOTS do
         table.insert(sec, SkillCard(i, player))
+        if i == 1 then
+            local yuanyingCard = YuanyingEnhancementCard(player)
+            if yuanyingCard then
+                table.insert(sec, yuanyingCard)
+            end
+        end
 
         -- 被动技能插在槽3之后
         if i == 3 then

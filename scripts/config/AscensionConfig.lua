@@ -22,8 +22,8 @@ C.ITEM_TWO_TURN_PILL = "two_turn_tribulation_pill"   -- 二转仙劫丹（暂不
 -- ============================================================================
 -- 3. 仙阶进度配置
 -- ============================================================================
-C.MAJOR_PROGRESS_REQUIRED = 30   -- 大仙阶突破所需进度（大乘巅峰→谪仙1阶）
-C.MINOR_PROGRESS_REQUIRED = 10   -- 小境界突破所需进度（谪仙1阶→谪仙2阶）
+-- 每个大仙阶内 9 阶的进度需求（1阶为渡劫/大突破，2-9阶为小突破）
+C.PROGRESS_PER_MINOR = { 30, 10, 10, 20, 20, 20, 30, 30, 30 }
 C.PROGRESS_OVERFLOW_MAX = 4      -- 最后一颗丹允许的最大溢出
 
 -- 吃丹随机表（权重制）
@@ -123,7 +123,7 @@ for stageIdx, stage in ipairs(C.MAJOR_STAGES) do
             stageIndex  = stageIdx,
             minorIndex  = minorIdx,
             stageName   = stage.name,
-            displayName = stage.name .. minorIdx .. "阶",
+            displayName = stage.name .. ({"一","二","三","四","五","六","七","八","九"})[minorIdx] .. "阶",
             isMajor     = isMajor,
             maxLevel    = stage.maxLevel,
             rewards     = rewards,
@@ -251,10 +251,29 @@ function C.EnsureRealmsRegistered()
                 order = 22 + entry.totalIndex,
                 maxLevel = entry.maxLevel or 300,
                 requiredLevel = 120,
+                attackSpeedBonus = 1.0,  -- 继承谪仙攻速，之后不再增加
+                rewards = entry.rewards,
+            }
+        end
+        GameConfig.REALMS[realmId]["monsterAttributeCoeff"] = C.GetMonsterAttributeCoeff(entry.totalIndex)
+        GameConfig.REALMS[realmId]["monsterRewardCoeff"] = C.GetMonsterRewardCoeff(entry.totalIndex)
+
+        -- 怪物配置可直接使用 zhexian_1 / renxian_1 这类执行 ID。
+        local stage = C.MAJOR_STAGES[entry.stageIndex]
+        local aliasId = stage.id .. "_" .. tostring(entry.minorIndex)
+        if not GameConfig.REALMS[aliasId] then
+            GameConfig.REALMS[aliasId] = {
+                name = entry.displayName,
+                isMajor = entry.isMajor,
+                order = 22 + entry.totalIndex,
+                maxLevel = entry.maxLevel or 300,
+                requiredLevel = 120,
                 attackSpeedBonus = 1.0,
                 rewards = entry.rewards,
             }
         end
+        GameConfig.REALMS[aliasId]["monsterAttributeCoeff"] = C.GetMonsterAttributeCoeff(entry.totalIndex)
+        GameConfig.REALMS[aliasId]["monsterRewardCoeff"] = C.GetMonsterRewardCoeff(entry.totalIndex)
     end
 end
 

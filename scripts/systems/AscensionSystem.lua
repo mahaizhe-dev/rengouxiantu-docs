@@ -82,11 +82,9 @@ end
 function AscensionSystem.GetRequiredProgress()
     local target = AscensionSystem.GetTargetInfo()
     if not target then return 0 end
-    if target.isMajor then
-        return AscensionConfig.MAJOR_PROGRESS_REQUIRED
-    else
-        return AscensionConfig.MINOR_PROGRESS_REQUIRED
-    end
+    -- 按目标阶位在大仙阶内的序号查表（1-9）
+    local minorIdx = target.minorIndex or 1
+    return AscensionConfig.PROGRESS_PER_MINOR[minorIdx] or 30
 end
 
 --- 获取当前使用的材料 ID
@@ -170,7 +168,9 @@ function AscensionSystem.ConsumePill()
     state.lastCritType = critType
 
     EventBus.Emit("ascension_pill_consumed", gain, critType, state.progress, req)
-    -- 不在此处 save_request（高频操作），由面板关闭时统一保存
+    -- R8 修复：接入 SaveSession（与洗练/炼丹相同模式：5次或20秒触发保存）
+    local SaveSession = require("systems.save.SaveSession")
+    SaveSession.MarkDirty()
 
     print(string.format("[AscensionSystem] Pill consumed: +%d (%s), progress=%d/%d",
         gain, critType, state.progress, req))
@@ -205,7 +205,7 @@ function AscensionSystem.BreakthroughMinor()
     if player then
         player.realm = newRealmId
         local realmCfg = GameConfig.REALMS[newRealmId]
-        player.realmAtkSpeedBonus = realmCfg and realmCfg.attackSpeedBonus or 1.0
+        player.realmAtkSpeedBonus = realmCfg and realmCfg.attackSpeedBonus or 0
     end
 
     -- 发放属性
@@ -217,8 +217,8 @@ function AscensionSystem.BreakthroughMinor()
     state.lastGain = 0
     state.lastCritType = "normal"
 
-    -- 弹窗：传入 old/new 仙阶 realm ID（格式 "asc_N"）
-    local oldRealmId = "asc_" .. (target.totalIndex - 1)
+    -- 弹窗：传入 old/new 仙阶 realm ID
+    local oldRealmId = target.totalIndex <= 1 and "dacheng_4" or ("asc_" .. (target.totalIndex - 1))
     EventBus.Emit("ascension_minor_breakthrough", target, oldRealmId, newRealmId)
     EventBus.Emit("save_request")
 
@@ -242,7 +242,7 @@ function AscensionSystem.CompleteMajorBreakthrough()
     if player then
         player.realm = newRealmId
         local realmCfg = GameConfig.REALMS[newRealmId]
-        player.realmAtkSpeedBonus = realmCfg and realmCfg.attackSpeedBonus or 1.0
+        player.realmAtkSpeedBonus = realmCfg and realmCfg.attackSpeedBonus or 0
     end
     if target.totalIndex == 1 then
         state.firstTribulationCompleted = true
@@ -256,7 +256,7 @@ function AscensionSystem.CompleteMajorBreakthrough()
     state.lastGain = 0
     state.lastCritType = "normal"
 
-    local oldRealmId = "asc_" .. (target.totalIndex - 1)
+    local oldRealmId = target.totalIndex <= 1 and "dacheng_4" or ("asc_" .. (target.totalIndex - 1))
     local newRealmId = "asc_" .. target.totalIndex
     EventBus.Emit("ascension_major_breakthrough", target, oldRealmId, newRealmId)
     print("[AscensionSystem] Major breakthrough: " .. target.displayName)

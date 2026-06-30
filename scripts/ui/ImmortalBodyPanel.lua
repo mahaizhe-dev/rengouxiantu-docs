@@ -288,26 +288,28 @@ function ImmortalBodyPanel._ShowConfirm(targetBodyId, targetProfile, cost)
                                 borderRadius = T.radius.sm,
                                 paddingLeft = T.spacing.lg, paddingRight = T.spacing.lg,
                                 onClick = function()
-                                    -- 1. 写 pending + 扣灵韵
+                                    -- R2 修复：事务式切换
+                                    -- 阶段A：写 pending + 扣灵韵（不立即 Apply）
                                     local ok, msg = ImmortalBodySystem.RequestSwitch(targetBodyId)
                                     if not ok then
                                         ImmortalBodyPanel._HideConfirm()
-                                        local CombatSystem = require("systems.CombatSystem")
-                                        local p = GameState.player
-                                        if p then CombatSystem.AddFloatingText(p.x, p.y - 0.5, msg or "切换失败", T.color.error, 1.5) end
+                                        EventBus.Emit("show_toast", msg or "切换失败")
                                         return
                                     end
-                                    -- 2. 立即应用属性变化
-                                    ImmortalBodySystem.ApplyPending()
-                                    -- 3. 强制保存 → 退出到登录（P0-2 修复：检查保存结果）
+                                    -- 阶段B：保存 pending 到云端
                                     ImmortalBodyPanel._HideConfirm()
+                                    EventBus.Emit("show_toast", "正在保存切换请求...")
                                     local SaveSystem = require("systems.SaveSystem")
-                                    SaveSystem.Save(function(ok, reason)
-                                        if ok then
+                                    SaveSystem.Save(function(saveOk, reason)
+                                        if saveOk then
+                                            -- 保存成功：退出登录，下次加载时 ApplyPending 生效
+                                            EventBus.Emit("show_toast", "切换成功，重新登录后生效")
                                             if ReturnToLogin then ReturnToLogin() end
                                         else
-                                            print("[ImmortalBodyPanel] Save failed: " .. tostring(reason))
-                                            EventBus.Emit("show_toast", "保存失败，请稍后重试：" .. tostring(reason))
+                                            -- 保存失败：回滚灵韵和 pending
+                                            print("[ImmortalBodyPanel] Save failed, rolling back: " .. tostring(reason))
+                                            ImmortalBodySystem.RollbackSwitch()
+                                            EventBus.Emit("show_toast", "保存失败，切换已取消：" .. tostring(reason))
                                         end
                                     end)
                                 end,

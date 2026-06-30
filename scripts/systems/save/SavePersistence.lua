@@ -4,6 +4,7 @@
 
 local GameConfig = require("config.GameConfig")
 local GameState = require("core.GameState")
+local MonsterData = require("config.MonsterData")
 local EventBus = require("core.EventBus")
 local CloudStorage = require("network.CloudStorage")
 local SS = require("systems.save.SaveState")
@@ -167,11 +168,14 @@ function SavePersistence.DoSave(slot, callback, epoch, attemptId)
     -- 序列化BOSS击杀冷却（转换为相对剩余时间，与gameTime解耦）
     local bossKillData = {}
     for typeId, record in pairs(GameState.bossKillTimes) do
-        local killTime = type(record) == "table" and record.killTime or record
-        local respawnTime = type(record) == "table" and record.respawnTime or 180
-        local remaining = killTime + respawnTime - GameState.gameTime
-        if remaining > 0 then
-            bossKillData[typeId] = { remaining = remaining, respawnTime = respawnTime }
+        local monsterType = MonsterData.Types[typeId]
+        if not (monsterType and rawget(monsterType, "localRespawn")) then
+            local killTime = type(record) == "table" and record.killTime or record
+            local respawnTime = type(record) == "table" and record.respawnTime or 180
+            local remaining = killTime + respawnTime - GameState.gameTime
+            if remaining > 0 then
+                bossKillData[typeId] = { remaining = remaining, respawnTime = respawnTime }
+            end
         end
     end
 

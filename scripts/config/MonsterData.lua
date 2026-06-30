@@ -90,6 +90,32 @@ MonsterData.CategoryMultipliers = {
     },
 }
 
+local function GetAscensionRealmIndex(realmId)
+    if type(realmId) ~= "string" then return nil end
+
+    local ascIndex = realmId:match("^asc_(%d+)$")
+    if ascIndex then
+        local idx = tonumber(ascIndex)
+        if idx and idx >= 1 and idx <= 81 then return idx end
+        return nil
+    end
+
+    local stageId, minorText = realmId:match("^([%a_]+)_(%d+)$")
+    if not stageId or not minorText then return nil end
+
+    local minorIndex = tonumber(minorText)
+    if not minorIndex or minorIndex < 1 or minorIndex > 9 then return nil end
+
+    local AscensionConfig = require("config.AscensionConfig")
+    for stageIdx, stage in ipairs(AscensionConfig.MAJOR_STAGES or {}) do
+        if stage.id == stageId then
+            return (stageIdx - 1) * 9 + minorIndex
+        end
+    end
+
+    return nil
+end
+
 --- 计算境界系数（与玩家突破幅度一致）
 --- 大境界突破(isMajor)额外+10%，从第二个大境界起累积
 --- 化神+(order>=13)起步进加大：小境界+0.15, 大境界+0.30
@@ -99,6 +125,20 @@ function MonsterData.CalcRealmMult(realmId)
     if not realmId then return 1.0, 1.0 end
     local GameConfig = require("config.GameConfig")
     local realmData = GameConfig.REALMS[realmId]
+    if realmData then
+        local monsterAttributeCoeff = rawget(realmData, "monsterAttributeCoeff")
+        if monsterAttributeCoeff then
+            return monsterAttributeCoeff, rawget(realmData, "monsterRewardCoeff") or 1.0
+        end
+    end
+
+    local ascIndex = GetAscensionRealmIndex(realmId)
+    if ascIndex then
+        local AscensionConfig = require("config.AscensionConfig")
+        return AscensionConfig.GetMonsterAttributeCoeff(ascIndex),
+               AscensionConfig.GetMonsterRewardCoeff(ascIndex)
+    end
+
     if not realmData then return 1.0, 1.0 end
     local order = realmData.order or 0
     if order <= 0 then return 1.0, 1.0 end

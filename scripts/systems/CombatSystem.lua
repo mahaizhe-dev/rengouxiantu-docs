@@ -792,6 +792,14 @@ function CombatSystem.AddSkillEffect(player, skillId, range, color, skillType, s
         effect.zones = shapeData.zones
         effect.zoneSize = shapeData.zoneSize
         effect.centerOffset = shapeData.centerOffset
+        effect.effectVariant = shapeData.effectVariant
+        effect.swordCount = shapeData.swordCount
+        effect.outerShockwaveScale = shapeData.outerShockwaveScale
+        effect.outerShockwaveDelay = shapeData.outerShockwaveDelay
+        effect.zoneVisualKey = shapeData.zoneVisualKey
+        effect.showZoneLabel = shapeData.showZoneLabel
+        effect.tickFlashColor = shapeData.tickFlashColor
+        effect.healFlashColor = shapeData.healFlashColor
     end
     table.insert(CombatSystem.skillEffects, effect)
 end

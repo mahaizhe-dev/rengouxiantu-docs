@@ -13,6 +13,7 @@ local T = require("config.UITheme")
 local GMConsole = {}
 
 local panel_ = nil
+local toggleBtn_ = nil
 local visible_ = false
 local logLabel_ = nil
 local overlay_ = nil
@@ -1502,6 +1503,28 @@ function GMConsole.Create(parentOverlay)
     panel_:AddChild(logLabel_)
 
     parentOverlay:AddChild(panel_)
+
+    toggleBtn_ = UI.Button {
+        id = "gm_console_toggle_btn",
+        text = "GM",
+        position = "absolute",
+        top = 8,
+        left = 8,
+        width = 56,
+        height = 34,
+        zIndex = 10000,
+        backgroundColor = {120, 25, 35, 235},
+        borderColor = {255, 90, 90, 220},
+        borderWidth = 1,
+        borderRadius = T.radius.sm,
+        fontSize = T.fontSize.sm,
+        fontWeight = "bold",
+        fontColor = {255, 230, 230, 255},
+        onClick = function()
+            GMConsole.Toggle()
+        end,
+    }
+    parentOverlay:AddChild(toggleBtn_)
 
     -- 订阅 GM 响应事件
     local SaveProtocol = require("network.SaveProtocol")

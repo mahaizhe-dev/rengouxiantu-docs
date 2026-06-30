@@ -6,6 +6,7 @@ local shared = require("systems.skill.shared")
 
 local GameState     = shared.GameState
 local CombatSystem  = shared.CombatSystem
+local SkillData     = shared.SkillData
 local TargetSelector = shared.TargetSelector
 local HitResolver   = shared.HitResolver
 local ComboRunner   = shared.ComboRunner
@@ -81,6 +82,7 @@ end
 function M.CastDamageSkill(skill, player)
     -- 必须有普攻目标才能释放
     if not player.target or not player.target.alive then return false end
+    skill = SkillData.CreateRuntimeSkill(skill, player)
 
     -- 设置击杀回血乘数（由 GameEvents.monster_death 读取）
     if skill.killHealMultiplier then
@@ -123,13 +125,44 @@ function M.CastDamageSkill(skill, player)
             end
 
             local dmgText = skill.icon .. damage
-            local dmgColor = skill.effectColor
+            local dmgColor = skill.effectColor or {255, 200, 80, 255}
             if isCrit then
                 dmgText = skill.icon .. "暴击 " .. damage
                 dmgColor = {255, 220, 50, 255}
             end
             CombatSystem.AddFloatingText(m.x, m.y - 0.3, dmgText, dmgColor, 1.2)
         end
+    end
+
+    local activeEnhancement = skill._activeRealmEnhancement
+    local followupZone = activeEnhancement and activeEnhancement.followupGroundZone
+    if followupZone and hitCount > 0 then
+        local zoneX, zoneY = player.x, player.y
+        if followupZone.shape == "same_as_hit_area" and skill.centerOffset then
+            local offsetDist = skill.centerOffset == true and (skill.range or 1.5) or skill.centerOffset
+            zoneX = player.x + math_cos(targetAngle) * offsetDist
+            zoneY = player.y + math_sin(targetAngle) * offsetDist
+        end
+        CombatSystem.AddZone({
+            x = zoneX,
+            y = zoneY,
+            range = skill.range or 1.5,
+            duration = followupZone.duration or 3.0,
+            tickInterval = followupZone.tickInterval or 0.5,
+            damageSource = followupZone.damageSource,
+            damageCoeff = followupZone.damageCoeff,
+            usesCalcDamage = followupZone.usesCalcDamage ~= false,
+            canCrit = followupZone.canCrit == true,
+            isDot = true,
+            source = player,
+            maxTargets = skill.maxTargets or 0,
+            color = skill.effectColor,
+            name = activeEnhancement.name or skill.name,
+            zoneVisualKey = followupZone.zoneVisualKey,
+            showZoneLabel = followupZone.showZoneLabel,
+            tickFlashColor = followupZone.tickFlashColor,
+            effectIcon = skill.icon,
+        })
     end
 
     -- 连击（ReplayHits + debuff 应用）
@@ -170,6 +203,10 @@ function M.CastDamageSkill(skill, player)
         rectLength = skill.rectLength,
         rectWidth = skill.rectWidth,
         targetAngle = targetAngle,
+        effectVariant = skill.effectVariant,
+        swordCount = skill.swordCount,
+        outerShockwaveScale = skill.outerShockwaveScale,
+        outerShockwaveDelay = skill.outerShockwaveDelay,
     })
 
     return true

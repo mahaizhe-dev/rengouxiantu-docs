@@ -113,6 +113,14 @@ TileTypes.TILE = {
     CH5_SEAL_WALL_BLUE    = 87,   -- 封印墙·蓝（不可通行，陷仙剑台）
     CH5_SEAL_WALL_GREEN   = 88,   -- 封印墙·绿（不可通行，戮仙剑台）
     CH5_SEAL_WALL_PURPLE  = 89,   -- 封印墙·紫（不可通行，绝仙剑台）
+
+    -- ch6 新增瓦片（两界村之影，少量语义点缀）
+    CH6_SHADOW_GROUND    = 90,   -- 影化地面（可通行，影游荒原/影入口）
+    CH6_MOUNTAIN_STONE   = 91,   -- 两界山石地（可通行）
+    CH6_MOUNTAIN_RUNE    = 92,   -- 山神符纹石地（可通行）
+    CH6_CORRUPTED_TOWN   = 93,   -- 腐化旧村地（可通行，封印两界村）
+    CH6_SEAL_FLOOR       = 94,   -- 封印阵地（可通行，村心/营地符点）
+    CH6_TRIAL_STONE      = 95,   -- 神圣试炼石地（可通行，虎王试炼地）
 }
 
 -- ============================================================================
@@ -211,6 +219,13 @@ TileTypes.WALKABLE = {
     [87] = false,  -- CH5_SEAL_WALL_BLUE（封印墙·蓝，不可通行）
     [88] = false,  -- CH5_SEAL_WALL_GREEN（封印墙·绿，不可通行）
     [89] = false,  -- CH5_SEAL_WALL_PURPLE（封印墙·紫，不可通行）
+    -- ch6 两界村之影
+    [90] = true,   -- CH6_SHADOW_GROUND
+    [91] = true,   -- CH6_MOUNTAIN_STONE
+    [92] = true,   -- CH6_MOUNTAIN_RUNE
+    [93] = true,   -- CH6_CORRUPTED_TOWN
+    [94] = true,   -- CH6_SEAL_FLOOR
+    [95] = true,   -- CH6_TRIAL_STONE
 }
 
 return TileTypes

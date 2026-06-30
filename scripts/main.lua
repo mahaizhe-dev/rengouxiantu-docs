@@ -10,6 +10,7 @@ local InputManager = require("urhox-libs.Platform.InputManager")
 -- 游戏模块
 local FeatureFlags = require("config.FeatureFlags")
 local GameConfig = require("config.GameConfig")
+require("config.AscensionConfig").EnsureRealmsRegistered()  -- 客户端启动即注册仙阶realm，确保排行榜/技能解锁能识别 asc_N
 local EventConfig = require("config.EventConfig")
 local MonsterData = require("config.MonsterData")
 local GameState = require("core.GameState")
@@ -606,6 +607,10 @@ function ReturnToLogin()
     end
     if PrisonTowerSystem.IsActive() and gameMap_ then
         PrisonTowerSystem.Exit(gameMap_, camera_)
+    end
+    -- R6 防御：渡劫中退出先结算失败 CD
+    if TribulationScene.IsActive() then
+        TribulationScene.Exit("quit")
     end
     ChallengeSystem.Init()  -- 重置挑战状态
     SealDemonSystem.Init()  -- 重置封魔状态

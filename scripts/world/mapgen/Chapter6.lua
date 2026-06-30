@@ -285,6 +285,144 @@ local function sealTownGates(self, T)
     end
 end
 
+local function canDecorateFloor(tile, T)
+    return tile ~= T.MOUNTAIN and tile ~= T.WALL and tile ~= T.WATER and tile ~= T.SEALED_GATE
+end
+
+local function setFloorIfOpen(self, T, x, y, tile)
+    local old = self:GetTile(x, y)
+    if canDecorateFloor(old, T) then
+        safeTile(self, x, y, tile)
+    end
+end
+
+local function decorateShadowEntrance(self, T)
+    -- 影入口只做低密度暗影斑块，保持出生安全区清晰。
+    local points = {
+        {73, 36}, {74, 35}, {78, 35}, {79, 38},
+        {73, 44}, {75, 45}, {79, 44}, {72, 40},
+    }
+    for _, p in ipairs(points) do
+        setFloorIfOpen(self, T, p[1], p[2], T.CH6_SHADOW_GROUND)
+    end
+end
+
+local function decorateShadowRuins(self, T)
+    local r = zd.Regions and zd.Regions.village_north_ruins
+    if not r then return end
+
+    for y = r.y1, r.y2 do
+        for x = r.x1, r.x2 do
+            local tile = self:GetTile(x, y)
+            local h = hash100(x, y, 616)
+            local nearCenter = x >= 38 and x <= 50 and y >= 24 and y <= 29
+            if canDecorateFloor(tile, T) and ((nearCenter and h < 24) or h < 9) then
+                safeTile(self, x, y, T.CH6_SHADOW_GROUND)
+            end
+        end
+    end
+end
+
+local function decorateMountainDomain(self, T)
+    local r = zd.Regions and zd.Regions.bandit_backhill
+    if not r then return end
+
+    for y = r.y1, r.y2 do
+        for x = r.x1, r.x2 do
+            local tile = self:GetTile(x, y)
+            if tile == T.CAMP_FLOOR or tile == T.TOWN_FLOOR then
+                local h = hash100(x, y, 626)
+                if h < 45 and T.CAMP_DIRT then
+                    safeTile(self, x, y, T.CAMP_DIRT)
+                else
+                    safeTile(self, x, y, T.GRASS)
+                end
+            end
+        end
+    end
+
+    -- 山神符纹只作为祭台点缀，不把整片两界山铺成石质地板。
+    local altar = {
+        {44, 12}, {45, 12}, {43, 13}, {44, 13}, {45, 13}, {46, 13},
+        {44, 14}, {45, 14},
+    }
+    for _, p in ipairs(altar) do
+        setFloorIfOpen(self, T, p[1], p[2], T.CH6_MOUNTAIN_RUNE)
+    end
+end
+
+local function decorateCelestialCamps(self, T)
+    -- 东西大营只做装饰性符点，不整体替换营地/洞穴底色。
+    local westMarks = {
+        {7, 24}, {8, 24}, {9, 24},
+        {20, 12}, {21, 12}, {22, 12},
+        {28, 15}, {28, 16},
+    }
+    for _, p in ipairs(westMarks) do
+        setFloorIfOpen(self, T, p[1], p[2], T.CH6_SEAL_FLOOR)
+    end
+
+    local eastMarks = {
+        {62, 61}, {63, 61}, {64, 61},
+        {69, 66}, {70, 66}, {71, 66},
+        {75, 72}, {75, 73},
+    }
+    for _, p in ipairs(eastMarks) do
+        setFloorIfOpen(self, T, p[1], p[2], T.CH6_SEAL_FLOOR)
+    end
+end
+
+local function decorateFrogMarsh(self, T)
+    local points = {
+        {10, 68}, {12, 68}, {18, 69}, {20, 70},
+        {16, 73}, {18, 74}, {10, 77}, {13, 78},
+        {22, 66}, {23, 67},
+    }
+    for _, p in ipairs(points) do
+        local tile = self:GetTile(p[1], p[2])
+        if tile == T.FOREST_FLOOR or tile == T.GRASS then
+            safeTile(self, p[1], p[2], T.SWAMP)
+        end
+    end
+end
+
+local function decorateTigerTrial(self, T)
+    -- 虎王领地是神圣试炼地：只用试炼石，不加腐化。
+    local points = {
+        {66, 28}, {67, 28}, {68, 28}, {69, 28}, {70, 28},
+        {66, 29}, {67, 29}, {68, 29}, {69, 29}, {70, 29}, {71, 29},
+        {67, 30}, {68, 30}, {69, 30}, {70, 30},
+        {67, 31}, {70, 31},
+    }
+    for _, p in ipairs(points) do
+        setFloorIfOpen(self, T, p[1], p[2], T.CH6_TRIAL_STONE)
+    end
+end
+
+local function decorateTownSealCorruption(self, T)
+    -- 腐化集中在封印两界村，不外溢到虎王试炼地。
+    local sealCore = {
+        {39, 40}, {40, 40}, {41, 40}, {42, 40},
+        {39, 41}, {40, 41}, {41, 41}, {42, 41},
+        {39, 42}, {40, 42}, {41, 42}, {42, 42},
+        {40, 43}, {41, 43},
+    }
+    for _, p in ipairs(sealCore) do
+        setFloorIfOpen(self, T, p[1], p[2], T.CH6_SEAL_FLOOR)
+    end
+
+    local corruption = {
+        {40, 34}, {41, 34}, {40, 35}, {41, 35},
+        {40, 46}, {41, 46}, {40, 47}, {41, 47},
+        {34, 40}, {34, 41}, {35, 40}, {35, 41},
+        {46, 40}, {46, 41}, {47, 40}, {47, 41},
+        {37, 37}, {44, 37}, {37, 45}, {44, 45},
+    }
+    for _, p in ipairs(corruption) do
+        setFloorIfOpen(self, T, p[1], p[2], T.CH6_CORRUPTED_TOWN)
+    end
+end
+
 function GameMap:BuildCh6Terrain()
     if not zd.IS_SHADOW_LIANGJIE then return end
 
@@ -298,6 +436,14 @@ function GameMap:BuildCh6Terrain()
     buildTigerSealEntrance(self, T)
     narrowTrailTownEntrance(self, T)
     sealTownGates(self, T)
+
+    decorateShadowEntrance(self, T)
+    decorateShadowRuins(self, T)
+    decorateMountainDomain(self, T)
+    decorateCelestialCamps(self, T)
+    decorateFrogMarsh(self, T)
+    decorateTigerTrial(self, T)
+    decorateTownSealCorruption(self, T)
 
     print("[Chapter6] Shadow Liangjie terrain post-process complete")
 end

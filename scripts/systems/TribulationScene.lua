@@ -288,7 +288,7 @@ function TribulationScene.Exit(reason)
             local AscensionSystem = require("systems.AscensionSystem")
             local ascState = AscensionSystem.GetState()
             local newRealmId = "asc_" .. ascState.totalIndex
-            local oldRealmId = "asc_" .. math.max(0, ascState.totalIndex - 1)
+            local oldRealmId = ascState.totalIndex <= 1 and "dacheng_4" or ("asc_" .. (ascState.totalIndex - 1))
             BreakthroughCelebration.Show(oldRealmId, newRealmId)
         end
     elseif reason == "fail" then

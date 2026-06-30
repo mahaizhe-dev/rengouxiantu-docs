@@ -22,6 +22,13 @@ local math_sin    = math.sin
 local math_pi     = math.pi
 local DistanceSq  = Utils.DistanceSq
 
+local function ResolveMonsterRealm(data, level)
+    if data.realmByLevel then
+        return data.realmByLevel[level] or data.realm
+    end
+    return data.realm
+end
+
 -- P6: 预计算距离平方阈值，避免每帧 sqrt
 local AGGRO_RANGE_SQ = GameConfig.AGGRO_RANGE * GameConfig.AGGRO_RANGE
 local DEAGGRO_RANGE_SQ = GameConfig.DEAGGRO_RANGE * GameConfig.DEAGGRO_RANGE
@@ -49,7 +56,7 @@ function Monster.New(data, spawnX, spawnY)
     self.portrait = data.portrait
     self.category = data.category
     self.race = data.race
-    self.realm = data.realm  -- 怪物境界（如 "lianqi_3"）
+    self.realm = nil  -- 怪物境界（如 "lianqi_3"）
 
     -- 位置
     self.x = spawnX
@@ -64,9 +71,10 @@ function Monster.New(data, spawnX, spawnY)
     else
         self.level = data.level
     end
+    self.realm = ResolveMonsterRealm(data, self.level)
 
     -- 用公式计算属性（等级 × 阶级 × 种族 × 境界）
-    local stats = MonsterData.CalcFinalStats(self.level, data.category, data.race, data.realm)
+    local stats = MonsterData.CalcFinalStats(self.level, data.category, data.race, self.realm)
 
     self.hp = data.hp or stats.hp
     self.maxHp = self.hp
@@ -134,6 +142,9 @@ function Monster.New(data, spawnX, spawnY)
 
     -- 多人副本BOSS标记（HP由服务端权威管理，本地不触发Die/掉落）
     self.isDungeonBoss = data.isDungeonBoss or false
+
+    -- 本地刷新BOSS：属性/掉落按BOSS计算，但不写入跨存档BOSS冷却。
+    self.localRespawn = rawget(data, "localRespawn") or false
 
     -- 训练假人标记（无限HP，不死亡，不掉落）
     self.isTrainingDummy = data.isTrainingDummy or false
@@ -245,8 +256,9 @@ function Monster:RerollLevel()
     if data.levelRange then
         self.level = math_random(data.levelRange[1], data.levelRange[2])
     end
+    self.realm = ResolveMonsterRealm(data, self.level)
 
-    local stats = MonsterData.CalcFinalStats(self.level, data.category, data.race, data.realm)
+    local stats = MonsterData.CalcFinalStats(self.level, data.category, data.race, self.realm)
 
     self.hp = data.hp or stats.hp
     self.maxHp = self.hp
@@ -1207,11 +1219,17 @@ end
 
 --- 判断怪物是否在主城安全区内
 function Monster:IsInTownSafeZone()
-    local regions = ActiveZoneData.Get().Regions
-    local town = regions and regions.town
-    if not town then return false end
-    return self.x >= town.x1 and self.x <= town.x2
-       and self.y >= town.y1 and self.y <= town.y2
+    local zoneData = ActiveZoneData.Get()
+    local regions = zoneData.Regions
+    local safeRegion = nil
+    if zoneData.IS_SHADOW_LIANGJIE then
+        safeRegion = regions and regions.shadow_spawn_safe
+    else
+        safeRegion = regions and regions.town
+    end
+    if not safeRegion then return false end
+    return self.x >= safeRegion.x1 and self.x <= safeRegion.x2
+       and self.y >= safeRegion.y1 and self.y <= safeRegion.y2
 end
 
 --- 重生

@@ -16,6 +16,7 @@ P0-1A: 固化运行环境检查，增加明确错误提示
 
 import sys
 import os
+import re
 
 # ============================================================================
 # P0-1A: 运行环境前置检查
@@ -114,7 +115,9 @@ except Exception as e:
     err_msg = str(e)
     if "__EXIT__:" in err_msg:
         # 提取退出码
-        code_str = err_msg.split("__EXIT__:")[1].split('"')[0].strip()
+        code_part = err_msg.split("__EXIT__:", 1)[1]
+        match = re.search(r"\d+", code_part)
+        code_str = match.group(0) if match else "1"
         try:
             exit_code = int(code_str)
         except ValueError:

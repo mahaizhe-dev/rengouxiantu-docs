@@ -113,7 +113,7 @@ assert_eq(tState.tribState, "none", "Initial tribState")
 -- Set up for major breakthrough
 AscensionSystem.Init()
 state = AscensionSystem.GetState()
-state.progress = AscensionConfig.MAJOR_PROGRESS_REQUIRED
+state.progress = AscensionConfig.PROGRESS_PER_MINOR[1]  -- 首阶（渡劫）需求
 state.stageIndex = 0
 state.minorIndex = 0
 

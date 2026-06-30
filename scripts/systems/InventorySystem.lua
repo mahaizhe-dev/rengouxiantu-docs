@@ -112,8 +112,13 @@ function InventorySystem.SellItem(slotIndex)
     -- 消耗品优先从配置表读取售价（存档中可能缺失或为 0）
     if item.consumableId then
         local cfgData = GameConfig.CONSUMABLES[item.consumableId]
-        if cfgData and cfgData.sellPrice and cfgData.sellPrice > 0 then
-            unitPrice = cfgData.sellPrice
+        if cfgData then
+            if cfgData.sellPrice and cfgData.sellPrice > 0 then
+                unitPrice = cfgData.sellPrice
+            elseif cfgData.sellPrice == 0 then
+                -- sellPrice=0 表示不可出售（境界丹药等）
+                return false
+            end
         end
     end
     local count = item.count or 1

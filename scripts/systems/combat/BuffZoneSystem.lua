@@ -7,6 +7,7 @@
 local GameConfig = require("config.GameConfig")
 local GameState  = require("core.GameState")
 local Utils      = require("core.Utils")
+local HitResolver = require("systems.combat.HitResolver")
 
 -- ── 颜色常量（与 CombatSystem 同源，仅引用本模块需要的） ──
 local FT_GRAY      = {200, 200, 200, 255}
@@ -199,12 +200,35 @@ function CS.AddZone(data)
         damagePercent = data.damagePercent or 0,
         healPercent = data.healPercent or 0,
         atk = data.atk or 0,
+        damageSource = data.damageSource,
+        damageCoeff = data.damageCoeff or 0,
+        usesCalcDamage = data.usesCalcDamage ~= false,
+        canCrit = data.canCrit == true,
+        isDot = data.isDot == true,
+        source = data.source,
+        effectIcon = data.effectIcon,
         maxTargets = data.maxTargets or 0,
         damageBoostPercent = data.damageBoostPercent or 0, -- 增伤区域：阵内怪物受到最终伤害+X%
         color = data.color or FT_ZONE_DEFAULT,
         name = data.name or "领域",
+        zoneVisualKey = data.zoneVisualKey,
+        showZoneLabel = data.showZoneLabel,
+        tickFlashColor = data.tickFlashColor,
+        healFlashColor = data.healFlashColor,
     })
     print("[CombatSystem] Zone added: " .. (data.name or "领域") .. " (" .. (data.duration or 6) .. "s)")
+end
+
+local function GetZoneBaseValue(zone, player)
+    local source = zone.source or player
+    if zone.damageSource == "def" and source and source.GetTotalDef then
+        return source:GetTotalDef()
+    elseif zone.damageSource == "atk" and source and source.GetTotalAtk then
+        return source:GetTotalAtk()
+    elseif zone.damageSource == "maxHp" and source and source.GetTotalMaxHp then
+        return source:GetTotalMaxHp()
+    end
+    return zone.atk or 0
 end
 
 --- 更新地板区域效果（每 tick 对范围内敌人造成伤害、对自身回血）
@@ -225,7 +249,37 @@ function CS.UpdateZones(dt)
                 zone.tickTimer = zone.tickTimer - zone.tickInterval
 
                 -- 对范围内怪物造成伤害（受 maxTargets 限制）
-                if zone.damagePercent > 0 and zone.atk > 0 then
+                if zone.damageCoeff > 0 then
+                    local monsters = GameState.GetMonstersInRange(zone.x, zone.y, zone.range)
+                    local baseValue = GetZoneBaseValue(zone, player)
+                    local rawDmg = math.floor(baseValue * zone.damageCoeff)
+                    local hitCount = 0
+                    local hitLimit = zone.maxTargets > 0 and zone.maxTargets or #monsters
+                    for _, m in ipairs(monsters) do
+                        if m.alive then
+                            local actualDmg, isCrit = HitResolver.Hit(zone.source or player, m, rawDmg, {
+                                skipCalcDamage = not zone.usesCalcDamage,
+                                conditionalCrit = true,
+                                canCrit = zone.canCrit,
+                                isDot = zone.isDot,
+                            })
+                            local text = tostring(actualDmg)
+                            local color = zone.color
+                            if isCrit then
+                                text = (zone.effectIcon or "") .. "暴击 " .. actualDmg
+                                color = {255, 220, 50, 255}
+                            end
+                            CS.AddFloatingText(
+                                m.x, m.y - 0.2,
+                                text,
+                                color,
+                                0.8
+                            )
+                            hitCount = hitCount + 1
+                            if hitCount >= hitLimit then break end
+                        end
+                    end
+                elseif zone.damagePercent > 0 and zone.atk > 0 then
                     local monsters = GameState.GetMonstersInRange(zone.x, zone.y, zone.range)
                     local dmgPerTick = math.floor(zone.atk * zone.damagePercent)
                     local hitCount = 0
@@ -270,7 +324,7 @@ function CS.UpdateZones(dt)
     -- 倒序移除已过期的区域
     for i = #expired, 1, -1 do
         local zone = CS.activeZones[expired[i]]
-        if zone then
+        if zone and zone.showZoneLabel ~= false then
             CS.AddFloatingText(
                 zone.x, zone.y,
                 zone.name .. " 消散", FT_GRAY, 1.0

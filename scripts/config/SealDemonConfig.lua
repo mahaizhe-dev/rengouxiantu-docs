@@ -229,7 +229,7 @@ SealDemonConfig.QUESTS = {
         sourceBoss = "ch5_han_bailian",
         overrideLevel = 120,
         overrideCategory = "saint_boss",
-        overrideRealm = "dujie_1",
+        overrideRealm = "zhexian_1",
         spawnZone = "ch5_forge", spawnX = 7, spawnY = 26,  -- ch5_forge{4,21,17,34}, 距原BOSS(10.5,32.5)≈7格
         reward = { lingYun = 1000, petFood = "dragon_marrow", petFoodCount = 3 },
     },
@@ -240,7 +240,7 @@ SealDemonConfig.QUESTS = {
         sourceBoss = "ch5_shi_guanlan",
         overrideLevel = 120,
         overrideCategory = "saint_boss",
-        overrideRealm = "dujie_1",
+        overrideRealm = "zhexian_1",
         spawnZone = "ch5_stele_forest", spawnX = 68, spawnY = 28,  -- ch5_stele_forest{59,21,76,44}, 距原BOSS(74.5,33.5)≈8格
         reward = { lingYun = 1000, petFood = "dragon_marrow", petFoodCount = 3 },
     },
@@ -251,7 +251,7 @@ SealDemonConfig.QUESTS = {
         sourceBoss = "ch5_ning_qiwu",
         overrideLevel = 120,
         overrideCategory = "saint_boss",
-        overrideRealm = "dujie_1",
+        overrideRealm = "zhexian_1",
         spawnZone = "ch5_sword_court", spawnX = 8, spawnY = 50,  -- ch5_sword_court{4,39,21,63}, 距原BOSS(12.5,56.5)≈8格
         reward = { lingYun = 1000, petFood = "dragon_marrow", petFoodCount = 3 },
     },
@@ -262,7 +262,7 @@ SealDemonConfig.QUESTS = {
         sourceBoss = "ch5_abyss_marshal",
         overrideLevel = 120,
         overrideCategory = "saint_boss",
-        overrideRealm = "dujie_1",
+        overrideRealm = "zhexian_1",
         spawnZone = "ch5_demon_abyss", spawnX = 34, spawnY = 53,  -- ch5_demon_abyss{27,50,53,67}, 距原BOSS(40.5,58)≈8格
         reward = { lingYun = 2000, petFood = "dragon_marrow", petFoodCount = 5 },
     },
@@ -321,10 +321,10 @@ SealDemonConfig.DAILY = {
         name = "日常封魔 · 太虚遗址",
         requiredQuests = { "seal_ch5_1", "seal_ch5_2", "seal_ch5_3", "seal_ch5_4" },
         bossPool = {
-            { sourceBoss = "ch5_han_bailian",   level = 120, category = "saint_boss", realm = "dujie_1", spawnZone = "ch5_forge",         spawnX = 7,    spawnY = 26   },
-            { sourceBoss = "ch5_shi_guanlan",   level = 120, category = "saint_boss", realm = "dujie_1", spawnZone = "ch5_stele_forest",  spawnX = 68,   spawnY = 28   },
-            { sourceBoss = "ch5_ning_qiwu",     level = 120, category = "saint_boss", realm = "dujie_1", spawnZone = "ch5_sword_court",   spawnX = 8,    spawnY = 50   },
-            { sourceBoss = "ch5_abyss_marshal", level = 120, category = "saint_boss", realm = "dujie_1", spawnZone = "ch5_demon_abyss",   spawnX = 34,   spawnY = 53   },
+            { sourceBoss = "ch5_han_bailian",   level = 120, category = "saint_boss", realm = "zhexian_1", spawnZone = "ch5_forge",         spawnX = 7,    spawnY = 26   },
+            { sourceBoss = "ch5_shi_guanlan",   level = 120, category = "saint_boss", realm = "zhexian_1", spawnZone = "ch5_stele_forest",  spawnX = 68,   spawnY = 28   },
+            { sourceBoss = "ch5_ning_qiwu",     level = 120, category = "saint_boss", realm = "zhexian_1", spawnZone = "ch5_sword_court",   spawnX = 8,    spawnY = 50   },
+            { sourceBoss = "ch5_abyss_marshal", level = 120, category = "saint_boss", realm = "zhexian_1", spawnZone = "ch5_demon_abyss",   spawnX = 34,   spawnY = 53   },
         },
         reward = { petFood = "dragon_marrow", petFoodCount = 5, physiquePill = 1 },
     },

@@ -90,6 +90,16 @@ TestRegistry.tests = {
     },
 
     {
+        id            = "combat_yuanying_skills",
+        group         = "combat",
+        path          = "scripts/tests/test_combat_yuanying_skills.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
         id            = "cloudstorage_network_semantics",
         group         = "save",
         path          = "scripts/tests/test_cloudstorage_network_semantics.lua",

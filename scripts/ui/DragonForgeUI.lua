@@ -1321,7 +1321,7 @@ local function ShowBagForgeSuccess(item, title, subtitle)
                     UI.Label { text = subtitle, fontSize = T.fontSize.sm,                          fontColor = { qColor[1], qColor[2], qColor[3], 160 }, textAlign = "center" },
                     UI.Panel { width = "80%", height = T.decor.dividerHeight, backgroundColor = { qColor[1], qColor[2], qColor[3], 60 } },
                     UI.Label { text = item.name,                                       fontSize = T.fontSize.lg, fontWeight = "bold", fontColor = { qColor[1], qColor[2], qColor[3], 255 }, textAlign = "center" },
-                    UI.Label { text = item.tier .. "阶 [" .. qualityName .. "] " .. slotName, fontSize = T.fontSize.sm, fontColor = { qColor[1], qColor[2], qColor[3], 180 }, textAlign = "center" },
+                    UI.Label { text = EquipmentData.GetTierDisplayName(item.tier) .. " [" .. qualityName .. "] " .. slotName, fontSize = T.fontSize.sm, fontColor = { qColor[1], qColor[2], qColor[3], 180 }, textAlign = "center" },
                     UI.Panel { width = "80%", height = T.decor.dividerHeight, backgroundColor = { qColor[1], qColor[2], qColor[3], 40 } },
                     UI.Panel { width = "100%", gap = T.spacing.sm, children = contentChildren },
                     UI.Panel { width = "80%", height = T.decor.dividerHeight, backgroundColor = { qColor[1], qColor[2], qColor[3], 40 } },

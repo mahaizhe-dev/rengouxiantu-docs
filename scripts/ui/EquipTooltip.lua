@@ -83,7 +83,7 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
         local countStr = (item.count and item.count > 1) and (" ×" .. item.count) or ""
         subLine = "[" .. qName .. " " .. typeLabel .. "]" .. countStr
     else
-        local tierStr = item.tier and (item.tier .. "阶") or ""
+        local tierStr = EquipmentData.GetTierDisplayName(item.tier)
         subLine = "[" .. qName .. "] " .. slotName
         if tierStr ~= "" then subLine = tierStr .. "  " .. subLine end
     end
@@ -822,13 +822,15 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
                 end,
             })
         end
-        -- 修炼果、灵韵果（含上品）、守护者证明不可出售，金条/金砖已有批量出售UI，精品粽走批量使用
-        if item.consumableId ~= "exp_pill" and item.consumableId ~= "exp_pill_superior"
-            and item.consumableId ~= "lingyun_fruit" and item.consumableId ~= "lingyun_fruit_superior"
-            and item.consumableId ~= "item_guardian_token"
-            and item.consumableId ~= "gold_bar" and item.consumableId ~= "gold_brick"
-            and item.consumableId ~= "xianjie_premium_zong"
-            and item.consumableId ~= "wubao_token_box" and item.consumableId ~= "sha_hai_ling_box" and item.consumableId ~= "taixu_token_box" and item.consumableId ~= "taixu_jianling_box" then
+        -- 不可出售判定：sellPrice=0 的消耗品 + 特殊排除列表
+        local canSellConsumable = true
+        if displaySellPrice == 0 then canSellConsumable = false end
+        -- 额外排除：金条/金砖已有批量出售UI，精品粽走批量使用
+        local NO_SELL_IDS = { exp_pill=1, exp_pill_superior=1, lingyun_fruit=1, lingyun_fruit_superior=1,
+            item_guardian_token=1, gold_bar=1, gold_brick=1, xianjie_premium_zong=1,
+            wubao_token_box=1, sha_hai_ling_box=1, taixu_token_box=1, taixu_jianling_box=1 }
+        if NO_SELL_IDS[item.consumableId] then canSellConsumable = false end
+        if canSellConsumable then
             table.insert(btnChildren, UI.Button {
                 text = "出售", backgroundColor = T.color.btnSuccess, fontColor = T.color.btnSuccessFg, flexGrow = 1,
                 onClick = function(self)

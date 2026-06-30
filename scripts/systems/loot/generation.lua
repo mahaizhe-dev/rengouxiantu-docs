@@ -20,10 +20,20 @@ local SPECIAL_FLUCTUATION  = shared.SPECIAL_FLUCTUATION
 local SUB_BASE_MAP         = shared.SUB_BASE_MAP
 local SLOT_ICONS_T1        = shared.SLOT_ICONS_T1
 local GOURD_QUALITY_ICONS  = shared.GOURD_QUALITY_ICONS
+local XIAN_SLOT_ICONS      = shared.XIAN_SLOT_ICONS
 local GetAvailableTiers    = shared.GetAvailableTiers
 local BASE_SELL_PRICE      = shared.BASE_SELL_PRICE
 
 local M = {}
+
+local function GetSubStatRandRange(quality)
+    local qualityOrder = quality and GameConfig.QUALITY_ORDER[quality] or 1
+    local shift = math.max(0, qualityOrder - 4) * 0.1
+    if qualityOrder >= 7 then
+        return 1.0, 0.5
+    end
+    return 0.8 + shift, 0.4
+end
 
 -- ============================================================================
 -- Tier+品质 联合权重
@@ -33,12 +43,16 @@ local M = {}
 ---@param monsterLevel number
 ---@param isEliteOrBoss boolean|nil 是否为精英/BOSS（只取最高2个Tier）
 ---@param tierOnly number|nil 强制仅掉落指定Tier（如 tierOnly=5 则只掉T5）
+---@param tierWindow number[]|nil 显式 Tier 窗口；用于第六章等需要覆盖默认裁剪的掉落
+---@param qualityByTier table|nil 按 Tier 指定品质范围：{ [tier] = { minQuality = "...", maxQuality = "..." } }
 ---@return table[] entries { tier, quality, weight }
-function M.BuildTierQualityEntries(monsterLevel, isEliteOrBoss, tierOnly)
+function M.BuildTierQualityEntries(monsterLevel, isEliteOrBoss, tierOnly, tierWindow, qualityByTier)
     local tiers = GetAvailableTiers(monsterLevel)
 
     if tierOnly then
         tiers = { tierOnly }
+    elseif tierWindow and #tierWindow > 0 then
+        tiers = tierWindow
     elseif isEliteOrBoss and #tiers > 2 then
         local topTiers = {}
         for i = #tiers - 1, #tiers do
@@ -61,6 +75,17 @@ function M.BuildTierQualityEntries(monsterLevel, isEliteOrBoss, tierOnly)
                             w = 0
                         end
                     end
+                    local tierQualityRule = qualityByTier and qualityByTier[tier] or nil
+                    if tierQualityRule then
+                        local minQ = tierQualityRule.minQuality or tierQualityRule.min
+                        local maxQ = tierQualityRule.maxQuality or tierQualityRule.max
+                        local qOrder = GameConfig.QUALITY_ORDER[q.quality]
+                        local minOrder = minQ and GameConfig.QUALITY_ORDER[minQ] or 1
+                        local maxOrder = maxQ and GameConfig.QUALITY_ORDER[maxQ] or 9
+                        if not qOrder or qOrder < minOrder or qOrder > maxOrder then
+                            w = 0
+                        end
+                    end
                     if w > 0 then
                         table.insert(entries, { tier = tier, quality = q.quality, weight = w })
                     end
@@ -78,12 +103,14 @@ end
 ---@param maxQuality string|nil
 ---@param isBoss boolean|nil
 ---@param tierOnly number|nil
+---@param tierWindow number[]|nil
+---@param qualityByTier table|nil
 ---@return number tier, string quality
-function M.RollTierAndQuality(monsterLevel, minQuality, maxQuality, isBoss, tierOnly)
-    local entries = M.BuildTierQualityEntries(monsterLevel, isBoss, tierOnly)
+function M.RollTierAndQuality(monsterLevel, minQuality, maxQuality, isBoss, tierOnly, tierWindow, qualityByTier)
+    local entries = M.BuildTierQualityEntries(monsterLevel, isBoss, tierOnly, tierWindow, qualityByTier)
 
     local minOrder = minQuality and GameConfig.QUALITY_ORDER[minQuality] or 1
-    local maxOrder = maxQuality and GameConfig.QUALITY_ORDER[maxQuality] or 4
+    local maxOrder = maxQuality and GameConfig.QUALITY_ORDER[maxQuality] or (qualityByTier and 9 or 4)
 
     local filtered = {}
     local totalWeight = 0
@@ -162,9 +189,7 @@ function M.GenerateSubStats(count, tier, excludeStat, quality)
         end
     end
 
-    local qualityOrder = quality and GameConfig.QUALITY_ORDER[quality] or 1
-    local shift = math.max(0, qualityOrder - 4) * 0.1
-    local randBase = 0.8 + shift
+    local randBase, randRange = GetSubStatRandRange(quality)
 
     local selected = {}
     local used = {}
@@ -188,7 +213,7 @@ function M.GenerateSubStats(count, tier, excludeStat, quality)
         else
             local tierMult = EquipmentData.PCT_STATS[sub.stat] and pctTierMult or numTierMult
             value = sub.baseValue * tierMult
-            value = value * (randBase + math.random() * 0.4)
+            value = value * (randBase + math.random() * randRange)
             value = math.floor(value * 100 + 0.5) / 100
             if value <= 0 then value = 0.01 end
         end
@@ -219,9 +244,7 @@ function M.GenerateSpiritStat(tier, mainStatType, quality)
 
     local sub = pool[math.random(1, #pool)]
 
-    local qualityOrder = GameConfig.QUALITY_ORDER[quality] or 1
-    local shift = math.max(0, qualityOrder - 4) * 0.1
-    local randBase = 0.8 + shift
+    local randBase, randRange = GetSubStatRandRange(quality)
 
     local numTierMult = EquipmentData.SUB_STAT_TIER_MULT[tier] or 1.0
     local pctTierMult = EquipmentData.PCT_SUB_TIER_MULT[tier] or 1.0
@@ -238,7 +261,7 @@ function M.GenerateSpiritStat(tier, mainStatType, quality)
     else
         local tierMult = EquipmentData.PCT_STATS[sub.stat] and pctTierMult or numTierMult
         value = sub.baseValue * tierMult
-        value = value * (randBase + math.random() * 0.4)
+        value = value * (randBase + math.random() * randRange)
         value = value * 0.5  -- 半值
         value = math.floor(value * 100 + 0.5) / 100
         if value <= 0 then value = 0.01 end
@@ -267,9 +290,7 @@ function M.GenerateSaintStat(tier, mainStatType, quality)
 
     local sub = pool[math.random(1, #pool)]
 
-    local qualityOrder = GameConfig.QUALITY_ORDER[quality] or 1
-    local shift = math.max(0, qualityOrder - 4) * 0.1
-    local randBase = 0.8 + shift
+    local randBase, randRange = GetSubStatRandRange(quality)
 
     local numTierMult = EquipmentData.SUB_STAT_TIER_MULT[tier] or 1.0
     local pctTierMult = EquipmentData.PCT_SUB_TIER_MULT[tier] or 1.0
@@ -286,7 +307,7 @@ function M.GenerateSaintStat(tier, mainStatType, quality)
     else
         local tierMult = EquipmentData.PCT_STATS[sub.stat] and pctTierMult or numTierMult
         value = sub.baseValue * tierMult
-        value = value * (randBase + math.random() * 0.4)
+        value = value * (randBase + math.random() * randRange)
         value = math.floor(value * 100 + 0.5) / 100
         if value <= 0 then value = 0.01 end
     end
@@ -344,7 +365,9 @@ function M.GenerateDrops(dropTable, monster)
                     local monsterLevel = monster.level or 1
                     local cat = monster.category or "normal"
                     local isEliteOrBoss = GameConfig.ELITE_OR_BOSS[cat] or false
-                    item = M.GenerateRandomEquipment(monsterLevel, entry.minQuality, entry.maxQuality, isEliteOrBoss, monster.tierOnly)
+                    local tierOnly = entry.tierOnly or monster.tierOnly
+                    item = M.GenerateRandomEquipment(monsterLevel, entry.minQuality, entry.maxQuality,
+                        isEliteOrBoss, tierOnly, entry.tierWindow, entry.qualityByTier)
                 end
                 if item then
                     table.insert(result.items, item)
@@ -440,10 +463,12 @@ end
 ---@param maxQuality string|nil
 ---@param isBoss boolean|nil
 ---@param tierOnly number|nil
+---@param tierWindow number[]|nil
+---@param qualityByTier table|nil
 ---@return table|nil
-function M.GenerateRandomEquipment(monsterLevel, minQuality, maxQuality, isBoss, tierOnly)
+function M.GenerateRandomEquipment(monsterLevel, minQuality, maxQuality, isBoss, tierOnly, tierWindow, qualityByTier)
     local slot = Utils.RandomPick(EquipmentData.STANDARD_SLOTS)
-    local tier, quality = M.RollTierAndQuality(monsterLevel, minQuality, maxQuality, isBoss, tierOnly)
+    local tier, quality = M.RollTierAndQuality(monsterLevel, minQuality, maxQuality, isBoss, tierOnly, tierWindow, qualityByTier)
     local qualityConfig = GameConfig.QUALITY[quality]
     if not qualityConfig then return nil end
 
@@ -785,6 +810,11 @@ function M.GetSlotIcon(slot, tier)
         return GOURD_QUALITY_ICONS[quality] or GOURD_QUALITY_ICONS.green
     end
     local baseSlot = slot == "ring1" and "ring" or (slot == "ring2" and "ring" or slot)
+    local xianIcons = XIAN_SLOT_ICONS[tier]
+    if xianIcons then
+        local xianIcon = xianIcons[slot] or xianIcons[baseSlot]
+        if xianIcon then return xianIcon end
+    end
     local iconTier = math.min(tier, 10)
     if iconTier >= 2 then
         return "icon_t" .. iconTier .. "_" .. baseSlot .. ".png"

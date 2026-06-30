@@ -40,6 +40,57 @@ EquipmentData.SLOT_NAMES = {
     necklace = "项链", cape = "披风", treasure = "葫芦", exclusive = "法宝",
 }
 
+-- 仙装常规命名规范：T11~T19 有常规随机装备名，T20 只用于终局特殊装备。
+EquipmentData.XIAN_TIER_NAMING = {
+    [11] = { xian = "仙1",  stage = "谪仙",           series = "谪仙", weapon = "谪仙剑" },
+    [12] = { xian = "仙2",  stage = "人仙",           series = "真武", weapon = "人仙剑" },
+    [13] = { xian = "仙3",  stage = "地仙",           series = "地阙", weapon = "地阙剑" },
+    [14] = { xian = "仙4",  stage = "天仙",           series = "天衡", weapon = "天衡剑" },
+    [15] = { xian = "仙5",  stage = "玄仙",           series = "玄霄", weapon = "玄霄剑" },
+    [16] = { xian = "仙6",  stage = "金仙",           series = "金阙", weapon = "金阙剑" },
+    [17] = { xian = "仙7",  stage = "太乙金仙",       series = "太乙", weapon = "太乙剑" },
+    [18] = { xian = "仙8",  stage = "大罗金仙",       series = "大罗", weapon = "大罗剑" },
+    [19] = { xian = "仙9",  stage = "混元大罗金仙",   series = "混元", weapon = "混元剑" },
+    [20] = { xian = "仙10", stage = "终局仙阶",       series = nil,    specialOnly = true },
+}
+
+function EquipmentData.GetTierDisplayName(tier)
+    if tier == nil then
+        return ""
+    end
+
+    local tierNum = tonumber(tier)
+    if tierNum then
+        local tierIndex = math.floor(tierNum)
+        if tierIndex == tierNum then
+            local naming = EquipmentData.XIAN_TIER_NAMING[tierIndex]
+            if naming and naming.xian then
+                return naming.xian .. "阶"
+            end
+            return tostring(tierIndex) .. "阶"
+        end
+    end
+
+    return tostring(tier) .. "阶"
+end
+
+local function BuildXianTierSlotNames(series, weaponName)
+    return {
+        weapon = weaponName or (series .. "剑"),
+        helmet = series .. "盔",
+        armor = series .. "甲",
+        shoulder = series .. "肩",
+        belt = series .. "带",
+        boots = series .. "履",
+        ring1 = series .. "戒",
+        ring2 = series .. "戒",
+        necklace = series .. "链",
+        cape = series .. "披风",
+        treasure = series .. "珠",
+        exclusive = "无",
+    }
+end
+
 -- 每个槽位的主属性类型（按图片定义）
 EquipmentData.MAIN_STAT = {
     necklace  = "critRate",    -- 项链 → 暴击
@@ -130,16 +181,20 @@ EquipmentData.TIER_SLOT_NAMES = {
         belt = "九霄带", boots = "九霄靴", ring1 = "九霄戒", ring2 = "九霄戒",
         necklace = "九霄链", cape = "九霄披风", treasure = "九霄珠", exclusive = "无",
     },
-    -- T11 谪仙（Lv.120+）
-    [11] = {
-        weapon = "破天剑", helmet = "天劫盔", armor = "天劫甲", shoulder = "天劫肩",
-        belt = "天劫带", boots = "天劫靴", ring1 = "天劫戒", ring2 = "天劫戒",
-        necklace = "天劫链", cape = "天劫披风", treasure = "天劫珠", exclusive = "无",
-    },
+    -- 仙装常规随机装备。T20 不设常规套，只保留特殊装备口径。
+    [11] = BuildXianTierSlotNames("谪仙", "谪仙剑"),
+    [12] = BuildXianTierSlotNames("真武", "人仙剑"),
+    [13] = BuildXianTierSlotNames("地阙", "地阙剑"),
+    [14] = BuildXianTierSlotNames("天衡", "天衡剑"),
+    [15] = BuildXianTierSlotNames("玄霄", "玄霄剑"),
+    [16] = BuildXianTierSlotNames("金阙", "金阙剑"),
+    [17] = BuildXianTierSlotNames("太乙", "太乙剑"),
+    [18] = BuildXianTierSlotNames("大罗", "大罗剑"),
+    [19] = BuildXianTierSlotNames("混元", "混元剑"),
 }
 
--- 阶级倍率（T1~T11）
--- T1凡人 T2凡人 T3练气 T4练气 T5筑基 T6金丹 T7元婴 T8化神 T9合体 T10大乘 T11谪仙
+-- 阶级倍率（T1~T20）
+-- T1凡人 T2凡人 T3练气 T4练气 T5筑基 T6金丹 T7元婴 T8化神 T9合体 T10大乘 T11~T20仙装
 EquipmentData.TIER_MULTIPLIER = {
     [1]  = 1.0,
     [2]  = 2.0,
@@ -198,20 +253,20 @@ EquipmentData.PCT_SUB_TIER_MULT = {
     [5]  = 2.5,
     [6]  = 3.0,
     [7]  = 3.8,
-    [8]  = 4.8,
-    [9]  = 6.0,
-    [10] = 7.5,
-    [11] = 9.0,    -- 仙1
+    [8]  = 4.6,
+    [9]  = 5.2,
+    [10] = 6.0,
+    [11] = 6.6,    -- 仙1
     -- 仙装阶（仙2-仙10）
-    [12] = 10.5,   -- 仙2
-    [13] = 12.0,   -- 仙3
-    [14] = 14.0,   -- 仙4
-    [15] = 16.0,   -- 仙5
-    [16] = 18.5,   -- 仙6
-    [17] = 21.5,   -- 仙7
-    [18] = 25.0,   -- 仙8
-    [19] = 29.0,   -- 仙9
-    [20] = 34.0,   -- 仙10（预留）
+    [12] = 7.2,    -- 仙2
+    [13] = 7.8,    -- 仙3
+    [14] = 8.4,    -- 仙4
+    [15] = 9.0,    -- 仙5
+    [16] = 9.6,    -- 仙6
+    [17] = 10.2,   -- 仙7
+    [18] = 10.8,   -- 仙8
+    [19] = 11.4,   -- 仙9
+    [20] = 12.0,   -- 仙10（预留）
 }
 
 -- 百分比类副属性集合（用于判断走哪个倍率表）

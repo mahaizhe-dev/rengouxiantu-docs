@@ -169,13 +169,18 @@ function SwordWallHandler.HandleShopQuery(connection, eventData)
     local connKey = tostring(connection)
     local userId = Session.GetUserId(connKey)
     if not userId then return end
+    local slot = Session.connSlots_[connKey]
+    if not slot then
+        Logger.warn("SwordWall", "ShopQuery: no active slot for " .. connKey)
+        return
+    end
 
     serverCloud.money:Get(userId, {
         ok = function(moneys)
             local balance = (moneys and moneys[SWC.POINT_KEY]) or 0
             local cjson = require("cjson")
 
-            -- 查询限购商品的已购次数
+            -- 查询限购商品的已购次数（通过 BatchGet 读取角色级 score key）
             local limitItems = {}
             for _, item in ipairs(SWC.SHOP) do
                 if item.limit and item.limit > 0 then
@@ -184,33 +189,36 @@ function SwordWallHandler.HandleShopQuery(connection, eventData)
             end
 
             if #limitItems > 0 then
-                -- 逐个查询限购计数（score:Get 单 key 模式）
                 local prefix = SWC.SHOP_LIMIT_KEY_PREFIX or "sw_shop_bought"
-                local boughtCounts = {}
-                local remaining = #limitItems
-                local function tryFinish()
-                    remaining = remaining - 1
-                    if remaining > 0 then return end
-                    local resp = VariantMap()
-                    resp["ok"] = Variant(true)
-                    resp["balance"] = Variant(balance)
-                    resp["shop"] = Variant(cjson.encode(SWC.SHOP))
-                    resp["boughtCounts"] = Variant(cjson.encode(boughtCounts))
-                    connection:SendRemoteEvent(SaveProtocol.S2C_SwordWallShopData, true, resp)
-                end
+                -- 构建 BatchGet 请求读取所有限购 key
+                local batch = serverCloud:BatchGet(userId)
                 for _, id in ipairs(limitItems) do
-                    local limitKey = prefix .. "_" .. id
-                    serverCloud.score:Get(userId, limitKey, {
-                        ok = function(val)
-                            boughtCounts[id] = val or 0
-                            tryFinish()
-                        end,
-                        error = function()
-                            boughtCounts[id] = 0
-                            tryFinish()
-                        end,
-                    })
+                    batch:Key(prefix .. "_s" .. slot .. "_" .. id)
                 end
+                batch:Fetch({
+                    ok = function(scores)
+                        local boughtCounts = {}
+                        for _, id in ipairs(limitItems) do
+                            local key = prefix .. "_s" .. slot .. "_" .. id
+                            boughtCounts[id] = scores[key] or 0
+                        end
+                        local resp = VariantMap()
+                        resp["ok"] = Variant(true)
+                        resp["balance"] = Variant(balance)
+                        resp["shop"] = Variant(cjson.encode(SWC.SHOP))
+                        resp["boughtCounts"] = Variant(cjson.encode(boughtCounts))
+                        connection:SendRemoteEvent(SaveProtocol.S2C_SwordWallShopData, true, resp)
+                    end,
+                    error = function()
+                        -- 查不到也正常返回（默认 0）
+                        local resp = VariantMap()
+                        resp["ok"] = Variant(true)
+                        resp["balance"] = Variant(balance)
+                        resp["shop"] = Variant(cjson.encode(SWC.SHOP))
+                        resp["boughtCounts"] = Variant("{}")
+                        connection:SendRemoteEvent(SaveProtocol.S2C_SwordWallShopData, true, resp)
+                    end,
+                })
             else
                 local resp = VariantMap()
                 resp["ok"] = Variant(true)
@@ -237,6 +245,11 @@ function SwordWallHandler.HandleShopBuy(connection, eventData)
     local connKey = tostring(connection)
     local userId = Session.GetUserId(connKey)
     if not userId then return end
+    local slot = Session.connSlots_[connKey]
+    if not slot then
+        Logger.warn("SwordWall", "ShopBuy: no active slot for " .. connKey)
+        return
+    end
 
     -- 防并发
     if shopActive_[connKey] then
@@ -275,12 +288,14 @@ function SwordWallHandler.HandleShopBuy(connection, eventData)
         return
     end
 
-    -- 限购检查（有 limit 字段的商品）
+    -- 限购检查（有 limit 字段的商品）— R4: 角色级 key，BatchGet 读取
     if shopItem.limit and shopItem.limit > 0 then
-        local limitKey = (SWC.SHOP_LIMIT_KEY_PREFIX or "sw_shop_bought") .. "_" .. shopItemId
-        serverCloud.score:Get(userId, limitKey, {
-            ok = function(bought)
-                bought = bought or 0
+        local limitKey = (SWC.SHOP_LIMIT_KEY_PREFIX or "sw_shop_bought") .. "_s" .. slot .. "_" .. shopItemId
+        serverCloud:BatchGet(userId)
+            :Key(limitKey)
+            :Fetch({
+            ok = function(scores)
+                local bought = scores[limitKey] or 0
                 if bought >= shopItem.limit then
                     SendResult(false, shopItemId, 0, "已达限购上限（" .. shopItem.limit .. "）")
                     finish()

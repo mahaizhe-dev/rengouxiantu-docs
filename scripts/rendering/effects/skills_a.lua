@@ -640,14 +640,17 @@ local function renderDragonElephant(nvg, se, sx, sy, progress, c, alpha, expand,
 end
 
 local function renderThreeSwords(nvg, se, sx, sy, progress, c, alpha, expand, baseAngle, tileSize, l, camera)
-    -- ═══ 三剑式特效：三柄能量小剑（PNG）扇形飞出（60°展角，匹配判定coneAngle） ═══
+    -- ═══ 三剑式特效：读取 swordCount/coneAngle，保证表现与判定一致 ═══
     local radius = se.range * tileSize * expand
-    local halfAngle = math.rad(60 / 2)
+    local swordCount = se.swordCount or 3
+    local halfAngle = math.rad((se.coneAngle or 60) / 2)
     local faceAngle = se.targetAngle or (se.facingRight and 0 or math.pi)
     local swordImg = assets.GetSwordImage(nvg)
-    local swordSize = tileSize * 1.3
-    for j = -1, 1 do
-        local swordAngle = faceAngle + j * halfAngle * 0.8
+    local isGreat = se.effectVariant == "great_break_sword"
+    local swordSize = tileSize * (isGreat and 1.55 or 1.3)
+    for j = 1, swordCount do
+        local t = swordCount == 1 and 0 or ((j - 1) / (swordCount - 1) * 2 - 1)
+        local swordAngle = faceAngle + t * halfAngle * 0.85
         local swordDist = radius * (0.3 + 0.7 * progress)
         local cx = sx + math.cos(swordAngle) * swordDist
         local cy = sy + math.sin(swordAngle) * swordDist
@@ -658,9 +661,9 @@ local function renderThreeSwords(nvg, se, sx, sy, progress, c, alpha, expand, ba
             local half = swordSize / 2
             -- 外发光（加法混合，半透明放大版）
             nvgGlobalCompositeBlendFunc(nvg, NVG_SRC_ALPHA, NVG_ONE)
-            local glowS = swordSize * 1.4
+            local glowS = swordSize * (isGreat and 1.75 or 1.4)
             local glowH = glowS / 2
-            local glowPaint = nvgImagePattern(nvg, -glowH, -glowH, glowS, glowS, 0, swordImg, 0.3 * alpha)
+            local glowPaint = nvgImagePattern(nvg, -glowH, -glowH, glowS, glowS, 0, swordImg, (isGreat and 0.45 or 0.3) * alpha)
             nvgBeginPath(nvg)
             nvgRect(nvg, -glowH, -glowH, glowS, glowS)
             nvgFillPaint(nvg, glowPaint)
@@ -679,6 +682,14 @@ local function renderThreeSwords(nvg, se, sx, sy, progress, c, alpha, expand, ba
             nvgFill(nvg)
             nvgRestore(nvg)
         end
+    end
+    if isGreat then
+        nvgBeginPath(nvg)
+        nvgArc(nvg, sx, sy, radius * 0.92, faceAngle - halfAngle, faceAngle + halfAngle, NVG_CW)
+        nvgStrokeColor(nvg, nvgRGBA(210, 245, 255, math.floor(170 * alpha)))
+        nvgStrokeWidth(nvg, 3.0)
+        nvgLineCap(nvg, NVG_ROUND)
+        nvgStroke(nvg)
     end
 end
 

@@ -468,6 +468,7 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
         -- 恢复BOSS击杀冷却（从相对剩余时间转换回绝对killTime）
         GameState.bossKillTimes = {}
         if saveData.bossKillTimes then
+            local MonsterDataForCooldown = require("config.MonsterData")
             for typeId, value in pairs(saveData.bossKillTimes) do
                 local remaining, respawnTime
                 if type(value) == "table" then
@@ -477,7 +478,10 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
                     remaining = value
                     respawnTime = 180
                 end
-                if remaining > 0 then
+                local monsterType = rawget(MonsterDataForCooldown.Types, typeId)
+                if monsterType and rawget(monsterType, "localRespawn") then
+                    print("[SaveSystem] Discarded local-respawn boss cooldown: " .. typeId)
+                elseif remaining > 0 then
                     if remaining > respawnTime then
                         print("[SaveSystem] WARNING: Boss " .. typeId
                             .. " remaining=" .. string.format("%.0f", remaining)

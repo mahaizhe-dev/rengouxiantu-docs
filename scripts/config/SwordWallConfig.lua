@@ -88,7 +88,7 @@ SwordWallConfig.NPC_POS  = { x = 12, y = 63 }  -- 栖剑别院底部靠近回廊
 -- ── 积分商店 ──
 SwordWallConfig.SHOP = {
     -- 仙劫丹（置顶，金色品质，限购 10）
-    { id = "one_turn_tribulation_pill", name = "一转仙劫丹", itemType = "consumable", consumableId = "one_turn_tribulation_pill", price = 2000, limit = 10, quality = "orange", icon = "image/icon_one_turn_tribulation_pill.png" },
+    { id = "one_turn_tribulation_pill", name = "一转仙劫丹", itemType = "consumable", consumableId = "one_turn_tribulation_pill", price = 2000, limit = 10, quality = "gold", icon = "image/icon_one_turn_tribulation_pill.png" },
     -- 封印古剑（3000 积分）
     { id = "sword_zhu",  name = "封印古剑·诛仙", itemType = "equipment", equipId = "fengyin_zhuxian_ch5",  price = 3000, icon = "image/icon_fengyin_zhuxian_ch5_20260518083648.png" },
     { id = "sword_xian", name = "封印古剑·陷仙", itemType = "equipment", equipId = "fengyin_xianxian_ch5", price = 3000, icon = "image/icon_fengyin_xianxian_ch5_20260518085543.png" },

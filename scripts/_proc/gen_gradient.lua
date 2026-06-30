@@ -4,18 +4,26 @@ function Start()
         local W, H = 256, 64
         img:SetSize(W, H, 4)
 
-        local solidEnd = W / 3        -- 左1/3纯黑
-        local fadeLen = W - solidEnd  -- 右2/3全部为渐变区
+        -- ═══ 可调参数 ═══
+        local solidPercent = 0.4   -- 实色占比（0.0~1.0）
+        local curve = 2.0          -- 渐变曲线（1.0=线性, 1.5=柔和, 2.0=非常柔和, 0.5=锐利）
+        -- ═════════════════
+
+        -- UI 底色（匹配 panelBg: {25, 28, 38}）
+        local r, g, b = 25/255, 28/255, 38/255
+        local solidEnd = W * solidPercent
+        local fadeLen = W - solidEnd
 
         for y = 0, H - 1 do
             for x = 0, W - 1 do
                 local alpha
                 if x <= solidEnd then
-                    alpha = 1.0  -- 左1/3：纯黑
+                    alpha = 1.0
                 else
-                    alpha = 1.0 - ((x - solidEnd) / fadeLen)  -- 右2/3：线性渐变到透明
+                    local t = (x - solidEnd) / fadeLen  -- 0→1
+                    alpha = 1.0 - t ^ curve             -- curve越大，暗色保持越久
                 end
-                img:SetPixel(x, y, Color(0, 0, 0, alpha))
+                img:SetPixel(x, y, Color(r, g, b, alpha))
             end
         end
 

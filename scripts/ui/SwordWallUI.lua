@@ -256,11 +256,15 @@ function SwordWallUI._refreshShopContent(balance)
 
         -- 限购显示
         local limitLabel = nil
+        local limitExhausted = false
         if item.limit and item.limit > 0 then
             local bought = shopBoughtCounts_ and shopBoughtCounts_[item.id] or 0
             local remaining = item.limit - bought
             limitLabel = "限购 " .. remaining .. "/" .. item.limit
-            if remaining <= 0 then canBuy = false end
+            if remaining <= 0 then
+                canBuy = false
+                limitExhausted = true
+            end
         end
 
         shopShell_:AddContent(UI.Panel {
@@ -276,7 +280,7 @@ function SwordWallUI._refreshShopContent(balance)
                         fontColor = canBuy and T.color.gold or T.color.error },
                 }},
                 UI.Button {
-                    text = (limitLabel and canBuy == false) and "已满" or "兑换",
+                    text = limitExhausted and "已满" or "兑换",
                     width = 56, height = 28,
                     fontSize = T.fontSize.xs, borderRadius = T.radius.sm,
                     variant = canBuy and "primary" or "disabled",
@@ -509,7 +513,7 @@ function SwordWallUI.ShowReward(points, equipment)
                 } or UI.Label { text = "🗡️", fontSize = 28 },
                 UI.Panel { gap = 2, children = {
                     UI.Label { text = equipment.name or "灵器", fontSize = T.fontSize.md, fontWeight = "bold", fontColor = qualityColor },
-                    UI.Label { text = (equipment.tier or 10) .. "阶  [" .. qName .. "] " .. slotName,
+                    UI.Label { text = EquipmentData.GetTierDisplayName(equipment.tier or 10) .. "  [" .. qName .. "] " .. slotName,
                         fontSize = T.fontSize.xs, fontColor = T.color.textMuted },
                 }},
             },
@@ -727,6 +731,9 @@ function SwordWallUI_HandleShopBuyResult(eventType, eventData)
                 end
             end
         end
+        -- R5 修复：购买成功入库后即时保存，防止断线/崩溃丢失物品
+        local EventBus = require("core.EventBus")
+        EventBus.Emit("save_request")
     end
 
     SwordWallUI.OnShopBuyResult(ok, itemId, balance, errMsg)

@@ -9,6 +9,114 @@ local SIGNS = shared.SIGNS
 
 local M = {}
 
+local function DrawWanSymbol(nvg, sx, sy, size, alpha, elapsed)
+    local s = size
+    local strokeA = math.floor(245 * alpha)
+    local glowA = math.floor(85 * alpha)
+
+    nvgSave(nvg)
+    nvgTranslate(nvg, sx, sy)
+    nvgRotate(nvg, math.sin(elapsed * 1.2) * 0.04)
+
+    nvgBeginPath(nvg)
+    nvgCircle(nvg, 0, 0, s * 0.72)
+    local sealPaint = nvgRadialGradient(nvg, 0, 0, s * 0.12, s * 0.78,
+        nvgRGBA(255, 245, 170, glowA),
+        nvgRGBA(255, 190, 60, 0))
+    nvgFillPaint(nvg, sealPaint)
+    nvgFill(nvg)
+
+    local function arm(x1, y1, x2, y2, x3, y3)
+        nvgBeginPath(nvg)
+        nvgMoveTo(nvg, x1 * s, y1 * s)
+        nvgLineTo(nvg, x2 * s, y2 * s)
+        nvgLineTo(nvg, x3 * s, y3 * s)
+        nvgStrokeColor(nvg, nvgRGBA(110, 70, 10, math.floor(110 * alpha)))
+        nvgStrokeWidth(nvg, math.max(3.0, s * 0.13))
+        nvgLineCap(nvg, NVG_ROUND)
+        nvgStroke(nvg)
+
+        nvgBeginPath(nvg)
+        nvgMoveTo(nvg, x1 * s, y1 * s)
+        nvgLineTo(nvg, x2 * s, y2 * s)
+        nvgLineTo(nvg, x3 * s, y3 * s)
+        nvgStrokeColor(nvg, nvgRGBA(255, 238, 135, strokeA))
+        nvgStrokeWidth(nvg, math.max(2.0, s * 0.085))
+        nvgLineCap(nvg, NVG_ROUND)
+        nvgStroke(nvg)
+    end
+
+    -- 佛门万字符号（矢量绘制，避免字体缺字导致中心为空）
+    arm(-0.10, 0.00, -0.58, 0.00, -0.58, -0.36)
+    arm(0.10, 0.00, 0.58, 0.00, 0.58, 0.36)
+    arm(0.00, -0.10, 0.00, -0.58, 0.36, -0.58)
+    arm(0.00, 0.10, 0.00, 0.58, -0.36, 0.58)
+
+    nvgRestore(nvg)
+end
+
+local function RenderMonkSealZone(nvg, zone, sx, sy, radius, c, alpha, elapsed)
+    local pulse = 0.80 + 0.20 * math.sin(elapsed * math.pi * 4)
+    local goldA = math.floor(225 * alpha * pulse)
+
+    local fillPaint = nvgRadialGradient(nvg, sx, sy, radius * 0.05, radius,
+        nvgRGBA(255, 232, 110, math.floor(105 * alpha)),
+        nvgRGBA(255, 170, 40, math.floor(22 * alpha)))
+    nvgBeginPath(nvg)
+    nvgCircle(nvg, sx, sy, radius)
+    nvgFillPaint(nvg, fillPaint)
+    nvgFill(nvg)
+
+    for j = 0, 1 do
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, sx, sy, radius * (0.72 + j * 0.22))
+        nvgStrokeColor(nvg, nvgRGBA(255, 220, 90, math.floor(goldA * (j == 0 and 0.8 or 1.0))))
+        nvgStrokeWidth(nvg, j == 0 and 2.2 or 3.4)
+        nvgStroke(nvg)
+    end
+
+    for j = 0, 7 do
+        local a = elapsed * 0.35 + j * math.pi * 2 / 8
+        local r1 = radius * 0.24
+        local r2 = radius * 0.86
+        nvgBeginPath(nvg)
+        nvgMoveTo(nvg, sx + math.cos(a) * r1, sy + math.sin(a) * r1)
+        nvgLineTo(nvg, sx + math.cos(a) * r2, sy + math.sin(a) * r2)
+        nvgStrokeColor(nvg, nvgRGBA(255, 232, 120, math.floor(72 * alpha)))
+        nvgStrokeWidth(nvg, 1.4)
+        nvgStroke(nvg)
+    end
+
+    local palmR = radius * 0.20
+    nvgBeginPath(nvg)
+    nvgEllipse(nvg, sx, sy + palmR * 0.1, palmR * 0.75, palmR)
+    nvgFillColor(nvg, nvgRGBA(255, 235, 135, math.floor(125 * alpha)))
+    nvgFill(nvg)
+
+    DrawWanSymbol(nvg, sx, sy, radius * 0.30, alpha, elapsed)
+
+    for j = 0, 5 do
+        local a = elapsed * 0.8 + j * math.pi * 2 / 6
+        nvgBeginPath(nvg)
+        nvgArc(nvg, sx, sy, radius * 0.55, a, a + math.pi * 0.18, NVG_CW)
+        nvgStrokeColor(nvg, nvgRGBA(255, 235, 140, math.floor(135 * alpha)))
+        nvgStrokeWidth(nvg, 1.6)
+        nvgLineCap(nvg, NVG_ROUND)
+        nvgStroke(nvg)
+    end
+
+    local tickFrac = zone.tickInterval > 0 and (zone.tickTimer / zone.tickInterval) or 0
+    if tickFrac > 0.85 then
+        local tickPulse = (tickFrac - 0.85) / 0.15
+        local flashColor = zone.tickFlashColor or c
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, sx, sy, radius * (0.85 + 0.2 * tickPulse))
+        nvgStrokeColor(nvg, nvgRGBA(flashColor[1], flashColor[2], flashColor[3], math.floor((flashColor[4] or 180) * tickPulse * alpha)))
+        nvgStrokeWidth(nvg, 3.0)
+        nvgStroke(nvg)
+    end
+end
+
 --- 渲染持续性地板区域效果（浩气领域/血海领域等）
 function M.RenderZones(nvg, l, camera)
     local zones = CombatSystem.GetActiveZones()
@@ -38,57 +146,63 @@ function M.RenderZones(nvg, l, camera)
             local elapsed = zone.duration - zone.remaining
             local pulse = 0.7 + 0.3 * math.sin(elapsed * 2.5)
 
-            -- 地面圆形填充（半透明）
-            local fillPaint = nvgRadialGradient(nvg, sx, sy, radius * 0.1, radius,
-                nvgRGBA(c[1], c[2], c[3], math.floor(60 * alpha * pulse)),
-                nvgRGBA(c[1], c[2], c[3], math.floor(15 * alpha)))
-            nvgBeginPath(nvg)
-            nvgCircle(nvg, sx, sy, radius)
-            nvgFillPaint(nvg, fillPaint)
-            nvgFill(nvg)
-
-            -- 边缘圆环（脉冲发光）
-            nvgBeginPath(nvg)
-            nvgCircle(nvg, sx, sy, radius)
-            nvgStrokeColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(180 * alpha * pulse)))
-            nvgStrokeWidth(nvg, 2.0)
-            nvgStroke(nvg)
-
-            -- 内圈旋转弧线（持续旋转动画）
-            -- 增伤区域：弧线和闪烁缩小到脚底（0.15倍半径），其他区域正常
-            local isDmgBoost = (zone.damageBoostPercent or 0) > 0
-            local innerScale = isDmgBoost and 0.15 or 1.0
-            local rotSpeed = elapsed * 1.5
-            for j = 0, 2 do
-                local arcAngle = rotSpeed + j * math.pi * 2 / 3
-                local arcR = radius * innerScale * (0.5 + 0.15 * math.sin(elapsed * 3 + j))
+            if zone.zoneVisualKey == "monk_seal_zone" then
+                RenderMonkSealZone(nvg, zone, sx, sy, radius, c, alpha, elapsed)
+            else
+                -- 地面圆形填充（半透明）
+                local fillPaint = nvgRadialGradient(nvg, sx, sy, radius * 0.1, radius,
+                    nvgRGBA(c[1], c[2], c[3], math.floor(60 * alpha * pulse)),
+                    nvgRGBA(c[1], c[2], c[3], math.floor(15 * alpha)))
                 nvgBeginPath(nvg)
-                nvgArc(nvg, sx, sy, arcR, arcAngle, arcAngle + math.pi * 0.4, NVG_CW)
-                nvgStrokeColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(120 * alpha)))
-                nvgStrokeWidth(nvg, 1.5)
-                nvgLineCap(nvg, NVG_ROUND)
-                nvgStroke(nvg)
-            end
-
-            -- Tick 闪烁（每次 tick 伤害/回血时短暂闪光）
-            local tickFrac = zone.tickTimer / zone.tickInterval
-            if tickFrac > 0.85 then
-                -- 接近下一次 tick 时脉冲加强
-                local tickPulse = (tickFrac - 0.85) / 0.15
-                local flashAlpha = math.floor(100 * tickPulse * alpha)
-                local flashR = isDmgBoost and (radius * 0.15) or (radius * 0.9)
-                nvgBeginPath(nvg)
-                nvgCircle(nvg, sx, sy, flashR)
-                nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], flashAlpha))
+                nvgCircle(nvg, sx, sy, radius)
+                nvgFillPaint(nvg, fillPaint)
                 nvgFill(nvg)
+
+                -- 边缘圆环（脉冲发光）
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, sx, sy, radius)
+                nvgStrokeColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(180 * alpha * pulse)))
+                nvgStrokeWidth(nvg, 2.0)
+                nvgStroke(nvg)
+
+                -- 内圈旋转弧线（持续旋转动画）
+                -- 增伤区域：弧线和闪烁缩小到脚底（0.15倍半径），其他区域正常
+                local isDmgBoost = (zone.damageBoostPercent or 0) > 0
+                local innerScale = isDmgBoost and 0.15 or 1.0
+                local rotSpeed = elapsed * 1.5
+                for j = 0, 2 do
+                    local arcAngle = rotSpeed + j * math.pi * 2 / 3
+                    local arcR = radius * innerScale * (0.5 + 0.15 * math.sin(elapsed * 3 + j))
+                    nvgBeginPath(nvg)
+                    nvgArc(nvg, sx, sy, arcR, arcAngle, arcAngle + math.pi * 0.4, NVG_CW)
+                    nvgStrokeColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(120 * alpha)))
+                    nvgStrokeWidth(nvg, 1.5)
+                    nvgLineCap(nvg, NVG_ROUND)
+                    nvgStroke(nvg)
+                end
+
+                -- Tick 闪烁（每次 tick 伤害/回血时短暂闪光）
+                local tickFrac = zone.tickTimer / zone.tickInterval
+                if tickFrac > 0.85 then
+                    -- 接近下一次 tick 时脉冲加强
+                    local tickPulse = (tickFrac - 0.85) / 0.15
+                    local flashAlpha = math.floor(100 * tickPulse * alpha)
+                    local flashR = isDmgBoost and (radius * 0.15) or (radius * 0.9)
+                    nvgBeginPath(nvg)
+                    nvgCircle(nvg, sx, sy, flashR)
+                    nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], flashAlpha))
+                    nvgFill(nvg)
+                end
             end
 
             -- 区域名称标签
-            nvgFontFace(nvg, "sans")
-            nvgFontSize(nvg, 12)
-            nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_BOTTOM)
-            nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(200 * alpha)))
-            nvgText(nvg, sx, sy - radius - 4, zone.name, nil)
+            if zone.showZoneLabel ~= false then
+                nvgFontFace(nvg, "sans")
+                nvgFontSize(nvg, 12)
+                nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_BOTTOM)
+                nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(200 * alpha)))
+                nvgText(nvg, sx, sy - radius - 4, zone.name, nil)
+            end
         end
     end
 end

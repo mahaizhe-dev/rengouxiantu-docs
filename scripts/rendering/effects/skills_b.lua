@@ -58,9 +58,42 @@ local function renderSwordShield(nvg, se, sx, sy, progress, c, alpha, expand, ba
         nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(160 * alpha)))
         nvgFill(nvg)
     end
+    if se.effectVariant == "break_heal" then
+        local healR = tileSize * (0.35 + 0.55 * progress) * expand
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, sx, sy, healR)
+        nvgStrokeColor(nvg, nvgRGBA(90, 255, 130, math.floor(190 * alpha * (1.0 - progress * 0.35))))
+        nvgStrokeWidth(nvg, 2.4)
+        nvgStroke(nvg)
+        local healPaint = nvgRadialGradient(nvg, sx, sy, 0, healR,
+            nvgRGBA(80, 255, 120, math.floor(70 * alpha)),
+            nvgRGBA(80, 255, 120, 0))
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, sx, sy, healR)
+        nvgFillPaint(nvg, healPaint)
+        nvgFill(nvg)
+    end
 end
 
 local function renderSwordFormation(nvg, se, sx, sy, progress, c, alpha, expand, baseAngle, tileSize, l, camera)
+    if se.effectVariant == "trigger_heal" then
+        local ringR = tileSize * (0.45 + progress * 0.8) * expand
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, sx, sy, ringR)
+        nvgStrokeColor(nvg, nvgRGBA(90, 255, 130, math.floor(220 * alpha * (1.0 - progress * 0.45))))
+        nvgStrokeWidth(nvg, 3.0)
+        nvgStroke(nvg)
+        for j = 0, 2 do
+            local arcAngle = progress * math.pi * 2 + j * math.pi * 2 / 3
+            nvgBeginPath(nvg)
+            nvgArc(nvg, sx, sy, ringR * 0.72, arcAngle, arcAngle + math.pi * 0.35, NVG_CW)
+            nvgStrokeColor(nvg, nvgRGBA(160, 255, 180, math.floor(160 * alpha)))
+            nvgStrokeWidth(nvg, 2.0)
+            nvgLineCap(nvg, NVG_ROUND)
+            nvgStroke(nvg)
+        end
+        return
+    end
     -- ═══ 一剑开天被动：巨剑PNG从上方劈落 + 冲击波（身前范围） ═══
     local radius = se.range * tileSize * expand
     local faceAngle = se.targetAngle or (se.facingRight and 0 or math.pi)
@@ -406,19 +439,20 @@ local function renderMountainFist(nvg, se, sx, sy, progress, c, alpha, expand, b
         -- 特效中心偏移到角色身前（沿面朝方向偏移 range 距离）
         local cx = sx + math.cos(baseAngle) * radius
         local cy = sy + math.sin(baseAngle) * radius
+        local enhanced = se.effectVariant == "yuanying_mountain_fist" or se.outerShockwaveScale ~= nil
         -- 底层圆形冲击波（暗红）
         nvgBeginPath(nvg)
         nvgCircle(nvg, cx, cy, radius)
         local wavePaint = nvgRadialGradient(nvg, cx, cy, radius * 0.1, radius,
-            nvgRGBA(c[1], c[2], c[3], math.floor(100 * alpha)),
-            nvgRGBA(c[1], c[2], c[3], math.floor(20 * alpha)))
+            nvgRGBA(c[1], c[2], c[3], math.floor((enhanced and 135 or 100) * alpha)),
+            nvgRGBA(c[1], c[2], c[3], math.floor((enhanced and 34 or 20) * alpha)))
         nvgFillPaint(nvg, wavePaint)
         nvgFill(nvg)
         -- 冲击波边缘
         nvgBeginPath(nvg)
         nvgCircle(nvg, cx, cy, radius)
         nvgStrokeColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(200 * alpha)))
-        nvgStrokeWidth(nvg, 2.5)
+        nvgStrokeWidth(nvg, enhanced and 3.4 or 2.5)
         nvgStroke(nvg)
         -- 地裂纹（从中心向外辐射 6 条）
         for j = 0, 5 do
@@ -438,11 +472,60 @@ local function renderMountainFist(nvg, se, sx, sy, progress, c, alpha, expand, b
             nvgStroke(nvg)
         end
         -- 中心拳印圆
-        local fistR = tileSize * 0.25 * expand
+        local fistR = tileSize * (enhanced and 0.31 or 0.25) * expand
         nvgBeginPath(nvg)
         nvgCircle(nvg, cx, cy, fistR)
         nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(180 * alpha)))
         nvgFill(nvg)
+
+        if enhanced then
+            local delay = se.outerShockwaveDelay or 0
+            if progress >= delay then
+                local shockP = math.min(1.0, (progress - delay) / math.max(0.01, 1.0 - delay))
+                local outerScale = math.max(se.outerShockwaveScale or 1.0, 1.45)
+                local shockR = radius * (1.0 + (outerScale - 1.0) * shockP)
+                local shockA = math.floor(235 * alpha * (1.0 - shockP * 0.62))
+
+                local shockPaint = nvgRadialGradient(nvg, cx, cy, radius * 0.88, shockR,
+                    nvgRGBA(255, 155, 70, math.floor(80 * alpha * (1.0 - shockP * 0.35))),
+                    nvgRGBA(255, 80, 40, 0))
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, cx, cy, shockR)
+                nvgFillPaint(nvg, shockPaint)
+                nvgFill(nvg)
+
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, cx, cy, shockR)
+                nvgStrokeColor(nvg, nvgRGBA(255, 120, 80, shockA))
+                nvgStrokeWidth(nvg, 5.0 * (1.0 - shockP * 0.45))
+                nvgStroke(nvg)
+
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, cx, cy, radius)
+                nvgStrokeColor(nvg, nvgRGBA(255, 225, 150, math.floor(150 * alpha * (1.0 - shockP * 0.4))))
+                nvgStrokeWidth(nvg, 2.0)
+                nvgStroke(nvg)
+
+                for j = 0, 7 do
+                    local crackAngle = baseAngle + (j / 8) * math.pi * 2 + shockP * 0.12
+                    local r1 = radius * (0.78 + 0.10 * shockP)
+                    local r2 = shockR * (0.92 + 0.08 * progress)
+                    nvgBeginPath(nvg)
+                    nvgMoveTo(nvg, cx + math.cos(crackAngle) * r1, cy + math.sin(crackAngle) * r1)
+                    nvgLineTo(nvg, cx + math.cos(crackAngle) * r2, cy + math.sin(crackAngle) * r2)
+                    nvgStrokeColor(nvg, nvgRGBA(255, 130, 70, math.floor(120 * alpha * (1.0 - shockP * 0.5))))
+                    nvgStrokeWidth(nvg, 2.2 * (1.0 - shockP * 0.35))
+                    nvgLineCap(nvg, NVG_ROUND)
+                    nvgStroke(nvg)
+                end
+            end
+            local bloodR = tileSize * (0.35 + 0.45 * progress) * expand
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, sx, sy, bloodR)
+            nvgStrokeColor(nvg, nvgRGBA(180, 20, 20, math.floor(140 * alpha * (1.0 - progress * 0.35))))
+            nvgStrokeWidth(nvg, 2.0)
+            nvgStroke(nvg)
+        end
 
     -- ═══ 镇岳：地涌推波 — 前方近身矩形推波 + 翠绿冲击 ═══
 end

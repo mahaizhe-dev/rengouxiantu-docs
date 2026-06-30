@@ -7,6 +7,7 @@ local RenderUtils = shared.RenderUtils
 local IconUtils = shared.IconUtils
 local MonsterData = shared.MonsterData
 local _balloons = shared._balloons
+local EquipmentData = require("config.EquipmentData")
 
 local M = {}
 
@@ -147,7 +148,10 @@ function M.RenderLootDrops(nvg, l, camera)
                 nvgFontFace(nvg, "sans")
                 nvgFontSize(nvg, 11)
                 nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_TOP)
-                local tierStr = bestItem.tier and (bestItem.tier .. "阶 ") or ""
+                local tierStr = EquipmentData.GetTierDisplayName(bestItem.tier)
+                if tierStr ~= "" then
+                    tierStr = tierStr .. " "
+                end
                 nvgFillColor(nvg, nvgRGBA(qc[1], qc[2], qc[3], 240))
                 nvgText(nvg, sx, textY, tierStr .. bestItem.name)
             elseif drop.mingges and #drop.mingges > 0 then

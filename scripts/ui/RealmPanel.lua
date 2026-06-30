@@ -244,9 +244,10 @@ local function BuildTabBar()
             borderColor = T.color.gold,
             onClick = function()
                 if activeTab_ ~= tabId then
-                    -- 离开仙阶tab时保存（炼化积累）
+                    -- R8: 离开仙阶tab时 Flush SaveSession（与洗练一致）
                     if activeTab_ == "ascension" then
-                        EventBus.Emit("save_request")
+                        local SaveSession = require("systems.save.SaveSession")
+                        SaveSession.Flush()
                     end
                     activeTab_ = tabId
                     RebuildContent()
@@ -551,9 +552,10 @@ function RealmPanel.Hide()
     if GameState.uiOpen == "realm" then
         GameState.uiOpen = nil
     end
-    -- 仙阶tab关闭时统一保存（炼化高频操作不逐次保存）
+    -- R8: 面板关闭时 Flush SaveSession（与洗练一致）
     if activeTab_ == "ascension" then
-        EventBus.Emit("save_request")
+        local SaveSession = require("systems.save.SaveSession")
+        SaveSession.Flush()
     end
 end
 

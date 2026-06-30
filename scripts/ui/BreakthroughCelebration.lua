@@ -263,8 +263,10 @@ function BreakthroughCelebration.Show(oldRealm, newRealm)
         end
     end
 
-    -- 攻速加成
-    local atkSpeedBonus = newData.attackSpeedBonus or 0
+    -- 攻速加成（只在比上一阶有增加时才显示）
+    local oldAtkSpeed = oldData.attackSpeedBonus or 0
+    local newAtkSpeed = newData.attackSpeedBonus or 0
+    local atkSpeedBonus = (newAtkSpeed > oldAtkSpeed) and (newAtkSpeed - oldAtkSpeed) or 0
 
     -- ── 颜色主题（使用 UITheme token） ──
     local accentColor = isMajor_ and T.color.gold or T.color.qualityPurple
@@ -393,7 +395,17 @@ function BreakthroughCelebration.Show(oldRealm, newRealm)
         end
     end
 
-    if #unlockedSkills > 0 then
+    local enhancement = SkillData.GetRealmEnhancement(newRealm, classId)
+    local enhancementDesc = ""
+    local enhancedSkill = nil
+    if enhancement then
+        enhancementDesc = SkillData.GetRealmEnhancementDynamicDescription(newRealm, classId, GameState.player)
+        if enhancement.enhancedSkill then
+            enhancedSkill = SkillData.Skills[enhancement.enhancedSkill]
+        end
+    end
+
+    if #unlockedSkills > 0 or enhancement then
         -- 分割线
         table.insert(contentChildren, UI.Panel {
             width = "80%", height = 1,
@@ -465,71 +477,135 @@ function BreakthroughCelebration.Show(oldRealm, newRealm)
                 },
             })
         end
-    end
 
-    -- ── 技能强化展示 ──
-    local enhancement = SkillData.GetRealmEnhancement(newRealm, classId)
-    if enhancement then
-        -- 分割线
-        table.insert(contentChildren, UI.Panel {
-            width = "80%", height = 1,
-            backgroundColor = accentGlow,
-            marginTop = T.spacing.xs,
-            marginBottom = T.spacing.xs,
-        })
+        if enhancement then
+            local enhancedName = (enhancedSkill and enhancedSkill.name)
+                or enhancement.enhancedSkill
+                or "既有技能"
+            local displayName = enhancedName .. "强化"
+            if enhancement.name and enhancement.name ~= "" then
+                displayName = displayName .. " · " .. enhancement.name
+            end
 
-        table.insert(contentChildren, UI.Label {
-            text = "⬆️ 技能强化",
-            fontSize = T.fontSize.sm,
-            fontWeight = "bold",
-            fontColor = accentColor,
-            textAlign = "center",
-        })
-
-        table.insert(contentChildren, UI.Panel {
-            width = "100%",
-            backgroundColor = T.color.surfaceDeep,
-            borderRadius = T.radius.sm,
-            borderWidth = 1,
-            borderColor = accentGlow,
-            paddingTop = T.spacing.sm,
-            paddingBottom = T.spacing.sm,
-            paddingLeft = T.spacing.md,
-            paddingRight = T.spacing.md,
-            gap = T.spacing.xxs,
-            children = {
-                UI.Panel {
-                    flexDirection = "row",
-                    alignItems = "center",
-                    gap = T.spacing.sm,
-                    children = {
-                        UI.Label {
-                            text = enhancement.icon or "⬆️",
-                            fontSize = T.fontSize.xl,
-                        },
-                        UI.Panel {
-                            flexDirection = "column",
-                            flexShrink = 1,
-                            gap = 2,
-                            children = {
-                                UI.Label {
-                                    text = (enhancement.name or "") .. " [被动]",
-                                    fontSize = T.fontSize.sm,
-                                    fontWeight = "bold",
-                                    fontColor = T.color.textPrimary,
-                                },
-                                UI.Label {
-                                    text = enhancement.description or "",
-                                    fontSize = T.fontSize.xxs,
-                                    fontColor = T.color.textSecondary,
-                                    flexShrink = 1,
+            table.insert(contentChildren, UI.Panel {
+                width = "100%",
+                backgroundColor = T.color.surfaceDeep,
+                borderRadius = T.radius.sm,
+                borderWidth = 1,
+                borderColor = accentGlow,
+                paddingTop = T.spacing.sm,
+                paddingBottom = T.spacing.sm,
+                paddingLeft = T.spacing.md,
+                paddingRight = T.spacing.md,
+                gap = T.spacing.xxs,
+                children = {
+                    UI.Panel {
+                        flexDirection = "row",
+                        alignItems = "center",
+                        gap = T.spacing.sm,
+                        children = {
+                            UI.Label {
+                                text = enhancement.icon or (enhancedSkill and enhancedSkill.icon) or "⬆️",
+                                fontSize = T.fontSize.xl,
+                            },
+                            UI.Panel {
+                                flexDirection = "column",
+                                flexShrink = 1,
+                                gap = 2,
+                                children = {
+                                    UI.Label {
+                                        text = displayName .. " [强化]",
+                                        fontSize = T.fontSize.sm,
+                                        fontWeight = "bold",
+                                        fontColor = T.color.textPrimary,
+                                    },
+                                    UI.Label {
+                                        text = enhancementDesc,
+                                        fontSize = T.fontSize.xxs,
+                                        fontColor = T.color.textSecondary,
+                                        flexShrink = 1,
+                                    },
                                 },
                             },
                         },
                     },
                 },
-            },
-        })
+            })
+        end
+    end
+
+    -- ── 仙体解锁展示（首次渡劫成功解锁仙人之体）──
+    if newRealm == "asc_1" then
+        local AscensionConfig = require("config.AscensionConfig")
+        local bodyProfile = AscensionConfig.GROWTH_PROFILES and AscensionConfig.GROWTH_PROFILES["immortal_body_1"]
+        if bodyProfile then
+            table.insert(contentChildren, UI.Panel {
+                width = "80%", height = 1,
+                backgroundColor = accentGlow,
+                marginTop = T.spacing.xs,
+                marginBottom = T.spacing.xs,
+            })
+
+            table.insert(contentChildren, UI.Label {
+                text = "🔓 解锁仙体",
+                fontSize = T.fontSize.sm,
+                fontWeight = "bold",
+                fontColor = accentColor,
+                textAlign = "center",
+            })
+
+            table.insert(contentChildren, UI.Panel {
+                width = "100%",
+                backgroundColor = T.color.surfaceDeep,
+                borderRadius = T.radius.sm,
+                borderWidth = 1,
+                borderColor = accentGlow,
+                paddingTop = T.spacing.sm,
+                paddingBottom = T.spacing.sm,
+                paddingLeft = T.spacing.md,
+                paddingRight = T.spacing.md,
+                gap = T.spacing.xxs,
+                children = {
+                    UI.Panel {
+                        flexDirection = "row",
+                        alignItems = "center",
+                        gap = T.spacing.sm,
+                        children = {
+                            UI.Label {
+                                text = "✨",
+                                fontSize = T.fontSize.xl,
+                            },
+                            UI.Panel {
+                                flexDirection = "column",
+                                flexShrink = 1,
+                                gap = 2,
+                                children = {
+                                    UI.Label {
+                                        text = bodyProfile.name or "仙人之体",
+                                        fontSize = T.fontSize.sm,
+                                        fontWeight = "bold",
+                                        fontColor = T.color.nameHighlight,
+                                    },
+                                    UI.Label {
+                                        text = string.format("每级成长：HP+%d / ATK+%d / DEF+%d / 回复+%.1f",
+                                            bodyProfile.maxHp or 25, bodyProfile.atk or 5,
+                                            bodyProfile.def or 3, bodyProfile.hpRegen or 0.5),
+                                        fontSize = T.fontSize.xxs,
+                                        fontColor = T.color.textSecondary,
+                                        flexShrink = 1,
+                                    },
+                                    UI.Label {
+                                        text = "可在境界面板「仙体」标签中切换",
+                                        fontSize = T.fontSize.xxs,
+                                        fontColor = T.color.warning,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            })
+        end
     end
 
     -- 间距

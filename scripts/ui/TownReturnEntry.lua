@@ -75,12 +75,6 @@ function TownReturnEntry.Create(parentOverlay)
         miniContainer:AddChild(btn_)
     else
         print("[TownReturnEntry] WARN: minimapContainer not found, fallback to overlay")
-        btn_:SetStyle({
-            position = "absolute",
-            top = 380,
-            left = 8,
-            zIndex = 5,
-        })
         parentOverlay:AddChild(btn_)
     end
 end

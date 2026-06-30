@@ -65,12 +65,6 @@ function BulletinFloatingIcon.Create(parentOverlay)
         miniContainer:AddChild(btn_)
     else
         print("[BulletinFloatingIcon] WARN: minimapContainer not found, fallback to overlay")
-        btn_:SetStyle({
-            position = "absolute",
-            top = 460,
-            left = 8,
-            zIndex = 5,
-        })
         parentOverlay:AddChild(btn_)
     end
 

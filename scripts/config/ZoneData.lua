@@ -4,6 +4,8 @@
 
 local ZoneData = {}
 
+ZoneData.CHAPTER_ID = 1
+
 -- 加载各区域数据
 local townData         = require("config.zones.town")
 local narrowTrailData  = require("config.zones.narrow_trail")
@@ -55,10 +57,8 @@ ZoneData.WALKABLE = TileTypes.WALKABLE
 -- 区域范围
 ZoneData.Regions = {}
 for _, zoneModule in ipairs(ALL_ZONES) do
-    if zoneModule.regions then
-        for name, region in pairs(zoneModule.regions) do
-            ZoneData.Regions[name] = region
-        end
+    for name, region in pairs(zoneModule.regions) do
+        ZoneData.Regions[name] = region
     end
 end
 
@@ -75,10 +75,8 @@ end
 -- 装饰物（原 TownDecorations，实际包含所有区域）
 ZoneData.TownDecorations = {}
 for _, zoneModule in ipairs(ALL_ZONES) do
-    if zoneModule.decorations then
-        for _, deco in ipairs(zoneModule.decorations) do
-            table.insert(ZoneData.TownDecorations, deco)
-        end
+    for _, deco in ipairs(zoneModule.decorations) do
+        table.insert(ZoneData.TownDecorations, deco)
     end
 end
 

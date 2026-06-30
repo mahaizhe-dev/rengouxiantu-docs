@@ -5,6 +5,7 @@
 local shared = require("systems.skill.shared")
 
 local GameConfig    = shared.GameConfig
+local SkillData     = shared.SkillData
 local GameState     = shared.GameState
 local CombatSystem  = shared.CombatSystem
 local TargetSelector = shared.TargetSelector
@@ -22,6 +23,18 @@ local math_sin    = shared.math_sin
 local math_pi     = shared.math_pi
 
 local M = {}
+
+local function ApplyIntegerHeal(entity, rawHeal, maxHp)
+    local healAmt = math_floor(rawHeal or 0)
+    if healAmt <= 0 or not entity or not maxHp or entity.hp >= maxHp then return 0 end
+
+    local missingHp = math_floor(maxHp - entity.hp)
+    if missingHp <= 0 then return 0 end
+
+    healAmt = math_min(healAmt, missingHp)
+    entity.hp = math_min(maxHp, entity.hp + healAmt)
+    return healAmt
+end
 
 -- ============================================================================
 -- 御剑护体：灵剑环绕被动（sword_shield_passive）
@@ -55,14 +68,30 @@ function M.SwordShieldPassive(skill, player, skillId, dt)
             -- 重置恢复计时器（受击后重新开始计时）
             ss.recoverTimer = 0
 
+            local healAmt = 0
+            if (skill.breakHealPercent or 0) > 0 and self.GetTotalMaxHp then
+                local maxHp = self:GetTotalMaxHp()
+                healAmt = ApplyIntegerHeal(self, maxHp * skill.breakHealPercent, maxHp)
+            end
+
             -- 浮字 + 特效
             CombatSystem.AddFloatingText(
                 self.x, self.y - 1.0,
                 "🔰剑挡 -" .. blocked .. " (余" .. ss.swords .. ")",
                 skill.effectColor, 1.5
             )
+            if healAmt > 0 then
+                CombatSystem.AddFloatingText(
+                    self.x, self.y - 0.6,
+                    "+" .. healAmt,
+                    {80, 255, 120, 255}, 1.0
+                )
+            end
             CombatSystem.AddSkillEffect(self, skill.id, 1.2,
-                skill.effectColor, "sword_shield_passive", nil)
+                skill.effectColor, "sword_shield_passive", {
+                    effectVariant = (healAmt > 0) and "break_heal" or nil,
+                    duration = 0.6,
+                })
 
             print("[SwordShield] Blocked " .. blocked .. " dmg, swords left: " .. ss.swords)
             return finalDmg
@@ -159,11 +188,6 @@ function M.TriggerNthCastEffect(skill, player, SkillSystem)
     local target = player.target
     if not target or not target.alive then return end
 
-    -- 设置击杀回血乘数
-    if skill.triggerKillHealMultiplier then
-        player._killHealMultiplier = skill.triggerKillHealMultiplier
-    end
-
     local targetAngle = math_atan(target.y - player.y, target.x - player.x)
 
     local targets, hitCount = TargetSelector.Select(player, {
@@ -174,6 +198,14 @@ function M.TriggerNthCastEffect(skill, player, SkillSystem)
         facingAngle  = targetAngle,
     })
     if hitCount == 0 then return end
+
+    local triggerHeal = 0
+    if (skill.triggerOnHitHealFromKillHealMultiplier or 0) > 0 then
+        local rawHeal = SkillData.GetTotalKillHeal(player) * skill.triggerOnHitHealFromKillHealMultiplier
+        if rawHeal > 0 and player.GetTotalMaxHp then
+            triggerHeal = ApplyIntegerHeal(player, rawHeal, player:GetTotalMaxHp())
+        end
+    end
 
     local totalAtk = player:GetTotalAtk()
     local skillDmgPercent = (player.equipSkillDmg or 0) + player:GetSkillDmgPercent()
@@ -200,6 +232,14 @@ function M.TriggerNthCastEffect(skill, player, SkillSystem)
         skill.icon .. skill.name,
         skill.effectColor, 2.0
     )
+    if triggerHeal > 0 then
+        CombatSystem.AddFloatingText(
+            player.x, player.y - 0.35,
+            "+" .. triggerHeal,
+            {80, 255, 120, 255},
+            1.2
+        )
+    end
 
     CombatSystem.AddSkillEffect(player, skill.id, skill.triggerRange or 1.5,
         skill.effectColor, "melee_aoe", {
@@ -207,7 +247,13 @@ function M.TriggerNthCastEffect(skill, player, SkillSystem)
             duration = skill.triggerEffectDuration or 1.0,
         })
 
-    player._killHealMultiplier = nil
+    if triggerHeal > 0 then
+        CombatSystem.AddSkillEffect(player, skill.id, 1.2,
+            {80, 255, 120, 255}, "melee_aoe", {
+                effectVariant = "trigger_heal",
+                duration = 0.6,
+            })
+    end
 
     print("[SkillSystem] 一剑开天触发! 命中" .. hitCount .. "个目标")
 end

@@ -440,6 +440,15 @@ function GameMap:GetTileColor(tileType)
         colors[T.CH5_SEALED_GATE]      = {100, 70, 110, 255}
         colors[T.CH5_BRIDGE]           = {130, 125, 115, 255}
     end
+    -- 第六章瓦片颜色（两界村之影，供非 ZoneData 路径兜底）
+    if T.CH6_SHADOW_GROUND then
+        colors[T.CH6_SHADOW_GROUND]  = {42, 48, 78, 255}
+        colors[T.CH6_MOUNTAIN_STONE] = {104, 99, 88, 255}
+        colors[T.CH6_MOUNTAIN_RUNE]  = {120, 108, 82, 255}
+        colors[T.CH6_CORRUPTED_TOWN] = {72, 55, 82, 255}
+        colors[T.CH6_SEAL_FLOOR]     = {98, 82, 112, 255}
+        colors[T.CH6_TRIAL_STONE]    = {126, 122, 102, 255}
+    end
     colors._default = C.grass
     _tileColorCache = colors
     _tileColorCacheZd = activeZoneData

@@ -530,7 +530,7 @@ end
 
 local function BuildCh6Content()
     return {
-        CreateConsumableCard({ name = "一转仙劫丹", recipeId = "one_turn_tribulation_pill", cost = 10000, goldCost = 1000000, desc = "仙阶突破材料", quality = "orange" }),
+        CreateConsumableCard({ name = "一转仙劫丹", recipeId = "one_turn_tribulation_pill", cost = 10000, goldCost = 1000000, desc = "仙阶突破材料", quality = "gold" }),
     }
 end
 

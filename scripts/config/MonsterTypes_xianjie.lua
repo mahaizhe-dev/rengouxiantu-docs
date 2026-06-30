@@ -35,6 +35,7 @@ M.Types.outer_demon_boss = {
     skillTextColor = { 180, 80, 220, 255 },
     warningColorOverride = { 100, 30, 100, 120 },
     spawnCount = 5,
+    localRespawn = true,
     demonBuff = true,           -- 自带魔化BUFF（视觉+属性强化，不影响掉落）
     phases = 2,
     skills = { "void_cross_slash", "evil_impact", "doom_wave" },

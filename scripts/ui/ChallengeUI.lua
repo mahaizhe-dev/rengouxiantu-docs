@@ -1654,7 +1654,7 @@ local function BuildFabaoCardRows(item)
     })
 
     -- 品质 / 阶 / 位置
-    local tierStr = item.tier and (item.tier .. "阶") or ""
+    local tierStr = EquipmentData.GetTierDisplayName(item.tier)
     local subLine = "[" .. qName .. "] " .. slotName
     if tierStr ~= "" then subLine = tierStr .. "  " .. subLine end
     table.insert(rows, UI.Label {

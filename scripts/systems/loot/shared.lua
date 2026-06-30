@@ -25,6 +25,7 @@ shared.BASE_QUALITY_WEIGHTS = {
     { quality = "purple", weight = 25 },
     { quality = "orange", weight = 5 },
     { quality = "cyan",   weight = 1 },
+    { quality = "red",    weight = 0.2 },
 }
 
 -- ── Tier 品质权重表 ──
@@ -39,7 +40,7 @@ shared.TIER_QUALITY_WEIGHTS = {
     [8]  = { white = 250, green = 150, blue = 75, purple = 25, orange = 5 },
     [9]  = { white = 250, green = 150, blue = 75, purple = 25, orange = 5, cyan = 1 },
     [10] = { white = 250, green = 150, blue = 75, purple = 25, orange = 5, cyan = 1 },
-    [11] = { white = 250, green = 150, blue = 75, purple = 25, orange = 5, cyan = 1 },
+    [11] = { white = 250, green = 150, blue = 75, purple = 25, orange = 5, cyan = 1, red = 0.2 },
 }
 
 -- ── 高品质 per-tier 等级门槛 ──
@@ -50,6 +51,9 @@ shared.TIER_QUALITY_GATE = {
     },
     cyan = {
         [9] = 96,  [10] = 111, [11] = 131,
+    },
+    red = {
+        [11] = 136,
     },
 }
 
@@ -95,6 +99,20 @@ shared.GOURD_QUALITY_ICONS = {
     purple = "image/gourd_purple.png",
     orange = "image/gourd_orange.png",
     cyan   = "image/gourd_cyan.png",
+}
+
+-- ── 仙装图标映射（T11=仙1；T12+待后续逐阶补齐） ──
+shared.XIAN_SLOT_ICONS = {
+    [11] = {
+        weapon   = "image/icon_t11_weapon_zhexian_diagonal_20260630132255.png",
+        helmet   = "image/icon_t11_helmet_zhexian_20260630131845.png",
+        armor    = "image/icon_t11_armor_zhexian_20260630131845.png",
+        shoulder = "image/icon_t11_shoulder_zhexian_20260630131845.png",
+        belt     = "image/icon_t11_belt_zhexian_20260630131845.png",
+        boots    = "image/icon_t11_boots_zhexian_20260630131939.png",
+        ring     = "image/icon_t11_ring_zhexian_20260630131939.png",
+        necklace = "image/icon_t11_necklace_zhexian_20260630131939.png",
+    },
 }
 
 --- 根据怪物等级确定可用 Tier 列表
