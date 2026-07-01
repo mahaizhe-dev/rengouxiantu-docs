@@ -99,6 +99,9 @@ shared.GOURD_QUALITY_ICONS = {
     purple = "image/gourd_purple.png",
     orange = "image/gourd_orange.png",
     cyan   = "image/gourd_cyan.png",
+    red    = "image/gourd_cyan.png",
+    gold   = "image/gourd_cyan.png",
+    rainbow = "image/gourd_cyan.png",
 }
 
 -- ── 仙装图标映射（T11=仙1；T12+待后续逐阶补齐） ──

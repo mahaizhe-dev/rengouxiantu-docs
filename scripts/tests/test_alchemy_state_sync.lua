@@ -89,7 +89,7 @@ local function CreateMockPlayer()
     local p = {
         level = 10, exp = 500, hp = 100, maxHp = 200,
         atk = 50, def = 30, hpRegen = 1,
-        pillKillHeal = 0, pillConstitution = 0, gangguConstitution = 0,
+        pillKillHeal = 0, shadowGodKillHeal = 0, pillConstitution = 0, gangguConstitution = 0,
         fruitFortune = 0,
         seaPillarDef = 0, seaPillarAtk = 0, seaPillarMaxHp = 0, seaPillarHpRegen = 0,
         swordPoolAtk = 0, swordPoolDef = 0, swordPoolMaxHp = 0, swordPoolHpRegen = 0,
@@ -181,6 +181,7 @@ do
     AlchemySystem.SetDragonBloodPillCount(1)
     AlchemySystem.SetSwordIntentPillCount(2)
     AlchemySystem.SetAbyssSealPillCount(1)
+    AlchemySystem.SetShadowGodPillCount(6)
 
     local snap = AlchemySystem.GetSnapshot()
 
@@ -191,6 +192,7 @@ do
     assert_eq(snap.dragonBlood, AlchemySystem.GetDragonBloodPillCount(), "SS-1e: snapshot.dragonBlood == getter")
     assert_eq(snap.swordIntent, AlchemySystem.GetSwordIntentPillCount(), "SS-1f: snapshot.swordIntent == getter")
     assert_eq(snap.abyssSeal, AlchemySystem.GetAbyssSealPillCount(), "SS-1g: snapshot.abyssSeal == getter")
+    assert_eq(snap.shadowGod, AlchemySystem.GetShadowGodPillCount(), "SS-1h: snapshot.shadowGod == getter")
 end
 
 -- ─────────────────────────────────────────────────────────────
@@ -209,6 +211,7 @@ do
     AlchemySystem.SetDragonBloodPillCount(2)
     AlchemySystem.SetSwordIntentPillCount(1)
     AlchemySystem.SetAbyssSealPillCount(2)
+    AlchemySystem.SetShadowGodPillCount(7)
 
     -- 执行 ResetRuntimeState（生产中由 ReturnToLogin 调用）
     AlchemySystem.ResetRuntimeState()
@@ -220,6 +223,7 @@ do
     assert_eq(AlchemySystem.GetDragonBloodPillCount(), 0, "SS-2e: dragonBlood 归零")
     assert_eq(AlchemySystem.GetSwordIntentPillCount(), 0, "SS-2f: swordIntent 归零")
     assert_eq(AlchemySystem.GetAbyssSealPillCount(), 0, "SS-2g: abyssSeal 归零")
+    assert_eq(AlchemySystem.GetShadowGodPillCount(), 0, "SS-2h: shadowGod 归零")
 end
 
 -- ─────────────────────────────────────────────────────────────
@@ -233,7 +237,7 @@ do
     -- 初始化 pillCounts 结构
     player.pillCounts = {
         tiger = 0, snake = 0, diamond = 0, tempering = 0,
-        dragon_blood = 0, sword_intent = 0, abyss_seal = 0,
+        dragon_blood = 0, sword_intent = 0, abyss_seal = 0, shadow_god = 0,
     }
 
     -- Set* 应自动同步到 player.pillCounts
@@ -251,6 +255,9 @@ do
 
     AlchemySystem.SetAbyssSealPillCount(2)
     assert_eq(player.pillCounts.abyss_seal, 2, "SS-3e: Set abyssSeal → pillCounts.abyss_seal 同步")
+
+    AlchemySystem.SetShadowGodPillCount(6)
+    assert_eq(player.pillCounts.shadow_god, 6, "SS-3f: Set shadowGod → pillCounts.shadow_god 同步")
 end
 
 -- ─────────────────────────────────────────────────────────────
@@ -265,15 +272,18 @@ do
     AlchemySystem.SetTigerPillCount(5)
     AlchemySystem.SetSnakePillCount(3)
     AlchemySystem.SetDiamondPillCount(7)
+    AlchemySystem.SetShadowGodPillCount(9)
 
     -- 传 nil
     AlchemySystem.SetTigerPillCount(nil)
     AlchemySystem.SetSnakePillCount(nil)
     AlchemySystem.SetDiamondPillCount(nil)
+    AlchemySystem.SetShadowGodPillCount(nil)
 
     assert_eq(AlchemySystem.GetTigerPillCount(), 0, "SS-4a: SetTigerPillCount(nil) → 0")
     assert_eq(AlchemySystem.GetSnakePillCount(), 0, "SS-4b: SetSnakePillCount(nil) → 0")
     assert_eq(AlchemySystem.GetDiamondPillCount(), 0, "SS-4c: SetDiamondPillCount(nil) → 0")
+    assert_eq(AlchemySystem.GetShadowGodPillCount(), 0, "SS-4d: SetShadowGodPillCount(nil) → 0")
 end
 
 -- ─────────────────────────────────────────────────────────────
@@ -299,6 +309,10 @@ do
     AlchemySystem.SetSnakePillCount(0)
     AlchemySystem.SetSnakePillCount(7)
     assert_eq(AlchemySystem.GetSnakePillCount(), 7, "SS-5c: Set 0 后再 Set 正常覆盖")
+
+    AlchemySystem.SetShadowGodPillCount(0)
+    AlchemySystem.SetShadowGodPillCount(6)
+    assert_eq(AlchemySystem.GetShadowGodPillCount(), 6, "SS-5d: shadowGod Set 0 后再 Set 正常覆盖")
 end
 
 -- ─────────────────────────────────────────────────────────────
@@ -320,6 +334,7 @@ do
         AlchemySystem.SetDragonBloodPillCount(1)
         AlchemySystem.SetSwordIntentPillCount(2)
         AlchemySystem.SetAbyssSealPillCount(1)
+        AlchemySystem.SetShadowGodPillCount(6)
     end)
 
     assert_true(ok, "SS-6a: Set* 在 pillCounts=nil 时不报错")
@@ -338,7 +353,8 @@ do
     local saveData = {
         tigerPillCount = 6, snakePillCount = 4, diamondPillCount = 3,
         temperingPillEaten = 25, dragonBloodPillCount = 2,
-        swordIntentPillCount = 1, abyssSealPillCount = 2,
+        swordIntentPillCount = 1, abyssSealPillCount = 2, shadowGodPillCount = 6,
+        shadowGodKillHeal = 120,
         level = 15, exp = 1000, maxHp = 300, atk = 80, def = 40, hpRegen = 2,
         gold = 200, lingYun = 800, realm = "foundation",
     }
@@ -353,6 +369,8 @@ do
     assert_eq(snap.dragonBlood, 2, "SS-7e: snapshot.dragonBlood == saveData.dragonBloodPillCount")
     assert_eq(snap.swordIntent, 1, "SS-7f: snapshot.swordIntent == saveData.swordIntentPillCount")
     assert_eq(snap.abyssSeal, 2, "SS-7g: snapshot.abyssSeal == saveData.abyssSealPillCount")
+    assert_eq(snap.shadowGod, 6, "SS-7h: snapshot.shadowGod == saveData.shadowGodPillCount")
+    assert_eq(GameState.player.shadowGodKillHeal, 120, "SS-7i: shadowGodKillHeal == saveData.shadowGodKillHeal")
 end
 
 -- ============================================================================

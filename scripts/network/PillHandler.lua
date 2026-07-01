@@ -27,6 +27,8 @@ local VALID_PILL_IDS = {
     -- 第五章丹药
     sword_intent = true, -- 太虚剑丹（+攻击）
     abyss_seal = true,   -- 狱甲丹（+防御）
+    -- 第六章丹药
+    shadow_god = true,   -- 影神丹（+攻击/+击杀回血）
 }
 
 --- 供基线测试访问

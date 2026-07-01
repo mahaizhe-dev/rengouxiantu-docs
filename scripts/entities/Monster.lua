@@ -186,6 +186,7 @@ function Monster.New(data, spawnX, spawnY)
     self.skillIds = data.skills or {}
     self.skills = {}
     self.skillTimers = {}
+    self.skillCooldownMult = 1.0
     for i, skillId in ipairs(self.skillIds) do
         local skillDef = MonsterData.Skills[skillId]
         if skillDef then
@@ -237,9 +238,10 @@ end
 ---@param buff table { atkSpeedMult, speedMult, cdrMult }
 function Monster:ApplyBerserkBuff(buff)
     if not buff or self.hasBerserkBuff then return end
-    self.attackInterval = self.baseAttackInterval / (buff.atkSpeedMult or 1.0)
+    self.attackInterval = self.attackInterval / (buff.atkSpeedMult or 1.0)
     self.speed = self.speed * (buff.speedMult or 1.0)
     self.baseSpeed = self.speed
+    self.skillCooldownMult = (self.skillCooldownMult or 1.0) * (buff.cdrMult or 1.0)
     -- 技能冷却缩减
     for i, skillDef in ipairs(self.skills) do
         if skillDef and self.skillTimers[i] then
@@ -248,6 +250,13 @@ function Monster:ApplyBerserkBuff(buff)
     end
     self.hasBerserkBuff = true
     self.berserkBuff = buff
+end
+
+--- Get the current cooldown after monster CDR buffs.
+---@param skill table
+---@return number
+function Monster:GetSkillCooldown(skill)
+    return (skill.cooldown or 0) * (self.skillCooldownMult or 1.0)
 end
 
 --- 重新随机等级并刷新属性（用于重生）
@@ -532,7 +541,7 @@ function Monster:Update(dt, player, pet, gameMap)
         for i, skill in ipairs(self.skills) do
             if skill then
                 self.skillTimers[i] = self.skillTimers[i] + dt
-                if self.skillTimers[i] >= skill.cooldown then
+                if self.skillTimers[i] >= self:GetSkillCooldown(skill) then
                     self.skillTimers[i] = 0
                     -- 有蓄力时间则进入蓄力状态，否则立即释放
                     if skill.castTime and skill.castTime > 0 then
@@ -1033,6 +1042,9 @@ function Monster:CheckPhaseTransition()
             if phase.intervalMult then
                 self.attackInterval = self.baseAttackInterval * phase.intervalMult
             end
+            if phase.berserkBuff then
+                self:ApplyBerserkBuff(phase.berserkBuff)
+            end
 
             -- 阶段新增技能（单个）
             if phase.addSkill then
@@ -1266,12 +1278,30 @@ function Monster:Respawn()
     self.stuckCheckTimer = 0
     self.stuckLastX = self.spawnX
     self.stuckLastY = self.spawnY
+    self.hasBerserkBuff = false
+    self.berserkBuff = nil
+    self.skillCooldownMult = 1.0
+    self.skills = {}
+    self.skillTimers = {}
+    for i, skillId in ipairs(self.skillIds or {}) do
+        local skillDef = MonsterData.Skills[skillId]
+        if skillDef then
+            self.skills[i] = skillDef
+            self.skillTimers[i] = skillDef.cooldown * 0.5
+        end
+    end
 
     -- 重新应用魔化BUFF
     if self.data.demonBuff then
-        self.hasBerserkBuff = false  -- 重置标记以允许重新应用
         self:ApplyBerserkBuff({ atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 })
         self.maxHp = math_floor(self.maxHp * 1.5)
+        self.hp = self.maxHp
+    end
+    if self.data.berserkBuff then
+        self:ApplyBerserkBuff(self.data.berserkBuff)
+    end
+    if self.data.sealDemonHpMult then
+        self.maxHp = math_floor(self.maxHp * self.data.sealDemonHpMult)
         self.hp = self.maxHp
     end
 
@@ -1289,7 +1319,7 @@ function Monster:Respawn()
                 local skillDef = MonsterData.Skills[skillId]
                 if skillDef then
                     self.skills[i] = skillDef
-                    self.skillTimers[i] = skillDef.cooldown * 0.5
+                    self.skillTimers[i] = self:GetSkillCooldown(skillDef) * 0.5
                 end
             end
         end
@@ -1298,7 +1328,7 @@ function Monster:Respawn()
     -- 重置技能冷却
     for i, skill in ipairs(self.skills) do
         if skill then
-            self.skillTimers[i] = skill.cooldown * 0.5
+            self.skillTimers[i] = self:GetSkillCooldown(skill) * 0.5
         end
     end
 

@@ -38,6 +38,8 @@ function M.UseBatchConsumable(IS, consumableId, count)
         return M._UseBatchExpPill(IS, count)
     elseif consumableId == "exp_pill_superior" then
         return M._UseBatchExpPillSuperior(IS, count)
+    elseif consumableId == "exp_pill_supreme" then
+        return M._UseBatchExpPillSupreme(IS, count)
     elseif consumableId == "lingyun_fruit" then
         return M._UseBatchLingyunFruit(IS, count)
     elseif consumableId == "lingyun_fruit_superior" then
@@ -216,6 +218,68 @@ function M._UseBatchExpPillSuperior(IS, count)
     local actualExp = math.floor(totalRawExp * expMultiplier)
     EventBus.Emit("exp_pill_used", actualExp)
     local msg = "使用 " .. maxUsable .. " 颗上品修炼果，获得 " .. actualExp .. " 经验！"
+    print("[InventorySystem] " .. msg)
+    return true, msg, maxUsable
+end
+
+--- 批量使用极品修炼果（预计算经验上限，一次性扣除+发放）
+---@param IS table InventorySystem facade
+---@param count number 期望使用数量
+---@return boolean success, string|nil message, number|nil actualCount
+function M._UseBatchExpPillSupreme(IS, count)
+    local player = GameState.player
+    if not player then return false, "玩家不存在" end
+
+    local EXP_PER_PILL = 1000000
+
+    local expBonus = player.titleExpBonus or 0
+    local expMultiplier = 1 + expBonus
+    local effectiveExpPerPill = math.floor(EXP_PER_PILL * expMultiplier)
+
+    local realmData = GameConfig.REALMS[player.realm]
+    if not realmData then return false, "境界数据异常" end
+
+    local maxLevel = realmData.maxLevel
+    local expCap = math.huge
+
+    if player.level >= maxLevel then
+        local curLevelExp = GameConfig.EXP_TABLE[player.level] or 0
+        local nextLevelExp = GameConfig.EXP_TABLE[player.level + 1]
+        if nextLevelExp then
+            expCap = curLevelExp + math.floor((nextLevelExp - curLevelExp) * 0.99)
+        end
+        if player.exp >= expCap then
+            return false, "经验已达境界上限，请先突破境界"
+        end
+    end
+
+    local maxUsable = count
+    if player.level >= maxLevel and expCap ~= math.huge then
+        local remainingExp = expCap - player.exp
+        if remainingExp <= 0 then
+            return false, "经验已达境界上限，请先突破境界"
+        end
+        local canUse = math.max(1, math.floor(remainingExp / effectiveExpPerPill))
+        maxUsable = math.min(count, canUse)
+    end
+
+    if maxUsable <= 0 then
+        return false, "经验已达境界上限，请先突破境界"
+    end
+
+    local have = IS.CountConsumable("exp_pill_supreme")
+    maxUsable = math.min(maxUsable, have)
+    if maxUsable <= 0 then return false, "极品修炼果不足" end
+
+    local ok = IS.ConsumeConsumable("exp_pill_supreme", maxUsable)
+    if not ok then return false, "消耗失败" end
+
+    local totalRawExp = EXP_PER_PILL * maxUsable
+    player:GainExp(totalRawExp)
+
+    local actualExp = math.floor(totalRawExp * expMultiplier)
+    EventBus.Emit("exp_pill_used", actualExp)
+    local msg = "使用 " .. maxUsable .. " 颗极品修炼果，获得 " .. actualExp .. " 经验"
     print("[InventorySystem] " .. msg)
     return true, msg, maxUsable
 end

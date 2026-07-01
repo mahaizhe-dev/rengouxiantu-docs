@@ -55,6 +55,27 @@ M.WORLD_DROP_POOLS = {
             { type = "consumable", consumableId = "taixu_jianling_box" },       -- 太虚剑令盒
         },
     },
+    -- 第六章·两界村之影：BOSS共享世界掉落池
+    ch6 = {
+        bossLabel = "100%",
+        items = {
+            { type = "consumable", consumableId = "dragon_marrow" },
+            { type = "consumable", consumableId = "exp_pill" },
+            { type = "consumable", consumableId = "lingyun_fruit" },
+            { type = "consumable", consumableId = "zhexian_ling" },
+            { type = "consumable", consumableId = "exp_pill_superior" },
+        },
+    },
+    ch6_emperor_rare = {
+        bossLabel = "5%",
+        items = {
+            { type = "consumable", consumableId = "gold_brick" },
+            { type = "consumable", consumableId = "lingyun_fruit_superior" },
+            { type = "consumable", consumableId = "exp_pill_supreme" },
+            { type = "consumable", consumableId = "spirit_pill_6" },
+            { type = "consumable", consumableId = "night_shadow_grass" },
+        },
+    },
     -- 万仇/万海专用：筑基丹与修炼果共享掉落池
     boss_pill_ch2 = {
         bossLabel = "1%",

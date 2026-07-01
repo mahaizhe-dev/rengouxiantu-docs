@@ -94,14 +94,22 @@ local function buildBackhillExpansion(self, T)
         end
     end
 
-    -- 削掉右上、右下直角，让后山扩展区边缘更自然。
-    local cornerCuts = {
-        {55, 4}, {54, 4}, {55, 5}, {53, 4}, {55, 6},
-        {54, 5}, {53, 5}, {54, 6},
-        {55, 20}, {54, 20}, {55, 19}, {53, 20}, {55, 18},
-        {54, 19}, {53, 19}, {54, 18},
+    -- 用单格削边与外凸岩点打散矩形轮廓；右侧主封闭线仍保持不可穿透。
+    local edgeCuts = {
+        {34, 4, T.CAMP_FLOOR}, {35, 4, T.CAMP_FLOOR},
+        {33, 6, T.CAMP_FLOOR}, {33, 14, T.CAMP_FLOOR},
+        {54, 4, T.CAMP_FLOOR}, {55, 5, T.CAMP_FLOOR},
+        {54, 20, T.GRASS}, {55, 18, T.GRASS},
+        {50, 20, T.CAMP_FLOOR}, {36, 20, T.GRASS},
     }
-    for _, p in ipairs(cornerCuts) do
+    for _, p in ipairs(edgeCuts) do
+        safeTile(self, p[1], p[2], p[3])
+    end
+    local edgeOutcrops = {
+        {32, 7}, {32, 13}, {34, 3}, {39, 3}, {48, 3}, {52, 3},
+        {56, 9}, {56, 17}, {52, 21}, {37, 21},
+    }
+    for _, p in ipairs(edgeOutcrops) do
         safeTile(self, p[1], p[2], T.MOUNTAIN)
     end
 
@@ -183,76 +191,193 @@ local function buildVillageNorthRuins(self, T)
 end
 
 local function buildBoarWaterBossArea(self, T)
-    -- 野猪林左下角扩大水域，形成天然不规则 BOSS 岛，东北方向自然敞开入口。
+    -- 呱大人领地左下角湖泊：水域包围湖心岛，东北侧保留 2 格宽自然入口。
+    -- 碰撞/通行设计：WATER 不可行走；FOREST_FLOOR 入口链必须保持四向连通到 BOSS 岛。
     local cx, cy = 12, 73
-    local rx, ry = 10, 8
+    local rx, ry = 11.0, 8.2
 
-    for y = 63, 79 do
-        for x = 3, 25 do
+    for y = 62, 79 do
+        for x = 2, 27 do
             local nx = (x - cx) / rx
             local ny = (y - cy) / ry
             local d = nx * nx + ny * ny
             local h = hash100(x, y, 666)
-            local mouthSlope = y - (72 - math.floor((x - 15) * 0.55))
-            local northEastMouth = x >= 15 and x <= 24 and y >= 64 and y <= 72
-                and mouthSlope >= -2 and mouthSlope <= 2
-                and h < 72
-            if not northEastMouth then
-                if d <= 1.12 and (d >= 0.24 or h < 30) then
+            local wobble = (h - 50) / 100 * 0.18
+            local mouth = x >= 15 and x <= 25 and y >= 64 and y <= 73
+                and math.abs(y - (73 - math.floor((x - 15) * 0.55))) <= 3
+
+            if not mouth then
+                if d <= 1.02 + wobble then
                     safeTile(self, x, y, T.WATER)
-                elseif d <= 1.24 and h < 18 then
-                    safeTile(self, x, y, T.WATER)
+                elseif d <= 1.18 + wobble and h < 48 then
+                    safeTile(self, x, y, T.SWAMP)
                 end
+            elseif d <= 1.12 + wobble and h < 22 then
+                safeTile(self, x, y, T.SWAMP)
             end
         end
     end
 
-    -- 左下 BOSS 岛，略微削角，避免方正。
-    fillRect(self, 7, 70, 15, 77, T.FOREST_FLOOR)
-    local cutCorners = {
-        {7, 70}, {15, 70}, {7, 77}, {15, 77},
-        {8, 70}, {14, 77}, {7, 71}, {15, 76},
-    }
-    for _, p in ipairs(cutCorners) do
-        safeTile(self, p[1], p[2], T.WATER)
+    -- 湖心岛做成椭圆削边，不再是硬矩形；中心保留给呱大人。
+    local islandCx, islandCy = 11.5, 73.6
+    for y = 69, 78 do
+        for x = 6, 16 do
+            local nx = (x - islandCx) / 5.0
+            local ny = (y - islandCy) / 4.3
+            local d = nx * nx + ny * ny
+            local h = hash100(x, y, 667)
+            if d <= 1.0 + (h - 50) / 100 * 0.12 then
+                safeTile(self, x, y, T.FOREST_FLOOR)
+            elseif d <= 1.12 and h < 35 then
+                safeTile(self, x, y, T.SWAMP)
+            end
+        end
     end
 
-    -- 东北方向敞开入口：用错落地块打散边缘，避免湖面被直线切开。
-    local mouthTiles = {
-        {15, 69}, {16, 68}, {16, 69}, {17, 67}, {17, 68}, {17, 70},
-        {18, 66}, {18, 67}, {18, 69}, {19, 66}, {19, 68},
-        {20, 65}, {20, 66}, {20, 67}, {21, 65}, {21, 66},
-        {22, 64}, {22, 65}, {23, 64},
-        {16, 71}, {17, 72}, {18, 71},
+    -- 四株白莲的落点与 BOSS 中心必须为陆地。
+    local islandKeyTiles = {
+        {8, 71}, {14, 71}, {8, 76}, {14, 76},
+        {10, 72}, {11, 72}, {12, 72}, {11, 73}, {12, 73}, {11, 74}, {12, 74},
     }
-    for _, p in ipairs(mouthTiles) do
+    for _, p in ipairs(islandKeyTiles) do
         safeTile(self, p[1], p[2], T.FOREST_FLOOR)
+    end
+
+    -- 东北入口：错落的林地/浅沼形成自然堤岸，确保不被水面堵死。
+    local entranceTiles = {
+        {24, 64}, {23, 64}, {23, 65}, {22, 65}, {22, 66},
+        {21, 66}, {21, 67}, {20, 67}, {20, 68}, {19, 68},
+        {19, 69}, {18, 69}, {18, 70}, {17, 70}, {17, 71},
+        {16, 71}, {16, 72}, {15, 72}, {15, 73}, {14, 73},
+    }
+    for _, p in ipairs(entranceTiles) do
+        safeTile(self, p[1], p[2], T.FOREST_FLOOR)
+    end
+    local shoreTiles = {
+        {25, 65}, {24, 66}, {23, 66}, {22, 67}, {21, 68},
+        {20, 69}, {19, 70}, {18, 71}, {17, 72}, {16, 73},
+    }
+    for _, p in ipairs(shoreTiles) do
+        local tile = self:GetTile(p[1], p[2])
+        if tile == T.WATER then
+            safeTile(self, p[1], p[2], T.SWAMP)
+        end
     end
 end
 
-local function sealSpiderTrailLinks(self, T)
-    -- 封锁羊肠小径与蜘蛛洞的直接南北入口，蜘蛛洞必须从村子下方外围绕行。
+local function sealEastCampTrailLinks(self, T)
+    -- 封锁羊肠小径与东大营的直接南北入口，东大营必须从村子下方外围绕行。
     fillRect(self, 57, 50, 64, 54, T.MOUNTAIN)
     fillRect(self, 73, 50, 78, 54, T.MOUNTAIN)
 
-    -- 保留蜘蛛洞西北侧从野猪林方向进入的绕行口。
-    carveRoad(self, 43, 52, 48, 54, T.CAVE_FLOOR)
+    -- 山脊封口保留核心阻挡，只打散外沿，避免看成两块方形补丁。
+    local edgeCuts = {
+        {57, 50, T.GRASS}, {64, 50, T.GRASS},
+        {57, 54, T.FOREST_FLOOR}, {64, 54, T.CAMP_FLOOR},
+        {73, 50, T.GRASS}, {78, 50, T.GRASS},
+        {73, 54, T.FOREST_FLOOR}, {78, 54, T.CAMP_FLOOR},
+    }
+    for _, p in ipairs(edgeCuts) do
+        safeTile(self, p[1], p[2], p[3])
+    end
+    local outcrops = {
+        {56, 51}, {59, 55}, {62, 49}, {65, 53},
+        {72, 52}, {74, 55}, {76, 49}, {79, 51},
+    }
+    for _, p in ipairs(outcrops) do
+        safeTile(self, p[1], p[2], T.MOUNTAIN)
+    end
+
+    -- 保留东大营西北侧从呱大人领地方向进入的绕行口。
+    carveRoad(self, 43, 52, 48, 54, T.CAMP_FLOOR)
     carveRoad(self, 39, 55, 44, 59, T.FOREST_FLOOR)
 end
 
-local function buildTigerSealEntrance(self, T)
-    local sealTile = T.SEALED_GATE or T.WALL
-
-    -- 虎王领地恢复封闭：西侧不通后山，只保留南侧连接羊肠小径。
-    fillRect(self, 56, 2, 57, 25, T.MOUNTAIN)
-    fillRect(self, 56, 26, 79, 27, T.MOUNTAIN)
-
-    -- 南侧唯一入口，保留门形并覆盖封印光幕瓦片。
-    for x = 67, 70 do
-        safeTile(self, x, 26, sealTile)
-        safeTile(self, x, 27, sealTile)
+local function tileByName(T, tileName, fallback)
+    if tileName and T[tileName] then
+        return T[tileName]
     end
-    carveRoad(self, 66, 28, 69, 30, T.GRASS)
+    return fallback
+end
+
+local function applyFutureDungeonBarrier(self, T, barrierKey)
+    local barriers = zd.FUTURE_DUNGEON_BARRIERS
+    local cfg = barriers and barriers[barrierKey]
+    if not cfg then return end
+
+    local sealTile = tileByName(T, cfg.tile, T.SEALED_GATE or T.WALL)
+
+    for _, rect in ipairs(cfg.mountainRects or {}) do
+        fillRect(self, rect.x1, rect.y1, rect.x2, rect.y2, T.MOUNTAIN)
+    end
+
+    local b = cfg.bounds
+    if b then
+        for x = b.x1, b.x2 do
+            safeTile(self, x, b.y1, sealTile)
+            safeTile(self, x, b.y2, sealTile)
+        end
+        for y = b.y1 + 1, b.y2 - 1 do
+            safeTile(self, b.x1, y, sealTile)
+            safeTile(self, b.x2, y, sealTile)
+        end
+    end
+
+    local scatter = cfg.scatter or {}
+    local top = scatter.top
+    if top then
+        for x = top.x1, top.x2 do
+            if hash100(x, top.y, top.seed) < top.threshold then
+                safeTile(self, x, top.y, sealTile)
+            end
+        end
+    end
+    local bottom = scatter.bottom
+    if bottom then
+        for x = bottom.x1, bottom.x2 do
+            if hash100(x, bottom.y, bottom.seed) < bottom.threshold then
+                safeTile(self, x, bottom.y, sealTile)
+            end
+        end
+    end
+    local left = scatter.left
+    if left then
+        for y = left.y1, left.y2 do
+            if hash100(left.x, y, left.seed) < left.threshold then
+                safeTile(self, left.x, y, sealTile)
+            end
+        end
+    end
+    local right = scatter.right
+    if right then
+        for y = right.y1, right.y2 do
+            if hash100(right.x, y, right.seed) < right.threshold then
+                safeTile(self, right.x, y, sealTile)
+            end
+        end
+    end
+
+    if cfg.formerGate then
+        fillRect(self, cfg.formerGate.x1, cfg.formerGate.y1, cfg.formerGate.x2, cfg.formerGate.y2, sealTile)
+    end
+    for _, rect in ipairs(cfg.sealRects or {}) do
+        fillRect(self, rect.x1, rect.y1, rect.x2, rect.y2, sealTile)
+    end
+    if cfg.approachRoad then
+        carveRoad(self, cfg.approachRoad.x1, cfg.approachRoad.y1, cfg.approachRoad.x2, cfg.approachRoad.y2,
+            tileByName(T, cfg.approachRoad.tile, T.GRASS))
+    end
+    for _, p in ipairs(cfg.blockers or {}) do
+        safeTile(self, p.x, p.y, tileByName(T, p.tile, T.MOUNTAIN))
+    end
+    for _, p in ipairs(cfg.edgeBreakup or {}) do
+        safeTile(self, p.x, p.y, tileByName(T, p.tile, T.MOUNTAIN))
+    end
+end
+
+local function buildTigerSealEntrance(self, T)
+    -- 虎王试炼地是未来副本入口：只封原小门洞，不扩大成独立大空间。
+    applyFutureDungeonBarrier(self, T, "tiger_trial")
 end
 
 local function narrowTrailTownEntrance(self, T)
@@ -260,6 +385,20 @@ local function narrowTrailTownEntrance(self, T)
     fillRect(self, 52, 37, 54, 39, T.MOUNTAIN)
     fillRect(self, 52, 42, 54, 44, T.MOUNTAIN)
     carveRoad(self, 49, 40, 54, 41, T.GRASS)
+
+    local edgeCuts = {
+        {52, 37, T.GRASS}, {54, 39, T.GRASS},
+        {52, 44, T.GRASS}, {54, 42, T.GRASS},
+    }
+    for _, p in ipairs(edgeCuts) do
+        safeTile(self, p[1], p[2], p[3])
+    end
+    local outcrops = {
+        {51, 38}, {55, 38}, {51, 43}, {55, 43},
+    }
+    for _, p in ipairs(outcrops) do
+        safeTile(self, p[1], p[2], T.MOUNTAIN)
+    end
 end
 
 local function sealTownGates(self, T)
@@ -286,7 +425,8 @@ local function sealTownGates(self, T)
 end
 
 local function canDecorateFloor(tile, T)
-    return tile ~= T.MOUNTAIN and tile ~= T.WALL and tile ~= T.WATER and tile ~= T.SEALED_GATE
+    return tile ~= T.MOUNTAIN and tile ~= T.WALL and tile ~= T.WATER
+        and tile ~= T.SEALED_GATE
 end
 
 local function setFloorIfOpen(self, T, x, y, tile)
@@ -330,9 +470,16 @@ local function decorateMountainDomain(self, T)
     for y = r.y1, r.y2 do
         for x = r.x1, r.x2 do
             local tile = self:GetTile(x, y)
-            if tile == T.CAMP_FLOOR or tile == T.TOWN_FLOOR then
+            if tile == T.CAMP_FLOOR or tile == T.TOWN_FLOOR or tile == T.GRASS then
                 local h = hash100(x, y, 626)
-                if h < 45 and T.CAMP_DIRT then
+                local northBias = (r.y2 - y) / math.max(1, r.y2 - r.y1)
+                local centerBias = 1 - math.min(1, math.abs(x - 44) / 13)
+                local ridge = northBias * 0.55 + centerBias * 0.28 + (hash100(x, y, 627) - 50) / 150
+                if ridge > 0.62 and h < 58 then
+                    safeTile(self, x, y, T.CH6_MOUNTAIN_STONE)
+                elseif ridge > 0.38 and h < 34 then
+                    safeTile(self, x, y, T.CH6_MOUNTAIN_RUNE)
+                elseif h < 48 and T.CAMP_DIRT then
                     safeTile(self, x, y, T.CAMP_DIRT)
                 else
                     safeTile(self, x, y, T.GRASS)
@@ -349,10 +496,19 @@ local function decorateMountainDomain(self, T)
     for _, p in ipairs(altar) do
         setFloorIfOpen(self, T, p[1], p[2], T.CH6_MOUNTAIN_RUNE)
     end
+
+    local crystalVein = {
+        {35, 7}, {36, 8}, {38, 9}, {41, 10}, {44, 11},
+        {47, 11}, {50, 10}, {52, 9}, {53, 12}, {51, 15},
+        {48, 16}, {45, 17}, {41, 17}, {38, 16}, {36, 14},
+    }
+    for _, p in ipairs(crystalVein) do
+        setFloorIfOpen(self, T, p[1], p[2], T.CH6_MOUNTAIN_RUNE)
+    end
 end
 
 local function decorateCelestialCamps(self, T)
-    -- 东西大营只做装饰性符点，不整体替换营地/洞穴底色。
+    -- 东西大营只做装饰性晶痕符点，不整体替换营地底色。
     local westMarks = {
         {7, 24}, {8, 24}, {9, 24},
         {20, 12}, {21, 12}, {22, 12},
@@ -389,10 +545,10 @@ end
 local function decorateTigerTrial(self, T)
     -- 虎王领地是神圣试炼地：只用试炼石，不加腐化。
     local points = {
-        {66, 28}, {67, 28}, {68, 28}, {69, 28}, {70, 28},
-        {66, 29}, {67, 29}, {68, 29}, {69, 29}, {70, 29}, {71, 29},
-        {67, 30}, {68, 30}, {69, 30}, {70, 30},
-        {67, 31}, {70, 31},
+        {66, 28}, {67, 28}, {68, 28}, {69, 28},
+        {66, 29}, {67, 29}, {68, 29}, {69, 29}, {70, 29},
+        {67, 30}, {68, 30}, {69, 30},
+        {66, 31}, {69, 31},
     }
     for _, p in ipairs(points) do
         setFloorIfOpen(self, T, p[1], p[2], T.CH6_TRIAL_STONE)
@@ -432,7 +588,7 @@ function GameMap:BuildCh6Terrain()
     buildBanditBossRoom(self, T)
     buildVillageNorthRuins(self, T)
     buildBoarWaterBossArea(self, T)
-    sealSpiderTrailLinks(self, T)
+    sealEastCampTrailLinks(self, T)
     buildTigerSealEntrance(self, T)
     narrowTrailTownEntrance(self, T)
     sealTownGates(self, T)

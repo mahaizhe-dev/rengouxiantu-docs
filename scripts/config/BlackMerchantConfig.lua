@@ -65,7 +65,7 @@ BMConfig.CATEGORY_NAMES = {
 }
 
 -- ============================================================================
--- 商品表（36 种，固定价格）
+-- 商品表（128 种，固定价格）
 -- buy_price  = 黑商收购价（玩家卖出获得仙石）
 -- sell_price = 黑商出售价（玩家买入花费仙石）
 -- sell_price = buy_price × 2
@@ -242,6 +242,8 @@ BMConfig.ITEMS = {
     -- Ch5 圣器材料（炼制太虚剑丹/狱甲丹/圣器的必需材料，高价值稀有草药）
     sword_intent_crystal   = ItemFromGame("sword_intent_crystal",   { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 10, sort_order = 12 }),
     abyss_seal_shard       = ItemFromGame("abyss_seal_shard",       { buy_price = 8,  sell_price = 16, category = "herb", max_stock = 10, sort_order = 13 }),
+    -- Ch6 炼丹材料（影神丹材料）
+    night_shadow_grass     = ItemFromGame("night_shadow_grass",     { buy_price = 10, sell_price = 20, category = "herb", max_stock = 10, sort_order = 14 }),
 
     -- === 六一活动道具（已下架） ===
 
@@ -252,14 +254,16 @@ BMConfig.ITEMS = {
     dragon_scale_sand  = ItemFromGame("dragon_scale_sand",  { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 5, sort_order = 4 }),
     -- 仙人精血（第五章消耗品，买15卖30仙石，限购5）
     immortal_essence_blood = ItemFromGame("immortal_essence_blood", { buy_price = 15, sell_price = 30, category = "consumable_mat", max_stock = 5, sort_order = 5 }),
-    gold_brick         = ItemFromGame("gold_brick",         { buy_price = 1,  sell_price = 2,  category = "consumable_mat", max_stock = 10, sort_order = 6 }),
+    -- 影子水晶（第六章消耗品，买20卖40仙石，限购5）
+    shadow_crystal     = ItemFromGame("shadow_crystal",     { buy_price = 20, sell_price = 40, category = "consumable_mat", max_stock = 5, sort_order = 6 }),
+    gold_brick         = ItemFromGame("gold_brick",         { buy_price = 1,  sell_price = 2,  category = "consumable_mat", max_stock = 10, sort_order = 7 }),
 
     -- === 令牌盒（100令牌+100灵韵炼制，买2卖4仙石，限购10） ===
-    wubao_token_box    = ItemFromGame("wubao_token_box",    { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 7 }),
-    sha_hai_ling_box   = ItemFromGame("sha_hai_ling_box",   { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 8 }),
-    taixu_token_box    = ItemFromGame("taixu_token_box",    { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 9 }),
+    wubao_token_box    = ItemFromGame("wubao_token_box",    { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 8 }),
+    sha_hai_ling_box   = ItemFromGame("sha_hai_ling_box",   { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 9 }),
+    taixu_token_box    = ItemFromGame("taixu_token_box",    { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 10 }),
     -- 太虚剑令盒（100太虚剑令+100灵韵炼制，第五章令牌盒，买2卖4仙石，限购10）
-    taixu_jianling_box = ItemFromGame("taixu_jianling_box", { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 10 }),
+    taixu_jianling_box = ItemFromGame("taixu_jianling_box", { buy_price = 2,  sell_price = 4,  category = "consumable_mat", max_stock = 10, sort_order = 11 }),
 
     -- === 端午活动道具（挂到 consumable_mat 分类，黑市可见，置顶+金框） ===
     dragonboat_colored_rope = ItemFromGame("dragonboat_colored_rope", { buy_price = 1,  sell_price = 2,  category = "consumable_mat", sort_order = -3, eventHighlight = true }),

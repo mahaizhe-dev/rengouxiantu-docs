@@ -40,11 +40,29 @@ local GOURD_QUALITY_ICONS = {
     purple = "image/gourd_purple.png",
     orange = "image/gourd_orange.png",
     cyan   = "image/gourd_cyan.png",
+    red    = "image/gourd_cyan.png",
+    gold   = "image/gourd_cyan.png",
+    rainbow = "image/gourd_cyan.png",
 }
 
 --- 根据葫芦品质获取贴图路径
 local function GetGourdIcon(quality)
     return GOURD_QUALITY_ICONS[quality or "green"] or GOURD_QUALITY_ICONS.green
+end
+
+local function EnsureAscensionRealms()
+    local ok, AscensionConfig = pcall(require, "config.AscensionConfig")
+    if ok and AscensionConfig and AscensionConfig.EnsureRealmsRegistered then
+        AscensionConfig.EnsureRealmsRegistered()
+    end
+end
+
+local function FormatGourdTier(tier)
+    tier = tier or 1
+    if tier >= 11 then
+        return "仙" .. tostring(tier - 10)
+    end
+    return "Lv." .. tostring(tier)
 end
 
 -- ============================================================================
@@ -187,7 +205,7 @@ local function BuildTab1Content()
     end
 
     -- 葫芦立绘区
-    local tierStr = gourd.tier and ("Lv." .. gourd.tier) or "Lv.1"
+    local tierStr = FormatGourdTier(gourd.tier or 1)
     local gourdQuality = gourd.quality or "green"
     local qualityCfg = GameConfig.QUALITY[gourdQuality]
     local qColor = qualityCfg and qualityCfg.color or {200, 200, 200, 255}
@@ -446,6 +464,7 @@ end
 --- 检查境界是否满足要求
 local function CheckRealmRequirement(requiredRealm)
     if not requiredRealm then return true end
+    EnsureAscensionRealms()
     local player = GameState.player
     if not player then return false end
     local playerRealmData = GameConfig.REALMS[player.realm]
@@ -457,11 +476,11 @@ end
 --- 属性格式化（升级对比用）
 local UPGRADE_STAT_NAMES = {
     hpRegen = "生命回复", maxHp = "生命值", fortune = "福缘", killHeal = "击杀回血",
-    wisdom = "悟性",
+    wisdom = "灵性悟性", saintWisdom = "圣性悟性",
 }
 local UPGRADE_STAT_ICONS = {
     hpRegen = "💚", maxHp = "❤️", fortune = "🍀", killHeal = "💖",
-    wisdom = "🔮",
+    wisdom = "🔮", saintWisdom = "🔴",
 }
 local function FormatUpgradeStat(stat, value)
     if stat == "hpRegen" then return string.format("%.1f/s", value) end
@@ -520,7 +539,7 @@ local function BuildTab3Content()
                         },
                     },
                 },
-                UI.Label { text = "酒葫芦 Lv." .. currentTier, fontSize = T.fontSize.lg, fontWeight = "bold", fontColor = curQColor },
+                UI.Label { text = "酒葫芦 " .. FormatGourdTier(currentTier), fontSize = T.fontSize.lg, fontWeight = "bold", fontColor = curQColor },
                 UI.Label { text = "葫芦已达最高阶级！", fontSize = T.fontSize.md, fontWeight = "bold", fontColor = {255, 200, 100, 255} },
             },
         })
@@ -555,7 +574,7 @@ local function BuildTab3Content()
                             UI.Panel { width = 90, height = 90, backgroundImage = curIconPath, backgroundFit = "contain" },
                         },
                     },
-                    UI.Label { text = currentTier .. "阶", fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = curQColor },
+                    UI.Label { text = FormatGourdTier(currentTier), fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = curQColor },
                 },
             },
             -- 箭头
@@ -574,7 +593,7 @@ local function BuildTab3Content()
                             UI.Panel { width = 90, height = 90, backgroundImage = nextIconPath, backgroundFit = "contain" },
                         },
                     },
-                    UI.Label { text = nextTier .. "阶", fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = nextQColor },
+                    UI.Label { text = FormatGourdTier(nextTier), fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = nextQColor },
                 },
             },
         },
@@ -616,9 +635,11 @@ local function BuildTab3Content()
     -- 收集灵性属性
     local curSpiritVal = (gourd.spiritStat and gourd.spiritStat.stat == "wisdom") and gourd.spiritStat.value or 0
     local nextSpiritVal = (upgradeData.spiritStat and upgradeData.spiritStat.stat == "wisdom") and upgradeData.spiritStat.value or 0
+    local curSaintVal = (gourd.saintStat and gourd.saintStat.stat == "wisdom") and gourd.saintStat.value or 0
+    local nextSaintVal = (upgradeData.saintStat and upgradeData.saintStat.stat == "wisdom") and upgradeData.saintStat.value or 0
 
     -- 统一属性列表（按顺序）
-    local statOrder = { "hpRegen", "maxHp", "fortune", "killHeal", "wisdom" }
+    local statOrder = { "hpRegen", "maxHp", "fortune", "killHeal", "wisdom", "saintWisdom" }
     local attrRows = {}
 
     for _, stat in ipairs(statOrder) do
@@ -627,6 +648,8 @@ local function BuildTab3Content()
             curVal, nextVal = curHpRegen, nextHpRegen
         elseif stat == "wisdom" then
             curVal, nextVal = curSpiritVal, nextSpiritVal
+        elseif stat == "saintWisdom" then
+            curVal, nextVal = curSaintVal, nextSaintVal
         else
             curVal, nextVal = curSubMap[stat] or 0, nextSubMap[stat] or 0
         end
@@ -654,6 +677,16 @@ local function BuildTab3Content()
                 })
                 table.insert(valueChildren, UI.Label {
                     text = nextStr, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = {100, 255, 150, 255},
+                })
+            elseif nextVal < curVal then
+                table.insert(valueChildren, UI.Label {
+                    text = curStr, fontSize = T.fontSize.sm, fontColor = {180, 180, 190, 200},
+                })
+                table.insert(valueChildren, UI.Label {
+                    text = " → ", fontSize = T.fontSize.sm, fontColor = {160, 160, 170, 180},
+                })
+                table.insert(valueChildren, UI.Label {
+                    text = nextStr, fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = {255, 160, 120, 255},
                 })
             else
                 table.insert(valueChildren, UI.Label {
@@ -719,7 +752,7 @@ local function BuildTab3Content()
 
     table.insert(infoChildren, UI.Button {
         text = canUpgrade
-            and ("升级葫芦（" .. FormatGold(cost) .. " → " .. nextTier .. "阶）")
+            and ("升级葫芦（" .. FormatGold(cost) .. " → " .. FormatGourdTier(nextTier) .. "）")
             or (not canAfford and "金币不足" or "境界不足"),
         width = "100%",
         height = T.size.dialogBtnH,
@@ -731,7 +764,7 @@ local function BuildTab3Content()
                 local InventorySystem = require("systems.InventorySystem")
                 local success, msg = InventorySystem.UpgradeGourd()
                 if success then
-                    EventBus.Emit("show_toast", "升级成功！葫芦提升到 " .. nextTier .. " 阶！")
+                    EventBus.Emit("show_toast", "升级成功！葫芦提升到 " .. FormatGourdTier(nextTier) .. "！")
                 else
                     EventBus.Emit("show_toast", msg or "升级失败！")
                 end

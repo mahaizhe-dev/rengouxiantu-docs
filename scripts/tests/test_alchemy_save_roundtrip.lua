@@ -4,8 +4,8 @@
 -- 直接验证生产实现：AlchemySystem + SaveSerializer + SaveLoader 丹药链路
 --
 -- 覆盖：
---   RT-1: 7 个丹药计数序列化字段名正确（SaveSerializer.SerializePlayer）
---   RT-2: 7 个丹药计数反序列化后 getter 返回正确值（DeserializePlayer→AlchemySystem）
+--   RT-1: 8 个丹药计数序列化字段名正确（SaveSerializer.SerializePlayer）
+--   RT-2: 8 个丹药计数反序列化后 getter 返回正确值（DeserializePlayer→AlchemySystem）
 --   RT-3: round-trip 完整性（Serialize → Reset → Deserialize → 再 Serialize 值不变）
 --   RT-4: pillCounts 双写一致性（Set* 后 player.pillCounts 同步）
 --   RT-5: 缺失字段时 Deserialize 默认为 0
@@ -92,7 +92,7 @@ local function CreateMockPlayer()
     local p = {
         level = 10, exp = 500, hp = 100, maxHp = 200,
         atk = 50, def = 30, hpRegen = 1,
-        pillKillHeal = 0, pillConstitution = 0, gangguConstitution = 0,
+        pillKillHeal = 0, shadowGodKillHeal = 0, pillConstitution = 0, gangguConstitution = 0,
         fruitFortune = 0,
         seaPillarDef = 0, seaPillarAtk = 0, seaPillarMaxHp = 0, seaPillarHpRegen = 0,
         swordPoolAtk = 0, swordPoolDef = 0, swordPoolMaxHp = 0, swordPoolHpRegen = 0,
@@ -191,6 +191,7 @@ do
     AlchemySystem.SetDragonBloodPillCount(1)
     AlchemySystem.SetSwordIntentPillCount(2)
     AlchemySystem.SetAbyssSealPillCount(1)
+    AlchemySystem.SetShadowGodPillCount(6)
 
     local serialized = SaveSerializer.SerializePlayer()
 
@@ -202,6 +203,7 @@ do
     assert_eq(serialized.dragonBloodPillCount, 1, "RT-1e: dragonBloodPillCount 字段名+值")
     assert_eq(serialized.swordIntentPillCount, 2, "RT-1f: swordIntentPillCount 字段名+值")
     assert_eq(serialized.abyssSealPillCount, 1, "RT-1g: abyssSealPillCount 字段名+值")
+    assert_eq(serialized.shadowGodPillCount, 6, "RT-1h: shadowGodPillCount 字段名+值")
 end
 
 -- ─────────────────────────────────────────────────────────────
@@ -220,6 +222,8 @@ do
         dragonBloodPillCount = 2,
         swordIntentPillCount = 3,
         abyssSealPillCount = 1,
+        shadowGodPillCount = 6,
+        shadowGodKillHeal = 120,
         level = 10, exp = 500, maxHp = 200, atk = 50, def = 30, hpRegen = 1,
         gold = 100, lingYun = 500, realm = "mortal",
     }
@@ -233,6 +237,8 @@ do
     assert_eq(AlchemySystem.GetDragonBloodPillCount(), 2, "RT-2e: dragonBlood getter 恢复正确")
     assert_eq(AlchemySystem.GetSwordIntentPillCount(), 3, "RT-2f: swordIntent getter 恢复正确")
     assert_eq(AlchemySystem.GetAbyssSealPillCount(), 1, "RT-2g: abyssSeal getter 恢复正确")
+    assert_eq(AlchemySystem.GetShadowGodPillCount(), 6, "RT-2h: shadowGod getter 恢复正确")
+    assert_eq(GameState.player.shadowGodKillHeal, 120, "RT-2i: shadowGodKillHeal 字段恢复正确")
 end
 
 -- ─────────────────────────────────────────────────────────────
@@ -251,6 +257,7 @@ do
     AlchemySystem.SetDragonBloodPillCount(2)
     AlchemySystem.SetSwordIntentPillCount(1)
     AlchemySystem.SetAbyssSealPillCount(2)
+    AlchemySystem.SetShadowGodPillCount(7)
 
     -- 第一次序列化
     local serialized1 = SaveSerializer.SerializePlayer()
@@ -272,6 +279,7 @@ do
     assert_eq(serialized2.dragonBloodPillCount, serialized1.dragonBloodPillCount, "RT-3e: dragonBlood round-trip 一致")
     assert_eq(serialized2.swordIntentPillCount, serialized1.swordIntentPillCount, "RT-3f: swordIntent round-trip 一致")
     assert_eq(serialized2.abyssSealPillCount, serialized1.abyssSealPillCount, "RT-3g: abyssSeal round-trip 一致")
+    assert_eq(serialized2.shadowGodPillCount, serialized1.shadowGodPillCount, "RT-3h: shadowGod round-trip 一致")
 end
 
 -- ─────────────────────────────────────────────────────────────
@@ -284,7 +292,7 @@ do
     -- 先初始化 pillCounts 结构（模拟 SaveLoader 初始化）
     player.pillCounts = {
         tiger = 0, snake = 0, diamond = 0, tempering = 0,
-        dragon_blood = 0, sword_intent = 0, abyss_seal = 0,
+        dragon_blood = 0, sword_intent = 0, abyss_seal = 0, shadow_god = 0,
     }
 
     AlchemySystem.SetTigerPillCount(3)
@@ -294,6 +302,7 @@ do
     AlchemySystem.SetDragonBloodPillCount(1)
     AlchemySystem.SetSwordIntentPillCount(2)
     AlchemySystem.SetAbyssSealPillCount(1)
+    AlchemySystem.SetShadowGodPillCount(6)
 
     assert_eq(player.pillCounts.tiger, 3, "RT-4a: pillCounts.tiger 双写同步")
     assert_eq(player.pillCounts.snake, 2, "RT-4b: pillCounts.snake 双写同步")
@@ -302,6 +311,7 @@ do
     assert_eq(player.pillCounts.dragon_blood, 1, "RT-4e: pillCounts.dragon_blood 双写同步")
     assert_eq(player.pillCounts.sword_intent, 2, "RT-4f: pillCounts.sword_intent 双写同步")
     assert_eq(player.pillCounts.abyss_seal, 1, "RT-4g: pillCounts.abyss_seal 双写同步")
+    assert_eq(player.pillCounts.shadow_god, 6, "RT-4h: pillCounts.shadow_god 双写同步")
 end
 
 -- ─────────────────────────────────────────────────────────────
@@ -315,6 +325,7 @@ do
     -- 先设置非零值
     AlchemySystem.SetTigerPillCount(99)
     AlchemySystem.SetSwordIntentPillCount(99)
+    AlchemySystem.SetShadowGodPillCount(99)
 
     -- 反序列化一个空 table（模拟旧版存档缺失字段）
     SaveSerializer.DeserializePlayer({ level = 1 })
@@ -326,6 +337,7 @@ do
     assert_eq(AlchemySystem.GetDragonBloodPillCount(), 0, "RT-5e: 缺失 dragonBloodPillCount 默认 0")
     assert_eq(AlchemySystem.GetSwordIntentPillCount(), 0, "RT-5f: 缺失 swordIntentPillCount 默认 0")
     assert_eq(AlchemySystem.GetAbyssSealPillCount(), 0, "RT-5g: 缺失 abyssSealPillCount 默认 0")
+    assert_eq(AlchemySystem.GetShadowGodPillCount(), 0, "RT-5h: 缺失 shadowGodPillCount 默认 0")
 end
 
 -- ─────────────────────────────────────────────────────────────
@@ -341,7 +353,7 @@ do
     SaveSerializer.DeserializePlayer({
         tigerPillCount = 3, snakePillCount = 2, diamondPillCount = 1,
         temperingPillEaten = 8, dragonBloodPillCount = 0,
-        swordIntentPillCount = 2, abyssSealPillCount = 1,
+        swordIntentPillCount = 2, abyssSealPillCount = 1, shadowGodPillCount = 6,
         level = 10,
     })
 
@@ -354,8 +366,10 @@ do
         snake        = AlchemySystem.GetSnakePillCount(),
         diamond      = AlchemySystem.GetDiamondPillCount(),
         tempering    = AlchemySystem.GetTemperingPillEaten(),
+        dragon_blood = AlchemySystem.GetDragonBloodPillCount(),
         sword_intent = AlchemySystem.GetSwordIntentPillCount(),
         abyss_seal   = AlchemySystem.GetAbyssSealPillCount(),
+        shadow_god   = AlchemySystem.GetShadowGodPillCount(),
     }
     -- pillCounts 不存在 → 初始化
     player.pillCounts = current
@@ -367,6 +381,7 @@ do
     assert_eq(player.pillCounts.tempering, 8, "RT-6e: pillCounts.tempering 从 getter 构建")
     assert_eq(player.pillCounts.sword_intent, 2, "RT-6f: pillCounts.sword_intent 从 getter 构建")
     assert_eq(player.pillCounts.abyss_seal, 1, "RT-6g: pillCounts.abyss_seal 从 getter 构建")
+    assert_eq(player.pillCounts.shadow_god, 6, "RT-6h: pillCounts.shadow_god 从 getter 构建")
 end
 
 -- ─────────────────────────────────────────────────────────────
@@ -381,7 +396,7 @@ do
     SaveSerializer.DeserializePlayer({
         tigerPillCount = 4, snakePillCount = 3, diamondPillCount = 5,
         temperingPillEaten = 20, dragonBloodPillCount = 0,
-        swordIntentPillCount = 2, abyssSealPillCount = 1,
+        swordIntentPillCount = 2, abyssSealPillCount = 1, shadowGodPillCount = 6,
         level = 10,
     })
 
@@ -393,6 +408,7 @@ do
         tempering = 15,   -- 漂移：getter 是 20
         sword_intent = 2, -- 一致
         abyss_seal = 0,   -- 漂移：getter 是 1
+        shadow_god = 1,   -- 漂移：getter 是 6
     }
 
     -- 模拟 SaveLoader Step 5 漂移校正逻辑
@@ -401,8 +417,10 @@ do
         snake        = AlchemySystem.GetSnakePillCount(),
         diamond      = AlchemySystem.GetDiamondPillCount(),
         tempering    = AlchemySystem.GetTemperingPillEaten(),
+        dragon_blood = AlchemySystem.GetDragonBloodPillCount(),
         sword_intent = AlchemySystem.GetSwordIntentPillCount(),
         abyss_seal   = AlchemySystem.GetAbyssSealPillCount(),
+        shadow_god   = AlchemySystem.GetShadowGodPillCount(),
     }
     for key, val in pairs(current) do
         if player.pillCounts[key] ~= val then
@@ -417,6 +435,7 @@ do
     assert_eq(player.pillCounts.tempering, 20, "RT-7d: 漂移修正 tempering 20 (was 15)")
     assert_eq(player.pillCounts.sword_intent, 2, "RT-7e: 未漂移 sword_intent 保持 2")
     assert_eq(player.pillCounts.abyss_seal, 1, "RT-7f: 漂移修正 abyss_seal 1 (was 0)")
+    assert_eq(player.pillCounts.shadow_god, 6, "RT-7g: 漂移修正 shadow_god 6 (was 1)")
 end
 
 -- ============================================================================

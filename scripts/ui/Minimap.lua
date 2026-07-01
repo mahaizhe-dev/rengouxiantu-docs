@@ -5,6 +5,7 @@
 local Widget = require("urhox-libs/UI/Core/Widget")
 local UI = require("urhox-libs/UI")
 local GameConfig = require("config.GameConfig")
+local MonsterData = require("config.MonsterData")
 local GameState = require("core.GameState")
 local ActiveZoneData = require("config.ActiveZoneData")
 local QuestSystem = require("systems.QuestSystem")
@@ -317,6 +318,9 @@ local miniWidget_ = nil        -- 小地图 Widget
 local fullMapPanel_ = nil      -- 全局地图面板
 local fullMapWidget_ = nil     -- 全局地图 Widget
 local fullMapVisible_ = false
+local legendPanel_ = nil       -- 全局地图图例容器
+local legendItems_ = {}        -- 当前挂载的图例控件
+local cachedLegendKey_ = nil   -- 当前图例类别签名
 ---@type table|nil
 local gameMap_ = nil           -- GameMap 引用
 local questLabels_ = {}        -- {chainId = {nameLabel, progressLabel}}
@@ -327,6 +331,98 @@ local dailyLabels_ = {}        -- {taskKey = {label, panel}}
 -- ============================================================================
 -- 地图瓦片绘制（使用 NanoVG 矩形逐格绘制）
 -- ============================================================================
+
+local MONSTER_LEGEND_DEFS = {
+    { key = "normal",       label = "小怪", color = {200, 60, 60, 140},  shape = "circle" },
+    { key = "elite",        label = "精英", color = {255, 120, 40, 220}, shape = "circle" },
+    { key = "boss",         label = "BOSS", color = {255, 50, 50, 255},  shape = "diamond" },
+    { key = "king_boss",    label = "王级", color = {255, 140, 0, 255},  shape = "diamond" },
+    { key = "emperor_boss", label = "皇级", color = {255, 215, 0, 255},  shape = "diamond" },
+    { key = "saint_boss",   label = "圣级", color = {0, 220, 240, 255},  shape = "diamond" },
+}
+
+local function MarkMonsterCategory(hasCategory, category)
+    if category == "elite"
+        or category == "boss"
+        or category == "king_boss"
+        or category == "emperor_boss"
+        or category == "saint_boss" then
+        hasCategory[category] = true
+    else
+        hasCategory.normal = true
+    end
+end
+
+local function GetLegendState()
+    local zd = ActiveZoneData.Get()
+    local hasCategory = {}
+
+    if zd and zd.NPCs and #zd.NPCs > 0 then
+        hasCategory.npc = true
+    end
+
+    if zd and zd.SpawnPoints then
+        for _, spawn in ipairs(zd.SpawnPoints) do
+            local monster = spawn.type and MonsterData.Types[spawn.type]
+            local category = spawn.category or (monster and monster.category)
+            if category then
+                MarkMonsterCategory(hasCategory, category)
+            end
+        end
+    end
+
+    local parts = {}
+    if hasCategory.npc then
+        table.insert(parts, "npc")
+    end
+    for _, def in ipairs(MONSTER_LEGEND_DEFS) do
+        if hasCategory[def.key] then
+            table.insert(parts, def.key)
+        end
+    end
+
+    return table.concat(parts, "|"), hasCategory
+end
+
+local function BuildLegendItems(hasCategory)
+    local items = {
+        Minimap._Legend({100, 200, 255, 255}, "你"),
+    }
+
+    if hasCategory.npc then
+        table.insert(items, Minimap._Legend({255, 215, 0, 255}, "NPC"))
+    end
+
+    for _, def in ipairs(MONSTER_LEGEND_DEFS) do
+        if hasCategory[def.key] then
+            if def.shape == "diamond" then
+                table.insert(items, Minimap._LegendDiamond(def.color, def.label))
+            else
+                table.insert(items, Minimap._Legend(def.color, def.label))
+            end
+        end
+    end
+
+    return items
+end
+
+local function UpdateLegendPanel()
+    if not legendPanel_ then return end
+
+    local legendKey, hasCategory = GetLegendState()
+    if legendKey == cachedLegendKey_ then return end
+
+    for _, item in ipairs(legendItems_) do
+        legendPanel_:RemoveChild(item)
+    end
+
+    legendItems_ = BuildLegendItems(hasCategory)
+    for _, item in ipairs(legendItems_) do
+        legendPanel_:AddChild(item)
+    end
+
+    cachedLegendKey_ = legendKey
+end
 
 --- 绘制地形底图
 ---@param nvg any NanoVG context
@@ -855,6 +951,8 @@ function Minimap.ResetCache()
     cachedDefaultTile = nil
     cachedZoneLabels = nil
     cachedLabelsZD = nil
+    cachedLegendKey_ = nil
+    UpdateLegendPanel()
 end
 
 --- 设置 GameMap 引用（在 main.lua 初始化后调用）
@@ -1049,6 +1147,17 @@ function Minimap.Create(parentOverlay)
         height = "100%",
     }
 
+    legendPanel_ = UI.Panel {
+        flexDirection = "row",
+        flexWrap = "wrap",
+        gap = T.spacing.md,
+        justifyContent = "center",
+        children = {},
+    }
+    legendItems_ = {}
+    cachedLegendKey_ = nil
+    UpdateLegendPanel()
+
     -- 全局地图面板
     fullMapPanel_ = UI.Panel {
         id = "fullMapPanel",
@@ -1106,21 +1215,7 @@ function Minimap.Create(parentOverlay)
                         },
                     },
                     -- 图例
-                    UI.Panel {
-                        flexDirection = "row",
-                        flexWrap = "wrap",
-                        gap = T.spacing.md,
-                        justifyContent = "center",
-                        children = {
-                            Minimap._Legend({100, 200, 255, 255}, "你"),
-                            Minimap._Legend({255, 215, 0, 255}, "NPC"),
-                            Minimap._Legend({200, 60, 60, 140}, "小怪"),
-                            Minimap._Legend({255, 120, 40, 220}, "精英"),
-                            Minimap._LegendDiamond({255, 50, 50, 255}, "BOSS"),
-                            Minimap._LegendDiamond({255, 140, 0, 255}, "王级"),
-                            Minimap._LegendDiamond({255, 215, 0, 255}, "皇级"),
-                        },
-                    },
+                    legendPanel_,
                 },
             },
         },
@@ -1194,6 +1289,7 @@ end
 
 function Minimap.ShowFullMap()
     if fullMapPanel_ and not fullMapVisible_ then
+        UpdateLegendPanel()
         fullMapVisible_ = true
         fullMapPanel_:Show()
         GameState.uiOpen = "fullMap"
@@ -1369,6 +1465,9 @@ function Minimap.Destroy()
     fullMapPanel_ = nil
     fullMapWidget_ = nil
     fullMapVisible_ = false
+    legendPanel_ = nil
+    legendItems_ = {}
+    cachedLegendKey_ = nil
     gameMap_ = nil
     questLabels_ = {}
     dailyLabels_ = {}

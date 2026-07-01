@@ -116,6 +116,7 @@ function Player.New(x, y, opts)
 
     -- 丹药加成（由 ChallengeSystem 丹药奖励写入，存档保存）
     self.pillKillHeal = 0
+    self.shadowGodKillHeal = init.shadowGodKillHeal or 0
     self.pillConstitution = 0      -- 千锤百炼丹（上限50）
     self.gangguConstitution = 0    -- 钢筋铁骨丹（上限50）
 

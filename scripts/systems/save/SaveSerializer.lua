@@ -43,6 +43,7 @@ function SaveSerializer.SerializePlayer()
         def = player.def,
         hpRegen = player.hpRegen,
         pillKillHeal = player.pillKillHeal or 0,
+        shadowGodKillHeal = player.shadowGodKillHeal or 0,
         pillConstitution = player.pillConstitution or 0,
         gangguConstitution = player.gangguConstitution or 0,
         fruitFortune = player.fruitFortune or 0,
@@ -91,6 +92,10 @@ function SaveSerializer.SerializePlayer()
         abyssSealPillCount = (function()
             local AlchemySystem = require("systems.AlchemySystem")
             return AlchemySystem.GetAbyssSealPillCount()
+        end)(),
+        shadowGodPillCount = (function()
+            local AlchemySystem = require("systems.AlchemySystem")
+            return AlchemySystem.GetShadowGodPillCount()
         end)(),
         xueshaDanCount = (function()
             local ChallengeSystem = require("systems.ChallengeSystem")
@@ -145,6 +150,7 @@ function SaveSerializer.DeserializePlayer(data)
     player.def = data.def or 5
     player.hpRegen = data.hpRegen or 1.0
     player.pillKillHeal = data.pillKillHeal or 0
+    player.shadowGodKillHeal = data.shadowGodKillHeal or 0
     player.pillConstitution = data.pillConstitution or 0
     player.gangguConstitution = data.gangguConstitution or 0
     player.fruitFortune = data.fruitFortune or 0
@@ -277,6 +283,7 @@ function SaveSerializer.DeserializePlayer(data)
         AlchemySystem.SetDragonBloodPillCount(data.dragonBloodPillCount or 0)
         AlchemySystem.SetSwordIntentPillCount(data.swordIntentPillCount or 0)
         AlchemySystem.SetAbyssSealPillCount(data.abyssSealPillCount or 0)
+        AlchemySystem.SetShadowGodPillCount(data.shadowGodPillCount or 0)
 
         local ChallengeSystem = require("systems.ChallengeSystem")
         ChallengeSystem.xueshaDanCount = data.xueshaDanCount or 0
@@ -289,6 +296,7 @@ function SaveSerializer.DeserializePlayer(data)
             .. " dragonBlood=" .. (data.dragonBloodPillCount or 0)
             .. " swordIntent=" .. (data.swordIntentPillCount or 0)
             .. " abyssSeal=" .. (data.abyssSealPillCount or 0)
+            .. " shadowGod=" .. (data.shadowGodPillCount or 0)
             .. " xuesha=" .. (data.xueshaDanCount or 0)
             .. " haoqi=" .. (data.haoqiDanCount or 0))
     end

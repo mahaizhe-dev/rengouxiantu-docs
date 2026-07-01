@@ -14,7 +14,7 @@ GameConfig.DUNGEON_ENABLED = false
 
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
-GameConfig.CODE_VERSION = 6
+GameConfig.CODE_VERSION = 7
 GameConfig.DISPLAY_VERSION = "v1.12.19"
 
 -- 地图设置
@@ -205,6 +205,7 @@ GameConfig.PET_MATERIALS = {
     yuanying_fruit = { name = "元婴果", icon = "icon_yuanying_fruit.png", sellPrice = 0, quality = "orange", desc = "蕴含元婴之力的灵果，散发金色荧光。\n用途：突破元婴境界的必需品。\n价值：1颗 = 200灵韵\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
     exp_pill = { name = "修炼果", icon = "icon_exp_pill.png", sellPrice = 0, quality = "blue", desc = "蕴含灵气的修炼灵果，吸收后可获得大量修炼经验。\n用途：使用后获得10000点经验。\n限制：每次使用1颗，经验达到境界上限时无法使用。" },
     exp_pill_superior = { name = "上品修炼果", icon = "icon_exp_pill.png", sellPrice = 0, quality = "orange", desc = "太虚宗珍藏的上品修炼灵果，蕴含磅礴灵气，吸收后可获得大量修炼经验。\n用途：使用后获得100000点经验。\n限制：每次使用1颗，经验达到境界上限时无法使用。" },
+    exp_pill_supreme = { name = "极品修炼果", icon = "icon_exp_pill.png", sellPrice = 0, quality = "red", desc = "两界村仙影中孕育的极品修炼灵果，灵气浓烈如潮。\n用途：使用后获得1000000点经验。\n限制：每次使用1颗，经验达到境界上限时无法使用。\n获取：第六章皇级及以上BOSS稀有世界掉落。" },
     -- 封魔系统：体魄丹（永久+1体魄，上限100）
     physique_pill = { name = "体魄丹", icon = "💊", sellPrice = 0, quality = "purple", desc = "封魔谷秘制的丹药，服用后可永久强化体魄。\n用途：使用后永久+1体魄（上限100）。\n获取：每日封魔任务固定奖励（1枚/天）。" },
     -- 炼丹材料
@@ -212,6 +213,7 @@ GameConfig.PET_MATERIALS = {
     snake_fruit = { name = "灵蛇果", icon = "icon_snake_fruit.png", sellPrice = 1000, quality = "orange", desc = "蛇妖巢穴中孕育的灵果，散发幽绿荧光。\n用途：炼制灵蛇丹的必需材料。\n获取：击败蛇妖·碧鳞（3%掉率）" },
     diamond_wood = { name = "金刚木", icon = "icon_diamond_wood.png", sellPrice = 1000, quality = "orange", desc = "坚硬如铁的灵木，据说吸收了天地精华。\n用途：炼制金刚丹的必需材料。\n获取：击败乌天南、乌地北（3%掉率）" },
     wind_eroded_grass = { name = "风蚀草", icon = "🌿", sellPrice = 1000, quality = "orange", desc = "沙漠中被风沙打磨千年的灵草，韧如精钢。\n用途：炼制千锤百炼丹的材料。\n获取：沙漠九寨怪物掉落" },
+    night_shadow_grass = { name = "影神草", icon = "🌿", sellPrice = 3000, quality = "red", desc = "只在两界村暗影灵脉旁生长的幽草，叶脉泛着淡淡黑光。\n用途：炼制影神丹的必需材料。\n获取：第六章皇级及以上BOSS稀有世界掉落。" },
     lingyun_fruit = { name = "灵韵果", icon = "🍇", sellPrice = 0, quality = "orange", desc = "八卦海灵脉孕育的奇果，咬破果皮，灵韵四溢。\n用途：使用后获得50灵韵（不可出售）。\n获取：第四章BOSS掉落" },
     lingyun_fruit_superior = { name = "上品灵韵果", icon = "🍇", sellPrice = 0, quality = "red", desc = "太虚宗灵脉深处孕育的上品奇果，灵韵浓郁，异香扑鼻。\n用途：使用后获得500灵韵（不可出售）。\n获取：第五章BOSS掉落" },
     -- 高阶境界突破材料
@@ -219,8 +221,15 @@ GameConfig.PET_MATERIALS = {
     dujie_dan = { name = "渡劫丹", icon = "icon_dujie_dan.png", sellPrice = 0, quality = "red", desc = "以九天雷髓与万年灵液淬炼而成的极品仙丹，丹中隐现雷纹。\n用途：大乘境界突破的必需品。\n炼制：1000灵韵 → 1颗（第五章炼丹炉）\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
     xian_dan = { name = "仙丹", icon = "icon_dujie_dan.png", sellPrice = 0, quality = "red", desc = "传说中仙人留下的至宝灵丹，丹体通透如琉璃，散发七彩仙光。\n用途：谪仙境界突破的必需品（旧版，已废弃）。\n获取：已废弃" },
     -- 仙阶突破材料（120级后）
-    one_turn_tribulation_pill = { name = "一转仙劫丹", icon = "image/icon_one_turn_tribulation_pill.png", sellPrice = 0, quality = "gold", desc = "以九天雷髓与万年灵液经九转淬炼而成的仙品丹药，丹体流转雷纹金光。\n用途：120级后仙阶突破进度材料。\n获取：剑气长城积分商店（限购10颗）/ 第六章炼丹炉（100万金+1万灵韵）" },
-    two_turn_tribulation_pill = { name = "二转仙劫丹", icon = "image/icon_two_turn_tribulation_pill.png", sellPrice = 0, quality = "gold", desc = "以更高阶灵药淬炼的二转仙劫丹，蕴含更浓厚的天劫之力。\n用途：人仙阶段仙阶突破进度材料。\n获取：暂未开放" },
+    one_turn_tribulation_pill = { name = "一转仙劫丹", icon = "image/icon_one_turn_tribulation_pill.png", sellPrice = 0, quality = "gold", desc = "以九天雷髓与万年灵液经九转淬炼而成的仙品丹药，丹体流转雷纹金光。\n用途：120级后仙阶突破进度材料。\n获取：剑气长城积分商店（限购10颗）/ 第六章炼丹炉（100万金+1万灵韵）\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
+    two_turn_tribulation_pill = { name = "二转仙劫丹", icon = "image/icon_two_turn_tribulation_pill.png", sellPrice = 0, quality = "gold", desc = "以更高阶灵药淬炼的二转仙劫丹，蕴含更浓厚的天劫之力。\n用途：人仙阶段仙阶突破进度材料。\n获取：暂未开放\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
+    three_turn_tribulation_pill = { name = "三转仙劫丹", icon = "image/icon_two_turn_tribulation_pill.png", sellPrice = 0, quality = "gold", desc = "以更高阶灵药淬炼的三转仙劫丹，蕴含地仙阶段天劫之力。\n用途：地仙阶段仙阶突破进度材料。\n获取：暂未开放\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
+    four_turn_tribulation_pill = { name = "四转仙劫丹", icon = "image/icon_two_turn_tribulation_pill.png", sellPrice = 0, quality = "gold", desc = "以更高阶灵药淬炼的四转仙劫丹，蕴含天仙阶段天劫之力。\n用途：天仙阶段仙阶突破进度材料。\n获取：暂未开放\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
+    five_turn_tribulation_pill = { name = "五转仙劫丹", icon = "image/icon_two_turn_tribulation_pill.png", sellPrice = 0, quality = "gold", desc = "以更高阶灵药淬炼的五转仙劫丹，蕴含玄仙阶段天劫之力。\n用途：玄仙阶段仙阶突破进度材料。\n获取：暂未开放\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
+    six_turn_tribulation_pill = { name = "六转仙劫丹", icon = "image/icon_two_turn_tribulation_pill.png", sellPrice = 0, quality = "gold", desc = "以更高阶灵药淬炼的六转仙劫丹，蕴含金仙阶段天劫之力。\n用途：金仙阶段仙阶突破进度材料。\n获取：暂未开放\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
+    seven_turn_tribulation_pill = { name = "七转仙劫丹", icon = "image/icon_two_turn_tribulation_pill.png", sellPrice = 0, quality = "gold", desc = "以更高阶灵药淬炼的七转仙劫丹，蕴含太乙金仙阶段天劫之力。\n用途：太乙金仙阶段仙阶突破进度材料。\n获取：暂未开放\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
+    eight_turn_tribulation_pill = { name = "八转仙劫丹", icon = "image/icon_two_turn_tribulation_pill.png", sellPrice = 0, quality = "gold", desc = "以更高阶灵药淬炼的八转仙劫丹，蕴含大罗金仙阶段天劫之力。\n用途：大罗金仙阶段仙阶突破进度材料。\n获取：暂未开放\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
+    nine_turn_tribulation_pill = { name = "九转仙劫丹", icon = "image/icon_two_turn_tribulation_pill.png", sellPrice = 0, quality = "gold", desc = "以更高阶灵药淬炼的九转仙劫丹，蕴含混元大罗金仙阶段天劫之力。\n用途：混元大罗金仙阶段仙阶突破进度材料。\n获取：暂未开放\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
     -- 纯卖钱物品
     gold_bar = { name = "金条", icon = "icon_gold_bar.png", sellPrice = 1000, quality = "orange", desc = "沉甸甸的金条，闪耀着诱人的光泽。\n用途：出售给商人换取金币。" },
     gold_brick = { name = "金砖", icon = "icon_gold_bar.png", sellPrice = 100000, quality = "cyan", desc = "由万年灵金铸炼而成的实心金砖，沉如磐石，金光内敛。\n用途：出售给商人换取大量金币。" },
@@ -228,6 +237,7 @@ GameConfig.PET_MATERIALS = {
     wubao_token = { name = "乌堡令", icon = "🏷️", sellPrice = 100, quality = "blue", desc = "乌堡势力的信物，散发着阴冷的气息。\n用途：向浩气宗或血煞盟使者上交，解锁切磋挑战。\n售价：100金币" },
     sha_hai_ling = { name = "沙海令", icon = "🏜️", sellPrice = 100, quality = "blue", desc = "沙漠九寨的通行令牌，散发着炽热的气息。\n用途：向浩气宗或血煞盟使者上交，解锁沙海试炼。\n售价：100金币" },
     taixu_token = { name = "太虚令", icon = "🔱", sellPrice = 100, quality = "blue", desc = "太虚宗上古令牌，蕴含修补海神柱的灵力。\n用途：修复和升级海神柱，开启四兽岛传送。\n获取：八卦阵怪物掉落。" },
+    zhexian_ling = { name = "谪仙令", icon = "🔱", sellPrice = 100, quality = "blue", desc = "两界村之影中流转的谪仙令牌，记录着踏入仙阶后的试炼印记。\n用途：第六章后续挑战与兑换信物。\n售价：100金币。\n获取：第六章世界掉落。" },
     -- 令牌盒（100令牌+100灵韵→1盒，使用获得100令牌）
     wubao_token_box = { name = "乌堡令盒", icon = "📦", sellPrice = 0, quality = "purple", desc = "封装了100枚乌堡令的锦盒，散发幽冷气息。\n用途：使用后获得100枚乌堡令。\n炼制：100乌堡令 + 100灵韵（第二章炼丹炉）" },
     sha_hai_ling_box = { name = "沙海令盒", icon = "📦", sellPrice = 0, quality = "purple", desc = "封装了100枚沙海令的锦盒，散发炽热气息。\n用途：使用后获得100枚沙海令。\n炼制：100沙海令 + 100灵韵（第三章炼丹炉）" },
@@ -264,7 +274,8 @@ GameConfig.PET_MATERIALS = {
     dragon_scale_fire = { name = "焚天龙焰", icon = "🔥", sellPrice = 10000, quality = "red", desc = "焚天蜃龙的凝固龙焰，灼热异常，永不熄灭。\n用途：圣器打造材料。\n获取：焚天蜃龙掉落（1%）" },
     dragon_scale_sand = { name = "蚀骨龙牙", icon = "🦷", sellPrice = 10000, quality = "red", desc = "蚀骨螭龙的獠牙碎片，坚逾金刚，可侵蚀万物。\n用途：圣器打造材料。\n获取：蚀骨螭龙掉落（1%）" },
     -- 仙人精血（屠血将0.2%+噬渊血犼/蚀骨/裂魂1%+四仙剑3%，圣器打造材料）
-    immortal_essence_blood = { name = "仙人精血", icon = "🩸", sellPrice = 10000, quality = "red", desc = "洒落的仙人之血，浸透断壁残兵，千年不枯。谪仙之上，无一不是从尸山血海中走出来的。\n用途：圣器打造材料。\n获取：裂渊屠血将（0.2%）/ 噬渊血犼（1%）/ 蚀骨（1%）/ 裂魂（1%）/ 四仙剑（3%）" },
+    immortal_essence_blood = { name = "仙人精血", icon = "🩸", sellPrice = 10000, quality = "red", desc = "洒落的仙人之血，浸透断壁残兵，千年不枯。谪仙之上，无一不是从尸山血海中走出来的。\n用途：圣器打造材料。\n获取：第五章高阶BOSS掉落；第六章皇级BOSS掉落（1%）。" },
+    shadow_crystal = { name = "影子水晶", icon = "image/icon_shadow_crystal_20260701001812.png", sellPrice = 10000, quality = "red", desc = "凝结自两界阴影的幽暗水晶，内部似有影游之息流动。\n用途：第六章稀有材料（暂未开放锻造用途）。\n获取：哼哈元帅、呱大人、魔君·蚀玄掉落。" },
     -- 天帝剑痕碎片（仙劫战场·域外邪魔掉落，9片合成天帝剑痕）
     tiandi_fragment_1 = { name = "天帝剑痕碎片·壹", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "远古天帝斩落域外邪魔时遗留的剑痕残片，剑意犹存，隐约可闻天雷余响。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },
     tiandi_fragment_2 = { name = "天帝剑痕碎片·贰", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "据传天帝以此一剑斩断天外入侵通道，立下中洲万世屏障。碎片表面仍残留斩裂虚空的痕迹。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },

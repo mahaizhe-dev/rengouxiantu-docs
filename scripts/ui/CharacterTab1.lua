@@ -65,7 +65,8 @@ function CharacterTab1.Build(refreshFn)
     table.insert(sec, StatRow.Create("暴击伤害", fmtVal(player:GetTotalCritDmg() * 100, "%.0f%%"), {255, 200, 80, 255}))
     table.insert(sec, StatRow.Create("击杀回血", fmtVal(
         (player.equipKillHeal or 0) + (player.titleKillHeal or 0) + (player.collectionKillHeal or 0)
-        + (player.pillKillHeal or 0) + (player.minggeKillHeal or 0), "+%d"), {100, 255, 180, 255}))
+        + (player.pillKillHeal or 0) + (player.shadowGodKillHeal or 0)
+        + (player.artifactTiandiKillHeal or 0) + (player.minggeKillHeal or 0), "+%d"), {100, 255, 180, 255}))
 
     flushSection()
 

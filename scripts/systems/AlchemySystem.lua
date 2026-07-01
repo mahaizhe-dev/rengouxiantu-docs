@@ -1,6 +1,6 @@
 -- ============================================================================
 -- AlchemySystem.lua - 炼丹炉数据层（Phase 1）
--- 职责：持有 7 个核心丹药计数的运行时真值
+-- 职责：持有核心丹药计数的运行时真值
 -- 依赖约束：只允许 require core.GameState，不得 require UI/Save/Network 模块
 -- ============================================================================
 
@@ -21,6 +21,7 @@ local temperingPillEaten_ = 0
 local dragonBloodPillCount_ = 0
 local swordIntentPillCount_ = 0
 local abyssSealPillCount_ = 0
+local shadowGodPillCount_ = 0
 
 -- pillCounts key 映射（与 SaveLoader 建立的 player.pillCounts 结构一致）
 local PILL_COUNTS_KEY = {
@@ -31,6 +32,7 @@ local PILL_COUNTS_KEY = {
     dragonBlood  = "dragon_blood",
     swordIntent  = "sword_intent",
     abyssSeal    = "abyss_seal",
+    shadowGod    = "shadow_god",
 }
 
 -- ══════════════════════════════════════════════════════════════════════════════
@@ -126,6 +128,17 @@ function AlchemySystem.SetAbyssSealPillCount(count)
     syncToPillCounts(PILL_COUNTS_KEY.abyssSeal, abyssSealPillCount_)
 end
 
+--- 获取影神丹已炼制次数
+function AlchemySystem.GetShadowGodPillCount()
+    return shadowGodPillCount_
+end
+
+--- 设置影神丹已炼制次数
+function AlchemySystem.SetShadowGodPillCount(count)
+    shadowGodPillCount_ = count or 0
+    syncToPillCounts(PILL_COUNTS_KEY.shadowGod, shadowGodPillCount_)
+end
+
 -- ══════════════════════════════════════════════════════════════════════════════
 -- 生命周期接口
 -- ══════════════════════════════════════════════════════════════════════════════
@@ -139,11 +152,12 @@ function AlchemySystem.ResetRuntimeState()
     dragonBloodPillCount_ = 0
     swordIntentPillCount_ = 0
     abyssSealPillCount_ = 0
+    shadowGodPillCount_ = 0
     print("[AlchemySystem] ResetRuntimeState: all pill counts zeroed")
 end
 
 --- 获取当前所有计数的快照（用于调试/校验）
----@return table snapshot { tiger=n, snake=n, diamond=n, tempering=n, dragonBlood=n, swordIntent=n, abyssSeal=n }
+---@return table snapshot { tiger=n, snake=n, diamond=n, tempering=n, dragonBlood=n, swordIntent=n, abyssSeal=n, shadowGod=n }
 function AlchemySystem.GetSnapshot()
     return {
         tiger       = tigerPillCount_,
@@ -153,6 +167,7 @@ function AlchemySystem.GetSnapshot()
         dragonBlood = dragonBloodPillCount_,
         swordIntent = swordIntentPillCount_,
         abyssSeal   = abyssSealPillCount_,
+        shadowGod   = shadowGodPillCount_,
     }
 end
 
@@ -171,6 +186,7 @@ local COUNT_GETTERS = {
     dragonBlood = function() return dragonBloodPillCount_ end,
     swordIntent = function() return swordIntentPillCount_ end,
     abyssSeal   = function() return abyssSealPillCount_ end,
+    shadowGod   = function() return shadowGodPillCount_ end,
 }
 
 local COUNT_SETTERS = {
@@ -181,6 +197,7 @@ local COUNT_SETTERS = {
     dragonBlood = function(v) AlchemySystem.SetDragonBloodPillCount(v) end,
     swordIntent = function(v) AlchemySystem.SetSwordIntentPillCount(v) end,
     abyssSeal   = function(v) AlchemySystem.SetAbyssSealPillCount(v) end,
+    shadowGod   = function(v) AlchemySystem.SetShadowGodPillCount(v) end,
 }
 
 --- 获取材料显示名称
@@ -189,6 +206,39 @@ local COUNT_SETTERS = {
 local function getMaterialName(materialId)
     local data = GameConfig.PET_MATERIALS[materialId] or GameConfig.PET_FOOD[materialId]
     return data and data.name or materialId
+end
+
+local function buildPermanentBonusList(recipe)
+    if recipe.bonuses then
+        return recipe.bonuses
+    end
+    return {
+        { stat = recipe.bonusStat, value = recipe.bonusValue },
+    }
+end
+
+local function applyPermanentBonus(player, stat, value)
+    if stat == "maxHp" then
+        player.maxHp = player.maxHp + value
+        player:InvalidateStatsCache()
+        return
+    end
+    if stat == "pillConstitution" then
+        player.pillConstitution = (player.pillConstitution or 0) + value
+        player:InvalidateStatsCache()
+        return
+    end
+    player[stat] = (player[stat] or 0) + value
+    player:InvalidateStatsCache()
+end
+
+local function buildPermanentBonusMessage(recipe)
+    local parts = {}
+    for _, bonus in ipairs(buildPermanentBonusList(recipe)) do
+        local statName = PillRecipes.STAT_DISPLAY[bonus.stat] or bonus.stat
+        table.insert(parts, statName .. "+" .. bonus.value)
+    end
+    return table.concat(parts, "、")
 end
 
 -- ──────────────────────────────────────────────────────────────────────────────
@@ -251,10 +301,18 @@ function AlchemySystem.CanCraftPermanent(recipeId)
         return false, "灵韵不足！炼制需要 " .. recipe.cost .. " 灵韵"
     end
 
+    -- 金币检查（扩展字段）
+    if recipe.goldCost and recipe.goldCost > 0 then
+        if (player.gold or 0) < recipe.goldCost then
+            return false, "金币不足！炼制需要 " .. recipe.goldCost .. " 金币"
+        end
+    end
+
     -- 材料检查
     local matName = getMaterialName(recipe.material)
-    if InventorySystem.CountUnlockedConsumable(recipe.material) < recipe.materialCount then
-        return false, matName .. "不足！炼制需要 " .. recipe.materialCount .. " 个" .. matName
+    local materialCount = recipe.materialCount or 1
+    if InventorySystem.CountUnlockedConsumable(recipe.material) < materialCount then
+        return false, matName .. "不足！炼制需要 " .. materialCount .. " 个" .. matName
     end
 
     return true, nil
@@ -350,17 +408,26 @@ function AlchemySystem.CraftPermanent(recipeId)
     local current = getter()
     if current >= recipe.maxCount then return false, nil end
     if player.lingYun < recipe.cost then return false, nil end
-    if InventorySystem.CountUnlockedConsumable(recipe.material) < recipe.materialCount then
+    if recipe.goldCost and recipe.goldCost > 0 and (player.gold or 0) < recipe.goldCost then return false, nil end
+    local materialCount = recipe.materialCount or 1
+    if InventorySystem.CountUnlockedConsumable(recipe.material) < materialCount then
         return false, nil
     end
 
     -- 扣除灵韵
     player.lingYun = player.lingYun - recipe.cost
+    -- 扣除金币（扩展字段）
+    if recipe.goldCost and recipe.goldCost > 0 then
+        player.gold = (player.gold or 0) - recipe.goldCost
+    end
     -- 消耗材料
-    local ok = InventorySystem.ConsumeConsumable(recipe.material, recipe.materialCount)
+    local ok = InventorySystem.ConsumeConsumable(recipe.material, materialCount)
     if not ok then
-        -- 回滚灵韵
+        -- 回滚消耗
         player.lingYun = player.lingYun + recipe.cost
+        if recipe.goldCost and recipe.goldCost > 0 then
+            player.gold = (player.gold or 0) + recipe.goldCost
+        end
         return false, nil
     end
 
@@ -368,31 +435,25 @@ function AlchemySystem.CraftPermanent(recipeId)
     setter(current + 1)
 
     -- 应用属性加成
-    local stat = recipe.bonusStat
-    local value = recipe.bonusValue
-    if stat == "maxHp" then
-        player.maxHp = player.maxHp + value
-        player:InvalidateStatsCache()
-        if recipe.alsoHeal then
-            player.hp = math.min(player.hp + value, player:GetTotalMaxHp())
+    local healValue = 0
+    for _, bonus in ipairs(buildPermanentBonusList(recipe)) do
+        applyPermanentBonus(player, bonus.stat, bonus.value)
+        if bonus.stat == "maxHp" and recipe.alsoHeal then
+            healValue = healValue + bonus.value
         end
-    elseif stat == "pillConstitution" then
-        player.pillConstitution = (player.pillConstitution or 0) + value
-        player:InvalidateStatsCache()
-    else
-        -- atk, def 等直接字段
-        player[stat] = (player[stat] or 0) + value
-        player:InvalidateStatsCache()
+    end
+    if healValue > 0 then
+        player.hp = math.min(player.hp + healValue, player:GetTotalMaxHp())
     end
 
     -- 生成成功消息
     local newCount = getter()
-    local statName = PillRecipes.STAT_DISPLAY[stat] or stat
+    local bonusText = buildPermanentBonusMessage(recipe)
     local msg
-    if stat == "pillConstitution" then
-        msg = "服用成功！" .. statName .. "+" .. value .. " (已服" .. newCount .. "/" .. recipe.maxCount .. ")"
+    if recipe.bonusStat == "pillConstitution" then
+        msg = "服用成功！" .. bonusText .. " (已服" .. newCount .. "/" .. recipe.maxCount .. ")"
     else
-        msg = "炼制成功！" .. statName .. "永久 +" .. value .. " (已炼" .. newCount .. "/" .. recipe.maxCount .. ")"
+        msg = "炼制成功！永久 " .. bonusText .. " (已炼" .. newCount .. "/" .. recipe.maxCount .. ")"
     end
     return true, msg
 end

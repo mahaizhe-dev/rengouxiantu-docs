@@ -131,6 +131,15 @@ local PILL_CONFIG = {
         bonusLabel = "防御力", bonusPerPill = 8, bonusColor = {100, 180, 255, 255},
         getCount = function() return AlchemySystem.GetAbyssSealPillCount() end,
     },
+    {
+        name = "影神丹", icon = "⚔️", maxBuy = 30,
+        bonuses = {
+            { label = "攻击力", perPill = 5 },
+            { label = "击杀回血", perPill = 20 },
+        },
+        bonusColor = {180, 120, 255, 255},
+        getCount = function() return AlchemySystem.GetShadowGodPillCount() end,
+    },
     -- ── 活动丹药 ──
     {
         name = "仙界精品粽", icon = "🥟", maxBuy = 10,
@@ -238,7 +247,17 @@ function CharacterTab3.Build(hideFn)
         local maxBuy = cfg.getMaxBuy and cfg.getMaxBuy() or cfg.maxBuy
 
         local bonusTextVal, bonusActive
-        if cfg.bonusPerPill then
+        if cfg.bonuses then
+            local bonusParts = {}
+            for _, bonus in ipairs(cfg.bonuses) do
+                local totalBonus = count * bonus.perPill
+                if totalBonus > 0 then
+                    table.insert(bonusParts, bonus.label .. "+" .. totalBonus)
+                end
+            end
+            bonusActive = #bonusParts > 0
+            bonusTextVal = bonusActive and table.concat(bonusParts, " ") or "-"
+        elseif cfg.bonusPerPill then
             local totalBonus = count * cfg.bonusPerPill
             bonusActive = totalBonus > 0
             bonusTextVal = bonusActive and (cfg.bonusLabel .. "+" .. totalBonus) or "-"

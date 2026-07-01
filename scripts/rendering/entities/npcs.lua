@@ -10,6 +10,55 @@ local DecorationRenderers = shared.DecorationRenderers
 
 local M = {}
 
+local function RenderObjectNameplate(nvg, sx, sy, ts, npc)
+    local name = npc.name or npc.label
+    if not name or #name == 0 then return end
+
+    nvgFontFace(nvg, "sans")
+
+    local hasSubtitle = npc.subtitle and #npc.subtitle > 0
+    local nameFontSize = T.worldFont.name
+    local subFontSize = T.worldFont.subtitle
+
+    nvgFontSize(nvg, nameFontSize)
+    local nameTextW = nvgTextBounds(nvg, 0, 0, name, nil)
+
+    local subTextW = 0
+    if hasSubtitle then
+        nvgFontSize(nvg, subFontSize)
+        subTextW = nvgTextBounds(nvg, 0, 0, npc.subtitle, nil)
+    end
+
+    local padH, padV = 8, 4
+    local contentW = math.max(nameTextW, subTextW)
+    local bgW = contentW + padH * 2
+    local nameLineH = nameFontSize + padV
+    local subLineH = hasSubtitle and (subFontSize + padV) or 0
+    local bgH = nameLineH + subLineH + padV * 2
+    local scale = npc.imageScale or 1.4
+    local centerY = sy - ts * math.max(0.95, scale * 0.55 + 0.35)
+    local bgTopY = centerY - bgH / 2
+
+    nvgBeginPath(nvg)
+    nvgRoundedRect(nvg, sx - bgW / 2, bgTopY, bgW, bgH, 5)
+    nvgFillColor(nvg, nvgRGBA(0, 0, 0, 150))
+    nvgFill(nvg)
+
+    local nameCenterY = bgTopY + padV + nameLineH / 2
+    nvgFontSize(nvg, nameFontSize)
+    nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+    nvgFillColor(nvg, nvgRGBA(255, 215, 0, 255))
+    nvgText(nvg, sx, nameCenterY, name, nil)
+
+    if hasSubtitle then
+        local subCenterY = nameCenterY + nameLineH / 2 + subLineH / 2
+        nvgFontSize(nvg, subFontSize)
+        nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+        nvgFillColor(nvg, nvgRGBA(200, 200, 180, 200))
+        nvgText(nvg, sx, subCenterY, npc.subtitle, nil)
+    end
+end
+
 function M.RenderNPCs(nvg, l, camera)
     local npcs = GameState.npcs
     for i = 1, #npcs do
@@ -51,6 +100,9 @@ function M.RenderNPCs(nvg, l, camera)
                 end
                 if not objDrawn then
                     DecorationRenderers.RenderSign(nvg, sx - ts * 0.5, sy - ts * 0.5, ts, npc)
+                end
+                if npc.showNameplate and not npc.hideName then
+                    RenderObjectNameplate(nvg, sx, sy, ts, npc)
                 end
 
                 -- 副本入口未领取奖励指示器（头顶黄色大感叹号，与公告栏同样式）

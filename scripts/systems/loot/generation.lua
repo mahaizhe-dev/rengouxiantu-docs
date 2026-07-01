@@ -398,7 +398,7 @@ function M.GenerateDrops(dropTable, monster)
                 local pool = MonsterData.WORLD_DROP_POOLS[entry.pool]
                 if pool and pool.items and #pool.items > 0 then
                     local mCat = monster.category or "normal"
-                    local isBoss = (mCat == "boss" or mCat == "king_boss" or mCat == "emperor_boss")
+                    local isBoss = (mCat == "boss" or mCat == "king_boss" or mCat == "emperor_boss" or mCat == "saint_boss")
                     local candidates = {}
                     for _, pItem in ipairs(pool.items) do
                         if not pItem.bossOnly or isBoss then

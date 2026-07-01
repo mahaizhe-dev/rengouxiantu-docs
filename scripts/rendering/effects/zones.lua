@@ -11,8 +11,8 @@ local M = {}
 
 local function DrawWanSymbol(nvg, sx, sy, size, alpha, elapsed)
     local s = size
-    local strokeA = math.floor(245 * alpha)
-    local glowA = math.floor(85 * alpha)
+    local strokeA = math.floor(255 * alpha)
+    local glowA = math.floor(95 * alpha)
 
     nvgSave(nvg)
     nvgTranslate(nvg, sx, sy)
@@ -20,9 +20,9 @@ local function DrawWanSymbol(nvg, sx, sy, size, alpha, elapsed)
 
     nvgBeginPath(nvg)
     nvgCircle(nvg, 0, 0, s * 0.72)
-    local sealPaint = nvgRadialGradient(nvg, 0, 0, s * 0.12, s * 0.78,
-        nvgRGBA(255, 245, 170, glowA),
-        nvgRGBA(255, 190, 60, 0))
+    local sealPaint = nvgRadialGradient(nvg, 0, 0, s * 0.10, s * 0.72,
+        nvgRGBA(255, 246, 180, glowA),
+        nvgRGBA(230, 170, 70, 0))
     nvgFillPaint(nvg, sealPaint)
     nvgFill(nvg)
 
@@ -31,7 +31,7 @@ local function DrawWanSymbol(nvg, sx, sy, size, alpha, elapsed)
         nvgMoveTo(nvg, x1 * s, y1 * s)
         nvgLineTo(nvg, x2 * s, y2 * s)
         nvgLineTo(nvg, x3 * s, y3 * s)
-        nvgStrokeColor(nvg, nvgRGBA(110, 70, 10, math.floor(110 * alpha)))
+        nvgStrokeColor(nvg, nvgRGBA(90, 64, 26, math.floor(95 * alpha)))
         nvgStrokeWidth(nvg, math.max(3.0, s * 0.13))
         nvgLineCap(nvg, NVG_ROUND)
         nvgStroke(nvg)
@@ -56,12 +56,12 @@ local function DrawWanSymbol(nvg, sx, sy, size, alpha, elapsed)
 end
 
 local function RenderMonkSealZone(nvg, zone, sx, sy, radius, c, alpha, elapsed)
-    local pulse = 0.80 + 0.20 * math.sin(elapsed * math.pi * 4)
-    local goldA = math.floor(225 * alpha * pulse)
+    local pulse = 0.82 + 0.12 * math.sin(elapsed * math.pi * 4)
+    local goldA = math.floor(125 * alpha * pulse)
 
     local fillPaint = nvgRadialGradient(nvg, sx, sy, radius * 0.05, radius,
-        nvgRGBA(255, 232, 110, math.floor(105 * alpha)),
-        nvgRGBA(255, 170, 40, math.floor(22 * alpha)))
+        nvgRGBA(205, 174, 82, math.floor(42 * alpha)),
+        nvgRGBA(150, 104, 42, math.floor(10 * alpha)))
     nvgBeginPath(nvg)
     nvgCircle(nvg, sx, sy, radius)
     nvgFillPaint(nvg, fillPaint)
@@ -70,8 +70,8 @@ local function RenderMonkSealZone(nvg, zone, sx, sy, radius, c, alpha, elapsed)
     for j = 0, 1 do
         nvgBeginPath(nvg)
         nvgCircle(nvg, sx, sy, radius * (0.72 + j * 0.22))
-        nvgStrokeColor(nvg, nvgRGBA(255, 220, 90, math.floor(goldA * (j == 0 and 0.8 or 1.0))))
-        nvgStrokeWidth(nvg, j == 0 and 2.2 or 3.4)
+        nvgStrokeColor(nvg, nvgRGBA(214, 178, 82, math.floor(goldA * (j == 0 and 0.58 or 0.82))))
+        nvgStrokeWidth(nvg, j == 0 and 1.5 or 2.2)
         nvgStroke(nvg)
     end
 
@@ -82,15 +82,15 @@ local function RenderMonkSealZone(nvg, zone, sx, sy, radius, c, alpha, elapsed)
         nvgBeginPath(nvg)
         nvgMoveTo(nvg, sx + math.cos(a) * r1, sy + math.sin(a) * r1)
         nvgLineTo(nvg, sx + math.cos(a) * r2, sy + math.sin(a) * r2)
-        nvgStrokeColor(nvg, nvgRGBA(255, 232, 120, math.floor(72 * alpha)))
-        nvgStrokeWidth(nvg, 1.4)
+        nvgStrokeColor(nvg, nvgRGBA(206, 176, 92, math.floor(30 * alpha)))
+        nvgStrokeWidth(nvg, 1.0)
         nvgStroke(nvg)
     end
 
     local palmR = radius * 0.20
     nvgBeginPath(nvg)
     nvgEllipse(nvg, sx, sy + palmR * 0.1, palmR * 0.75, palmR)
-    nvgFillColor(nvg, nvgRGBA(255, 235, 135, math.floor(125 * alpha)))
+    nvgFillColor(nvg, nvgRGBA(190, 155, 82, math.floor(38 * alpha)))
     nvgFill(nvg)
 
     DrawWanSymbol(nvg, sx, sy, radius * 0.30, alpha, elapsed)
@@ -99,8 +99,8 @@ local function RenderMonkSealZone(nvg, zone, sx, sy, radius, c, alpha, elapsed)
         local a = elapsed * 0.8 + j * math.pi * 2 / 6
         nvgBeginPath(nvg)
         nvgArc(nvg, sx, sy, radius * 0.55, a, a + math.pi * 0.18, NVG_CW)
-        nvgStrokeColor(nvg, nvgRGBA(255, 235, 140, math.floor(135 * alpha)))
-        nvgStrokeWidth(nvg, 1.6)
+        nvgStrokeColor(nvg, nvgRGBA(214, 186, 104, math.floor(64 * alpha)))
+        nvgStrokeWidth(nvg, 1.2)
         nvgLineCap(nvg, NVG_ROUND)
         nvgStroke(nvg)
     end

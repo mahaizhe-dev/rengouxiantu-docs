@@ -737,6 +737,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         local _isEventItem = _cfgItem and _cfgItem.category == "event"
         if item.consumableId == "lingyun_fruit" or item.consumableId == "exp_pill"
             or item.consumableId == "lingyun_fruit_superior" or item.consumableId == "exp_pill_superior"
+            or item.consumableId == "exp_pill_supreme"
             or item.consumableId == "gold_bar" or item.consumableId == "gold_brick"
             or item.consumableId == "xianjie_premium_zong" then
             -- 批量使用/出售 UI：×1 / ×10 / ×50 / 全部
@@ -746,7 +747,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
                 or (cId == "xianjie_premium_zong") and "食用"
                 or "使用"
             local actionIcon = (cId == "lingyun_fruit" or cId == "lingyun_fruit_superior") and "🍇"
-                or (cId == "exp_pill" or cId == "exp_pill_superior") and "💊"
+                or (cId == "exp_pill" or cId == "exp_pill_superior" or cId == "exp_pill_supreme") and "💊"
                 or (cId == "xianjie_premium_zong") and "🥟"
                 or "💰"
             local batchAmounts = { 1, 10, 50, totalCount }
@@ -826,7 +827,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         local canSellConsumable = true
         if displaySellPrice == 0 then canSellConsumable = false end
         -- 额外排除：金条/金砖已有批量出售UI，精品粽走批量使用
-        local NO_SELL_IDS = { exp_pill=1, exp_pill_superior=1, lingyun_fruit=1, lingyun_fruit_superior=1,
+        local NO_SELL_IDS = { exp_pill=1, exp_pill_superior=1, exp_pill_supreme=1, lingyun_fruit=1, lingyun_fruit_superior=1,
             item_guardian_token=1, gold_bar=1, gold_brick=1, xianjie_premium_zong=1,
             wubao_token_box=1, sha_hai_ling_box=1, taixu_token_box=1, taixu_jianling_box=1 }
         if NO_SELL_IDS[item.consumableId] then canSellConsumable = false end

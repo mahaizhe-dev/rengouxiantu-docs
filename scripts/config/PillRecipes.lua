@@ -175,6 +175,21 @@ PillRecipes.PERMANENTS = {
         bonusStat = "def",
         bonusValue = 8,
     },
+    shadow_god = {
+        id = "shadow_god",
+        name = "影神丹",
+        chapter = 6,
+        cost = 10000,
+        goldCost = 1000000,
+        material = "night_shadow_grass",
+        materialCount = 1,
+        countKey = "shadowGod",
+        maxCount = 30,
+        bonuses = {
+            { stat = "atk", value = 5 },
+            { stat = "shadowGodKillHeal", value = 20 },
+        },
+    },
 }
 
 -- ══════════════════════════════════════════════════════════════════════════════
@@ -201,6 +216,7 @@ PillRecipes.STAT_DISPLAY = {
     atk              = "攻击力",
     def              = "防御力",
     pillConstitution = "根骨",
+    shadowGodKillHeal = "击杀回血",
 }
 
 return PillRecipes

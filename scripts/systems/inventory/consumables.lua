@@ -9,6 +9,21 @@ local TradeLock = require("systems.BlackMarketTradeLock")
 
 local M = {}
 
+local function EnsureAscensionRealms()
+    local ok, AscensionConfig = pcall(require, "config.AscensionConfig")
+    if ok and AscensionConfig and AscensionConfig.EnsureRealmsRegistered then
+        AscensionConfig.EnsureRealmsRegistered()
+    end
+end
+
+local function FormatGourdTier(tier)
+    tier = tier or 1
+    if tier >= 11 then
+        return "仙" .. tostring(tier - 10)
+    end
+    return "lv." .. tostring(tier)
+end
+
 --- 添加消耗品到背包（支持堆叠上限溢出）
 ---@param IS table InventorySystem facade
 ---@param consumableId string 消耗品 ID（如 "meat_bone", "spirit_pill"）
@@ -400,6 +415,7 @@ function M.UpgradeGourd(IS)
 
     -- 检查境界要求
     if upgradeData.requiredRealm then
+        EnsureAscensionRealms()
         local playerRealmData = GameConfig.REALMS[player.realm]
         local reqRealmData = GameConfig.REALMS[upgradeData.requiredRealm]
         if not playerRealmData or not reqRealmData then return false, "境界数据异常" end
@@ -422,7 +438,7 @@ function M.UpgradeGourd(IS)
     gourd.quality = upgradeData.quality
     local LootSystem = require("systems.LootSystem")
     gourd.icon = LootSystem.GetGourdIcon(upgradeData.quality)
-    gourd.name = "酒葫芦 lv." .. nextTier
+    gourd.name = "酒葫芦 " .. FormatGourdTier(nextTier)
 
     -- 更新主属性
     local newHpRegen = EquipmentData.GOURD_MAIN_STAT[nextTier] or gourd.mainStat.hpRegen
@@ -439,6 +455,13 @@ function M.UpgradeGourd(IS)
         gourd.spiritStat = { stat = upgradeData.spiritStat.stat, name = upgradeData.spiritStat.name, value = upgradeData.spiritStat.value }
     else
         gourd.spiritStat = nil
+    end
+
+    -- 更新圣性属性（仙5起使用，与灵性互斥）
+    if upgradeData.saintStat then
+        gourd.saintStat = { stat = upgradeData.saintStat.stat, name = upgradeData.saintStat.name, value = upgradeData.saintStat.value }
+    else
+        gourd.saintStat = nil
     end
 
     -- 清除洗练属性

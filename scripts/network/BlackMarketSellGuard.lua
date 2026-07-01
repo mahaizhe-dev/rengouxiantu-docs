@@ -9,7 +9,7 @@
 -- 原则："宁可拒绝，不可误发仙石"
 --
 -- BM-S3R 收口结论：
---   所有 79 项商品均存在本地先消耗路径（ConsumeConsumable / _UseTokenBox），
+--   所有黑市商品均存在本地先消耗路径（ConsumeConsumable / _UseTokenBox），
 --   服务端无法独立证明安全。统一按 high_risk_blocked 处理。
 --
 -- 安全类证明表（BM-S3R Step 1 审计结果）：
@@ -20,7 +20,7 @@
 --   token_box(3)      → InventorySystem.lua:997-1001 _UseTokenBox → 伪安全
 --   lingyu / herb / skill_book / special_equip / gold_brick → 已为高风险
 --
--- 结果：安全类 = 0 项，高风险类 = 79 项
+-- 结果：安全类 = 0 项，高风险类 = 全部黑市商品
 -- ============================================================================
 
 local BMConfig = require("config.BlackMerchantConfig")
@@ -69,7 +69,7 @@ function M.GetSafeItemIds()
 end
 
 --- 获取高风险类商品 ID 列表（用于测试和报告）
---- BM-S3R: 返回全部 79 项
+--- BM-S3R: 返回全部黑市商品
 ---@return string[]
 function M.GetHighRiskItemIds()
     local result = {}

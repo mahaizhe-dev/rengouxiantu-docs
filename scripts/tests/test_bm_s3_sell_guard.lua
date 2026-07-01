@@ -186,7 +186,7 @@ test("T13: 全部 token_box 变体 → 拒卖", function()
 end)
 
 -- ============================================================================
--- B. 覆盖率测试 — BM-S3R: 0 安全 + 79 高风险
+-- B. 覆盖率测试 — BM-S3R: 0 安全 + 全部高风险
 -- ============================================================================
 
 print("  --- 覆盖率 (BM-S3R) ---")
@@ -196,17 +196,16 @@ test("T14: 安全类总数 = 0", function()
     assertEqual(#safeIds, 0, "safe item count")
 end)
 
-test("T15: 高风险类总数 = 79", function()
+test("T15: 高风险类覆盖全部商品", function()
     local highRiskIds = SellGuard.GetHighRiskItemIds()
-    assertEqual(#highRiskIds, 79, "high-risk item count")
+    assertEqual(#highRiskIds, #BMConfig.ITEM_IDS, "high-risk item count")
 end)
 
-test("T16: 安全+高风险 = 79 (覆盖全部商品)", function()
+test("T16: 安全+高风险覆盖全部商品", function()
     local safeIds = SellGuard.GetSafeItemIds()
     local highRiskIds = SellGuard.GetHighRiskItemIds()
     local totalItems = #safeIds + #highRiskIds
     assertEqual(totalItems, #BMConfig.ITEM_IDS, "total should match ITEM_IDS count")
-    assertEqual(totalItems, 79, "total should be 79")
 end)
 
 test("T17: 默认保守 — 模拟未来新分类自动拒绝", function()
@@ -230,11 +229,27 @@ end)
 
 test("T19: GetHighRiskItemIds() 返回列表全部为 blocked", function()
     local highRiskIds = SellGuard.GetHighRiskItemIds()
-    assertEqual(#highRiskIds, 79, "should have 79 items")
+    assertEqual(#highRiskIds, #BMConfig.ITEM_IDS, "should cover all items")
     for _, id in ipairs(highRiskIds) do
         local allowed = SellGuard.CheckSellAllowed(id)
         assertFalse(allowed, "high-risk item should be blocked: " .. id)
     end
+end)
+
+test("T20: 第六章黑市新增材料配置正确", function()
+    local grass = BMConfig.ITEMS.night_shadow_grass
+    assertTrue(grass ~= nil, "night_shadow_grass should be in black market")
+    assertEqual(grass.category, BMConfig.CATEGORY_HERB, "night_shadow_grass category")
+    assertEqual(grass.buy_price, 10, "night_shadow_grass buy_price")
+    assertEqual(grass.sell_price, 20, "night_shadow_grass sell_price")
+    assertEqual(grass.max_stock, 10, "night_shadow_grass max_stock")
+
+    local crystal = BMConfig.ITEMS.shadow_crystal
+    assertTrue(crystal ~= nil, "shadow_crystal should be in black market")
+    assertEqual(crystal.category, BMConfig.CATEGORY_CONSUMABLE_MAT, "shadow_crystal category")
+    assertEqual(crystal.buy_price, 20, "shadow_crystal buy_price")
+    assertEqual(crystal.sell_price, 40, "shadow_crystal sell_price")
+    assertEqual(crystal.max_stock, 5, "shadow_crystal max_stock")
 end)
 
 -- ============================================================================
@@ -243,7 +258,7 @@ end)
 
 print("  --- 回归层 ---")
 
-test("T20: SellGuard 不导出任何被自动回收路径引用的接口", function()
+test("T21: SellGuard 不导出任何被自动回收路径引用的接口", function()
     -- SellGuard 仅导出: CheckSellAllowed, GetSafeItemIds, GetHighRiskItemIds
     -- HandleSell 调用链: C2S_BMSell → HandleSell() → SellGuard.CheckSellAllowed()
     -- RecycleTick 调用链: ScheduledUpdate → RecycleTick() → ExecuteRecycle() → MoneyCost()

@@ -59,6 +59,7 @@ local PILL_ICONS = {
     dragon_blood    = "icon_spirit_pill_5.png",
     sword_intent    = "icon_spirit_pill_2.png",
     abyss_seal      = "icon_spirit_pill_3.png",
+    shadow_god      = "icon_spirit_pill_5.png",
     one_turn_tribulation_pill  = "image/icon_one_turn_tribulation_pill.png",
     two_turn_tribulation_pill  = "image/icon_two_turn_tribulation_pill.png",
 }
@@ -97,6 +98,17 @@ local SWORD_INTENT_PILL = { cost = _si.cost, atkBonus = _si.bonusValue, maxBuy =
 
 local _as = PillRecipes.PERMANENTS.abyss_seal
 local ABYSS_SEAL_PILL = { cost = _as.cost, defBonus = _as.bonusValue, maxBuy = _as.maxCount, material = _as.material }
+
+local _sg = PillRecipes.PERMANENTS.shadow_god
+local SHADOW_GOD_PILL = {
+    cost = _sg.cost,
+    goldCost = _sg.goldCost,
+    atkBonus = _sg.bonuses[1].value,
+    killHealBonus = _sg.bonuses[2].value,
+    maxBuy = _sg.maxCount,
+    material = _sg.material,
+    materialCount = _sg.materialCount or 1,
+}
 
 local TOKEN_BOX_LINGYUN_COST = PillRecipes.TOKEN_BOX_LINGYUN_COST
 local TOKEN_BOX_TOKEN_COST   = PillRecipes.TOKEN_BOX_TOKEN_COST
@@ -317,12 +329,16 @@ end
 local function CreatePermanentCard(cfg)
     local player = GameState.player
     local lingYun = player and player.lingYun or 0
-    local AS = require("systems.AlchemySystem")
+    local gold = player and player.gold or 0
     local used = cfg.getCount()
     local remaining = cfg.maxCount - used
+    local materialCount = cfg.materialCount or 1
     local matCount = InventorySystem.CountConsumable(cfg.material)
     local matName = GetMaterialName(cfg.material)
-    local canCraft = remaining > 0 and lingYun >= cfg.cost and matCount >= 1
+    local canCraft = remaining > 0 and lingYun >= cfg.cost and matCount >= materialCount
+    if cfg.goldCost and cfg.goldCost > 0 then
+        canCraft = canCraft and gold >= cfg.goldCost
+    end
     local iconFile = PILL_ICONS[cfg.pillKey] or "icon_spirit_pill.png"
     local btnText = remaining <= 0 and "已满" or "炼制"
 
@@ -370,9 +386,11 @@ local function CreatePermanentCard(cfg)
                     },
                     -- 炼制消耗
                     UI.Label {
-                        text = "炼制消耗：灵韵×" .. FormatPrice(cfg.cost) .. "，" .. matName .. "×1(" .. matCount .. ")",
+                        text = "炼制消耗：灵韵×" .. FormatPrice(cfg.cost)
+                            .. (cfg.goldCost and cfg.goldCost > 0 and ("，金币×" .. FormatPrice(cfg.goldCost)) or "")
+                            .. "，" .. matName .. "×" .. materialCount .. "(" .. matCount .. ")",
                         fontSize = T.fontSize.xs,
-                        fontColor = (lingYun >= cfg.cost and matCount >= 1) and T.color.warning or T.color.error,
+                        fontColor = canCraft and T.color.warning or T.color.error,
                         marginLeft = ICON_SIZE + T.spacing.sm,
                     },
                 },
@@ -529,8 +547,20 @@ local function BuildCh5Content()
 end
 
 local function BuildCh6Content()
+    local AS = require("systems.AlchemySystem")
     return {
         CreateConsumableCard({ name = "一转仙劫丹", recipeId = "one_turn_tribulation_pill", cost = 10000, goldCost = 1000000, desc = "仙阶突破材料", quality = "gold" }),
+        CreatePermanentCard({
+            name = "影神丹",
+            effectText = "永久 +" .. SHADOW_GOD_PILL.atkBonus .. " 攻击力、+" .. SHADOW_GOD_PILL.killHealBonus .. " 击杀回血",
+            pillKey = "shadow_god",
+            cost = SHADOW_GOD_PILL.cost,
+            goldCost = SHADOW_GOD_PILL.goldCost,
+            material = SHADOW_GOD_PILL.material,
+            materialCount = SHADOW_GOD_PILL.materialCount,
+            maxCount = SHADOW_GOD_PILL.maxBuy,
+            getCount = AS.GetShadowGodPillCount,
+        }),
     }
 end
 
@@ -800,6 +830,7 @@ function AlchemyUI.DoCraftTempering() AlchemyUI.DoCraftPermanent("tempering") en
 function AlchemyUI.DoCraftDragonBlood() AlchemyUI.DoCraftPermanent("dragon_blood") end
 function AlchemyUI.DoCraftSwordIntent() AlchemyUI.DoCraftPermanent("sword_intent") end
 function AlchemyUI.DoCraftAbyssSeal() AlchemyUI.DoCraftPermanent("abyss_seal") end
+function AlchemyUI.DoCraftShadowGod() AlchemyUI.DoCraftPermanent("shadow_god") end
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 面板生命周期
@@ -888,6 +919,8 @@ function AlchemyUI.GetSwordIntentPillCount() return require("systems.AlchemySyst
 function AlchemyUI.SetSwordIntentPillCount(c) require("systems.AlchemySystem").SetSwordIntentPillCount(c) end
 function AlchemyUI.GetAbyssSealPillCount() return require("systems.AlchemySystem").GetAbyssSealPillCount() end
 function AlchemyUI.SetAbyssSealPillCount(c) require("systems.AlchemySystem").SetAbyssSealPillCount(c) end
+function AlchemyUI.GetShadowGodPillCount() return require("systems.AlchemySystem").GetShadowGodPillCount() end
+function AlchemyUI.SetShadowGodPillCount(c) require("systems.AlchemySystem").SetShadowGodPillCount(c) end
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 其他导出接口
@@ -914,6 +947,7 @@ function AlchemyUI.GetShopPillConfigs()
         dragon_blood = DRAGON_BLOOD_PILL,
         sword_intent = SWORD_INTENT_PILL,
         abyss_seal = ABYSS_SEAL_PILL,
+        shadow_god = SHADOW_GOD_PILL,
     }
 end
 

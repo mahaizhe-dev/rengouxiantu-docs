@@ -14,7 +14,7 @@ local YaochiWashSystem = {}
 -- 常量
 -- ============================================================================
 
-YaochiWashSystem.MAX_LEVEL = 26
+YaochiWashSystem.MAX_LEVEL = 50
 YaochiWashSystem.RITUAL_DURATION = 20  -- 淬炼读条秒数（固定）
 YaochiWashSystem.BONUS_PER_LEVEL = 0.01  -- 每级 1% 增减伤
 
@@ -27,40 +27,56 @@ YaochiWashSystem.BONUS_PER_LEVEL = 0.01  -- 每级 1% 增减伤
 
 ---@type number[]
 YaochiWashSystem.LEVEL_COST = {
-    -- 练气 1-3
-    500,    -- Lv1: 1 折合九转
-    1000,   -- Lv2: 2
-    1500,   -- Lv3: 3
-    -- 筑基 4-6
-    2000,   -- Lv4: 4
-    2500,   -- Lv5: 5
-    3000,   -- Lv6: 6
-    -- 金丹 7-9
-    3500,   -- Lv7: 7
-    4000,   -- Lv8: 8
-    4500,   -- Lv9: 9
-    -- 元婴 10-12
-    5000,   -- Lv10: 10
-    7500,   -- Lv11: 15
-    10000,  -- Lv12: 20
-    -- 化神 13-15
-    12500,  -- Lv13: 25
-    15000,  -- Lv14: 30
-    17500,  -- Lv15: 35
-    -- 合体 16-18
-    20000,  -- Lv16: 40
-    22500,  -- Lv17: 45
-    25000,  -- Lv18: 50
-    -- 大乘 19-22
-    30000,  -- Lv19: 60
-    35000,  -- Lv20: 70
-    40000,  -- Lv21: 80
-    50000,  -- Lv22: 100
-    -- 谪仙 23-26
-    50000,  -- Lv23: 100
-    55000,  -- Lv24: 110
-    60000,  -- Lv25: 120
-    65000,  -- Lv26: 130
+    500,      -- Lv1
+    1000,     -- Lv2
+    1500,     -- Lv3
+    2000,     -- Lv4
+    2500,     -- Lv5
+    3000,     -- Lv6
+    3500,     -- Lv7
+    4000,     -- Lv8
+    4500,     -- Lv9
+    5000,     -- Lv10
+    7500,     -- Lv11
+    10000,    -- Lv12
+    12500,    -- Lv13
+    15000,    -- Lv14
+    17500,    -- Lv15
+    20000,    -- Lv16
+    22500,    -- Lv17
+    25000,    -- Lv18
+    30000,    -- Lv19
+    40000,    -- Lv20
+    50000,    -- Lv21
+    60000,    -- Lv22
+    80000,    -- Lv23
+    100000,   -- Lv24
+    120000,   -- Lv25
+    160000,   -- Lv26
+    200000,   -- Lv27
+    240000,   -- Lv28
+    300000,   -- Lv29
+    360000,   -- Lv30
+    420000,   -- Lv31
+    500000,   -- Lv32
+    580000,   -- Lv33
+    660000,   -- Lv34
+    760000,   -- Lv35
+    860000,   -- Lv36
+    960000,   -- Lv37
+    1080000,  -- Lv38
+    1200000,  -- Lv39
+    1320000,  -- Lv40
+    1460000,  -- Lv41
+    1600000,  -- Lv42
+    1740000,  -- Lv43
+    1900000,  -- Lv44
+    2060000,  -- Lv45
+    2220000,  -- Lv46
+    2400000,  -- Lv47
+    2600000,  -- Lv48
+    2800000,  -- Lv49
+    3000000,  -- Lv50
 }
 
 -- ============================================================================
@@ -74,12 +90,30 @@ YaochiWashSystem.PILL_VALUES = {
     yuanying_fruit  = 200,
     jiuzhuan_jindan = 500,
     dujie_dan       = 1000,
+    one_turn_tribulation_pill   = 10000,
+    two_turn_tribulation_pill   = 20000,
+    three_turn_tribulation_pill = 30000,
+    four_turn_tribulation_pill  = 40000,
+    five_turn_tribulation_pill  = 50000,
+    six_turn_tribulation_pill   = 60000,
+    seven_turn_tribulation_pill = 70000,
+    eight_turn_tribulation_pill = 80000,
+    nine_turn_tribulation_pill  = 90000,
 }
 
 -- 需要二次确认的高价丹药
 YaochiWashSystem.HIGH_VALUE_PILLS = {
     jiuzhuan_jindan = true,
     dujie_dan       = true,
+    one_turn_tribulation_pill   = true,
+    two_turn_tribulation_pill   = true,
+    three_turn_tribulation_pill = true,
+    four_turn_tribulation_pill  = true,
+    five_turn_tribulation_pill  = true,
+    six_turn_tribulation_pill   = true,
+    seven_turn_tribulation_pill = true,
+    eight_turn_tribulation_pill = true,
+    nine_turn_tribulation_pill  = true,
 }
 
 -- 丹药显示顺序
@@ -90,18 +124,75 @@ YaochiWashSystem.PILL_ORDER = {
     "yuanying_fruit",
     "jiuzhuan_jindan",
     "dujie_dan",
+    "one_turn_tribulation_pill",
+    "two_turn_tribulation_pill",
+    "three_turn_tribulation_pill",
+    "four_turn_tribulation_pill",
+    "five_turn_tribulation_pill",
+    "six_turn_tribulation_pill",
+    "seven_turn_tribulation_pill",
+    "eight_turn_tribulation_pill",
+    "nine_turn_tribulation_pill",
 }
 
 -- ============================================================================
 -- 运行时状态
 -- ============================================================================
 
-local washLevel_ = 0    -- 当前修炼等级 (0~26)
+---@type number
+local washLevel_ = 0    -- 当前修炼等级 (0~50)
+---@type number
 local washPoints_ = 0   -- 当前累计修炼点数
 
 -- 淬炼仪式状态
 local ritualActive_ = false
+---@type number
 local ritualTimer_ = 0
+
+local LEGACY_REALM_WASH_CAP = {
+    dujie_1 = 23,
+    dujie_2 = 24,
+    dujie_3 = 25,
+    dujie_4 = 26,
+}
+
+local ASCENSION_STAGE_WASH_CAP = {
+    zhexian = 25,
+    renxian = 28,
+    dixian = 31,
+    tianxian = 34,
+    xuanxian = 37,
+    jinxian = 40,
+    taiyijinxian = 43,
+    daluojinxian = 46,
+    hunyuan = 50,
+}
+
+local ASCENSION_STAGE_CAP_BY_INDEX = {
+    25, 28, 31, 34, 37, 40, 43, 46, 50,
+}
+
+local function EnsureAscensionRealms()
+    local ok, AscensionConfig = pcall(require, "config.AscensionConfig")
+    if ok and AscensionConfig and AscensionConfig.EnsureRealmsRegistered then
+        AscensionConfig.EnsureRealmsRegistered()
+    end
+end
+
+local function GetAscensionRealmWashCap(realmId)
+    if not realmId then return nil end
+    local legacyCap = LEGACY_REALM_WASH_CAP[realmId]
+    if legacyCap ~= nil then return legacyCap end
+
+    local ascIndex = tonumber(realmId:match("^asc_(%d+)$"))
+    if ascIndex then
+        local stageIndex = math.floor((ascIndex - 1) / 9) + 1
+        return ASCENSION_STAGE_CAP_BY_INDEX[stageIndex]
+    end
+
+    local stageId = realmId:match("^([a-z]+)_%d+$")
+    return ASCENSION_STAGE_WASH_CAP[stageId]
+end
 
 -- ============================================================================
 -- 核心查询
@@ -132,9 +223,18 @@ end
 function YaochiWashSystem.GetMaxLevelForRealm()
     local player = GameState.player
     if not player then return 0 end
-    local rd = GameConfig.REALMS[player.realm]
+    EnsureAscensionRealms()
+
+    local realmId = player.realm
+    local ascensionCap = GetAscensionRealmWashCap(realmId)
+    if ascensionCap then
+        return math.min(ascensionCap, YaochiWashSystem.MAX_LEVEL)
+    end
+
+    local rd = GameConfig.REALMS[realmId]
     if not rd then return 0 end
-    return rd.order or 0
+    local order = rd.order
+    return math.min(order, 26, YaochiWashSystem.MAX_LEVEL)
 end
 
 --- 是否可以进行淬炼（点数足够 + 未达境界上限 + 未满级）
@@ -146,7 +246,9 @@ function YaochiWashSystem.CanPerformRitual()
     end
     local maxLevel = YaochiWashSystem.GetMaxLevelForRealm()
     if washLevel_ >= maxLevel then
-        local rd = GameConfig.REALMS[GameState.player.realm]
+        local player = GameState.player
+        if not player then return false, "玩家不存在" end
+        local rd = GameConfig.REALMS[player.realm]
         local realmName = rd and rd.name or "???"
         return false, "需突破「" .. realmName .. "」境界"
     end
@@ -318,14 +420,12 @@ end
 ---@param data table|nil
 function YaochiWashSystem.Deserialize(data)
     local wash = data or { level = 0, points = 0 }
-    washLevel_ = math.max(0, math.min(YaochiWashSystem.MAX_LEVEL, wash.level or 0))
-    washPoints_ = math.max(0, wash.points or 0)
+    local loadedLevel = tonumber(wash.level) or 0
+    washLevel_ = math.max(0, math.min(YaochiWashSystem.MAX_LEVEL, loadedLevel))
+    washPoints_ = math.max(0, tonumber(wash.points) or 0)
 
-    -- 境界钳位：确保修炼等级不超过当前境界上限
-    local maxLevel = YaochiWashSystem.GetMaxLevelForRealm()
-    if maxLevel > 0 and washLevel_ > maxLevel then
-        print("[YaochiWash] 修炼等级钳位: " .. washLevel_ .. " → " .. maxLevel)
-        washLevel_ = maxLevel
+    if washLevel_ ~= loadedLevel then
+        print("[YaochiWash] 修炼等级绝对上限保护: " .. loadedLevel .. " → " .. washLevel_)
     end
 
     print("[YaochiWash] 加载: Lv." .. washLevel_ .. " 灵液=" .. washPoints_)

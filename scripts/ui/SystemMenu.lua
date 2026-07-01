@@ -20,6 +20,7 @@ local IconUtils = require("utils.IconUtils")
 local ChapterConfig = require("config.ChapterConfig")
 local WineData = require("config.WineData")
 local MinggeData = require("config.MinggeData")
+local LootSystem = require("systems.LootSystem")
 
 local SystemMenu = {}
 
@@ -104,22 +105,83 @@ local function GetConsumableName(consumableId)
     return consumableId
 end
 
---- 根据怪物等级获取可用 Tier 列表（与 LootSystem.GetAvailableTiers 保持一致）
----@param monsterLevel number
----@return number[] availableTiers
-local function GetAvailableTiers(monsterLevel)
-    if monsterLevel >= 121 then return { 9, 10, 11 }
-    elseif monsterLevel >= 101 then return { 8, 9, 10 }
-    elseif monsterLevel >= 86  then return { 7, 8, 9 }
-    elseif monsterLevel >= 71  then return { 6, 7, 8 }
-    elseif monsterLevel >= 56  then return { 5, 6, 7 }
-    elseif monsterLevel >= 41  then return { 4, 5, 6 }
-    elseif monsterLevel >= 26  then return { 3, 4, 5 }
-    elseif monsterLevel >= 16  then return { 2, 3, 4 }
-    elseif monsterLevel >= 11  then return { 1, 2, 3 }
-    elseif monsterLevel >= 6   then return { 1, 2 }
-    else                            return { 1 }
+local function GetQualityName(quality)
+    local cfg = quality and GameConfig.QUALITY[quality]
+    return (cfg and cfg.name) or tostring(quality or "?")
+end
+
+local function BuildQualityRangeText(minQuality, maxQuality)
+    if minQuality == maxQuality then
+        return GetQualityName(minQuality)
     end
+    return GetQualityName(minQuality) .. "~" .. GetQualityName(maxQuality)
+end
+
+local function BuildRandomEquipmentSummary(monster, randomEquipEntries)
+    if #randomEquipEntries == 0 then return nil end
+
+    local mLevel = monster.level or (monster.levelRange and monster.levelRange[2]) or 1
+    local cat = monster.category or "normal"
+    local isEliteOrBoss = GameConfig.ELITE_OR_BOSS and GameConfig.ELITE_OR_BOSS[cat]
+    if isEliteOrBoss == nil then
+        isEliteOrBoss = (cat == "elite" or cat == "boss" or cat == "king_boss"
+            or cat == "emperor_boss" or cat == "saint_boss")
+    end
+
+    local byTier = {}
+    local tiers = {}
+
+    for _, entry in ipairs(randomEquipEntries) do
+        local generatedEntries = LootSystem.BuildTierQualityEntries(
+            mLevel,
+            isEliteOrBoss,
+            entry.tierOnly or monster.tierOnly,
+            entry.tierWindow,
+            entry.qualityByTier
+        )
+        local minOrder = entry.minQuality and GameConfig.QUALITY_ORDER[entry.minQuality] or 1
+        local maxOrder = entry.maxQuality and GameConfig.QUALITY_ORDER[entry.maxQuality]
+            or (entry.qualityByTier and 9 or 4)
+
+        for _, generated in ipairs(generatedEntries) do
+            local order = GameConfig.QUALITY_ORDER[generated.quality]
+            if order and order >= minOrder and order <= maxOrder then
+                local tier = generated.tier
+                local range = byTier[tier]
+                if not range then
+                    byTier[tier] = {
+                        minOrder = order,
+                        maxOrder = order,
+                        minQuality = generated.quality,
+                        maxQuality = generated.quality,
+                    }
+                    table.insert(tiers, tier)
+                else
+                    if order < range.minOrder then
+                        range.minOrder = order
+                        range.minQuality = generated.quality
+                    end
+                    if order > range.maxOrder then
+                        range.maxOrder = order
+                        range.maxQuality = generated.quality
+                    end
+                end
+            end
+        end
+    end
+
+    if #tiers == 0 then return nil end
+    table.sort(tiers)
+
+    local tierTexts = {}
+    for _, tier in ipairs(tiers) do
+        local range = byTier[tier]
+        table.insert(tierTexts,
+            EquipmentData.GetTierDisplayName(tier) .. "("
+                .. BuildQualityRangeText(range.minQuality, range.maxQuality) .. ")"
+        )
+    end
+    return table.concat(tierTexts, "/") .. "装备"
 end
 
 --- 构建单个怪物的掉落摘要文本
@@ -129,9 +191,7 @@ end
 local function BuildDropSummary(monster, typeId)
     if not monster.dropTable then return "无" end
     local parts = {}
-    local hasRandomEquip = false
-    local randomMinQuality = nil   -- 随机装备配置的 minQuality
-    local randomMaxQuality = nil   -- 随机装备配置的 maxQuality
+    local randomEquipEntries = {}
     local seenSpecial = {}
     local seenConsumable = {}
     local lingYunMin = 0
@@ -148,17 +208,7 @@ local function BuildDropSummary(monster, typeId)
                     table.insert(parts, eName)
                 end
             else
-                -- 随机装备：标记存在，记录品质范围，稍后统一生成描述
-                hasRandomEquip = true
-                -- 取所有随机装备条目中最宽的品质范围
-                local eMin = entry.minQuality or "white"
-                local eMax = entry.maxQuality or "purple"
-                if not randomMinQuality or GameConfig.QUALITY_ORDER[eMin] < GameConfig.QUALITY_ORDER[randomMinQuality] then
-                    randomMinQuality = eMin
-                end
-                if not randomMaxQuality or GameConfig.QUALITY_ORDER[eMax] > GameConfig.QUALITY_ORDER[randomMaxQuality] then
-                    randomMaxQuality = eMax
-                end
+                table.insert(randomEquipEntries, entry)
             end
         elseif entry.type == "lingYun" then
             local amt = entry.amount
@@ -250,78 +300,10 @@ local function BuildDropSummary(monster, typeId)
         end
     end
 
-    -- 随机装备：根据怪物等级和类别计算 Tier 范围 + 品质范围（受 TIER_QUALITY_GATE 约束）
-    if hasRandomEquip then
-        local mLevel = monster.level or (monster.levelRange and monster.levelRange[2]) or 1
-        local cat = monster.category or "normal"
-        local isEliteOrBoss = (cat == "elite" or cat == "boss" or cat == "king_boss" or cat == "emperor_boss" or cat == "saint_boss")
-        local tiers = GetAvailableTiers(mLevel)
-        if monster.tierOnly then
-            -- 强制指定Tier（如沙万里仅掉T7）
-            tiers = { monster.tierOnly }
-        elseif isEliteOrBoss and #tiers > 2 then
-            -- 精英/BOSS 只取最高 2 个 Tier
-            tiers = { tiers[#tiers - 1], tiers[#tiers] }
-        end
-        local tierText
-        if #tiers == 1 then
-            tierText = "T" .. tiers[1] .. "装备"
-        else
-            tierText = "T" .. tiers[1] .. "~T" .. tiers[#tiers] .. "装备"
-        end
-
-        -- 品质范围：受 TIER_QUALITY_GATE 约束，校正实际可掉的最高品质
-        local minQ = randomMinQuality or "white"
-        local maxQ = randomMaxQuality or "purple"
-        -- TIER_QUALITY_GATE: 橙色/青色需要额外等级才能在对应 Tier 解锁
-        -- 检查 maxQuality 在当前怪物等级+Tier 范围内是否真的可掉
-        local TIER_QUALITY_GATE = {
-            orange = {
-                [5] = 31,  [6] = 46,  [7] = 61,  [8] = 76,
-                [9] = 91,  [10] = 106, [11] = 126,
-            },
-            cyan = {
-                [9] = 96,  [10] = 111, [11] = 131,
-            },
-        }
-        local maxOrder = GameConfig.QUALITY_ORDER[maxQ] or 4
-        -- 从高品质往低品质检查，直到找到在至少一个可用 Tier 上解锁的品质
-        local qualityList = { "rainbow", "gold", "red", "cyan", "orange", "purple", "blue", "green", "white" }
-        local effectiveMaxQ = minQ  -- 兜底
-        for _, q in ipairs(qualityList) do
-            local qOrder = GameConfig.QUALITY_ORDER[q]
-            if qOrder and qOrder <= maxOrder and qOrder >= GameConfig.QUALITY_ORDER[minQ] then
-                local gate = TIER_QUALITY_GATE[q]
-                if gate then
-                    -- 有门槛限制：检查是否至少有一个可用 Tier 已解锁该品质
-                    local anyUnlocked = false
-                    for _, tier in ipairs(tiers) do
-                        if not gate[tier] or mLevel >= gate[tier] then
-                            anyUnlocked = true
-                            break
-                        end
-                    end
-                    if anyUnlocked then
-                        effectiveMaxQ = q
-                        break
-                    end
-                else
-                    -- 无门槛限制（紫色及以下）：直接可用
-                    effectiveMaxQ = q
-                    break
-                end
-            end
-        end
-
-        local minQName = GameConfig.QUALITY[minQ] and GameConfig.QUALITY[minQ].name or minQ
-        local maxQName = GameConfig.QUALITY[effectiveMaxQ] and GameConfig.QUALITY[effectiveMaxQ].name or effectiveMaxQ
-        if minQ == effectiveMaxQ then
-            tierText = tierText .. "(" .. minQName .. ")"
-        else
-            tierText = tierText .. "(" .. minQName .. "~" .. maxQName .. ")"
-        end
-
-        table.insert(parts, 1, tierText)
+    -- 随机装备：复用实际掉落生成器的 Tier/品质窗口，避免图鉴与掉落配置分叉。
+    local randomEquipText = BuildRandomEquipmentSummary(monster, randomEquipEntries)
+    if randomEquipText then
+        table.insert(parts, 1, randomEquipText)
     end
 
     -- 美酒掉落：查询该怪物是否掉落美酒
@@ -502,6 +484,7 @@ local function BuildBestiaryContent(chapterIndex)
         [3] = { "ch3" },
         [4] = { "ch4" },
         [5] = { "ch5", "ch5_boss" },
+        [6] = { "ch6", "ch6_emperor_rare" },
     }
     local poolIds = CHAPTER_POOL_MAP[chapterIndex] or {}
     -- 收集所有有效池

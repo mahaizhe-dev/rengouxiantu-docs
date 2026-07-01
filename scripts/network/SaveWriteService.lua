@@ -442,10 +442,12 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
             { field = "temperingPillEaten", max = 50, name = "千锤百炼丹" },
             { field = "xueshaDanCount",    max = 9,  name = "血煞丹" },
             { field = "haoqiDanCount",     max = 9,  name = "浩气丹" },
+            { field = "shadowGodPillCount", max = 30, name = "影神丹" },
             { field = "pillConstitution", max = 50, name = "根骨(千锤百炼)" },
             { field = "gangguConstitution", max = 50, name = "根骨(钢筋铁骨)" },
             { field = "pillPhysique",     max = SealDemonConfig.PHYSIQUE_PILL.maxCount, name = "体魄丹" },
             { field = "pillKillHeal",     max = 45, name = "击杀回血(血煞)" },
+            { field = "shadowGodKillHeal", max = 600, name = "击杀回血(影神丹)" },
             { field = "daoTreeWisdom",    max = 100, name = "悟道" },
             { field = "fruitFortune",     max = 40, name = "福缘果" },
             { field = "seaPillarDef",     max = 20, name = "海神柱防御" },
@@ -552,7 +554,7 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
         end
 
         local pillMaxHp = 150 + 270 + 300
-        local pillAtk = 50 + 72 + 30 + 100  -- +100: 太虚剑丹(10×10)
+        local pillAtk = 50 + 72 + 30 + 100 + 150  -- +100: 太虚剑丹(10×10), +150: 影神丹(30×5)
         local pillDef = 40 + 20 + 80        -- +80: 狱甲丹(8×10)
 
         local expectedMaxHp = 100 + 15 * lv + realmMaxHp + pillMaxHp

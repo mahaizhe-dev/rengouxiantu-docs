@@ -12,4 +12,5 @@ return function(M)
     require("config.MonsterData_Skills_Artifact")(M)
     require("config.MonsterData_Skills_ch5a")(M)
     require("config.MonsterData_Skills_ch5b")(M)
+    require("config.MonsterData_Skills_ch6")(M)
 end

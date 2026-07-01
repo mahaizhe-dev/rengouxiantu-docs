@@ -90,6 +90,16 @@ TestRegistry.tests = {
     },
 
     {
+        id            = "ch6_map_contract",
+        group         = "map",
+        path          = "scripts/tests/test_ch6_map_contract.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
         id            = "combat_yuanying_skills",
         group         = "combat",
         path          = "scripts/tests/test_combat_yuanying_skills.lua",
@@ -596,6 +606,20 @@ TestRegistry.tests = {
         id            = "alchemy_state_sync",
         group         = "save",
         path          = "scripts/tests/test_alchemy_state_sync.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
+    -- ALCHEMY: 影神丹炼制契约
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "alchemy_shadow_god_craft",
+        group         = "save",
+        path          = "scripts/tests/test_alchemy_shadow_god_craft.lua",
         mode          = "run_file",
         enabled       = true,
         gate          = "blocking",

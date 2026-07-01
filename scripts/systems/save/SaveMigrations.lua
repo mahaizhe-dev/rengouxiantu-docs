@@ -168,6 +168,24 @@ local MIGRATIONS = {
                             value = sub.value,
                         })
                     end
+                    if upgradeData.spiritStat then
+                        item.spiritStat = {
+                            stat = upgradeData.spiritStat.stat,
+                            name = upgradeData.spiritStat.name,
+                            value = upgradeData.spiritStat.value,
+                        }
+                    else
+                        item.spiritStat = nil
+                    end
+                    if upgradeData.saintStat then
+                        item.saintStat = {
+                            stat = upgradeData.saintStat.stat,
+                            name = upgradeData.saintStat.name,
+                            value = upgradeData.saintStat.value,
+                        }
+                    else
+                        item.saintStat = nil
+                    end
                 end
             end
         end
@@ -1506,6 +1524,22 @@ local MIGRATIONS = {
         end
         print("[SaveSystem] v31→v32 migration: ascension/tribulation/immortalBody fields initialized")
         data.version = 32
+        return data
+    end,
+
+    -- v32 → v33: 影神丹字段初始化（第六章永久属性丹）
+    [33] = function(data)
+        if data.player then
+            local p = data.player
+            local count = math.max(0, math.min(p.shadowGodPillCount or 0, 30))
+            p.shadowGodPillCount = count
+            p.shadowGodKillHeal = p.shadowGodKillHeal or (count * 20)
+            if p.pillCounts and type(p.pillCounts) == "table" then
+                p.pillCounts.shadow_god = count
+            end
+        end
+        print("[SaveSystem] v32→v33 migration: shadow god pill fields initialized")
+        data.version = 33
         return data
     end,
 }

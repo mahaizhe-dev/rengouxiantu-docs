@@ -1215,6 +1215,29 @@ local GM_CATEGORIES = {
                     end
                 end)
             end },
+            { label = "第六章怪物技能自测", action = function()
+                SendGMCommand("run_test_ch6_monster_skills", function()
+                    package.loaded["tests.test_ch6_monster_skill_runtime"] = nil
+                    local ok, testModule = pcall(require, "tests.test_ch6_monster_skill_runtime")
+                    if not ok or type(testModule) ~= "table" or type(testModule.RunAll) ~= "function" then
+                        ShowLog("第六章技能测试加载失败: " .. tostring(testModule), {255, 100, 100, 255})
+                        return
+                    end
+
+                    local runOk, result = pcall(testModule.RunAll)
+                    if not runOk or type(result) ~= "table" then
+                        ShowLog("第六章技能测试出错: " .. tostring(result), {255, 100, 100, 255})
+                        return
+                    end
+
+                    if result.failed == 0 then
+                        ShowLog("第六章技能: 全部 " .. result.passed .. "/" .. result.total .. " 通过", {100, 255, 100, 255})
+                    else
+                        ShowLog("第六章技能: " .. result.failed .. " 项失败 / " .. result.total .. " 项", {255, 100, 100, 255})
+                    end
+                    print("[CH6SkillTest][GM]\n" .. (result.log or ""))
+                end)
+            end },
         },
     },
     {

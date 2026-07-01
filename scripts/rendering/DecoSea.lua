@@ -11,6 +11,8 @@ local M = {}
 -- ============================================================================
 local seaReefImage_ = nil
 local seaReefImageLoaded_ = false
+local qingbaiLotusImage_ = nil
+local qingbaiLotusImageLoaded_ = false
 
 -- ============================================================================
 -- 海域礁石（PNG 绘制，随波浪轻微浮动）
@@ -44,6 +46,126 @@ function M.RenderSeaReef(nvg, sx, sy, ts, d, time)
     nvgRect(nvg, imgX, imgY, imgW, imgH)
     nvgFillPaint(nvg, imgPaint)
     nvgFill(nvg)
+end
+
+function M.RenderQingbaiLotus(nvg, sx, sy, ts, d, time)
+    if not qingbaiLotusImageLoaded_ then
+        qingbaiLotusImageLoaded_ = true
+        qingbaiLotusImage_ = RenderUtils.GetCachedImage(
+            nvg,
+            d.image or "image/qingbai_lotus_interactive_object_20260701004120.png")
+    end
+
+    local cx = sx + ts * 0.5
+    local cy = sy + ts * 0.56
+    local phase = time * 1.8 + (d.x or 0) * 0.73 + (d.y or 0) * 0.41
+    local pulse = 0.82 + 0.18 * math.sin(phase)
+    local bobY = math.sin(phase * 0.7) * ts * 0.035
+    local scale = d.imageScale or d.scale or 1.75
+
+    local glow = nvgRadialGradient(
+        nvg, cx, cy + bobY, ts * 0.08, ts * 1.05,
+        nvgRGBA(210, 255, 255, math.floor(105 * pulse)),
+        nvgRGBA(78, 204, 220, 0))
+    nvgBeginPath(nvg)
+    nvgCircle(nvg, cx, cy + bobY, ts * 1.0)
+    nvgFillPaint(nvg, glow)
+    nvgFill(nvg)
+
+    nvgBeginPath(nvg)
+    nvgEllipse(nvg, cx, cy + ts * 0.36, ts * 0.58, ts * 0.18)
+    nvgFillColor(nvg, nvgRGBA(8, 42, 52, 95))
+    nvgFill(nvg)
+
+    if qingbaiLotusImage_ then
+        local size = ts * scale
+        local imgX = cx - size * 0.5
+        local imgY = cy - size * 0.68 + bobY
+        local imgPaint = nvgImagePattern(nvg, imgX, imgY, size, size, 0, qingbaiLotusImage_, 0.96)
+        nvgBeginPath(nvg)
+        nvgRect(nvg, imgX, imgY, size, size)
+        nvgFillPaint(nvg, imgPaint)
+        nvgFill(nvg)
+    else
+        for i = 0, 5 do
+            local a = i * math.pi / 3
+            local px = cx + math.cos(a) * ts * 0.18
+            local py = cy + bobY + math.sin(a) * ts * 0.10
+            nvgBeginPath(nvg)
+            nvgEllipse(nvg, px, py, ts * 0.20, ts * 0.09)
+            nvgFillColor(nvg, nvgRGBA(220, 252, 255, 235))
+            nvgFill(nvg)
+        end
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, cx, cy + bobY, ts * 0.10)
+        nvgFillColor(nvg, nvgRGBA(114, 232, 222, 245))
+        nvgFill(nvg)
+    end
+
+    nvgBeginPath(nvg)
+    nvgCircle(nvg, cx, cy + bobY, ts * 0.42)
+    nvgStrokeColor(nvg, nvgRGBA(176, 238, 255, math.floor(70 * pulse)))
+    nvgStrokeWidth(nvg, math.max(1.2, ts * 0.035))
+    nvgStroke(nvg)
+end
+
+function M.RenderCrystalReed(nvg, sx, sy, ts, d, time)
+    local c = d.color or {115, 225, 195, 255}
+    local cx = sx + ts * 0.5
+    local baseY = sy + ts * 0.78
+    local pulse = 0.78 + 0.22 * math.sin(time * 1.7 + (d.x or 0) * 0.9)
+
+    nvgBeginPath(nvg)
+    nvgEllipse(nvg, cx, baseY + ts * 0.04, ts * 0.34, ts * 0.12)
+    nvgFillColor(nvg, nvgRGBA(10, 55, 62, 70))
+    nvgFill(nvg)
+
+    for i = -1, 1 do
+        local offset = i * ts * 0.13
+        local topX = cx + offset + math.sin(time * 1.2 + i) * ts * 0.025
+        local topY = sy + ts * (0.26 + 0.05 * math.abs(i))
+        nvgBeginPath(nvg)
+        nvgMoveTo(nvg, cx + offset * 0.4, baseY)
+        nvgLineTo(nvg, topX - ts * 0.05, topY + ts * 0.18)
+        nvgLineTo(nvg, topX, topY)
+        nvgLineTo(nvg, topX + ts * 0.06, topY + ts * 0.18)
+        nvgClosePath(nvg)
+        nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(c[4] * pulse)))
+        nvgFill(nvg)
+
+        nvgBeginPath(nvg)
+        nvgMoveTo(nvg, topX, topY + ts * 0.04)
+        nvgLineTo(nvg, topX + ts * 0.025, baseY - ts * 0.06)
+        nvgStrokeColor(nvg, nvgRGBA(245, 255, 255, math.floor(90 * pulse)))
+        nvgStrokeWidth(nvg, math.max(0.8, ts * 0.025))
+        nvgStroke(nvg)
+    end
+end
+
+function M.RenderCrystalBubble(nvg, sx, sy, ts, d, time)
+    local c = d.color or {145, 235, 255, 220}
+    local cx = sx + ts * 0.5
+    local cy = sy + ts * 0.55
+    local phase = time * 0.9 + (d.x or 0) * 0.7
+
+    for i = 1, 4 do
+        local a = phase + i * 1.7
+        local bx = cx + math.cos(a) * ts * (0.11 + i * 0.035)
+        local by = cy + math.sin(a * 0.8) * ts * 0.16
+        local r = ts * (0.045 + i * 0.012)
+        local alpha = math.floor((90 + 30 * math.sin(phase + i)) * (c[4] or 220) / 255)
+
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, bx, by, r)
+        nvgStrokeColor(nvg, nvgRGBA(c[1], c[2], c[3], alpha))
+        nvgStrokeWidth(nvg, math.max(0.8, ts * 0.018))
+        nvgStroke(nvg)
+
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, bx - r * 0.25, by - r * 0.25, math.max(1, r * 0.22))
+        nvgFillColor(nvg, nvgRGBA(245, 255, 255, math.floor(alpha * 0.65)))
+        nvgFill(nvg)
+    end
 end
 
 return M

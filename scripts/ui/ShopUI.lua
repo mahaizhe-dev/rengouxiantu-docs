@@ -32,9 +32,25 @@ end
 --- 格式化金币数字（来自共享模块）
 local FormatGold = FormatUtils.Gold
 
+local function EnsureAscensionRealms()
+    local ok, AscensionConfig = pcall(require, "config.AscensionConfig")
+    if ok and AscensionConfig and AscensionConfig.EnsureRealmsRegistered then
+        AscensionConfig.EnsureRealmsRegistered()
+    end
+end
+
+local function FormatGourdTier(tier)
+    tier = tier or 1
+    if tier >= 11 then
+        return "仙" .. tostring(tier - 10)
+    end
+    return tostring(tier) .. "阶"
+end
+
 --- 检查境界是否满足要求
 local function CheckRealmRequirement(requiredRealm)
     if not requiredRealm then return true end
+    EnsureAscensionRealms()
     local player = GameState.player
     if not player then return false end
     local playerRealmData = GameConfig.REALMS[player.realm]
@@ -46,9 +62,10 @@ end
 --- 构造升级后的葫芦预览 item（用于 BuildItemInfoRows）
 local function BuildNextTierPreviewItem(gourd, nextTier, upgradeData)
     local nextHpRegen = EquipmentData.GOURD_MAIN_STAT[nextTier] or 0
+    local LootSystem = require("systems.LootSystem")
     local preview = {
-        name = "酒葫芦 lv." .. nextTier,
-        icon = gourd.icon or "🏺",
+        name = "酒葫芦 " .. FormatGourdTier(nextTier),
+        icon = LootSystem.GetGourdIcon(upgradeData.quality or gourd.quality or "green"),
         slot = "treasure",
         tier = nextTier,
         quality = upgradeData.quality or gourd.quality,
@@ -61,6 +78,20 @@ local function BuildNextTierPreviewItem(gourd, nextTier, upgradeData)
         for _, sub in ipairs(upgradeData.subStats) do
             table.insert(preview.subStats, { stat = sub.stat, value = sub.value })
         end
+    end
+    if upgradeData.spiritStat then
+        preview.spiritStat = {
+            stat = upgradeData.spiritStat.stat,
+            name = upgradeData.spiritStat.name,
+            value = upgradeData.spiritStat.value,
+        }
+    end
+    if upgradeData.saintStat then
+        preview.saintStat = {
+            stat = upgradeData.saintStat.stat,
+            name = upgradeData.saintStat.name,
+            value = upgradeData.saintStat.value,
+        }
     end
     return preview
 end
@@ -201,7 +232,7 @@ local function BuildContent()
 
     table.insert(infoChildren, UI.Button {
         text = canUpgrade
-            and ("升级葫芦（" .. FormatGold(cost) .. " → " .. nextTier .. "阶）")
+            and ("升级葫芦（" .. FormatGold(cost) .. " → " .. FormatGourdTier(nextTier) .. "）")
             or (not canAfford and "金币不足" or "境界不足"),
         width = "100%",
         height = T.size.dialogBtnH,
@@ -378,7 +409,7 @@ function ShopUI.DoUpgrade()
     local InventorySystem = require("systems.InventorySystem")
     local success, msg = InventorySystem.UpgradeGourd()
     if success then
-        resultLabel_:SetText("升级成功！葫芦提升到 " .. nextTier .. " 阶！")
+        resultLabel_:SetText("升级成功！葫芦提升到 " .. FormatGourdTier(nextTier) .. "！")
         resultLabel_:SetStyle({ fontColor = {100, 255, 200, 255} })
     else
         resultLabel_:SetText(msg or "升级失败！")

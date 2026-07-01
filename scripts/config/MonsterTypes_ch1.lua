@@ -7,7 +7,7 @@
 return function(M)
     M.Types.spider_trail = {
         name = "小蜘蛛",
-        icon = "🕷️",
+        icon = "🕷",
         portrait = "Textures/monster_spider_trail.png",
         zone = "narrow_trail",
         category = "normal",
@@ -57,7 +57,7 @@ return function(M)
     -- ===================== 蜘蛛洞 Lv.3~5 + 精英6 =====================
     M.Types.spider_small = {
         name = "洞穴蜘蛛",
-        icon = "🕷️",
+        icon = "🕷",
         portrait = "Textures/monster_spider_small.png",
         zone = "spider_cave",
         category = "normal",
@@ -71,7 +71,7 @@ return function(M)
     }
     M.Types.spider_elite = {
         name = "毒蛛精",
-        icon = "🕷️",
+        icon = "🕷",
         portrait = "Textures/monster_spider_elite.png",
         zone = "spider_cave",
         category = "elite",
@@ -89,7 +89,7 @@ return function(M)
     -- ===================== 蜘蛛巢穴 精英6 + BOSS8 =====================
     M.Types.spider_queen = {
         name = "蛛母",
-        icon = "🕸️",
+        icon = "🕸",
         portrait = "Textures/monster_spider_queen.png",
         zone = "spider_cave",
         category = "boss",
@@ -186,7 +186,7 @@ return function(M)
     -- ===================== 山贼寨主寨 Lv.8~12 =====================
     M.Types.bandit_small = {
         name = "山贼",
-        icon = "🗡️",
+        icon = "🗡",
         portrait = "Textures/monster_bandit_small.png",
         zone = "bandit_camp",
         category = "normal",
@@ -201,7 +201,7 @@ return function(M)
     }
     M.Types.bandit_guard = {
         name = "山贼护卫",
-        icon = "🛡️",
+        icon = "🛡",
         portrait = "Textures/monster_bandit_guard.png",
         zone = "bandit_camp",
         category = "normal",
@@ -218,7 +218,7 @@ return function(M)
     }
     M.Types.bandit_second = {
         name = "二大王",
-        icon = "⚔️",
+        icon = "⚔",
         portrait = "Textures/monster_bandit_second.png",
         zone = "bandit_camp",
         category = "boss",
@@ -271,7 +271,7 @@ return function(M)
     -- ===================== 山贼寨后山 Lv.11~15 =====================
     M.Types.bandit_guard_back = {
         name = "山贼护卫",
-        icon = "🛡️",
+        icon = "🛡",
         portrait = "Textures/monster_bandit_guard.png",
         zone = "bandit_backhill",
         category = "normal",

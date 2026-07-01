@@ -207,6 +207,15 @@ EquipmentData.GOURD_UPGRADE = {
     [9]  = { cost = 5000000,  requiredRealm = "heti_1",    quality = "cyan",    subStats = { { stat = "maxHp", value = 79 }, { stat = "fortune", value = 16 }, { stat = "killHeal", value = 39.6 } }, spiritStat = { stat = "wisdom", name = "悟性", value = 8 } }, -- floor(6×11.0×1.2)=79, floor(9×1.8)=16, 3×11.0×1.2=39.6, spirit=floor(9×1.8×0.5)=8
     [10] = { cost = 10000000, requiredRealm = "dacheng_1", quality = "cyan",    subStats = { { stat = "maxHp", value = 93 }, { stat = "fortune", value = 18 }, { stat = "killHeal", value = 46.8 } }, spiritStat = { stat = "wisdom", name = "悟性", value = 9 } }, -- floor(6×13.0×1.2)=93, floor(10×1.8)=18, 3×13.0×1.2=46.8, spirit=floor(10×1.8×0.5)=9
     [11] = { cost = 20000000, requiredRealm = "dujie_1",   quality = "cyan",    subStats = { { stat = "maxHp", value = 108 }, { stat = "fortune", value = 19 }, { stat = "killHeal", value = 54 } }, spiritStat = { stat = "wisdom", name = "悟性", value = 9 } },   -- floor(6×15.0×1.2)=108, floor(11×1.8)=19, 3×15.0×1.2=54, spirit=floor(11×1.8×0.5)=9
+    [12] = { cost = 40000000, requiredRealm = "renxian_1", quality = "red",     subStats = { { stat = "maxHp", value = 162 }, { stat = "fortune", value = 25 }, { stat = "killHeal", value = 81 } }, spiritStat = { stat = "wisdom", name = "悟性", value = 12 } },
+    [13] = { cost = 80000000, requiredRealm = "dixian_1", quality = "red",      subStats = { { stat = "maxHp", value = 216 }, { stat = "fortune", value = 27 }, { stat = "killHeal", value = 108 } }, spiritStat = { stat = "wisdom", name = "悟性", value = 13 } },
+    [14] = { cost = 160000000, requiredRealm = "tianxian_1", quality = "red",   subStats = { { stat = "maxHp", value = 270 }, { stat = "fortune", value = 29 }, { stat = "killHeal", value = 135 } }, spiritStat = { stat = "wisdom", name = "悟性", value = 14 } },
+    [15] = { cost = 320000000, requiredRealm = "xuanxian_1", quality = "gold",  subStats = { { stat = "maxHp", value = 324 }, { stat = "fortune", value = 37 }, { stat = "killHeal", value = 162 } }, saintStat = { stat = "wisdom", name = "悟性", value = 18 } },
+    [16] = { cost = 640000000, requiredRealm = "jinxian_1", quality = "gold",   subStats = { { stat = "maxHp", value = 405 }, { stat = "fortune", value = 40 }, { stat = "killHeal", value = 203 } }, saintStat = { stat = "wisdom", name = "悟性", value = 20 } },
+    [17] = { cost = 1280000000, requiredRealm = "taiyijinxian_1", quality = "gold", subStats = { { stat = "maxHp", value = 513 }, { stat = "fortune", value = 42 }, { stat = "killHeal", value = 257 } }, saintStat = { stat = "wisdom", name = "悟性", value = 21 } },
+    [18] = { cost = 2560000000, requiredRealm = "daluojinxian_1", quality = "rainbow", subStats = { { stat = "maxHp", value = 648 }, { stat = "fortune", value = 54 }, { stat = "killHeal", value = 324 } }, saintStat = { stat = "wisdom", name = "悟性", value = 27 } },
+    [19] = { cost = 5120000000, requiredRealm = "hunyuan_1", quality = "rainbow", subStats = { { stat = "maxHp", value = 810 }, { stat = "fortune", value = 57 }, { stat = "killHeal", value = 405 } }, saintStat = { stat = "wisdom", name = "悟性", value = 28 } },
+    [20] = { cost = 10240000000, requiredRealm = "hunyuan_9", quality = "rainbow", subStats = { { stat = "maxHp", value = 999 }, { stat = "fortune", value = 60 }, { stat = "killHeal", value = 500 } }, saintStat = { stat = "wisdom", name = "悟性", value = 30 } },
 }
 
 -- 葫芦各阶主属性（hpRegen）= 基础值 × TIER_MULTIPLIER × 品质倍率
@@ -223,6 +232,15 @@ EquipmentData.GOURD_MAIN_STAT = {
     [9]  = 30.60,   -- 1.0 × 17.0 × 1.8(青)
     [10] = 37.80,   -- 1.0 × 21.0 × 1.8(青)
     [11] = 45.00,   -- 1.0 × 25.0 × 1.8(青)
+    [12] = 63.00,
+    [13] = 84.00,
+    [14] = 105.00,
+    [15] = 150.00,
+    [16] = 188.00,
+    [17] = 238.00,
+    [18] = 360.00,
+    [19] = 450.00,
+    [20] = 555.00,
 }
 
 -- ===================== 龙神圣器打造配方 =====================

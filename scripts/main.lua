@@ -137,8 +137,14 @@ local function CopyNPC(npcData)
         dialog = npcData.dialog,
         interactType = npcData.interactType,
         isObject = npcData.isObject,
+        decorationType = npcData.decorationType,
         image = npcData.image,
         imageScale = npcData.imageScale,
+        color = npcData.color,
+        scale = npcData.scale,
+        w = npcData.w,
+        h = npcData.h,
+        interactable = npcData.interactable,
         label = npcData.label,
         challengeFaction = npcData.challengeFaction,
         teleportTarget = npcData.teleportTarget,
@@ -146,6 +152,7 @@ local function CopyNPC(npcData)
         chapter = npcData.chapter,
         pillarId = npcData.pillarId,
         hideName = npcData.hideName,
+        showNameplate = npcData.showNameplate,
         iconScale = npcData.iconScale,
     }
 end

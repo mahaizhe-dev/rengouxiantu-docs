@@ -31,10 +31,8 @@ local bloodSlashCorners = {{0,0}, {0,0}, {0,0}, {0,0}}
 
 local function renderIceSlash(nvg, se, sx, sy, progress, c, alpha, expand, baseAngle, tileSize, l, camera)
     -- ═══ 金刚掌特效：身前圆形冲击波 + 掌印 + 金色气浪 ═══
-    local radius = se.range * tileSize * expand
-    -- 特效中心偏移到角色身前（沿面朝方向偏移 range 距离）
-    local cx = sx + math.cos(baseAngle) * radius
-    local cy = sy + math.sin(baseAngle) * radius
+    local cx, cy, hitRadius = shared.ResolveFrontCircleGeometry(se, sx, sy, baseAngle, tileSize)
+    local radius = hitRadius * expand
     -- 冲击波圆环（从内向外扩散）
     local waveRadius = radius * (0.3 + 0.7 * progress)
     local waveAlpha = math.floor(200 * alpha * (1.0 - progress * 0.5))

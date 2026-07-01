@@ -200,6 +200,8 @@ function SaveRecovery.TryRecoverSave(slot, callback)
                                 realm = rebuildRealm,
                                 chapter = rebuildChapter,
                                 pillKillHeal = 0,
+                                shadowGodKillHeal = 0,
+                                shadowGodPillCount = 0,
                                 pillConstitution = 0,
                                 gangguConstitution = 0,
                                 fruitFortune = 0,

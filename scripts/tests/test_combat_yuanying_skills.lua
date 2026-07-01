@@ -17,6 +17,7 @@ local CombatSystem = require("systems.CombatSystem")
 local CastingA = require("systems.skill.casting_a")
 local CastingB = require("systems.skill.casting_b")
 local Passives = require("systems.skill.passives")
+local FxShared = require("rendering.effects.shared")
 
 local passed = 0
 local failed = 0
@@ -237,6 +238,22 @@ test("太虚触发回血在缺血为小数时浮字仍为整数", function()
         end
     end
     assertTrue(foundHealText, "integer heal floating text")
+end)
+
+test("身前圆形特效中心固定且镇岳元婴脉冲终点等于实际伤害范围", function()
+    local cx, cy, hitRadius = FxShared.ResolveFrontCircleGeometry({
+        range = 2.0,
+        centerOffset = true,
+    }, 0, 0, 0, 100)
+    assertEqual(cx, 200, "front circle center x")
+    assertEqual(cy, 0, "front circle center y")
+    assertEqual(hitRadius, 200, "front circle hit radius")
+
+    local originalRadius = hitRadius - 100 * 0.5
+    assertEqual(originalRadius, 150, "original pre-enhance radius")
+    local coreRadius = FxShared.ResolveShrunkCoreRadius(originalRadius, 100, 0.5)
+    assertEqual(coreRadius, 100, "core radius shrinks 0.5 tile from original radius")
+    assertEqual(FxShared.ResolveOneTileSpreadRadius(coreRadius, 100, 1.0, hitRadius), 200, "pulse ends at hit radius")
 end)
 
 test("镇岳裂山元婴强化仅在元婴后覆盖本次施法参数", function()

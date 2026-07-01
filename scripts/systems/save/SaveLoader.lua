@@ -203,6 +203,27 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
                         .. " → " .. correctKillHeal .. " (FIXED)")
                 end
 
+                -- Step 3.5: 影神丹独立击杀回血（不复用 pillKillHeal，避免血煞丹校验覆盖）
+                do
+                    local savedShadowGod = AlchemySystem.GetShadowGodPillCount()
+                    local inferredShadowGod = math.max(savedShadowGod,
+                        math.min(math.floor((p.shadowGodKillHeal or 0) / 20 + 0.5), 30))
+                    if inferredShadowGod ~= savedShadowGod then
+                        AlchemySystem.SetShadowGodPillCount(inferredShadowGod)
+                        fixed = true
+                        print("[PillValidation] shadowGodPillCount: " .. savedShadowGod
+                            .. " → " .. inferredShadowGod .. " (inferred from shadowGodKillHeal)")
+                    end
+                    local correctShadowGodKillHeal = inferredShadowGod * 20
+                    local oldShadowGodKillHeal = p.shadowGodKillHeal or 0
+                    if correctShadowGodKillHeal ~= oldShadowGodKillHeal then
+                        p.shadowGodKillHeal = correctShadowGodKillHeal
+                        fixed = true
+                        print("[PillValidation] shadowGodKillHeal: " .. oldShadowGodKillHeal
+                            .. " → " .. correctShadowGodKillHeal .. " (FIXED)")
+                    end
+                end
+
                 -- Step 4: 交叉验证属性（仅日志，不修改属性值）
                 do
                     local level = p.level or 1
@@ -225,10 +246,14 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
                     local tiger   = AlchemySystem.GetTigerPillCount()
                     local snake   = AlchemySystem.GetSnakePillCount()
                     local diamond = AlchemySystem.GetDiamondPillCount()
+                    local dragonBlood = AlchemySystem.GetDragonBloodPillCount()
+                    local swordIntent = AlchemySystem.GetSwordIntentPillCount()
+                    local abyssSeal = AlchemySystem.GetAbyssSealPillCount()
+                    local shadowGod = AlchemySystem.GetShadowGodPillCount()
 
-                    local expectedAtk   = baseAtk   + realmAtk   + snake * 10 + correctXuesha * 8
-                    local expectedMaxHp = baseMaxHp + realmMaxHp + tiger * 30 + correctHaoqi * 30
-                    local expectedDef   = baseDef   + realmDef   + diamond * 8
+                    local expectedAtk   = baseAtk   + realmAtk   + snake * 10 + swordIntent * 10 + correctXuesha * 8 + shadowGod * 5
+                    local expectedMaxHp = baseMaxHp + realmMaxHp + tiger * 30 + dragonBlood * 30 + correctHaoqi * 30
+                    local expectedDef   = baseDef   + realmDef   + diamond * 8 + abyssSeal * 8
 
                     local atkDiff   = (p.atk or 0)   - expectedAtk
                     local maxHpDiff = (p.maxHp or 0) - expectedMaxHp
@@ -254,6 +279,7 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
                         snake     = AlchemySystem.GetSnakePillCount(),
                         diamond   = AlchemySystem.GetDiamondPillCount(),
                         tempering = AlchemySystem.GetTemperingPillEaten(),
+                        dragon_blood = AlchemySystem.GetDragonBloodPillCount(),
                         xuesha    = correctXuesha,
                         haoqi     = correctHaoqi,
                         -- 凝X丹系列（血煞盟新丹药，权威来源为 ChallengeSystem 模块字段）
@@ -266,6 +292,8 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
                         -- 第五章丹药
                         sword_intent = AlchemySystem.GetSwordIntentPillCount(),
                         abyss_seal   = AlchemySystem.GetAbyssSealPillCount(),
+                        -- 第六章丹药
+                        shadow_god   = AlchemySystem.GetShadowGodPillCount(),
                     }
 
                     if not p.pillCounts then
@@ -276,13 +304,15 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
                             .. " snake=" .. current.snake
                             .. " diamond=" .. current.diamond
                             .. " tempering=" .. current.tempering
+                            .. " dragonBlood=" .. current.dragon_blood
                             .. " xuesha=" .. current.xuesha
                             .. " haoqi=" .. current.haoqi
                             .. " ningli=" .. current.ningli
                             .. " ningjia=" .. current.ningjia
                             .. " ningyuan=" .. current.ningyuan
                             .. " ninghun=" .. current.ninghun
-                            .. " ningxi=" .. current.ningxi)
+                            .. " ningxi=" .. current.ningxi
+                            .. " shadowGod=" .. current.shadow_god)
                     else
                         -- 后续：对比 pillCounts 与实际值
                         local warns = {}
