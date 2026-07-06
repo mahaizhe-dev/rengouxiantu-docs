@@ -48,7 +48,6 @@ local ShowToast              -- 前向声明（定义在文件后部）
 -- ============================================================================
 
 -- 从各章节 ZoneData.BESTIARY_ZONES 自动合并（数据驱动，ch3+ 自动生效）
-local ZONE_NAMES = {}
 local CHAPTERS = {}
 for _, chapterId in ipairs(ChapterConfig.GetAllChapterIds()) do
     local chapter = ChapterConfig.Get(chapterId)
@@ -56,13 +55,11 @@ for _, chapterId in ipairs(ChapterConfig.GetAllChapterIds()) do
         local ok, zd = pcall(require, chapter.zoneDataModule)
         if ok and zd and zd.BESTIARY_ZONES and #(zd.BESTIARY_ZONES.order or {}) > 0 then
             local bz = zd.BESTIARY_ZONES
-            for k, v in pairs(bz.names) do
-                ZONE_NAMES[k] = v
-            end
             table.insert(CHAPTERS, {
                 id = chapterId,
                 name = chapter.name:match("·(.+)") and chapter.name or chapter.name,
                 zones = bz.order,
+                zoneNames = bz.names or {},
                 monsterChapter = zd.CHAPTER_ID,
             })
         end
@@ -373,7 +370,7 @@ local function BuildBestiaryContent(chapterIndex)
     for _, zoneId in ipairs(chapter.zones) do
         local monsters = zoneMonsters[zoneId] or {}
         if #monsters > 0 then
-            local zoneName = ZONE_NAMES[zoneId] or zoneId
+            local zoneName = (chapter.zoneNames and chapter.zoneNames[zoneId]) or zoneId
 
             -- 区域标题
             table.insert(children, UI.Panel {

@@ -195,6 +195,7 @@ function SaveSlots.CreateCharacter(slot, charName, slotsIndex, callback, classId
         collection = {},
         pet = {},
         quests = {},
+        triggeredBattles = {},
     }
 
     local updatedIndex = slotsIndex or { version = 1, slots = {} }

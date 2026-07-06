@@ -19,6 +19,8 @@ local WineData = require("config.WineData")
 local PanelShell = require("ui.components.PanelShell")
 local ItemSlot = require("ui.components.ItemSlot")
 local PriceTag = require("ui.components.PriceTag")
+local MinggeData = require("config.MinggeData")
+local MinggeSystem = require("systems.MinggeSystem")
 
 -- ============================================================================
 -- 模块状态
@@ -74,6 +76,50 @@ end
 local function GetBookIcon(bookId)
     local base = bookId:gsub("_owner", ""):gsub("_%d+$", "")
     return base .. ".png"
+end
+
+local function BuildT1PurpleMinggeItems()
+    local bossIds = {}
+    for bossId, source in pairs(MinggeData.SOURCES) do
+        if source.tier == 1 then
+            bossIds[#bossIds + 1] = bossId
+        end
+    end
+
+    table.sort(bossIds, function(a, b)
+        local sourceA = MinggeData.SOURCES[a]
+        local sourceB = MinggeData.SOURCES[b]
+        local levelA = sourceA and sourceA.level or 0
+        local levelB = sourceB and sourceB.level or 0
+        if levelA ~= levelB then
+            return levelA < levelB
+        end
+        return a < b
+    end)
+
+    for _, bossId in ipairs(bossIds) do
+        local source = MinggeData.SOURCES[bossId]
+        local stat = source and source.stat
+        local range = stat and MinggeData.STAT_RANGES[1] and MinggeData.STAT_RANGES[1][stat]
+        local purpleRange = range and range.purple
+        if purpleRange then
+            table.insert(SHOP_ITEMS, {
+                slot = nil,
+                name = MinggeData.GetMinggeFullName(bossId, nil),
+                icon = MinggeData.PORTRAITS[bossId],
+                mainStatType = stat,
+                mainValue = purpleRange[1],
+                statName = MinggeData.STAT_NAMES[stat] or stat,
+                price = 0,
+                priceLingYun = 100,
+                quality = "purple",
+                tier = 1,
+                isSpecial = false,
+                isMingge = true,
+                minggeBossId = bossId,
+            })
+        end
+    end
 end
 
 --- 品质对应颜色
@@ -313,12 +359,19 @@ local function BuildCh5Items()
             table.insert(SHOP_ITEMS, { slot = nil, name = bookData.name, icon = GetBookIcon(bookId), mainStatType = nil, mainValue = 0, statName = "", price = 0, priceLingYun = 50, quality = bookData.quality or "purple", isSpecial = false, isSkillBook = true, consumableId = bookId, bookData = bookData })
         end
     end
+
+end
+
+local function BuildCh6Items()
+    BuildT1PurpleMinggeItems()
 end
 
 local function BuildShopItems()
     SHOP_ITEMS = {}
     local chapter = GameState.currentChapter or 1
-    if chapter >= 5 then
+    if chapter >= 6 then
+        BuildCh6Items()
+    elseif chapter >= 5 then
         BuildCh5Items()
     elseif chapter >= 4 then
         BuildCh4Items()
@@ -368,6 +421,40 @@ local function CreateShopEquip(shopItem)
     }
 end
 
+local function CreateShopMingge(shopItem)
+    local bossId = shopItem.minggeBossId
+    local source = bossId and MinggeData.SOURCES[bossId]
+    if not source then return nil end
+
+    local tier = source.tier or 1
+    local quality = "purple"
+    local stat = source.stat
+    local range = MinggeData.STAT_RANGES[tier] and MinggeData.STAT_RANGES[tier][stat] and MinggeData.STAT_RANGES[tier][stat][quality]
+    local rollRange = MinggeData.QUALITY_ROLL[quality]
+    if not range or not rollRange then return nil end
+
+    return {
+        category     = "mingge",
+        id           = "mingge_shop_t" .. tier .. "_" .. bossId .. "_" .. math.random(100000, 999999),
+        minggeId     = MinggeData.GetMinggeId(bossId),
+        bossId       = bossId,
+        bossName     = source.name,
+        name         = MinggeData.GetMinggeFullName(bossId, nil),
+        element      = source.element,
+        type         = source.element,
+        tier         = tier,
+        quality      = quality,
+        stat         = stat,
+        value        = MinggeData.STAT_RANGES[tier][stat][quality][1],
+        roll         = rollRange[1],
+        setId        = nil,
+        sellCurrency = "lingYun",
+        sellPrice    = MinggeData.SELL_PRICE[tier] and MinggeData.SELL_PRICE[tier][quality] or 1,
+        locked       = false,
+        image        = MinggeData.PORTRAITS[bossId],
+    }
+end
+
 -- ============================================================================
 -- UI 组件工厂
 -- ============================================================================
@@ -383,6 +470,8 @@ local function FormatStatDesc(shopItem)
         local valueFmt = isPercent and (value .. "%") or tostring(value)
         local target = isOwner and "主人" or "宠物"
         return target .. " " .. statName .. "+" .. valueFmt
+    elseif shopItem.isMingge then
+        return "命格 " .. shopItem.statName .. "+" .. MinggeData.FormatStatValue(shopItem.mainStatType, shopItem.mainValue)
     elseif shopItem.mainStatType == "hpRegen" then
         return shopItem.statName .. "+" .. string.format("%.1f/s", shopItem.mainValue)
     elseif shopItem.mainStatType == "critRate" then
@@ -510,7 +599,7 @@ end
 -- ============================================================================
 
 function EquipShopUI.ShowItemTip(shopItem)
-    if shopItem.isSkillBook or shopItem.isWine then
+    if shopItem.isSkillBook or shopItem.isWine or shopItem.isMingge then
         EquipShopUI.DoBuy(shopItem)
         return
     end
@@ -582,11 +671,48 @@ function EquipShopUI.DoBuy(shopItem)
     end
 
     -- 装备
-    local free = InventorySystem.GetFreeSlots()
+    local free = shopItem.isMingge and 1 or InventorySystem.GetFreeSlots()
     if free <= 0 then
         shell_:SetResult("背包已满！", T.color.error)
         return false
     end
+    if shopItem.isMingge then
+        if not MinggeSystem.GetManager() then
+            shell_:SetResult("命格系统未初始化", T.color.error)
+            return false
+        end
+        if MinggeSystem.GetFreeSlots() <= 0 then
+            shell_:SetResult("命格背包已满！", T.color.error)
+            return false
+        end
+
+        local item = CreateShopMingge(shopItem)
+        if not item then
+            shell_:SetResult("生成命格失败", T.color.error)
+            return false
+        end
+
+        if useLingYun then
+            player.lingYun = (player.lingYun or 0) - shopItem.priceLingYun
+        else
+            player.gold = player.gold - shopItem.price
+        end
+
+        local success = MinggeSystem.AddItem(item)
+        if not success then
+            if useLingYun then
+                player.lingYun = (player.lingYun or 0) + shopItem.priceLingYun
+            else
+                player.gold = player.gold + shopItem.price
+            end
+            shell_:SetResult("命格背包已满！", T.color.error)
+            return false
+        end
+
+        shell_:SetResult("获得 " .. item.name, T.color.success)
+        return true
+    end
+
     player.gold = player.gold - shopItem.price
     local item = CreateShopEquip(shopItem)
     if not item then

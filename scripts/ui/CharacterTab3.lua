@@ -291,8 +291,8 @@ function CharacterTab3.Build(hideFn)
     })
     StatRow.Reset()
     local FFS = require("systems.FortuneFruitSystem")
-    local chapterNames = { "两界村", "乌家堡", "万里黄沙", "八卦海", "太虚之殇" }
-    for ch = 1, 5 do
+    local chapterNames = { "两界村", "乌家堡", "万里黄沙", "八卦海", "太虚之殇", "两界村之影" }
+    for ch = 1, #chapterNames do
         local fruits = FFS.FRUITS[ch]
         if fruits then
             local collected = 0

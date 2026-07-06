@@ -1,5 +1,5 @@
 -- ============================================================================
--- test_mingge_config.lua — 验证 37 个 BOSS 命格掉落映射完整性
+-- test_mingge_config.lua — 验证 BOSS 命格掉落映射完整性
 -- ============================================================================
 -- 测试目标：确保所有 MonsterTypes 中的 BOSS typeId 都能通过
 -- BOSS_TO_MINGGE 或直接匹配找到 SOURCES 条目
@@ -8,7 +8,7 @@ local MinggeData = require("config.MinggeData")
 
 local T = {}
 T.name = "mingge_config"
-T.description = "验证37个BOSS命格来源映射完整性"
+T.description = "验证BOSS命格来源映射完整性"
 
 function T.run()
     local passed = 0
@@ -57,9 +57,23 @@ function T.run()
         { typeId = "ch5_sword_xian",      expectedSource = "sword_xian" },
         { typeId = "ch5_sword_lu",        expectedSource = "sword_lu" },
         { typeId = "ch5_sword_jue",       expectedSource = "sword_jue" },
-        { typeId = "ch5_blood_general",   expectedSource = "blood_general" },
+        { typeId = "ch5_abyss_marshal",   expectedSource = "blood_general" },
         { typeId = "ch5_marshal_shugu",   expectedSource = "marshal_shugu" },
         { typeId = "ch5_marshal_liesoul", expectedSource = "marshal_liesoul" },
+        -- 中洲城域外天魔
+        { typeId = "outer_celestial_boss", expectedSource = "outer_celestial_boss" },
+        -- Ch6 BOSS（ch6_ 前缀，typeId 与来源 ID 一致）
+        { typeId = "ch6_lingfeng",      expectedSource = "ch6_lingfeng" },
+        { typeId = "ch6_zhuyou",        expectedSource = "ch6_zhuyou" },
+        { typeId = "ch6_duanyue",       expectedSource = "ch6_duanyue" },
+        { typeId = "ch6_pojun",         expectedSource = "ch6_pojun" },
+        { typeId = "ch6_zhenyuan",      expectedSource = "ch6_zhenyuan" },
+        { typeId = "ch6_qingfeng",      expectedSource = "ch6_qingfeng" },
+        { typeId = "ch6_leice",         expectedSource = "ch6_leice" },
+        { typeId = "ch6_heng_marshal",  expectedSource = "ch6_heng_marshal" },
+        { typeId = "ch6_ha_marshal",    expectedSource = "ch6_ha_marshal" },
+        { typeId = "ch6_gua_master",    expectedSource = "ch6_gua_master" },
+        { typeId = "ch6_mojun_shixuan", expectedSource = "ch6_mojun_shixuan" },
     }
 
     -- 2. 检查每个 typeId 能否解析到正确的 SOURCES
@@ -99,8 +113,10 @@ function T.run()
     end
 
     -- 4. 报告
+    local sourceCount = 0
+    for _ in pairs(MinggeData.SOURCES) do sourceCount = sourceCount + 1 end
     print(string.format("[MinggeConfig] 测试完成: %d passed, %d failed (共 %d typeIds + %d SOURCES 反向检查)",
-        passed, failed, #ALL_BOSS_TYPEIDS, 37))
+        passed, failed, #ALL_BOSS_TYPEIDS, sourceCount))
 
     for _, e in ipairs(errors) do
         print("  " .. e)

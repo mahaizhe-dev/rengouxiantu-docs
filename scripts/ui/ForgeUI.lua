@@ -83,22 +83,46 @@ local function GetForgeCost(item)
     return FORGE_COST[item.tier or 1] or 500
 end
 
+---@param item table|nil
+---@return number
+local function GetForgeQualityMultiplier(item)
+    if not item or not item.quality then return 1.0 end
+    local qualityConfig = GameConfig.QUALITY[item.quality]
+    return (qualityConfig and qualityConfig.multiplier) or 1.0
+end
+
+---@param tier number|nil
+---@param qualityMult number|nil
+---@return number
+local function GetLinearForgeBase(tier, qualityMult)
+    local value = math.floor((tier or 1) * (qualityMult or 1.0))
+    return math.max(1, value)
+end
+
 --- 计算某属性在指定 tier 下的洗练值范围文本
 ---@param statId string
----@param tier number
+---@param item table|nil
 ---@return string rangeText "（下限~上限）"
-local function GetForgeRangeText(statId, tier)
+local function GetForgeRangeText(statId, item)
     local baseDef = nil
     for _, sub in ipairs(EquipmentData.SUB_STATS) do
         if sub.stat == statId then baseDef = sub; break end
     end
     if not baseDef then return "" end
 
+    local tier = item and item.tier or 1
+    if baseDef.linearGrowth or EquipmentData.LINEAR_GROWTH_STATS[statId] then
+        local baseValue = GetLinearForgeBase(tier, GetForgeQualityMultiplier(item))
+        local rawMin = math.max(1, math.floor(baseValue * 0.8 + 0.5))
+        local rawMax = math.max(1, math.floor(baseValue * 1.2 + 0.5))
+        return "（" .. tostring(rawMin) .. "~" .. tostring(rawMax) .. "）"
+    end
+
     local tierMult
     if EquipmentData.PCT_STATS[statId] then
-        tierMult = EquipmentData.PCT_SUB_TIER_MULT[tier or 1] or 1.0
+        tierMult = EquipmentData.PCT_SUB_TIER_MULT[tier] or 1.0
     else
-        tierMult = EquipmentData.SUB_STAT_TIER_MULT[tier or 1] or 1.0
+        tierMult = EquipmentData.SUB_STAT_TIER_MULT[tier] or 1.0
     end
 
     local rawMin = baseDef.baseValue * tierMult * 0.8
@@ -149,18 +173,24 @@ local function RollForgeStat(item)
     if #pool == 0 then return nil end
 
     local pick = pool[math.random(1, #pool)]
-    local tierMult
-    if EquipmentData.PCT_STATS[pick.stat] then
-        tierMult = EquipmentData.PCT_SUB_TIER_MULT[item.tier or 1] or 1.0
+    local value
+    if pick.linearGrowth or EquipmentData.LINEAR_GROWTH_STATS[pick.stat] then
+        local baseValue = GetLinearForgeBase(item.tier or 1, GetForgeQualityMultiplier(item))
+        value = math.max(1, math.floor(baseValue * (0.8 + math.random() * 0.4) + 0.5))
     else
-        tierMult = EquipmentData.SUB_STAT_TIER_MULT[item.tier or 1] or 1.0
-    end
-    local value = pick.baseValue * tierMult * (0.8 + math.random() * 0.4)
-    value = math.floor(value * 100 + 0.5) / 100
-    if value <= 0 then value = 0.01 end
+        local tierMult
+        if EquipmentData.PCT_STATS[pick.stat] then
+            tierMult = EquipmentData.PCT_SUB_TIER_MULT[item.tier or 1] or 1.0
+        else
+            tierMult = EquipmentData.SUB_STAT_TIER_MULT[item.tier or 1] or 1.0
+        end
+        value = pick.baseValue * tierMult * (0.8 + math.random() * 0.4)
+        value = math.floor(value * 100 + 0.5) / 100
+        if value <= 0 then value = 0.01 end
 
-    if not EquipmentData.PCT_STATS[pick.stat] and pick.stat ~= "hpRegen" then
-        value = math.max(1, math.floor(value + 0.5))
+        if not EquipmentData.PCT_STATS[pick.stat] and pick.stat ~= "hpRegen" then
+            value = math.max(1, math.floor(value + 0.5))
+        end
     end
 
     return { stat = pick.stat, name = pick.name, value = value }
@@ -228,7 +258,7 @@ local function DoForge()
 
     SaveSession.MarkDirty()
 
-    local rangeText = GetForgeRangeText(newStat.stat, selectedItem_.tier)
+    local rangeText = GetForgeRangeText(newStat.stat, selectedItem_)
     return true, "洗练成功！" .. newStat.name .. " +" .. ForgeUI.FormatStatValue(newStat) .. " " .. rangeText
 end
 
@@ -275,7 +305,7 @@ local function RefreshInfoPanel()
 
     -- 洗练属性
     if item.forgeStat then
-        local rangeText = GetForgeRangeText(item.forgeStat.stat, item.tier)
+        local rangeText = GetForgeRangeText(item.forgeStat.stat, item)
         if forgeStatLabel_ then
             forgeStatLabel_:SetText("洗练: " .. item.forgeStat.name .. " +" .. ForgeUI.FormatStatValue(item.forgeStat) .. " " .. rangeText)
             forgeStatLabel_:SetStyle({ fontColor = T.color.success })

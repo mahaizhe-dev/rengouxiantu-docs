@@ -7,6 +7,7 @@
 
 local Session      = require("network.ServerSession")
 local SaveProtocol = require("network.SaveProtocol")
+local SaveBackupService = require("network.SaveBackupService")
 local XCConfig     = require("config.XianyuanChestConfig")
 local LootSystem   = require("systems.LootSystem")
 local BackpackUtils = require("network.BackpackUtils")
@@ -91,17 +92,22 @@ end
 local function WriteSaveBack(userId, slot, saveData, desc)
     local saveKey = "save_" .. slot
     saveData.timestamp = os.time()
-    serverCloud:BatchSet(userId)
-        :Set(saveKey, saveData)
-        :Save(desc, {
-            ok = function()
-                print("[XianyuanChest] SaveBack OK: " .. desc)
-            end,
-            error = function(code, reason)
-                print("[XianyuanChest] SaveBack FAILED: " .. desc
-                    .. " code=" .. tostring(code) .. " " .. tostring(reason))
-            end,
-        })
+    SaveBackupService.BeforeOverwrite(userId, slot, desc, function()
+        serverCloud:BatchSet(userId)
+            :Set(saveKey, saveData)
+            :Save(desc, {
+                ok = function()
+                    print("[XianyuanChest] SaveBack OK: " .. desc)
+                end,
+                error = function(code, reason)
+                    print("[XianyuanChest] SaveBack FAILED: " .. desc
+                        .. " code=" .. tostring(code) .. " " .. tostring(reason))
+                end,
+            })
+    end, function(code, reason)
+        print("[XianyuanChest] SaveBack BACKUP FAILED: " .. desc
+            .. " code=" .. tostring(code) .. " " .. tostring(reason))
+    end)
 end
 
 -- ============================================================================

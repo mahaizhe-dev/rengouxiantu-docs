@@ -50,6 +50,16 @@ TestRegistry.tests = {
     },
 
     {
+        id            = "save_payload_codec",
+        group         = "save",
+        path          = "scripts/tests/test_save_payload_codec.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "non_blocking",
+        skip_reason   = nil,
+    },
+
+    {
         id            = "prison_tower",
         group         = "system",
         path          = "scripts/tests/test_prison_tower.lua",
@@ -97,6 +107,106 @@ TestRegistry.tests = {
         enabled       = true,
         gate          = "blocking",
         skip_reason   = nil,
+    },
+
+    {
+        id            = "ch2_map_contract",
+        group         = "map",
+        path          = "scripts/tests/test_ch2_map_contract.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "daily_ch6_contract",
+        group         = "daily",
+        path          = "scripts/tests/test_daily_ch6_contract.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "triggered_battle",
+        group         = "triggered_battle",
+        path          = "scripts/tests/test_triggered_battle.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "wubao_treasure_contract",
+        group         = "config",
+        path          = "scripts/tests/test_wubao_treasure_contract.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "wubao_treasure_handler_flow",
+        group         = "config",
+        path          = "scripts/tests/test_wubao_treasure_handler_flow.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "ch1_ch2_drop_contract",
+        group         = "config",
+        path          = "scripts/tests/test_ch1_ch2_drop_contract.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "ch1_quest_contract",
+        group         = "quest",
+        path          = "scripts/tests/test_ch1_quest_contract.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "treasure_runner_contract",
+        group         = "daily",
+        path          = "scripts/tests/test_treasure_runner_contract.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "ch6_special_equipment",
+        group         = "config",
+        path          = "scripts/tests/test_ch6_special_equipment.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "qinglian_body_system",
+        group         = "qinglian_body",
+        path          = "scripts/tests/test_qinglian_body_system.lua",
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "lupa_only: uses InventorySystem.SetManager; forbidden in real engine TestRegistry by rules.md",
     },
 
     {
@@ -163,6 +273,16 @@ TestRegistry.tests = {
         id            = "bm_warehouse_consistency",
         group         = "system",
         path          = "scripts/tests/test_bm_warehouse_consistency.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "image_item_slot_icon_contract",
+        group         = "ui",
+        path          = "scripts/tests/test_image_item_slot_icon_contract.lua",
         mode          = "run_file",
         enabled       = true,
         gate          = "blocking",
@@ -347,6 +467,34 @@ TestRegistry.tests = {
         enabled       = true,
         gate          = "blocking",
         skip_reason   = nil,
+    },
+
+    ---------------------------------------------------------------------------
+    -- CH1-FORGE-PIPELINE: 虎王试炼炉真实 Check/Execute 流水线
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "ch1_tiger_trial_forge_pipeline",
+        group         = "config",
+        path          = "scripts/tests/test_ch1_tiger_trial_forge_pipeline.lua",
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "lupa_only: uses InventorySystem.SetManager; forbidden in real engine TestRegistry by rules.md",
+    },
+
+    ---------------------------------------------------------------------------
+    -- CH2-WUBAO-FORGE-PIPELINE: 乌堡锻造台真实 Check/Execute 流水线
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "ch2_wubao_forge_pipeline",
+        group         = "config",
+        path          = "scripts/tests/test_ch2_wubao_forge_pipeline.lua",
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "lupa_only: uses InventorySystem.SetManager; forbidden in real engine TestRegistry by rules.md",
     },
 
     ---------------------------------------------------------------------------
@@ -662,6 +810,26 @@ TestRegistry.tests = {
         id            = "mingge_drop_contract",
         group         = "config",
         path          = "scripts/tests/test_mingge_drop_contract.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "mingge_ch6_contract",
+        group         = "config",
+        path          = "scripts/tests/test_mingge_ch6_contract.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "equip_shop_mingge_contract",
+        group         = "config",
+        path          = "scripts/tests/test_equip_shop_mingge_contract.lua",
         mode          = "run_file",
         enabled       = true,
         gate          = "blocking",

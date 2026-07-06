@@ -154,98 +154,11 @@ function SaveRecovery.TryRecoverSave(slot, callback)
                     print("[SaveSystem] Best recovery source: " .. recoverySource .. " (Lv." .. bestLevel .. ")")
                 end
 
-                -- 最后手段：从 slots_index 元数据重建最小存档
+                -- Last resort metadata-only rebuild is disabled.
+                -- It can create a playable-looking save while silently losing real systems data.
                 if not recoveredData then
-                    local rebuildData = nil
-                    local rebuildLevel = 0
-                    local slotsIndex = values["slots_index"]
-                    if slotsIndex and slotsIndex.slots and slotsIndex.slots[slot] then
-                        local meta = slotsIndex.slots[slot]
-                        rebuildLevel = meta.level or 1
-                        local rebuildRealm = meta.realm or "mortal"
-                        local rebuildChapter = meta.chapter or 1
-
-                        local baseHp = 100 + (rebuildLevel - 1) * 15
-                        local baseAtk = 15 + (rebuildLevel - 1) * 3
-                        local baseDef = 5 + (rebuildLevel - 1) * 2
-                        local baseHpRegen = 1.0 + (rebuildLevel - 1) * 0.2
-
-                        local realmBonusHp, realmBonusAtk, realmBonusDef, realmBonusRegen = 0, 0, 0, 0
-                        for _, rid in ipairs(GameConfig.REALM_LIST) do
-                            local rd = GameConfig.REALMS[rid]
-                            if rd and rd.rewards then
-                                realmBonusHp = realmBonusHp + (rd.rewards.maxHp or 0)
-                                realmBonusAtk = realmBonusAtk + (rd.rewards.atk or 0)
-                                realmBonusDef = realmBonusDef + (rd.rewards.def or 0)
-                                realmBonusRegen = realmBonusRegen + (rd.rewards.hpRegen or 0)
-                            end
-                            if rid == rebuildRealm then break end
-                        end
-
-                        local rebuildExp = GameConfig.EXP_TABLE[rebuildLevel] or 0
-
-                        rebuildData = {
-                            version = SS.CURRENT_SAVE_VERSION,
-                            timestamp = os.time(),
-                            player = {
-                                level = rebuildLevel,
-                                exp = rebuildExp,
-                                hp = baseHp + realmBonusHp,
-                                maxHp = baseHp + realmBonusHp,
-                                atk = baseAtk + realmBonusAtk,
-                                def = baseDef + realmBonusDef,
-                                hpRegen = baseHpRegen + realmBonusRegen,
-                                gold = 1000,
-                                lingYun = 0,
-                                realm = rebuildRealm,
-                                chapter = rebuildChapter,
-                                pillKillHeal = 0,
-                                shadowGodKillHeal = 0,
-                                shadowGodPillCount = 0,
-                                pillConstitution = 0,
-                                gangguConstitution = 0,
-                                fruitFortune = 0,
-                                daoTreeWisdom = 0,
-                                daoTreeWisdomPity = 0,
-                                pillPhysique = 0,
-                                x = 0,
-                                y = 0,
-                                seaPillarDef = 0,
-                                seaPillarAtk = 0,
-                                seaPillarMaxHp = 0,
-                                seaPillarHpRegen = 0,
-                            },
-                            inventory = {},
-                            skills = {},
-                            collection = {},
-                            pet = {},
-                            quests = {},
-                            shop = {},
-                            titles = {},
-                            challenges = {},
-                            sealDemon = { quests = {} },
-                            bulletin = {},
-                            artifact = {},
-                            fortuneFruits = { collected = {} },
-                            trialTower = {},
-                            bossKillTimes = {},
-                            code_version = GameConfig.CODE_VERSION,
-                            bossKills = 0,
-                            _bossKillsMigrated = true,
-                            seaPillar = {},
-                            prisonTower = {},
-                        }
-                    end
-
-                    if rebuildData then
-                        recoveredData = rebuildData
-                        recoveredData._recoveredFromMeta = true
-                        recoverySource = "元数据重建(仅保留等级境界)"
-                        print("[SaveSystem] Last resort: rebuilding from slots_index meta — Lv."
-                            .. rebuildLevel)
-                    end
+                    print("[SaveSystem] Metadata-only recovery skipped for slot " .. slot)
                 end
-
                 if not recoveredData then
                     print("[SaveSystem] No recovery source found for slot " .. slot)
                     SS.loaded = false

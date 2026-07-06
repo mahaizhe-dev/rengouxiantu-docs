@@ -57,6 +57,8 @@ function M.UseBatchConsumable(IS, consumableId, count)
         return M._UseTokenBox(IS, consumableId, "taixu_token")
     elseif consumableId == "taixu_jianling_box" then
         return M._UseTokenBox(IS, consumableId, "taixu_jianling")
+    elseif consumableId == "zhexian_ling_box" then
+        return M._UseTokenBox(IS, consumableId, "zhexian_ling")
     else
         return false, "该物品不支持批量操作"
     end

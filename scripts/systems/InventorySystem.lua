@@ -121,6 +121,9 @@ function InventorySystem.SellItem(slotIndex)
             end
         end
     end
+    if type(unitPrice) ~= "number" or unitPrice <= 0 then
+        return false
+    end
     local count = item.count or 1
     local price = unitPrice * count
     local player = GameState.player

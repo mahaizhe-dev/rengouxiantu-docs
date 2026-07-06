@@ -70,6 +70,10 @@ C.GROWTH_PROFILES = {
         name = "仙人之体",
         maxHp = 25, atk = 5, def = 3, hpRegen = 0.5,
     },
+    immortal_body_qinglian = {
+        name = "青莲长生体",
+        maxHp = 30, atk = 3, def = 2, hpRegen = 1.0,
+    },
 }
 
 -- ============================================================================

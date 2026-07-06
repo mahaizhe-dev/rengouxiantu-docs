@@ -13,6 +13,7 @@ local spiderCaveData   = require("config.zones.spider_cave")
 local boarForestData   = require("config.zones.boar_forest")
 local banditCampData   = require("config.zones.bandit_camp")
 local tigerDomainData  = require("config.zones.tiger_domain")
+local boundaryRiftData = require("config.zones.boundary_rift_path")
 local wildernessData   = require("config.zones.wilderness")
 local xianyuanRoomsData = require("config.zones.xianyuan_rooms")
 
@@ -25,6 +26,7 @@ local ALL_ZONES = {
     boarForestData,
     banditCampData,
     tigerDomainData,
+    boundaryRiftData,
     wildernessData,
     xianyuanRoomsData,
 }
@@ -40,6 +42,7 @@ ZoneData.ZONES = {
     BOAR_FOREST = "boar_forest",
     BANDIT_CAMP = "bandit_camp",
     TIGER_DOMAIN = "tiger_domain",
+    BOUNDARY_RIFT_PATH = "boundary_rift_path",
 }
 
 -- ============================================================================
@@ -140,7 +143,7 @@ ZoneData.TILE_TRANSITION_COLORS = {
 ZoneData.BESTIARY_ZONES = {
     order = {
         "wilderness", "narrow_trail", "spider_cave",
-        "boar_forest", "bandit_camp", "bandit_backhill", "tiger_domain",
+        "boar_forest", "bandit_camp", "bandit_backhill", "boundary_rift_path", "tiger_domain",
     },
     names = {
         wilderness      = "荒野",
@@ -149,6 +152,7 @@ ZoneData.BESTIARY_ZONES = {
         boar_forest     = "野猪林",
         bandit_camp     = "山贼寨主寨",
         bandit_backhill = "山贼寨后山",
+        boundary_rift_path = "界匙残阵",
         tiger_domain    = "虎啸林",
     },
 }
@@ -159,6 +163,7 @@ ZoneData.ZONE_INFO = {
     spider_cave   = { name = "蜘蛛洞",   levelRange = {2, 5} },
     boar_forest   = { name = "野猪林",   levelRange = {3, 8} },
     bandit_camp   = { name = "山贼寨",   levelRange = {6, 10} },
+    boundary_rift_path = { name = "界匙残阵", levelRange = nil, levelText = "事件区域" },
     tiger_domain  = { name = "虎王领地", levelRange = {8, 10} },
     wilderness    = { name = "荒野",     levelRange = nil },
 }

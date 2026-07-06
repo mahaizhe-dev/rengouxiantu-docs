@@ -50,6 +50,7 @@ print("\n[test_bm_s3_sell_guard] === BM-S3R 黑市卖出服务端权威校验测
 local _stubModules = {
     "config.BlackMerchantConfig",
     "config.GameConfig",
+    "config.PillRecipes",
     "config.EquipmentData",
     "config.PetSkillData",
     "network.BlackMarketSellGuard",
@@ -65,6 +66,7 @@ for _, k in ipairs(_stubModules) do
 end
 
 local BMConfig = require("config.BlackMerchantConfig")
+local PillRecipes = require("config.PillRecipes")
 local SellGuard = require("network.BlackMarketSellGuard")
 
 -- ============================================================================
@@ -177,7 +179,7 @@ test("T12: 全部 dragon_scale 变体 → 拒卖", function()
 end)
 
 test("T13: 全部 token_box 变体 → 拒卖", function()
-    local boxes = { "wubao_token_box", "sha_hai_ling_box", "taixu_token_box" }
+    local boxes = { "wubao_token_box", "sha_hai_ling_box", "taixu_token_box", "taixu_jianling_box", "zhexian_ling_box" }
     for _, id in ipairs(boxes) do
         local allowed, reason = SellGuard.CheckSellAllowed(id)
         assertFalse(allowed, id .. " should be blocked")
@@ -250,6 +252,48 @@ test("T20: 第六章黑市新增材料配置正确", function()
     assertEqual(crystal.buy_price, 20, "shadow_crystal buy_price")
     assertEqual(crystal.sell_price, 40, "shadow_crystal sell_price")
     assertEqual(crystal.max_stock, 5, "shadow_crystal max_stock")
+
+    local xianzunRing = BMConfig.ITEMS.ch6_xianzun_1_ring
+    assertTrue(xianzunRing ~= nil, "ch6_xianzun_1_ring should be in black market")
+    assertEqual(xianzunRing.name, "仙尊壹戒", "ch6_xianzun_1_ring name")
+    assertEqual(xianzunRing.category, BMConfig.CATEGORY_SPECIAL_EQUIP, "ch6_xianzun_1_ring category")
+    assertEqual(xianzunRing.itemType, "equipment", "ch6_xianzun_1_ring itemType")
+    assertEqual(xianzunRing.equipId, "ch6_xianzun_1_ring", "ch6_xianzun_1_ring equipId")
+    assertEqual(xianzunRing.buy_price, 20, "ch6_xianzun_1_ring buy_price")
+    assertEqual(xianzunRing.sell_price, 40, "ch6_xianzun_1_ring sell_price")
+end)
+
+test("T20.1: 令牌盒黑市配置一致且仅第六章提价", function()
+    local expected = {
+        { id = "wubao_token_box",    name = "乌堡令盒",   buy = 2, sell = 4, sort = 9  },
+        { id = "sha_hai_ling_box",   name = "沙海令盒",   buy = 2, sell = 4, sort = 10 },
+        { id = "taixu_token_box",    name = "太虚令盒",   buy = 2, sell = 4, sort = 11 },
+        { id = "taixu_jianling_box", name = "太虚剑令盒", buy = 2, sell = 4, sort = 12 },
+        { id = "zhexian_ling_box",   name = "谪仙令盒",   buy = 3, sell = 6, sort = 13 },
+    }
+    for _, e in ipairs(expected) do
+        local item = BMConfig.ITEMS[e.id]
+        assertTrue(item ~= nil, e.id .. " should be in black market")
+        assertEqual(item.name, e.name, e.id .. " name")
+        assertEqual(item.category, BMConfig.CATEGORY_CONSUMABLE_MAT, e.id .. " category")
+        assertEqual(item.buy_price, e.buy, e.id .. " buy_price")
+        assertEqual(item.sell_price, e.sell, e.id .. " sell_price")
+        assertEqual(item.max_stock, 10, e.id .. " max_stock")
+        assertEqual(item.sort_order, e.sort, e.id .. " sort_order")
+    end
+end)
+
+test("T20.2: 令牌盒打包费用仅第六章提高到200", function()
+    local expected = {
+        { token = "wubao_token",    box = "wubao_token_box",    cost = 100 },
+        { token = "sha_hai_ling",   box = "sha_hai_ling_box",   cost = 100 },
+        { token = "taixu_token",    box = "taixu_token_box",    cost = 100 },
+        { token = "taixu_jianling", box = "taixu_jianling_box", cost = 100 },
+        { token = "zhexian_ling",   box = "zhexian_ling_box",   cost = 200 },
+    }
+    for _, e in ipairs(expected) do
+        assertEqual(PillRecipes.GetTokenBoxLingYunCost(e.token, e.box), e.cost, e.box .. " lingYunCost")
+    end
 end)
 
 -- ============================================================================

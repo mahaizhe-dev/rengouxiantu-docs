@@ -19,6 +19,8 @@ local GameConfig       = require("config.GameConfig")
 local SealDemonConfig  = require("config.SealDemonConfig")
 local PetSkillData     = require("config.PetSkillData")
 local SaveProtocol     = require("network.SaveProtocol")
+local SavePayloadCodec = require("network.SavePayloadCodec")
+local SaveBackupService = require("network.SaveBackupService")
 local Session          = require("network.ServerSession")
 local RankHandler      = require("network.RankHandler")
 local AdminPenaltyControl = require("network.AdminPenaltyControl")
@@ -26,6 +28,12 @@ local Logger           = require("utils.Logger")
 
 ---@diagnostic disable-next-line: undefined-global
 local cjson = cjson
+
+---@class SaveEventDataField
+---@field GetString fun(): string
+---@field GetInt fun(): integer
+
+---@alias SaveEventDataLike userdata|table<string, SaveEventDataField>
 
 -- ============================================================================
 -- 本地工具
@@ -70,6 +78,7 @@ end
 ---@param userId    integer      玩家 userId
 ---@param slot      integer      槽位号 (1-4)
 ---@param eventData userdata     原始 eventData（提取 coreData/slotsIndex/rankData/bulletin 等）
+---@overload fun(connection: userdata, connKey: string, userId: integer, slot: integer, eventData: SaveEventDataLike)
 function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
     local requestId = 0
     pcall(function() requestId = eventData["requestId"]:GetInt() end)
@@ -97,7 +106,7 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
 
     if not ok1 or not coreData then
         Logger.error("SaveGame", "coreData decode failed")
-        SendResult(connection, SaveProtocol.S2C_SaveResult, false, "数据格式错误")
+        SendResult(connection, SaveProtocol.S2C_SaveResult, false, "数据格式错误", requestId)
         return
     end
 
@@ -320,7 +329,8 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
     -- ※ BM-01A 依赖链关键节点：batch:Save("存档") → ok 回调 → S2C_SaveResult ok=true
     --   拆壳后此语义不变。
     -- ════════════════════════════════════════════════════════════════
-    batch:Save("存档", {
+    local function CommitSave()
+        batch:Save("存档", {
         ok = function()
             Logger.info("SaveGame", "OK: userId=" .. tostring(userId) .. " slot=" .. slot)
 
@@ -337,13 +347,178 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
             resultData["requestId"] = Variant(requestId)
             SafeSend(connection, SaveProtocol.S2C_SaveResult, resultData)
         end,
-    })
+        })
+    end
+
+    SaveBackupService.BeforeOverwrite(userId, slot, "SaveGame", CommitSave, function(code, reason)
+        Logger.error("SaveGame", "PREWRITE BACKUP FAILED: " .. tostring(code) .. " " .. tostring(reason))
+        SendResult(connection, SaveProtocol.S2C_SaveResult, false, "backup_failed", requestId)
+    end)
 end
 
 -- ============================================================================
 -- [B4-S2 硬校验] V1~V6 内部验证函数
 -- ============================================================================
 
+-- ============================================================================
+-- Chunked SaveGame session handlers
+-- ============================================================================
+
+local _saveChunkSessions = {}
+local CHUNK_SESSION_TTL = 60
+
+local function ChunkSessionKey(userId, slot, requestId)
+    return tostring(userId) .. ":" .. tostring(slot) .. ":" .. tostring(requestId)
+end
+
+local function CleanupChunkSessions()
+    local now = os.time()
+    for key, session in pairs(_saveChunkSessions) do
+        if now - (session.createdAt or now) > CHUNK_SESSION_TTL then
+            _saveChunkSessions[key] = nil
+        end
+    end
+end
+
+local function ReadInt(eventData, name, defaultValue)
+    local value = defaultValue or 0
+    pcall(function() value = eventData[name]:GetInt() end)
+    return value
+end
+
+local function ReadString(eventData, name, defaultValue)
+    local value = defaultValue or ""
+    pcall(function() value = eventData[name]:GetString() end)
+    return value
+end
+
+---@param value string|nil
+---@return SaveEventDataField
+local function StringField(value)
+    return {
+        GetString = function() return value or "" end,
+        GetInt = function() return tonumber(value) or 0 end,
+    }
+end
+
+---@param value integer|number|string|nil
+---@return SaveEventDataField
+local function IntField(value)
+    return {
+        GetString = function() return tostring(value or "") end,
+        GetInt = function() return tonumber(value) or 0 end,
+    }
+end
+
+---@return SaveEventDataLike
+local function BuildEventDataFromPayload(session, coreDataJson)
+    return {
+        coreData = StringField(coreDataJson),
+        slotsIndex = StringField(session.slotsIndexJson),
+        rankData = StringField(session.rankDataJson),
+        bulletin = StringField(session.bulletinJson),
+        playerLevel = IntField(session.playerLevel),
+        codeVersion = IntField(session.codeVersion),
+        requestId = IntField(session.requestId),
+    }
+end
+
+function SaveWriteService.HandleChunkBegin(connection, connKey, userId, slot, eventData)
+    CleanupChunkSessions()
+    local requestId = ReadInt(eventData, "requestId", 0)
+    local totalBytes = ReadInt(eventData, "totalBytes", -1)
+    local totalChunks = ReadInt(eventData, "totalChunks", -1)
+    local checksum = ReadString(eventData, "checksum", "")
+
+    local ok, reason = SavePayloadCodec.ValidateMetadata(totalBytes, totalChunks)
+    if not ok or checksum == "" or requestId <= 0 then
+        SendResult(connection, SaveProtocol.S2C_SaveResult, false, reason or "invalid_chunk_begin", requestId)
+        return
+    end
+
+    local key = ChunkSessionKey(userId, slot, requestId)
+    _saveChunkSessions[key] = {
+        requestId = requestId,
+        slot = slot,
+        totalBytes = totalBytes,
+        totalChunks = totalChunks,
+        checksum = checksum,
+        slotsIndexJson = ReadString(eventData, "slotsIndex", ""),
+        rankDataJson = ReadString(eventData, "rankData", ""),
+        bulletinJson = ReadString(eventData, "bulletin", ""),
+        playerLevel = ReadInt(eventData, "playerLevel", 0),
+        codeVersion = ReadInt(eventData, "codeVersion", 0),
+        chunks = {},
+        received = 0,
+        createdAt = os.time(),
+    }
+    Logger.info("SaveGame", "chunk begin: userId=" .. tostring(userId)
+        .. " slot=" .. tostring(slot) .. " requestId=" .. tostring(requestId)
+        .. " chunks=" .. tostring(totalChunks) .. " bytes=" .. tostring(totalBytes))
+end
+
+function SaveWriteService.HandleChunk(connection, connKey, userId, slot, eventData)
+    local requestId = ReadInt(eventData, "requestId", 0)
+    local key = ChunkSessionKey(userId, slot, requestId)
+    local session = _saveChunkSessions[key]
+    if not session then
+        SendResult(connection, SaveProtocol.S2C_SaveResult, false, "save_chunk_session_missing", requestId)
+        return
+    end
+
+    local chunkIndex = ReadInt(eventData, "chunkIndex", 0)
+    local chunkData = ReadString(eventData, "chunkData", "")
+    if chunkIndex < 1 or chunkIndex > session.totalChunks or #chunkData > SavePayloadCodec.CHUNK_BYTES then
+        _saveChunkSessions[key] = nil
+        SendResult(connection, SaveProtocol.S2C_SaveResult, false, "invalid_save_chunk", requestId)
+        return
+    end
+
+    local existing = session.chunks[chunkIndex]
+    if existing == nil then
+        session.chunks[chunkIndex] = chunkData
+        session.received = session.received + 1
+    elseif existing ~= chunkData then
+        _saveChunkSessions[key] = nil
+        SendResult(connection, SaveProtocol.S2C_SaveResult, false, "conflicting_save_chunk", requestId)
+    end
+end
+
+function SaveWriteService.HandleChunkCommit(connection, connKey, userId, slot, eventData)
+    local requestId = ReadInt(eventData, "requestId", 0)
+    local key = ChunkSessionKey(userId, slot, requestId)
+    local session = _saveChunkSessions[key]
+    if not session then
+        SendResult(connection, SaveProtocol.S2C_SaveResult, false, "save_chunk_session_missing", requestId)
+        return
+    end
+
+    if session.received ~= session.totalChunks then
+        _saveChunkSessions[key] = nil
+        SendResult(connection, SaveProtocol.S2C_SaveResult, false, "save_chunk_incomplete", requestId)
+        return
+    end
+
+    local ok, payloadOrReason = SavePayloadCodec.Join(session.chunks, session.totalChunks)
+    if not ok then
+        _saveChunkSessions[key] = nil
+        SendResult(connection, SaveProtocol.S2C_SaveResult, false, payloadOrReason, requestId)
+        return
+    end
+
+    local payload = payloadOrReason
+    if #payload ~= session.totalBytes or SavePayloadCodec.Checksum(payload) ~= session.checksum then
+        _saveChunkSessions[key] = nil
+        SendResult(connection, SaveProtocol.S2C_SaveResult, false, "save_chunk_checksum_failed", requestId)
+        return
+    end
+
+    _saveChunkSessions[key] = nil
+    Logger.info("SaveGame", "chunk commit: userId=" .. tostring(userId)
+        .. " slot=" .. tostring(slot) .. " requestId=" .. tostring(requestId)
+        .. " bytes=" .. tostring(#payload))
+    SaveWriteService.Execute(connection, connKey, userId, slot, BuildEventDataFromPayload(session, payload))
+end
 function SaveWriteService._ValidateCoreData(coreData, userId)
     -- V1~V4: player 基础数值
     if coreData.player then
@@ -449,7 +624,7 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
             { field = "pillKillHeal",     max = 45, name = "击杀回血(血煞)" },
             { field = "shadowGodKillHeal", max = 600, name = "击杀回血(影神丹)" },
             { field = "daoTreeWisdom",    max = 100, name = "悟道" },
-            { field = "fruitFortune",     max = 40, name = "福缘果" },
+            { field = "fruitFortune",     max = 50, name = "福缘果" },
             { field = "seaPillarDef",     max = 20, name = "海神柱防御" },
             { field = "seaPillarAtk",     max = 30, name = "海神柱攻击" },
             { field = "seaPillarMaxHp",   max = 300, name = "海神柱生命" },

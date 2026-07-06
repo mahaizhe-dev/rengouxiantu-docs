@@ -33,6 +33,10 @@ local function IsSealInCurrentChapter(sealData)
     local regions = ActiveZoneData.Get().Regions
     local chain = QuestData.ZONE_QUESTS[sealData.questChain]
     if chain and chain.zone then
+        local currentChapter = GameState.currentChapter or ActiveZoneData.Get().CHAPTER_ID
+        if chain.chapter and currentChapter and chain.chapter ~= currentChapter then
+            return false
+        end
         return regions[chain.zone] ~= nil
     end
     return false
@@ -52,6 +56,33 @@ local function GetEquipmentData()
     return EquipmentData_
 end
 
+local function NewQuestState(chain)
+    return {
+        currentStep = 1,
+        kills = {},
+        completed = false,
+        schemaVersion = chain.schemaVersion or 1,
+    }
+end
+
+local function MigrateQuestState(chainId, state)
+    local chain = QuestData.ZONE_QUESTS[chainId]
+    local targetVersion = chain and chain.schemaVersion
+    if not state or not targetVersion then return end
+    local savedVersion = tonumber(state.schemaVersion) or 1
+    if chainId == "town_zone" and savedVersion < 2 then
+        if state.completed then
+            state.currentStep = #chain.steps + 1
+        else
+            local oldStep = tonumber(state.currentStep) or 0
+            state.currentStep = oldStep > 0 and math.min(oldStep + 1, #chain.steps) or 1
+        end
+        print("[QuestSystem] migrated town_zone quest state to schema v2")
+    end
+    state.kills = state.kills or {}
+    state.schemaVersion = targetVersion
+end
+
 --- 初始化任务系统
 function QuestSystem.Init()
     -- 合并第二章、第三章任务数据（各章完全独立的数据文件）
@@ -60,6 +91,7 @@ function QuestSystem.Init()
         { name = "config.QuestData_ch3", label = "Ch3" },
         { name = "config.QuestData_ch4", label = "Ch4" },
         { name = "config.QuestData_ch5", label = "Ch5" },
+        { name = "config.QuestData_ch6", label = "Ch6" },
         { name = "config.QuestData_mz",  label = "MZ" },
     }
     for _, chMod in ipairs(chapterModules) do
@@ -84,11 +116,7 @@ function QuestSystem.Init()
     -- 为所有区域主线创建初始状态
     for chainId, chain in pairs(QuestData.ZONE_QUESTS) do
         if not questStates_[chainId] then
-            questStates_[chainId] = {
-                currentStep = 1,
-                kills = {},
-                completed = false,
-            }
+            questStates_[chainId] = NewQuestState(chain)
         end
     end
 
@@ -322,6 +350,15 @@ function QuestSystem.CompleteStep(chainId)
         state.completed = true
         print("[QuestSystem] Quest chain completed: " .. chainId)
 
+        if chain.unlockSeal and QuestData.SEALS[chain.unlockSeal] then
+            local sealData = QuestData.SEALS[chain.unlockSeal]
+            if not sealData.realmDriven and not sealData.manualOnly and not sealData.futureLocked then
+                sealStates_[chain.unlockSeal] = true
+                EventBus.Emit("seal_removed", chain.unlockSeal)
+                print("[QuestSystem] Chain seal unlocked: " .. chain.unlockSeal)
+            end
+        end
+
         local player = GameState.player
         if player then
             CombatSystem.AddFloatingText(
@@ -526,6 +563,12 @@ function QuestSystem.Unseal(zoneId)
     -- 已经解封
     if sealStates_[zoneId] then return true end
 
+    -- 未来副本封印：当前版本不允许通过任务、境界或普通交互解除。
+    if sealData.futureLocked then
+        print("[QuestSystem] Future seal is locked: " .. zoneId)
+        return false
+    end
+
     -- 境界驱动封印：检查玩家境界是否达标
     if sealData.realmDriven then
         local GameConfig = require("config.GameConfig")
@@ -597,6 +640,10 @@ end
 ---@param zoneId string
 ---@return boolean
 function QuestSystem.IsSealRemoved(zoneId)
+    local sealData = QuestData.SEALS[zoneId]
+    if sealData and sealData.futureLocked then
+        return false
+    end
     return sealStates_[zoneId] == true
 end
 
@@ -606,6 +653,12 @@ end
 function QuestSystem.GMToggleSeal(zoneId)
     local sealData = QuestData.SEALS[zoneId]
     if not sealData then return false end
+    if sealData.futureLocked then
+        sealStates_[zoneId] = false
+        EventBus.Emit("seal_reset", zoneId)
+        print("[QuestSystem] GM toggle blocked for future seal: " .. zoneId)
+        return false
+    end
     if sealStates_[zoneId] then
         -- 当前已解封 → 恢复封印
         sealStates_[zoneId] = false
@@ -704,11 +757,11 @@ function QuestSystem.Update(dt)
                     promptColor = {80, 200, 240, 255}    -- 第四章：海蓝色
                 elseif chain and chain.chapter == 3 then
                     promptColor = {220, 180, 60, 255}    -- 第三章：沙金色
-                elseif chain and chain.chapter == 5 then
+                elseif chain and (chain.chapter == 5 or chain.chapter == 6) then
                     if sealData.sealColor == "red" then
                         promptColor = {255, 60, 40, 255}     -- 第五章剑宫：血红色
                     else
-                        promptColor = {220, 230, 255, 255}   -- 第五章城墙：冰白色
+                        promptColor = {220, 230, 255, 255}   -- 剑气/虎王封印：冰白色
                     end
                 elseif chain and chain.chapter == 2 then
                     promptColor = {255, 60, 40, 255}     -- 第二章：血红色
@@ -737,6 +790,10 @@ function QuestSystem.ApplySeals(gameMap)
         if not IsSealInCurrentChapter(sealData) then
             goto continue
         end
+        if sealData.futureLocked and sealStates_[zoneId] then
+            sealStates_[zoneId] = false
+            print("[QuestSystem] Future seal re-locked: " .. zoneId)
+        end
         print("[QuestSystem] ApplySeals checking: " .. zoneId ..
               " sealState=" .. tostring(sealStates_[zoneId]) ..
               " sealTile=" .. tostring(sealData.sealTile) ..
@@ -745,7 +802,7 @@ function QuestSystem.ApplySeals(gameMap)
         -- 保底：关联任务链已完成时，强制同步封印状态为已解封
         -- 防止存档故障/恢复导致封印状态与任务完成状态不同步
         -- 🔴 排除 realmDriven 封印：这类封印由玩家手动交互解封，不随任务链完成自动解封
-        if not sealStates_[zoneId] and not sealData.realmDriven and not sealData.manualOnly then
+        if not sealStates_[zoneId] and not sealData.realmDriven and not sealData.manualOnly and not sealData.futureLocked then
             local chainState = questStates_[sealData.questChain]
             if chainState and chainState.completed then
                 sealStates_[zoneId] = true
@@ -769,11 +826,17 @@ function QuestSystem.ApplySeals(gameMap)
 
         if not sealStates_[zoneId] then
             local sealTileType = sealData.sealTile or ActiveZoneData.Get().TILE.MOUNTAIN
+            if gameMap.SetSealBlockedTiles then
+                gameMap:SetSealBlockedTiles(zoneId, sealData.sealTiles)
+            end
             for _, tile in ipairs(sealData.sealTiles) do
                 gameMap:SetTile(tile.x, tile.y, sealTileType)
             end
             print("[QuestSystem] Seal applied: " .. zoneId .. " (" .. #sealData.sealTiles .. " tiles, tileType=" .. tostring(sealTileType) .. ")")
         else
+            if gameMap.ClearSealBlockedTiles then
+                gameMap:ClearSealBlockedTiles(zoneId)
+            end
             -- 已解封：确保瓦片恢复为可通行
             for _, tile in ipairs(sealData.sealTiles) do
                 gameMap:SetTile(tile.x, tile.y, sealData.originalTile or ActiveZoneData.Get().TILE.GRASS)
@@ -792,6 +855,20 @@ end
 function QuestSystem.ForceUnseal(gameMap, zoneId)
     local sealData = QuestData.SEALS[zoneId]
     if not sealData then return end
+    if sealData.futureLocked then
+        sealStates_[zoneId] = false
+        if gameMap then
+            local sealTileType = sealData.sealTile or ActiveZoneData.Get().TILE.MOUNTAIN
+            if gameMap.SetSealBlockedTiles then
+                gameMap:SetSealBlockedTiles(zoneId, sealData.sealTiles)
+            end
+            for _, tile in ipairs(sealData.sealTiles) do
+                gameMap:SetTile(tile.x, tile.y, sealTileType)
+            end
+        end
+        print("[QuestSystem] ForceUnseal blocked for future seal: " .. zoneId)
+        return
+    end
 
     sealStates_[zoneId] = true
 
@@ -803,6 +880,9 @@ function QuestSystem.ForceUnseal(gameMap, zoneId)
     end
     sealChapter = sealChapter or 1
     if gameMap and GameState.currentChapter == sealChapter then
+        if gameMap.ClearSealBlockedTiles then
+            gameMap:ClearSealBlockedTiles(zoneId)
+        end
         for _, tile in ipairs(sealData.sealTiles) do
             gameMap:SetTile(tile.x, tile.y, sealData.originalTile or ActiveZoneData.Get().TILE.GRASS)
         end
@@ -820,6 +900,18 @@ function QuestSystem.RemoveSealTiles(gameMap, zoneId)
 
     local sealData = QuestData.SEALS[zoneId]
     if not sealData then return end
+    if sealData.futureLocked then
+        sealStates_[zoneId] = false
+        local sealTileType = sealData.sealTile or ActiveZoneData.Get().TILE.MOUNTAIN
+        if gameMap.SetSealBlockedTiles then
+            gameMap:SetSealBlockedTiles(zoneId, sealData.sealTiles)
+        end
+        for _, tile in ipairs(sealData.sealTiles) do
+            gameMap:SetTile(tile.x, tile.y, sealTileType)
+        end
+        print("[QuestSystem] RemoveSealTiles blocked for future seal: " .. zoneId)
+        return
+    end
 
     -- 只在封印所属章节修改瓦片，防止跨章节写入产生白色瓦片
     local sealChapter = tonumber(zoneId:match("_ch(%d+)"))
@@ -831,6 +923,10 @@ function QuestSystem.RemoveSealTiles(gameMap, zoneId)
     if GameState.currentChapter ~= sealChapter then
         print("[QuestSystem] Seal tiles skip (ch" .. GameState.currentChapter .. "≠ch" .. sealChapter .. "): " .. zoneId)
         return
+    end
+
+    if gameMap.ClearSealBlockedTiles then
+        gameMap:ClearSealBlockedTiles(zoneId)
     end
 
     for _, tile in ipairs(sealData.sealTiles) do
@@ -858,10 +954,21 @@ function QuestSystem.Deserialize(data)
             questStates_[chainId] = state
         end
     end
+    for chainId, state in pairs(questStates_) do
+        MigrateQuestState(chainId, state)
+    end
 
     if data.sealStates then
         for zoneId, unsealed in pairs(data.sealStates) do
             sealStates_[zoneId] = unsealed
+        end
+    end
+
+    -- futureLocked 封印不信任存档状态：当前版本没有任何解封入口。
+    for zoneId, sealData in pairs(QuestData.SEALS) do
+        if sealData.futureLocked and sealStates_[zoneId] then
+            print("[QuestSystem] futureLocked seal reset from save: " .. zoneId)
+            sealStates_[zoneId] = false
         end
     end
 
@@ -879,7 +986,7 @@ function QuestSystem.Deserialize(data)
     -- 🔴 排除 realmDriven 封印：这类封印由玩家手动交互解封，不随任务链完成自动解封
     -- 🔴 排除 manualOnly 封印：这类封印由专用系统（如 SwordPoolSystem）管理，不随任务链完成自动解封
     for zoneId, sealData in pairs(QuestData.SEALS) do
-        if not sealStates_[zoneId] and not sealData.realmDriven and not sealData.manualOnly then
+        if not sealStates_[zoneId] and not sealData.realmDriven and not sealData.manualOnly and not sealData.futureLocked then
             local chainState = questStates_[sealData.questChain]
             if chainState and chainState.completed then
                 sealStates_[zoneId] = true
@@ -908,11 +1015,12 @@ function QuestSystem.ForceCompleteChain(chainId)
     state.currentStep = #chain.steps + 1
     state.kills = {}
     state.completed = true
+    state.schemaVersion = chain.schemaVersion or state.schemaVersion
 
     -- 解除该任务链关联的所有封印
     -- 🔴 排除 manualOnly 封印：这类封印由专用系统管理（如四剑封印由 SwordPoolSystem 控制）
     for zoneId, sealData in pairs(QuestData.SEALS) do
-        if sealData.questChain == chainId and not sealStates_[zoneId] and not sealData.manualOnly then
+        if sealData.questChain == chainId and not sealStates_[zoneId] and not sealData.manualOnly and not sealData.futureLocked then
             sealStates_[zoneId] = true
             EventBus.Emit("seal_removed", zoneId)
             print("[QuestSystem] Seal force-removed: " .. zoneId)
@@ -931,11 +1039,7 @@ function QuestSystem.ResetChain(chainId)
     if not chain then return false end
 
     -- 重置任务进度
-    questStates_[chainId] = {
-        currentStep = 1,
-        kills = {},
-        completed = false,
-    }
+    questStates_[chainId] = NewQuestState(chain)
 
     -- 如果该任务链关联了封印，也重置封印状态
     for zoneId, sealData in pairs(QuestData.SEALS) do

@@ -29,6 +29,13 @@ local collScrollContent_ = nil  -- 章节列表内容容器（shell contentPanel
 local STAT_LABELS = StatNames.SHORT_NAMES
 local STAT_COLORS = StatNames.COLORS
 
+local function GetChapterTabStyle(isActive)
+    return {
+        backgroundColor = isActive and T.color.tabActiveBg or T.color.tabInactiveBg,
+        fontColor = isActive and T.color.tabActiveText or T.color.tabInactiveText,
+    }
+end
+
 --- 格式化属性奖励为文字
 ---@param bonus table
 ---@return string
@@ -407,11 +414,7 @@ local function RefreshCollectionContent()
     end
     -- 更新标签按钮样式
     for i, btn in ipairs(collTabBtns_) do
-        if i == currentChapter_ then
-            btn:SetStyle({ backgroundColor = T.color.tabActiveBg })
-        else
-            btn:SetStyle({ backgroundColor = T.color.tabInactiveBg })
-        end
+        btn:SetStyle(GetChapterTabStyle(i == currentChapter_))
     end
 end
 
@@ -425,12 +428,14 @@ local function BuildCollectionTabs()
         local isActive = (i == currentChapter_)
         local btn = UI.Button {
             text = ch.name,
-            fontSize = T.fontSize.sm,
+            fontSize = T.fontSize.xs,
             fontWeight = "bold",
-            height = 32,
-            flexGrow = 1,
+            width = 68,
+            height = 30,
+            flexShrink = 0,
             borderRadius = T.radius.sm,
             backgroundColor = isActive and T.color.tabActiveBg or T.color.tabInactiveBg,
+            fontColor = isActive and T.color.tabActiveText or T.color.tabInactiveText,
             onClick = function(self)
                 if currentChapter_ == i then return end
                 currentChapter_ = i
@@ -441,8 +446,10 @@ local function BuildCollectionTabs()
         table.insert(tabChildren, btn)
     end
     return UI.Panel {
+        width = "100%",
         flexDirection = "row",
-        gap = T.spacing.sm,
+        flexWrap = "wrap",
+        gap = T.spacing.xs,
         children = tabChildren,
     }
 end

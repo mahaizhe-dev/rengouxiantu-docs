@@ -268,6 +268,55 @@ function GameMap:BuildZoneBarriers()
     end
 end
 
+function GameMap:CarveBoundaryRiftHiddenPath()
+    local T = activeZoneData.TILE
+    local R = activeZoneData.Regions
+    if not R.boundary_rift_path or not R.town or not R.bandit_backhill or not R.tiger_domain then return end
+
+    -- Collision layout:
+    --   - Top arena uses boundary_rift_path region (currently x=49~55, y=2~9).
+    --   - x=48 remains the backhill wall; x=56~57 remains the tiger-domain wall.
+    --   - The access route starts at (51,26), then bends upward through the mountain pocket.
+    --   - Only x=51 below the entry is opened; x>=52 keeps the narrow-trail boundary.
+    local arena = R.boundary_rift_path
+    for y = arena.y1, arena.y2 do
+        for x = arena.x1, arena.x2 do
+            self:SetTile(x, y, T.CAMP_FLOOR)
+        end
+        self:SetTile(48, y, T.MOUNTAIN)
+        self:SetTile(56, y, T.MOUNTAIN)
+        self:SetTile(57, y, T.MOUNTAIN)
+    end
+
+    for y = arena.y2 + 1, 26 do
+        for x = arena.x1, arena.x2 do
+            self:SetTile(x, y, T.MOUNTAIN)
+        end
+    end
+    for y = arena.y2 + 1, 28 do
+        self:SetTile(48, y, T.MOUNTAIN)
+        self:SetTile(56, y, T.MOUNTAIN)
+        self:SetTile(57, y, T.MOUNTAIN)
+    end
+
+    local path = {
+        {51, 26}, {52, 26}, {52, 25}, {52, 24}, {52, 23}, {52, 22},
+        {51, 22}, {51, 21}, {51, 20}, {51, 19}, {51, 18},
+        {52, 18}, {53, 18}, {53, 17}, {53, 16}, {53, 15}, {53, 14},
+        {52, 14}, {52, 13}, {52, 12}, {53, 12}, {53, 11}, {53, 10}, {53, 9},
+    }
+    for _, p in ipairs(path) do
+        self:SetTile(p[1], p[2], T.GRASS)
+    end
+
+    local entryApproach = {
+        {51, 27}, {51, 28}, {51, 29},
+    }
+    for _, p in ipairs(entryApproach) do
+        self:SetTile(p[1], p[2], T.GRASS)
+    end
+end
+
 --- 在荒野过渡带散布碎石（MOUNTAIN），填充区域间空白草地
 function GameMap:ScatterWildernessRocks()
     local T = activeZoneData.TILE

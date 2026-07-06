@@ -2,7 +2,7 @@
 -- MonsterTypes_ch6.lua - 第六章·两界村之影
 -- ============================================================================
 -- 本文件注册第六章怪物基础身份、头像、刷新档位和基础掉落。
--- 本轮接入随机装备；不接技能、世界掉落池或章节专属装备。
+-- 已接入随机装备、世界掉落池和章节直接掉落特殊装备；技能仍按后续定稿接入。
 -- ============================================================================
 
 ---@param M table MonsterData 主模块
@@ -94,6 +94,10 @@ local function ConsumableDrop(chance, consumableId, amount)
     return entry
 end
 
+local function SpecialEquipmentDrop(chance, equipId)
+    return { chance = chance, type = "equipment", equipId = equipId }
+end
+
 -- 羊肠小径
 M.Types.ch6_patrol_immortal_soldier = {
     name = "巡逻仙兵",
@@ -109,6 +113,7 @@ M.Types.ch6_patrol_immortal_soldier = {
     skills = { "qian_gang_sword", "rect_sweep" },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_THREE, CH6_EQUIP_COMMON_PURPLE),
+        SpecialEquipmentDrop(0.005, "ch6_xuntian_helmet"),
         { chance = 1.0, type = "lingYun", amount = {6, 10} },
         WorldDrop(),
         { chance = 0.20, type = "consumable", consumableId = "dragon_marrow" },
@@ -138,6 +143,7 @@ M.Types.ch6_lingfeng = {
     },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_TWO, CH6_EQUIP_EMPEROR_PURPLE),
+        SpecialEquipmentDrop(0.01, "ch6_xuntian_boots"),
         { chance = 1.0, type = "lingYun", amount = {18, 30} },
         WorldDrop(),
         EmperorRareWorldDrop(),
@@ -165,6 +171,7 @@ M.Types.ch6_shadow_wanderer = {
     skills = { "ch5_shadow_thrust", "shen_vortex" },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_THREE, CH6_EQUIP_COMMON_ORANGE),
+        SpecialEquipmentDrop(0.005, "ch6_yingyou_ring"),
         { chance = 1.0, type = "lingYun", amount = {8, 12} },
         WorldDrop(),
         { chance = 0.25, type = "consumable", consumableId = "dragon_marrow" },
@@ -194,6 +201,7 @@ M.Types.ch6_zhuyou = {
     },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_TWO, CH6_EQUIP_EMPEROR_ORANGE),
+        SpecialEquipmentDrop(0.01, "ch6_yingyou_necklace"),
         { chance = 1.0, type = "lingYun", amount = {24, 36} },
         WorldDrop(),
         EmperorRareWorldDrop(),
@@ -221,6 +229,7 @@ M.Types.ch6_mountain_colossus = {
     skills = { "gen_rock_slam", "gen_avalanche" },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_THREE, CH6_EQUIP_COMMON_ORANGE),
+        SpecialEquipmentDrop(0.005, "ch6_lieshan_shoulder"),
         { chance = 1.0, type = "lingYun", amount = {10, 15} },
         WorldDrop(),
         { chance = 0.30, type = "consumable", consumableId = "dragon_marrow" },
@@ -253,6 +262,7 @@ M.Types.ch6_duanyue = {
     },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_TWO, CH6_EQUIP_EMPEROR_CYAN),
+        SpecialEquipmentDrop(0.01, "ch6_lieshan_armor"),
         { chance = 1.0, type = "lingYun", amount = {30, 45} },
         WorldDrop(),
         EmperorRareWorldDrop(),
@@ -281,6 +291,8 @@ M.Types.ch6_west_celestial_soldier = {
     skills = { "rect_sweep", "qian_heaven_toss" },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_THREE, CH6_EQUIP_COMMON_CYAN),
+        SpecialEquipmentDrop(0.005, "ch6_tianbing_belt"),
+        SpecialEquipmentDrop(0.001, "ch6_zhenjie_helmet"),
         { chance = 1.0, type = "lingYun", amount = {12, 18} },
         WorldDrop(),
         { chance = 0.35, type = "consumable", consumableId = "dragon_marrow" },
@@ -313,6 +325,7 @@ M.Types.ch6_pojun = {
     },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_TWO, CH6_EQUIP_EMPEROR_RED),
+        SpecialEquipmentDrop(0.002, "ch6_zhenjie_armor"),
         { chance = 1.0, type = "lingYun", amount = {36, 48} },
         WorldDrop(),
         EmperorRareWorldDrop(),
@@ -347,6 +360,7 @@ M.Types.ch6_zhenyuan = {
     },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_TWO, CH6_EQUIP_EMPEROR_RED),
+        SpecialEquipmentDrop(0.002, "ch6_zhenjie_shoulder"),
         { chance = 1.0, type = "lingYun", amount = {36, 48} },
         WorldDrop(),
         EmperorRareWorldDrop(),
@@ -382,6 +396,8 @@ M.Types.ch6_heng_marshal = {
     },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_TWO, CH6_EQUIP_EMPEROR_RED),
+        SpecialEquipmentDrop(0.001, "ch6_heng_weapon"),
+        SpecialEquipmentDrop(0.005, "ch6_heng_cyan_helmet"),
         { chance = 1.0, type = "lingYun", amount = {40, 60} },
         WorldDrop(),
         EmperorRareWorldDrop(),
@@ -410,6 +426,8 @@ M.Types.ch6_east_celestial_soldier = {
     skills = { "zhen_thunder_pierce", "xun_wind_slash" },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_THREE, CH6_EQUIP_COMMON_CYAN),
+        SpecialEquipmentDrop(0.005, "ch6_tianbing_weapon"),
+        SpecialEquipmentDrop(0.001, "ch6_zhenjie_helmet"),
         { chance = 1.0, type = "lingYun", amount = {12, 18} },
         WorldDrop(),
         { chance = 0.35, type = "consumable", consumableId = "dragon_marrow" },
@@ -442,6 +460,7 @@ M.Types.ch6_qingfeng = {
     },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_TWO, CH6_EQUIP_EMPEROR_RED),
+        SpecialEquipmentDrop(0.002, "ch6_zhenjie_belt"),
         { chance = 1.0, type = "lingYun", amount = {36, 48} },
         WorldDrop(),
         EmperorRareWorldDrop(),
@@ -476,6 +495,7 @@ M.Types.ch6_leice = {
     },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_TWO, CH6_EQUIP_EMPEROR_RED),
+        SpecialEquipmentDrop(0.002, "ch6_zhenjie_boots"),
         { chance = 1.0, type = "lingYun", amount = {36, 48} },
         WorldDrop(),
         EmperorRareWorldDrop(),
@@ -511,6 +531,8 @@ M.Types.ch6_ha_marshal = {
     },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_TWO, CH6_EQUIP_EMPEROR_RED),
+        SpecialEquipmentDrop(0.001, "ch6_ha_weapon"),
+        SpecialEquipmentDrop(0.005, "ch6_ha_cyan_armor"),
         { chance = 1.0, type = "lingYun", amount = {40, 60} },
         WorldDrop(),
         EmperorRareWorldDrop(),
@@ -541,8 +563,10 @@ M.Types.ch6_toad_immortal = {
     skills = { "yanchan_quake", "yanchan_venom_spray", "ch5_rock_scatter" },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_THREE, CH6_EQUIP_KING_CYAN),
+        SpecialEquipmentDrop(0.001, "ch6_toad_immortal_boots"),
         { chance = 1.0, type = "lingYun", amount = {20, 30} },
         WorldDrop(),
+        ConsumableDrop(0.002, "lotus_pool_dew"),
         { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", amount = {1, 1} },
     },
 }
@@ -574,10 +598,13 @@ M.Types.ch6_gua_master = {
     },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_XIAN1_ONLY, CH6_EQUIP_SAINT_RED),
+        SpecialEquipmentDrop(0.002, "ch6_gua_king_ring"),
+        SpecialEquipmentDrop(0.002, "ch6_xianzun_1_ring"),
         { chance = 1.0, type = "lingYun", amount = {60, 80} },
         WorldDrop(),
         EmperorRareWorldDrop(),
         ConsumableDrop(0.02, "shadow_crystal"),
+        ConsumableDrop(0.0005, "lotus_pool_dew"),
         { chance = 1.0, type = "consumable", consumableId = "immortal_beast_soul", amount = {2, 2} },
     },
 }
@@ -611,6 +638,8 @@ M.Types.ch6_mojun_shixuan = {
     },
     dropTable = {
         EquipmentDrop(CH6_EQUIP_WINDOW_XIAN1_ONLY, CH6_EQUIP_SAINT_RED),
+        SpecialEquipmentDrop(0.002, "ch6_xianzun_1_ring"),
+        SpecialEquipmentDrop(0.002, "ch6_shixuan_demon_cape"),
         { chance = 1.0, type = "lingYun", amount = {60, 90} },
         WorldDrop(),
         EmperorRareWorldDrop(),

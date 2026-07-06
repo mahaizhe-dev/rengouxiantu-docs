@@ -234,13 +234,40 @@ local function buildBoarWaterBossArea(self, T)
         end
     end
 
-    -- 四株白莲的落点与 BOSS 中心必须为陆地。
-    local islandKeyTiles = {
-        {8, 71}, {14, 71}, {8, 76}, {14, 76},
-        {10, 72}, {11, 72}, {12, 72}, {11, 73}, {12, 73}, {11, 74}, {12, 74},
+    -- 九株白莲按策划指定坐标落点；落点与连通路径必须为陆地，避免交互物件刷在水面或不可达格子。
+    local lotusLandingTiles = {
+        {7, 65}, {17, 65}, {22, 73}, {24, 76}, {12, 65},
+        {7, 72}, {16, 75}, {8, 76}, {13, 70},
     }
-    for _, p in ipairs(islandKeyTiles) do
+    for _, p in ipairs(lotusLandingTiles) do
         safeTile(self, p[1], p[2], T.FOREST_FLOOR)
+    end
+
+    local lotusPathTiles = {
+        {23, 65}, {22, 65}, {21, 65}, {20, 65}, {19, 65}, {18, 65},
+        {16, 65}, {15, 65}, {14, 65}, {13, 65}, {11, 65}, {10, 65},
+        {9, 65}, {8, 65},
+        {13, 66}, {13, 67}, {13, 68}, {13, 69},
+        {12, 70}, {11, 70}, {10, 70}, {9, 70}, {8, 70}, {7, 70}, {7, 71},
+        {8, 72}, {8, 73}, {8, 74}, {8, 75},
+        {14, 70}, {15, 71}, {16, 72}, {16, 73}, {16, 74},
+        {17, 75}, {18, 75}, {19, 75}, {20, 75}, {21, 75}, {22, 75},
+        {23, 75}, {24, 75},
+        {22, 74}, {23, 74}, {24, 74}, {23, 76},
+    }
+    for _, p in ipairs(lotusPathTiles) do
+        safeTile(self, p[1], p[2], T.FOREST_FLOOR)
+    end
+
+    local lotusShoreTiles = {
+        {6, 65}, {7, 64}, {12, 64}, {17, 64}, {22, 72}, {25, 76},
+        {6, 72}, {7, 73}, {16, 76}, {8, 77}, {13, 71},
+    }
+    for _, p in ipairs(lotusShoreTiles) do
+        local tile = self:GetTile(p[1], p[2])
+        if tile == T.WATER then
+            safeTile(self, p[1], p[2], T.SWAMP)
+        end
     end
 
     -- 东北入口：错落的林地/浅沼形成自然堤岸，确保不被水面堵死。

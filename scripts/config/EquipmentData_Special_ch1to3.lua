@@ -211,6 +211,24 @@ return {
         },
     },
 
+    -- 虎王试炼炉合成：T4橙色头盔
+    jihu_helmet_ch1 = {
+        name = "极虎盔",
+        desc = "以虎王三件套与帝尊壹戒合铸的战盔，虎威内敛，锋芒入骨。",
+        slot = "helmet",
+        icon = "image/icon_jihu_helmet_ch1_20260703062816.png",
+        quality = "orange",
+        tier = 4,
+        sellPrice = 400,
+        mainStat = { maxHp = 135 },
+        subStats = {
+            { stat = "atk", name = "攻击力", value = 5.4 },
+            { stat = "critRate", name = "暴击率", value = 0.024 },
+            { stat = "critDmg", name = "暴击伤害", value = 0.12 },
+        },
+        fixedSubStats = true,
+    },
+
     -- ===================== 第二章特殊装备 =====================
 
     -- 世界掉落：T4橙色头盔（区域2精英/BOSS均可掉落）
@@ -339,6 +357,46 @@ return {
             { stat = "maxHp", name = "生命值", value = 26.4 },    -- 6 × 4.0(SUB_T5) × 1.1(橙) = 26.4
             { stat = "heavyHit", name = "重击值", value = 35.2 },  -- 8 × 4.0(SUB_T5) × 1.1(橙) = 35.2
         },
+    },
+
+    -- 乌家宝藏：T5青色灵器腰带
+    jianxin_belt_ch2 = {
+        name = "剑心腰带",
+        desc = "乌万海大殿秘藏的青玉腰带，剑心玉扣明灭不定，佩之气血凝实。",
+        slot = "belt",
+        icon = "image/jianxin_belt_ch2_20260704023406.png",
+        quality = "cyan",
+        tier = 5,
+        sellCurrency = "lingYun",
+        sellPrice = 1,
+        mainStat = { maxHp = 162 },
+        subStats = {
+            { stat = "critRate", name = "暴击率", value = 0.025 },
+            { stat = "wisdom", name = "悟性", value = 9 },
+            { stat = "killHeal", name = "击杀回血", value = 12 },
+        },
+        spiritStat = { stat = "atk", name = "攻击力", value = 3 },
+        fixedSubStats = true,
+    },
+
+    -- 乌堡锻造台合成：T6橙色戒指
+    -- 主属性: 3 × 8.0(T6) × 1.5(橙) = 36
+    -- 副属性: 橙色3条, 中值×1.1
+    xuehai_shenchou_ring_ch2 = {
+        name = "血海深仇戒",
+        desc = "以乌堡戒·海、乌堡戒·仇与帝尊贰戒合炼而成，仇海翻涌，指节生寒。",
+        slot = "ring1",
+        icon = "icon_t6_ring.png",
+        quality = "orange",
+        tier = 6,
+        sellPrice = 600,
+        mainStat = { atk = 36 },
+        subStats = {
+            { stat = "critRate", name = "暴击率", value = 0.033 },  -- 0.01 × 3.0(PCT_SUB_T6) × 1.1(橙) = 0.033
+            { stat = "heavyHit", name = "重击值", value = 48.4 },   -- 8 × 5.5(SUB_T6) × 1.1(橙) = 48.4
+            { stat = "constitution", name = "根骨", value = 9 },    -- linearGrowth: floor(6 × 1.5) = 9
+        },
+        fixedSubStats = true,
     },
 
     -- ===================== 第三章·万里黄沙（妖王专属掉落） =====================

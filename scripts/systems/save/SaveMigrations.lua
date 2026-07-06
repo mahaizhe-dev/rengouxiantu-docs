@@ -1542,6 +1542,26 @@ local MIGRATIONS = {
         data.version = 33
         return data
     end,
+
+    -- v33 → v34: 青莲长生体白莲激活字段初始化
+    [34] = function(data)
+        if type(data.qinglianBody) ~= "table" then
+            data.qinglianBody = {
+                version = 1,
+                activatedLotuses = {},
+                finalRewardClaimed = false,
+            }
+        else
+            data.qinglianBody.version = data.qinglianBody.version or 1
+            if type(data.qinglianBody.activatedLotuses) ~= "table" then
+                data.qinglianBody.activatedLotuses = {}
+            end
+            data.qinglianBody.finalRewardClaimed = data.qinglianBody.finalRewardClaimed == true
+        end
+        print("[SaveSystem] v33→v34 migration: qinglian body lotus fields initialized")
+        data.version = 34
+        return data
+    end,
 }
 
 -- ============================================================================

@@ -10,6 +10,64 @@ local DecorationRenderers = shared.DecorationRenderers
 
 local M = {}
 
+local QinglianBodySystem_ = nil
+local QinglianLoadAttempted_ = false
+
+local function GetQinglianBodySystem()
+    if not QinglianLoadAttempted_ then
+        QinglianLoadAttempted_ = true
+        local ok, mod = pcall(require, "systems.QinglianBodySystem")
+        if ok then QinglianBodySystem_ = mod end
+    end
+    return QinglianBodySystem_
+end
+
+local function IsQinglianLotusActivated(npc)
+    if not npc or npc.interactType ~= "qinglian_body_lotus" or not npc.id then
+        return false
+    end
+    local sys = GetQinglianBodySystem()
+    return sys and sys.IsActivated and sys.IsActivated(npc.id) == true
+end
+
+local function RenderQinglianActiveFx(nvg, sx, sy, ts, time)
+    local pulse = 0.65 + 0.35 * math.sin(time * 2.2)
+    local glowR = ts * (1.25 + pulse * 0.35)
+    local glowA = math.floor(65 + pulse * 45)
+
+    local glow = nvgRadialGradient(nvg,
+        sx, sy - ts * 0.18, ts * 0.15, glowR,
+        nvgRGBA(175, 255, 235, glowA),
+        nvgRGBA(120, 210, 255, 0)
+    )
+    nvgBeginPath(nvg)
+    nvgCircle(nvg, sx, sy - ts * 0.18, glowR)
+    nvgFillPaint(nvg, glow)
+    nvgFill(nvg)
+
+    nvgSave(nvg)
+    nvgTranslate(nvg, sx, sy - ts * 0.1)
+    nvgRotate(nvg, time * 0.9)
+    nvgBeginPath(nvg)
+    nvgEllipse(nvg, 0, 0, ts * 0.58, ts * 0.18)
+    nvgStrokeColor(nvg, nvgRGBA(185, 255, 240, math.floor(120 * pulse)))
+    nvgStrokeWidth(nvg, 2)
+    nvgStroke(nvg)
+    nvgRestore(nvg)
+
+    for i = 1, 5 do
+        local phase = time * 1.35 + i * 1.17
+        local drift = (phase % 2.4) / 2.4
+        local px = sx + math.sin(phase * 2.1) * ts * 0.33
+        local py = sy - ts * (0.15 + drift * 1.05)
+        local alpha = math.floor((1 - drift) * 150)
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, px, py, 2.0)
+        nvgFillColor(nvg, nvgRGBA(215, 255, 245, alpha))
+        nvgFill(nvg)
+    end
+end
+
 local function RenderObjectNameplate(nvg, sx, sy, ts, npc)
     local name = npc.name or npc.label
     if not name or #name == 0 then return end
@@ -47,7 +105,17 @@ local function RenderObjectNameplate(nvg, sx, sy, ts, npc)
     local nameCenterY = bgTopY + padV + nameLineH / 2
     nvgFontSize(nvg, nameFontSize)
     nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
-    nvgFillColor(nvg, nvgRGBA(255, 215, 0, 255))
+    if IsQinglianLotusActivated(npc) then
+        local nameGrad = nvgLinearGradient(nvg,
+            sx - nameTextW / 2, nameCenterY,
+            sx + nameTextW / 2, nameCenterY,
+            nvgRGBA(160, 255, 230, 255),
+            nvgRGBA(255, 255, 255, 255)
+        )
+        nvgFillPaint(nvg, nameGrad)
+    else
+        nvgFillColor(nvg, nvgRGBA(255, 215, 0, 255))
+    end
     nvgText(nvg, sx, nameCenterY, name, nil)
 
     if hasSubtitle then
@@ -100,6 +168,9 @@ function M.RenderNPCs(nvg, l, camera)
                 end
                 if not objDrawn then
                     DecorationRenderers.RenderSign(nvg, sx - ts * 0.5, sy - ts * 0.5, ts, npc)
+                end
+                if IsQinglianLotusActivated(npc) then
+                    RenderQinglianActiveFx(nvg, sx, sy, ts, GameState.gameTime or 0)
                 end
                 if npc.showNameplate and not npc.hideName then
                     RenderObjectNameplate(nvg, sx, sy, ts, npc)

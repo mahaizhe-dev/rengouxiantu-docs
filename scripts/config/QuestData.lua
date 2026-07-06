@@ -19,8 +19,23 @@ QuestData.ZONE_QUESTS = {
         name = "两界村主线",
         zone = "town",               -- 所属区域（用于显示筛选）
         chapter = 1,                  -- 所属章节
+        schemaVersion = 2,            -- v2: 追加拦路猪妖为第一步，旧存档加载时顺延当前目标
         unlockSeal = "tiger_domain",  -- 完成全部步骤后解锁的封印
         steps = {
+            {
+                id = "kill_boar_patrol",
+                name = "击败拦路猪妖",
+                desc = "击败盘踞在羊肠小径的拦路猪妖",
+                targetType = "boar_patrol",
+                targetCount = 1,
+                reward = {
+                    type = "material_bundle",
+                    items = {
+                        { itemId = "qi_pill", count = 1 },
+                        { itemId = "gold_bar", count = 1 },
+                    },
+                },
+            },
             {
                 id = "kill_spider_queen",
                 name = "击败蛛母",
@@ -41,11 +56,10 @@ QuestData.ZONE_QUESTS = {
                 targetType = "boar_king",
                 targetCount = 1,
                 reward = {
-                    type = "material_bundle",
-                    items = {
-                        { itemId = "gold_bar", count = 1 },
-                        { itemId = "qi_pill", count = 1 },
-                    },
+                    type = "equipment_pick",
+                    tier = 2,
+                    quality = "purple",
+                    count = 3,
                 },
             },
             {

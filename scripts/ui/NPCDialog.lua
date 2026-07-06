@@ -345,6 +345,10 @@ local INTERACT_HANDLERS = {
     temper            = function(_npc) GetTemperUI().Show() end,
     yaochi_wash       = function(npc)  GetYaochiWashUI().Show(npc) end,
     alchemy           = function(npc)  GetAlchemyUI().Show(npc) end,
+    qinglian_body_lotus = function(npc)
+        local QinglianBodySystem = require("systems.QinglianBodySystem")
+        QinglianBodySystem.Show(npc)
+    end,
     shop              = function(npc)  GetGourdUI().Show(npc) end,
     sell_equip        = function(npc)  GetEquipShopUI().Show(npc) end,
     bulletin          = function(_npc) GetBulletinUI().Show() end,
@@ -354,6 +358,45 @@ local INTERACT_HANDLERS = {
     sword_wall_challenge = function(_npc)
         local SwordWallUI = require("ui.SwordWallUI")
         SwordWallUI.Show()
+    end,
+    trigger_battle = function(npc)
+        local TriggeredBattleConfig = require("config.TriggeredBattleConfig")
+        local TriggerBattleSystem = require("systems.TriggerBattleSystem")
+        local eventId = npc.triggerBattleId
+        local cfg = TriggeredBattleConfig.Get(eventId)
+        if not cfg then
+            ShowGenericDialog({
+                name = npc.name or "残影",
+                subtitle = npc.subtitle or "残阵",
+                dialog = "残阵沉寂，没有回应。",
+            })
+            return
+        end
+
+        if TriggerBattleSystem.IsCompleted(eventId) then
+            ShowGenericDialog({
+                name = npc.name or "残影",
+                subtitle = npc.subtitle or cfg.title,
+                dialog = cfg.dialogCompleted or "……",
+                highlightText = cfg.completedHint,
+            })
+            return
+        end
+
+        ShowGenericDialog({
+            name = npc.name or "残影",
+            subtitle = npc.subtitle or cfg.title,
+            dialog = cfg.dialogBefore or npc.dialog or "……",
+            buttons = {
+                {
+                    text = cfg.startButtonText or "开始挑战",
+                    onClick = function()
+                        HideGenericDialog()
+                        TriggerBattleSystem.RequestStart(eventId)
+                    end,
+                },
+            },
+        })
     end,
     sword_wall_exit = function(_npc)
         local SwordWallSystem = require("systems.SwordWallSystem")
@@ -544,6 +587,8 @@ local INTERACT_HANDLERS = {
     seal_demon        = function(npc)  GetSealDemonUI().Show(npc) end,
     dragon_forge      = function(npc)  GetDragonForgeUI().Show(npc) end,
     sword_forge       = function(npc)  GetSwordForgeUI().Show(npc) end,
+    tiger_trial_forge = function(npc)  GetSwordForgeUI().Show(npc, "tiger_trial_forge") end,
+    wubao_forge       = function(npc)  GetSwordForgeUI().Show(npc, "wubao_forge") end,
     warehouse         = function(npc)  GetWarehouseUI().Show(npc) end,
     dao_question      = function(npc)
         local player = GameState.player
@@ -894,6 +939,8 @@ function NPCDialog.Hide()
     if TrialTowerUI_ then TrialTowerUI_.Hide() end
     if PrisonTowerUI_ then PrisonTowerUI_.Hide() end
     if TrialOfferingUI_ then TrialOfferingUI_.Hide() end
+    if DragonForgeUI_ then DragonForgeUI_.Hide() end
+    if SwordForgeUI_ then SwordForgeUI_.Hide() end
     if WarehouseUI_ then WarehouseUI_.Hide() end
     if GourdUI_ then GourdUI_.Hide() end
     if TemperUI_ then TemperUI_.Hide() end
@@ -922,6 +969,8 @@ function NPCDialog.Destroy()
     if TrialTowerUI_ and TrialTowerUI_.Destroy then TrialTowerUI_.Destroy() end
     if PrisonTowerUI_ and PrisonTowerUI_.Destroy then PrisonTowerUI_.Destroy() end
     if TrialOfferingUI_ and TrialOfferingUI_.Destroy then TrialOfferingUI_.Destroy() end
+    if DragonForgeUI_ and DragonForgeUI_.Destroy then DragonForgeUI_.Destroy() end
+    if SwordForgeUI_ and SwordForgeUI_.Destroy then SwordForgeUI_.Destroy() end
     if WarehouseUI_ and WarehouseUI_.Destroy then WarehouseUI_.Destroy() end
     if GourdUI_ and GourdUI_.Destroy then GourdUI_.Destroy() end
     if TemperUI_ and TemperUI_.Destroy then TemperUI_.Destroy() end
@@ -973,6 +1022,8 @@ function NPCDialog.IsVisible()
     if AtlasUI_ and AtlasUI_.IsVisible() then return true end
     if DaoTreeUI_ and DaoTreeUI_.IsVisible() then return true end
     if SeaPillarUI_ and SeaPillarUI_.IsVisible() then return true end
+    if DragonForgeUI_ and DragonForgeUI_.IsVisible() then return true end
+    if SwordForgeUI_ and SwordForgeUI_.IsVisible() then return true end
     if WarehouseUI_ and WarehouseUI_.IsVisible() then return true end
     if GourdUI_ and GourdUI_.IsVisible() then return true end
     if TemperUI_ and TemperUI_.IsVisible() then return true end

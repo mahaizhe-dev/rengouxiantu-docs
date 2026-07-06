@@ -328,7 +328,7 @@ function AlchemySystem.CanCraftTokenBox(tokenId, boxId)
     if not player then return false, "角色未就绪" end
 
     local tokenName = GameConfig.CONSUMABLES[tokenId] and GameConfig.CONSUMABLES[tokenId].name or tokenId
-    local lingYunCost = PillRecipes.TOKEN_BOX_LINGYUN_COST
+    local lingYunCost = PillRecipes.GetTokenBoxLingYunCost(tokenId, boxId)
     local tokenCost = PillRecipes.TOKEN_BOX_TOKEN_COST
 
     -- 灵韵检查
@@ -467,7 +467,7 @@ function AlchemySystem.CraftTokenBox(tokenId, boxId)
     local player = GameState.player
     if not player then return false, nil end
 
-    local lingYunCost = PillRecipes.TOKEN_BOX_LINGYUN_COST
+    local lingYunCost = PillRecipes.GetTokenBoxLingYunCost(tokenId, boxId)
     local tokenCost = PillRecipes.TOKEN_BOX_TOKEN_COST
     local boxName = GameConfig.CONSUMABLES[boxId] and GameConfig.CONSUMABLES[boxId].name or boxId
 

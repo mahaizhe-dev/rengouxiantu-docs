@@ -212,6 +212,7 @@ function VillageChiefUI.Show(npc)
         justifyContent = "center",
         alignItems = "center",
         backgroundColor = {0, 0, 0, 140},
+        zIndex = 900,
         children = {
             UI.Panel {
                 flexDirection = "column",

@@ -51,6 +51,45 @@ local function StatRow(icon, name, valStr, nameColor, valColor, fs)
     }
 end
 
+local NO_SELL_CONSUMABLE_IDS = {
+    exp_pill = true,
+    exp_pill_superior = true,
+    exp_pill_supreme = true,
+    lingyun_fruit = true,
+    lingyun_fruit_superior = true,
+    item_guardian_token = true,
+    gold_bar = true,
+    gold_brick = true,
+    xianjie_premium_zong = true,
+    wubao_token_box = true,
+    sha_hai_ling_box = true,
+    taixu_token_box = true,
+    taixu_jianling_box = true,
+    zhexian_ling_box = true,
+}
+
+local function ResolveSellInfo(item)
+    local displaySellPrice = item.sellPrice
+    local displaySellCurrency = item.sellCurrency
+    if item.category == "consumable" and item.consumableId then
+        local cfgItem = GameConfig.CONSUMABLES[item.consumableId]
+        if cfgItem then
+            if cfgItem.sellPrice ~= nil then
+                displaySellPrice = cfgItem.sellPrice
+            end
+            displaySellCurrency = cfgItem.sellCurrency or displaySellCurrency
+        end
+    end
+    return displaySellPrice, displaySellCurrency
+end
+
+local function IsConsumableSellable(item)
+    if not item or item.category ~= "consumable" then return false end
+    if NO_SELL_CONSUMABLE_IDS[item.consumableId] then return false end
+    local displaySellPrice = ResolveSellInfo(item)
+    return displaySellPrice ~= 0
+end
+
 --- 构建物品信息行（通用，供主面板和对比面板复用）
 ---@param item table
 ---@param tagLabel string|nil 标签（如"已装备"/"背包"）
@@ -472,25 +511,24 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
     end
 
     -- 售价（消耗品从 GameConfig 实时读取，避免存档旧值不同步）
-    local displaySellPrice = item.sellPrice
-    local displaySellCurrency = item.sellCurrency
-    if item.category == "consumable" and item.consumableId then
-        local cfgItem = GameConfig.CONSUMABLES[item.consumableId]
-        if cfgItem then
-            displaySellPrice = cfgItem.sellPrice or displaySellPrice
-            displaySellCurrency = cfgItem.sellCurrency or displaySellCurrency
+    local displaySellPrice, displaySellCurrency = ResolveSellInfo(item)
+    if displaySellPrice ~= nil then
+        local sellText
+        if displaySellPrice == 0 then
+            sellText = "无法出售"
+        else
+            sellText = displaySellCurrency == "lingYun"
+                and ("✨ 售价 " .. displaySellPrice .. " 灵韵")
+                or  ("💰 售价 " .. displaySellPrice)
         end
-    end
-    if displaySellPrice then
         table.insert(rows, UI.Panel {
             flexDirection = "row", justifyContent = "flex-end", paddingRight = T.spacing.xs,
             children = {
                 UI.Label {
-                    text = displaySellCurrency == "lingYun"
-                        and ("✨ 售价 " .. displaySellPrice .. " 灵韵")
-                        or  ("💰 售价 " .. displaySellPrice),
+                    text = sellText,
                     fontSize = T.fontSize.xs,
-                    fontColor = displaySellCurrency == "lingYun" and T.color.equipTipLingYunPrice or T.color.equipTipGoldPrice,
+                    fontColor = displaySellPrice == 0 and T.color.textMuted
+                        or (displaySellCurrency == "lingYun" and T.color.equipTipLingYunPrice or T.color.equipTipGoldPrice),
                 },
             },
         })
@@ -791,7 +829,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
                 children = batchBtns,
             })
         end
-        if item.consumableId == "wubao_token_box" or item.consumableId == "sha_hai_ling_box" or item.consumableId == "taixu_token_box" or item.consumableId == "taixu_jianling_box" then
+        if item.consumableId == "wubao_token_box" or item.consumableId == "sha_hai_ling_box" or item.consumableId == "taixu_token_box" or item.consumableId == "taixu_jianling_box" or item.consumableId == "zhexian_ling_box" then
             local cId = item.consumableId
             table.insert(btnChildren, UI.Button {
                 text = "📦 使用", backgroundColor = T.color.btnSpend, fontColor = T.color.btnSpendFg, flexGrow = 1,
@@ -823,14 +861,7 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
                 end,
             })
         end
-        -- 不可出售判定：sellPrice=0 的消耗品 + 特殊排除列表
-        local canSellConsumable = true
-        if displaySellPrice == 0 then canSellConsumable = false end
-        -- 额外排除：金条/金砖已有批量出售UI，精品粽走批量使用
-        local NO_SELL_IDS = { exp_pill=1, exp_pill_superior=1, exp_pill_supreme=1, lingyun_fruit=1, lingyun_fruit_superior=1,
-            item_guardian_token=1, gold_bar=1, gold_brick=1, xianjie_premium_zong=1,
-            wubao_token_box=1, sha_hai_ling_box=1, taixu_token_box=1, taixu_jianling_box=1 }
-        if NO_SELL_IDS[item.consumableId] then canSellConsumable = false end
+        local canSellConsumable = IsConsumableSellable(item)
         if canSellConsumable then
             table.insert(btnChildren, UI.Button {
                 text = "出售", backgroundColor = T.color.btnSuccess, fontColor = T.color.btnSuccessFg, flexGrow = 1,

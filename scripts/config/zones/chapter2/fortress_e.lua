@@ -78,6 +78,22 @@ fortress_e.npcs = {
         label = "悟道树",
         dialog = "灵树扎根于魔气之中却不染分毫，枝叶间隐有剑意流转。静坐树下，可窥天地至理。",
     },
+    {
+        id = "ch2_wubao_forge",
+        name = "乌堡锻造台",
+        subtitle = "血海锻戒",
+        x = 40.5,
+        y = 41.5,
+        image = "image/tiger_trial_forge_table_20260703120928.png",
+        portrait = "image/tiger_trial_forge_table_20260703120928.png",
+        interactType = "wubao_forge",
+        isObject = true,
+        hideName = false,
+        showNameplate = true,
+        zone = "fortress_e3",
+        label = "乌堡锻造台",
+        dialog = "大殿旧台仍有残火未熄，乌家血仇与帝尊戒意可在此合炼。\n投入乌堡戒·海、乌堡戒·仇、帝尊贰戒与十万金币，可铸成血海深仇戒。",
+    },
 }
 
 -- 怪物刷新点
@@ -109,14 +125,16 @@ fortress_e.spawns = {
     -- 乌地北 BOSS（BOSS房内）
     { type = "wu_dibei",        x = 58, y = 7 },
     -- 乌大傻 巡逻BOSS（北堡·BOSS房南侧水平长矩形）
-    { type = "wu_dasha",        x = 56, y = 18,
+    { type = "wu_dasha",        x = 56, y = 12,
       patrolPreset = "fortress_loop",
       patrol = {
           nodes = {
-              { x = 38, y = 15 },
-              { x = 74, y = 15 },
-              { x = 74, y = 21 },
-              { x = 38, y = 21 },
+              { x = 38, y = 12 },
+              { x = 50, y = 12 },
+              { x = 62, y = 12 },
+              { x = 74, y = 12 },
+              { x = 62, y = 12 },
+              { x = 50, y = 12 },
           },
       },
     },
@@ -142,21 +160,23 @@ fortress_e.spawns = {
       patrolPreset = "fortress_loop",
       patrol = {
           nodes = {
-              { x = 38, y = 61 },
-              { x = 74, y = 61 },
-              { x = 74, y = 67 },
-              { x = 38, y = 67 },
+              { x = 38, y = 64 },
+              { x = 50, y = 64 },
+              { x = 62, y = 64 },
+              { x = 74, y = 64 },
+              { x = 62, y = 64 },
+              { x = 50, y = 64 },
           },
       },
     },
 
     -- === E4 主堡：血傀×6 + 乌万仇(BOSS) ===
     { type = "wu_blood_puppet", x = 64, y = 32 },
-    { type = "wu_blood_puppet", x = 74, y = 34 },
-    { type = "wu_blood_puppet", x = 66, y = 42 },
-    { type = "wu_blood_puppet", x = 75, y = 48 },
-    { type = "wu_blood_puppet", x = 72, y = 38 },
-    { type = "wu_blood_puppet", x = 65, y = 44 },
+    { type = "wu_blood_puppet", x = 76, y = 32 },
+    { type = "wu_blood_puppet", x = 64, y = 41 },
+    { type = "wu_blood_puppet", x = 76, y = 41 },
+    { type = "wu_blood_puppet", x = 64, y = 50 },
+    { type = "wu_blood_puppet", x = 76, y = 50 },
     -- 乌万仇 BOSS（主堡中心）
     { type = "wu_wanchou",      x = 70, y = 41 },
 

@@ -76,7 +76,7 @@ RedeemCodes.CODES = {
     -- ========================================
     {
         code      = "RGXT",
-        rewards   = { gold = 1000, lingYun = 10 },
+        rewards   = { lingYun = 100, itemId = "gold_bar", itemCount = 10 },
         maxUses   = 0,
         perUser   = 1,
         perType   = "character",
@@ -86,10 +86,11 @@ RedeemCodes.CODES = {
     {
         code      = "RGXT099",
         rewards   = { lingYun = 100 },
-        maxUses   = 100,
+        maxUses   = 0,
         perUser   = 1,
+        perType   = "character",
         targetUID = 0,
-        note      = "新手欢迎礼包",
+        note      = "新手欢迎礼包（每角色1次，不限总次数）",
     },
     {
         code      = "TAIXU666",
@@ -97,7 +98,16 @@ RedeemCodes.CODES = {
         maxUses   = 100,
         perUser   = 1,
         targetUID = 0,
-        note      = "通用礼包：10金条+100灵韵",
+        disabled  = true,
+        note      = "[已废除] 通用礼包：10金条+100灵韵",
+    },
+    {
+        code      = "LIANGJIE6",
+        rewards   = { lingYun = 100 },
+        maxUses   = 100,
+        perUser   = 1,
+        perType   = "character",
+        note      = "第六章激活码：灵韵100，限100次，每角色1次",
     },
     -- 以下已废除（2026-04-06）
     { code = "SHOUHU873V2", enabled = false, rewards = {}, note = "已废除" },
@@ -126,7 +136,8 @@ RedeemCodes.CODES = {
         maxUses   = 1,
         perUser   = 1,
         targetUID = 1144778218,
-        note      = "1144778218专属：灵韵200+守护者证明x2",
+        disabled  = true,
+        note      = "[已废除] 1144778218专属：灵韵200+守护者证明x2",
     },
     {
         code      = "VIP849A",
@@ -137,7 +148,8 @@ RedeemCodes.CODES = {
         maxUses   = 1,
         perUser   = 1,
         targetUID = 849655543,
-        note      = "849655543专属：太虚令x500+守护者证明x1",
+        disabled  = true,
+        note      = "[已废除] 849655543专属：太虚令x500+守护者证明x1",
     },
     {
         code      = "VIP230B",
@@ -160,7 +172,8 @@ RedeemCodes.CODES = {
         maxUses   = 1,
         perUser   = 1,
         targetUID = 230729385,
-        note      = "230729385专属：蚀骨龙牙x1+守护者证明x3",
+        disabled  = true,
+        note      = "[已废除] 230729385专属：蚀骨龙牙x1+守护者证明x3",
     },
     -- ====== 剑星草+灵韵 一次性兑换码 x5 ======
     {
@@ -171,7 +184,8 @@ RedeemCodes.CODES = {
         },
         maxUses   = 1,
         perUser   = 1,
-        note      = "剑星草x1+灵韵1000（1/5）",
+        disabled  = true,
+        note      = "[已废除] 剑星草x1+灵韵1000（1/5）",
     },
     {
         code      = "R4WNTX8E",
@@ -181,7 +195,8 @@ RedeemCodes.CODES = {
         },
         maxUses   = 1,
         perUser   = 1,
-        note      = "剑星草x1+灵韵1000（2/5）",
+        disabled  = true,
+        note      = "[已废除] 剑星草x1+灵韵1000（2/5）",
     },
     {
         code      = "PH6DZYA3",
@@ -191,7 +206,8 @@ RedeemCodes.CODES = {
         },
         maxUses   = 1,
         perUser   = 1,
-        note      = "剑星草x1+灵韵1000（3/5）",
+        disabled  = true,
+        note      = "[已废除] 剑星草x1+灵韵1000（3/5）",
     },
     {
         code      = "V9BSGF5L",
@@ -201,7 +217,8 @@ RedeemCodes.CODES = {
         },
         maxUses   = 1,
         perUser   = 1,
-        note      = "剑星草x1+灵韵1000（4/5）",
+        disabled  = true,
+        note      = "[已废除] 剑星草x1+灵韵1000（4/5）",
     },
     {
         code      = "W2XJCN6H",
@@ -211,7 +228,8 @@ RedeemCodes.CODES = {
         },
         maxUses   = 1,
         perUser   = 1,
-        note      = "剑星草x1+灵韵1000（5/5）",
+        disabled  = true,
+        note      = "[已废除] 剑星草x1+灵韵1000（5/5）",
     },
     -- ====== 六一活动兑换码 ======
     {
@@ -234,7 +252,8 @@ RedeemCodes.CODES = {
         },
         maxUses   = 100,
         perUser   = 1,
-        note      = "端午活动：彩绳x5+香囊x1，限100次",
+        disabled  = true,
+        note      = "[已废除] 端午活动：彩绳x5+香囊x1",
     },
     {
         code      = "LIUYI61FU",
@@ -256,7 +275,8 @@ RedeemCodes.CODES = {
         maxUses   = 1,
         perUser   = 1,
         targetUID = 1503407930,
-        note      = "1503407930专属：守护者证明x1+先行者称号",
+        disabled  = true,
+        note      = "[已废除] 1503407930专属：守护者证明x1+先行者称号",
     },
     -- ====== 10W灵韵兑换码 ======
     {
@@ -266,7 +286,8 @@ RedeemCodes.CODES = {
         },
         maxUses   = 1,
         perUser   = 1,
-        note      = "10W灵韵，限1次",
+        disabled  = true,
+        note      = "[已废除] 10W灵韵",
     },
     {
         code      = "LY1W5PKD",
@@ -275,7 +296,8 @@ RedeemCodes.CODES = {
         },
         maxUses   = 5,
         perUser   = 1,
-        note      = "1W灵韵，限5次，每人1次",
+        disabled  = true,
+        note      = "[已废除] 1W灵韵",
     },
     {
         code      = "SH5XQTR7",
@@ -286,6 +308,20 @@ RedeemCodes.CODES = {
         maxUses   = 5,
         perUser   = 1,
         note      = "先行者称号+守护者证明x1，限5次，每人1次",
+    },
+    {
+        code      = "LY1K7JAH",
+        rewards   = { lingYun = 1000 },
+        maxUses   = 10,
+        perUser   = 1,
+        note      = "1000灵韵，限10次，每人1次",
+    },
+    {
+        code      = "LY1W9QBZ",
+        rewards   = { lingYun = 10000 },
+        maxUses   = 10,
+        perUser   = 1,
+        note      = "1W灵韵，限10次，每人1次",
     },
 }
 

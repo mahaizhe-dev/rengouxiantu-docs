@@ -18,7 +18,7 @@ return function(M)
         bodyColor = {40, 100, 40, 255},
         dropTable = {
             { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
-            { chance = 0.10, type = "consumable", consumableId = "spirit_meat" },
+            { chance = 0.80, type = "consumable", consumableId = "meat_bone" },
         },
     }
 
@@ -35,7 +35,7 @@ return function(M)
         bodyColor = {60, 50, 40, 255},
         dropTable = {
             { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
-            { chance = 0.10, type = "consumable", consumableId = "spirit_meat" },
+            { chance = 0.70, type = "consumable", consumableId = "meat_bone" },
         },
     }
     M.Types.red_boar_elite = {
@@ -52,8 +52,7 @@ return function(M)
         dropTable = {
             { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "purple" },
             { chance = 0.01, type = "world_drop", pool = "ch2" },  -- 世界掉落1%
-            { chance = 0.15, type = "consumable", consumableId = "spirit_meat" },
-            { chance = 0.03, type = "consumable", consumableId = "beast_meat" },
+            { chance = 0.30, type = "consumable", consumableId = "spirit_meat" },
         },
     }
     M.Types.boar_boss_ch2 = {
@@ -78,7 +77,6 @@ return function(M)
             { chance = 1.0, type = "lingYun", amount = {1, 1} },
             { chance = 0.25, type = "consumable", consumableId = "beast_meat" },
             -- ②专属材料
-            { chance = 0.15, type = "consumable", consumableId = "spirit_pill" },
             { chance = 0.05, type = "consumable", consumableId = "spirit_pill_2" },  -- 灵兽丹·贰5%
             { chance = 0.05, type = "consumable", consumableId = "qi_pill" },      -- 练气丹5%
             -- ③装备掉落
@@ -103,7 +101,7 @@ return function(M)
         bodyColor = {60, 180, 60, 255},
         dropTable = {
             { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
-            { chance = 0.10, type = "consumable", consumableId = "spirit_meat" },
+            { chance = 0.80, type = "consumable", consumableId = "meat_bone" },
         },
     }
     M.Types.snake_king = {
@@ -125,10 +123,8 @@ return function(M)
         },
         dropTable = {
             -- ①常规掉落
-            { chance = 1.0, type = "lingYun", amount = {1, 1} },
-            { chance = 0.50, type = "lingYun", amount = {1, 1} },
-            { chance = 0.20, type = "consumable", consumableId = "beast_meat" },
-            { chance = 0.05, type = "consumable", consumableId = "immortal_bone" },
+            { chance = 1.0, type = "lingYun", amount = {1, 2} },
+            { chance = 0.30, type = "consumable", consumableId = "beast_meat" },
             -- ②专属材料
             { chance = 0.05, type = "consumable", consumableId = "spirit_pill_2" },  -- 灵兽丹·贰5%
             { chance = 0.05, type = "world_drop", pool = "snake_books" },  -- 中级技能书5%（随机1本）
@@ -158,8 +154,7 @@ return function(M)
         dropTable = {
             { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "purple" },
             { chance = 0.01, type = "world_drop", pool = "ch2" },  -- 世界掉落1%
-            { chance = 0.12, type = "consumable", consumableId = "spirit_meat" },
-            { chance = 0.05, type = "consumable", consumableId = "beast_meat" },
+            { chance = 0.35, type = "consumable", consumableId = "spirit_meat" },
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- 精英必掉乌堡令
         },
     }
@@ -177,8 +172,7 @@ return function(M)
         dropTable = {
             { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "purple" },
             { chance = 0.01, type = "world_drop", pool = "ch2" },  -- 世界掉落1%
-            { chance = 0.12, type = "consumable", consumableId = "spirit_meat" },
-            { chance = 0.05, type = "consumable", consumableId = "beast_meat" },
+            { chance = 0.35, type = "consumable", consumableId = "spirit_meat" },
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- 精英必掉乌堡令
         },
     }
@@ -195,8 +189,8 @@ return function(M)
         realm = "zhuji_1",  -- 筑基初期
         bodyColor = {60, 60, 70, 255},
         dropTable = {
-            { chance = 0.15, type = "equipment", minQuality = "white", maxQuality = "purple" },
-            { chance = 0.10, type = "consumable", consumableId = "spirit_meat" },
+            { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
+            { chance = 0.90, type = "consumable", consumableId = "meat_bone" },
             { chance = 0.10, type = "consumable", consumableId = "wubao_token" },  -- 小怪10%乌堡令
         },
     }
@@ -211,8 +205,8 @@ return function(M)
         realm = "zhuji_1",  -- 筑基初期
         bodyColor = {70, 65, 75, 255},
         dropTable = {
-            { chance = 0.15, type = "equipment", minQuality = "white", maxQuality = "purple" },
-            { chance = 0.10, type = "consumable", consumableId = "spirit_meat" },
+            { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
+            { chance = 1.0, type = "consumable", consumableId = "meat_bone" },
             { chance = 0.10, type = "consumable", consumableId = "wubao_token" },  -- 小怪10%乌堡令
         },
     }
@@ -230,8 +224,7 @@ return function(M)
         dropTable = {
             { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "orange" },
             { chance = 0.01, type = "world_drop", pool = "ch2" },  -- 世界掉落1%
-            { chance = 0.10, type = "consumable", consumableId = "spirit_meat" },
-            { chance = 0.08, type = "consumable", consumableId = "beast_meat" },
+            { chance = 0.35, type = "consumable", consumableId = "spirit_meat" },
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- 精英必掉乌堡令
         },
     }
@@ -256,10 +249,8 @@ return function(M)
         },
         dropTable = {
             -- ①常规掉落
-            { chance = 1.0, type = "lingYun", amount = {1, 1} },
-            { chance = 0.50, type = "lingYun", amount = {1, 1} },
-            { chance = 0.15, type = "consumable", consumableId = "beast_meat" },
-            { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
+            { chance = 1.0, type = "lingYun", amount = {2, 2} },
+            { chance = 0.40, type = "consumable", consumableId = "beast_meat" },
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- BOSS必掉乌堡令
             -- ②专属材料
             { chance = 0.02, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木2%
@@ -271,7 +262,7 @@ return function(M)
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
             -- ⑤世界掉落
             { chance = 0.02, type = "world_drop", pool = "ch2" },
-            { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1%
+            { chance = 0.015, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1.5%
         },
     }
     M.Types.wu_ersha = {
@@ -293,10 +284,8 @@ return function(M)
         },
         dropTable = {
             -- ①常规掉落
-            { chance = 1.0, type = "lingYun", amount = {1, 1} },
-            { chance = 0.50, type = "lingYun", amount = {1, 1} },
-            { chance = 0.15, type = "consumable", consumableId = "beast_meat" },
-            { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
+            { chance = 1.0, type = "lingYun", amount = {2, 2} },
+            { chance = 0.40, type = "consumable", consumableId = "beast_meat" },
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- BOSS必掉乌堡令
             -- ②专属材料
             { chance = 0.02, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木2%
@@ -308,7 +297,7 @@ return function(M)
             { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
             -- ⑤世界掉落
             { chance = 0.02, type = "world_drop", pool = "ch2" },
-            { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1%
+            { chance = 0.015, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1.5%
         },
     }
 
@@ -332,10 +321,8 @@ return function(M)
         },
         dropTable = {
             -- ①常规掉落
-            { chance = 1.0, type = "lingYun", amount = {1, 1} },
-            { chance = 0.50, type = "lingYun", amount = {1, 1} },
-            { chance = 0.15, type = "consumable", consumableId = "beast_meat" },
-            { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
+            { chance = 1.0, type = "lingYun", amount = {1, 2} },
+            { chance = 0.35, type = "consumable", consumableId = "beast_meat" },
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- BOSS必掉乌堡令
             -- ②专属材料
             { chance = 0.02, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木2%
@@ -346,7 +333,7 @@ return function(M)
             { chance = 0.05, type = "equipment", equipId = "wu_shoulder_ch2" },   -- 玄铁肩甲5%
             -- ⑤世界掉落
             { chance = 0.02, type = "world_drop", pool = "ch2" },
-            { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1%
+            { chance = 0.015, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1.5%
         },
     }
 
@@ -370,11 +357,8 @@ return function(M)
         },
         dropTable = {
             -- ①常规掉落
-            { chance = 1.0, type = "lingYun", amount = {1, 1} },
-            { chance = 0.50, type = "lingYun", amount = {1, 1} },
-            { chance = 0.15, type = "consumable", consumableId = "beast_meat" },
-            { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
-            { chance = 0.02, type = "consumable", consumableId = "demon_essence" },
+            { chance = 1.0, type = "lingYun", amount = {1, 2} },
+            { chance = 0.35, type = "consumable", consumableId = "beast_meat" },
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- BOSS必掉乌堡令
             -- ②专属材料
             { chance = 0.02, type = "consumable", consumableId = "diamond_wood" },  -- 金刚木2%
@@ -385,7 +369,7 @@ return function(M)
             { chance = 0.05, type = "equipment", equipId = "wu_weapon_ch2" },     -- 南刀·裂风5%
             -- ⑤世界掉落
             { chance = 0.02, type = "world_drop", pool = "ch2" },
-            { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1%
+            { chance = 0.015, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1.5%
         },
     }
 
@@ -416,11 +400,8 @@ return function(M)
         },
         dropTable = {
             -- ①常规掉落
-            { chance = 1.0, type = "lingYun", amount = {1, 1} },
-            { chance = 1.0, type = "lingYun", amount = {1, 1} },
-            { chance = 0.12, type = "consumable", consumableId = "beast_meat" },
-            { chance = 0.10, type = "consumable", consumableId = "immortal_bone" },
-            { chance = 0.03, type = "consumable", consumableId = "demon_essence" },
+            { chance = 1.0, type = "lingYun", amount = {2, 3} },
+            { chance = 0.45, type = "consumable", consumableId = "beast_meat" },
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- BOSS必掉乌堡令
             -- ②专属材料
             { chance = 0.05, type = "consumable", consumableId = "spirit_pill_2" },  -- 灵兽丹·贰5%
@@ -432,7 +413,7 @@ return function(M)
             { chance = 0.02, type = "equipment", equipId = "dizun_ring_ch2" },
             -- ⑥世界掉落
             { chance = 0.02, type = "world_drop", pool = "ch2" },
-            { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1%
+            { chance = 0.015, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1.5%
         },
     }
 
@@ -460,12 +441,8 @@ return function(M)
         },
         dropTable = {
             -- ①常规掉落
-            { chance = 1.0, type = "lingYun", amount = {1, 1} },
-            { chance = 1.0, type = "lingYun", amount = {1, 1} },
-            { chance = 1.0, type = "lingYun", amount = {1, 1} },
-            { chance = 0.10, type = "consumable", consumableId = "beast_meat" },
-            { chance = 0.12, type = "consumable", consumableId = "immortal_bone" },
-            { chance = 0.05, type = "consumable", consumableId = "demon_essence" },
+            { chance = 1.0, type = "lingYun", amount = {3, 3} },
+            { chance = 0.30, type = "consumable", consumableId = "immortal_bone" },
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- 王级BOSS必掉乌堡令
             -- ②专属材料
             { chance = 0.10, type = "consumable", consumableId = "spirit_pill_2" },  -- 灵兽丹·贰10%
@@ -476,9 +453,11 @@ return function(M)
             { chance = 0.02, type = "equipment", equipId = "wu_boots_ch2" },      -- 踏云靴2%
             -- ⑤帝尊贰戒（2%独立掉落）
             { chance = 0.02, type = "equipment", equipId = "dizun_ring_ch2" },
-            -- ⑥世界掉落
+            -- ⑥堡主钥匙
+            { chance = 0.01, type = "consumable", consumableId = "wubao_treasure_key" }, -- 堡主钥匙1%
+            -- ⑦世界掉落
             { chance = 0.02, type = "world_drop", pool = "ch2" },
-            { chance = 0.01, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1%
+            { chance = 0.015, type = "world_drop", pool = "boss_pill_ch2" },  -- 筑基丹/修炼果/乌堡令盒共享1.5%
         },
     }
 
@@ -494,7 +473,7 @@ return function(M)
         passive = true,  -- 不主动攻击，被打才还手
         bodyColor = {60, 160, 60, 255},
         dropTable = {
-            { chance = 0.65, type = "consumable", consumableId = "meat_bone" },
+            { chance = 0.50, type = "consumable", consumableId = "meat_bone" },
         },
     }
 end

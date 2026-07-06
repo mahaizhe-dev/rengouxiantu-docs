@@ -25,12 +25,10 @@ spider_cave.spawns = {
     { type = "spider_small", x = 47, y = 56 },   -- 避开碎石过渡区 x=43~44
     { type = "spider_small", x = 51, y = 58 },   -- 安全
     { type = "spider_small", x = 54, y = 56 },   -- 安全
-    { type = "spider_small", x = 57, y = 55 },   -- 安全
     -- 西侧通道
     { type = "spider_small", x = 46, y = 63 },   -- 安全，避开碎石区上限
     { type = "spider_small", x = 48, y = 70 },   -- 安全
     { type = "spider_small", x = 47, y = 76 },   -- 安全，避开边界 x=43
-    { type = "spider_small", x = 50, y = 73 },   -- 安全
     -- 中部区域
     { type = "spider_small", x = 54, y = 62 },   -- 安全
     { type = "spider_small", x = 57, y = 65 },   -- 安全
@@ -39,7 +37,6 @@ spider_cave.spawns = {
     -- 东部区域
     { type = "spider_small", x = 60, y = 68 },   -- 安全
     { type = "spider_small", x = 56, y = 60 },   -- 安全
-    { type = "spider_small", x = 54, y = 75 },   -- 安全
     -- 精英蜘蛛（Lv.6）
     { type = "spider_elite", x = 49, y = 62 },   -- 安全
     { type = "spider_elite", x = 56, y = 72 },   -- 安全

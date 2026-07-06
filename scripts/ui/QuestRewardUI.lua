@@ -417,6 +417,16 @@ local function GetItemDisplay(itemId)
         return { name = foodData.name, icon = foodData.icon,
                  quality = foodData.quality or "white", desc = foodData.desc or "" }
     end
+    local eventData = GameConfig.EVENT_ITEMS and GameConfig.EVENT_ITEMS[itemId]
+    if eventData then
+        return { name = eventData.name, icon = eventData.icon,
+                 quality = eventData.quality or "white", desc = eventData.desc or "" }
+    end
+    local consumableData = GameConfig.CONSUMABLES and GameConfig.CONSUMABLES[itemId]
+    if consumableData then
+        return { name = consumableData.name, icon = consumableData.icon,
+                 quality = consumableData.quality or "white", desc = consumableData.desc or "" }
+    end
     return { name = itemId, icon = "📦", quality = "white", desc = "" }
 end
 
@@ -597,7 +607,286 @@ function QuestRewardUI.HideMaterialBundle()
     end
 end
 
+-- 服务端已发放奖励的展示弹窗：只展示，不二次写入背包。
+local grantedPanel_ = nil
+local grantedVisible_ = false
+local pendingGrantedCallback_ = nil
+
+function QuestRewardUI.ShowGrantedReward(reward, callback)
+    if grantedVisible_ then QuestRewardUI.HideGrantedReward() end
+    if not overlay_ then
+        if callback then callback() end
+        return
+    end
+
+    local itemId = reward and (reward.itemId or reward.consumableId) or ""
+    if itemId == "" then
+        if callback then callback() end
+        return
+    end
+
+    local count = reward.count or 1
+    local info = GetItemDisplay(itemId)
+    local qualityCfg = GameConfig.QUALITY[info.quality]
+    local qColor = qualityCfg and qualityCfg.color or {200, 200, 200, 255}
+    local qName = qualityCfg and qualityCfg.name or "普通"
+    local countText = count > 1 and (" ×" .. count) or ""
+    pendingGrantedCallback_ = callback
+
+    grantedPanel_ = UI.Panel {
+        id = "quest_granted_reward_panel",
+        position = "absolute",
+        top = 0, left = 0, right = 0, bottom = 0,
+        justifyContent = "center",
+        alignItems = "center",
+        backgroundColor = {0, 0, 0, 160},
+        zIndex = 200,
+        children = {
+            UI.Panel {
+                flexDirection = "column",
+                alignItems = "center",
+                gap = T.spacing.md,
+                backgroundColor = {20, 22, 35, 245},
+                borderRadius = T.radius.lg,
+                borderWidth = 1,
+                borderColor = {qColor[1], qColor[2], qColor[3], 120},
+                paddingTop = T.spacing.lg,
+                paddingBottom = T.spacing.lg,
+                paddingLeft = T.spacing.xl,
+                paddingRight = T.spacing.xl,
+                minWidth = 280,
+                children = {
+                    UI.Label {
+                        text = reward.title or "任务完成",
+                        fontSize = T.fontSize.lg,
+                        fontWeight = "bold",
+                        fontColor = {255, 215, 0, 255},
+                        textAlign = "center",
+                    },
+                    UI.Panel {
+                        width = "80%", height = 1,
+                        backgroundColor = {255, 215, 0, 40},
+                    },
+                    UI.Label {
+                        text = reward.subtitle or "获得奖励",
+                        fontSize = T.fontSize.sm,
+                        fontColor = {180, 180, 200, 180},
+                        textAlign = "center",
+                    },
+                    UI.Panel {
+                        width = 80, height = 80,
+                        justifyContent = "center",
+                        alignItems = "center",
+                        backgroundColor = {qColor[1], qColor[2], qColor[3], 30},
+                        borderRadius = T.radius.md,
+                        borderWidth = 2,
+                        borderColor = {qColor[1], qColor[2], qColor[3], 150},
+                        children = {
+                            buildIconChild(info.icon, 40),
+                        },
+                    },
+                    UI.Label {
+                        text = info.name .. countText,
+                        fontSize = T.fontSize.md,
+                        fontWeight = "bold",
+                        fontColor = qColor,
+                        textAlign = "center",
+                    },
+                    UI.Label {
+                        text = "[" .. qName .. "]",
+                        fontSize = T.fontSize.xs,
+                        fontColor = {qColor[1], qColor[2], qColor[3], 180},
+                        textAlign = "center",
+                    },
+                    UI.Label {
+                        text = info.desc or "",
+                        fontSize = T.fontSize.xs,
+                        fontColor = {160, 160, 180, 180},
+                        textAlign = "center",
+                        width = 220,
+                    },
+                    UI.Button {
+                        text = "确认",
+                        width = 140,
+                        height = 36,
+                        fontSize = T.fontSize.md,
+                        fontWeight = "bold",
+                        fontColor = {255, 255, 255, 255},
+                        variant = "primary",
+                        borderRadius = T.radius.md,
+                        onClick = function(self)
+                            QuestRewardUI.ConfirmGrantedReward()
+                        end,
+                    },
+                },
+            },
+        },
+    }
+
+    overlay_:AddChild(grantedPanel_)
+    grantedVisible_ = true
+    GameState.uiOpen = "quest_granted_reward"
+end
+
+function QuestRewardUI.ConfirmGrantedReward()
+    local cb = pendingGrantedCallback_
+    QuestRewardUI.HideGrantedReward()
+    if cb then cb() end
+end
+
+function QuestRewardUI.HideGrantedReward()
+    if grantedPanel_ then
+        grantedPanel_:Destroy()
+        grantedPanel_ = nil
+    end
+    grantedVisible_ = false
+    pendingGrantedCallback_ = nil
+    if GameState.uiOpen == "quest_granted_reward" then
+        GameState.uiOpen = nil
+    end
+end
+
+function QuestRewardUI.IsGrantedRewardVisible()
+    return grantedVisible_
+end
+
 --- 创建 UI（初始化时调用一次）
+local function ResolveGrantedBundleEntry(entry)
+    local itemId = entry and (entry.itemId or entry.consumableId)
+    if itemId then
+        local info = GetItemDisplay(itemId)
+        return {
+            name = info.name,
+            icon = info.icon,
+            quality = info.quality,
+            desc = info.desc,
+            count = entry.count or 1,
+        }
+    end
+    return {
+        name = entry and entry.name or "?",
+        icon = entry and entry.icon or "?",
+        quality = entry and entry.quality or "white",
+        desc = entry and entry.desc or "",
+        count = entry and entry.count or 1,
+    }
+end
+
+function QuestRewardUI.ShowGrantedBundle(data, callback)
+    if grantedVisible_ then QuestRewardUI.HideGrantedReward() end
+    if not overlay_ then
+        if callback then callback() end
+        return
+    end
+
+    local cards = {}
+    for _, entry in ipairs((data and data.items) or {}) do
+        local info = ResolveGrantedBundleEntry(entry)
+        local qualityCfg = GameConfig.QUALITY[info.quality]
+        local qColor = qualityCfg and qualityCfg.color or {200, 200, 200, 255}
+        local countText = (info.count or 1) > 1 and (" ×" .. tostring(info.count)) or ""
+        cards[#cards + 1] = UI.Panel {
+            flexDirection = "column",
+            alignItems = "center",
+            gap = T.spacing.xs,
+            width = 100,
+            children = {
+                UI.Panel {
+                    width = 58, height = 58,
+                    justifyContent = "center",
+                    alignItems = "center",
+                    backgroundColor = {qColor[1], qColor[2], qColor[3], 30},
+                    borderRadius = T.radius.md,
+                    borderWidth = 2,
+                    borderColor = {qColor[1], qColor[2], qColor[3], 150},
+                    children = {
+                        buildIconChild(info.icon, 30),
+                    },
+                },
+                UI.Label {
+                    text = info.name .. countText,
+                    fontSize = T.fontSize.sm,
+                    fontWeight = "bold",
+                    fontColor = qColor,
+                    textAlign = "center",
+                    width = 96,
+                },
+            },
+        }
+    end
+
+    pendingGrantedCallback_ = callback
+    grantedPanel_ = UI.Panel {
+        id = "quest_granted_bundle_panel",
+        position = "absolute",
+        top = 0, left = 0, right = 0, bottom = 0,
+        justifyContent = "center",
+        alignItems = "center",
+        backgroundColor = {0, 0, 0, 160},
+        zIndex = 200,
+        children = {
+            UI.Panel {
+                flexDirection = "column",
+                alignItems = "center",
+                gap = T.spacing.md,
+                backgroundColor = {20, 22, 35, 245},
+                borderRadius = T.radius.lg,
+                borderWidth = 1,
+                borderColor = {255, 215, 0, 90},
+                paddingTop = T.spacing.lg,
+                paddingBottom = T.spacing.lg,
+                paddingLeft = T.spacing.xl,
+                paddingRight = T.spacing.xl,
+                minWidth = 300,
+                children = {
+                    UI.Label {
+                        text = (data and data.title) or "奖励已发放",
+                        fontSize = T.fontSize.lg,
+                        fontWeight = "bold",
+                        fontColor = {255, 215, 0, 255},
+                        textAlign = "center",
+                    },
+                    UI.Panel {
+                        width = "80%", height = 1,
+                        backgroundColor = {255, 215, 0, 40},
+                    },
+                    UI.Label {
+                        text = (data and data.subtitle) or "获得奖励",
+                        fontSize = T.fontSize.sm,
+                        fontColor = {180, 180, 200, 180},
+                        textAlign = "center",
+                    },
+                    UI.Panel {
+                        flexDirection = "row",
+                        justifyContent = "center",
+                        alignItems = "flex-start",
+                        gap = T.spacing.md,
+                        children = cards,
+                    },
+                    UI.Button {
+                        text = "确认",
+                        width = 140,
+                        height = 36,
+                        fontSize = T.fontSize.md,
+                        fontWeight = "bold",
+                        fontColor = {255, 255, 255, 255},
+                        variant = "primary",
+                        borderRadius = T.radius.md,
+                        onClick = function(self)
+                            QuestRewardUI.ConfirmGrantedReward()
+                        end,
+                    },
+                },
+            },
+        },
+    }
+
+    overlay_:AddChild(grantedPanel_)
+    grantedVisible_ = true
+    GameState.uiOpen = "quest_granted_reward"
+end
+
+--- Create UI once during initialization.
 ---@param parentOverlay table
 function QuestRewardUI.Create(parentOverlay)
     overlay_ = parentOverlay
@@ -611,6 +900,12 @@ function QuestRewardUI.Create(parentOverlay)
     end)
     EventBus.On("quest_material_bundle_reward", function(items, callback)
         QuestRewardUI.ShowMaterialBundle(items, callback)
+    end)
+    EventBus.On("quest_granted_reward_popup", function(reward, callback)
+        QuestRewardUI.ShowGrantedReward(reward, callback)
+    end)
+    EventBus.On("quest_granted_bundle_reward_popup", function(data, callback)
+        QuestRewardUI.ShowGrantedBundle(data, callback)
     end)
     EventBus.On("quest_consumable_pick", function(bookIds)
         QuestRewardUI.ShowConsumablePick(bookIds)
@@ -981,6 +1276,7 @@ function QuestRewardUI.Destroy()
     if visible_ then QuestRewardUI.Hide() end
     if materialVisible_ then QuestRewardUI.HideMaterial() end
     if bundleVisible_ then QuestRewardUI.HideMaterialBundle() end
+    if grantedVisible_ then QuestRewardUI.HideGrantedReward() end
     if consumableVisible_ then QuestRewardUI.HideConsumablePick() end
     overlay_ = nil
     panel_ = nil
@@ -995,6 +1291,9 @@ function QuestRewardUI.Destroy()
     bundleVisible_ = false
     pendingBundleItems_ = nil
     pendingBundleCallback_ = nil
+    grantedPanel_ = nil
+    grantedVisible_ = false
+    pendingGrantedCallback_ = nil
     consumablePanel_ = nil
     consumableVisible_ = false
     consumableBookIds_ = nil

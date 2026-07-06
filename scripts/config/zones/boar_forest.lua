@@ -20,7 +20,6 @@ boar_forest.spawns = {
     -- 北部入口区域（避开碎石过渡带 y=49~54）
     { type = "boar_small", x = 20, y = 57 },   -- 下移避开碎石区
     { type = "boar_small", x = 30, y = 56 },   -- 下移避开碎石区
-    { type = "boar_small", x = 35, y = 58 },   -- 下移避开碎石和 fallen_tree(10,58)
     -- 西部森林
     { type = "boar_small", x = 6,  y = 61 },   -- 安全
     { type = "boar_small", x = 12, y = 64 },   -- 安全
@@ -29,7 +28,6 @@ boar_forest.spawns = {
     -- 中部森林
     { type = "boar_small", x = 25, y = 62 },   -- 安全
     { type = "boar_small", x = 30, y = 70 },   -- 避开 fallen_tree(28,64) 和 pond(26,67~68)
-    { type = "boar_small", x = 22, y = 75 },   -- 安全
     { type = "boar_small", x = 34, y = 72 },   -- 安全
     -- 东部森林
     { type = "boar_small", x = 33, y = 65 },   -- 安全
@@ -39,6 +37,7 @@ boar_forest.spawns = {
     { type = "boar_captain", x = 15, y = 65 },  -- 安全
     { type = "boar_captain", x = 28, y = 74 },  -- 安全
     { type = "boar_captain", x = 10, y = 71 },  -- 西部森林补点
+    { type = "boar_captain", x = 34, y = 64 },  -- 东部森林补点
     -- BOSS（深处，Lv.10）
     { type = "boar_king",  x = 20, y = 70 },    -- 安全
 }

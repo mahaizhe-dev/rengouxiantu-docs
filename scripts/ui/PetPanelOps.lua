@@ -13,6 +13,14 @@ local T = require("config.UITheme")
 
 local PetPanelOps = {}
 
+local function RequestPetBookImmediateSave(reason)
+    EventBus.Emit("save_request")
+    local ok, SaveSystem = pcall(require, "systems.SaveSystem")
+    if ok and SaveSystem and SaveSystem.RequestImmediateSave then
+        SaveSystem.RequestImmediateSave(reason)
+    end
+end
+
 -- 宠物技能变更后刷新角色面板（仙缘属性可能受影响）
 local function notifyCharacterUI()
     local CharacterUI = require("ui.CharacterUI")
@@ -162,6 +170,7 @@ function PetPanelOps.DoUpgradePathA(slotIndex, skill, callbacks)
         end
     end
 
+    RequestPetBookImmediateSave("pet_skill_upgrade_path_a")
     callbacks.hideConfirm()
     callbacks.refresh()
     notifyCharacterUI()

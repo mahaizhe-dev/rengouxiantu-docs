@@ -2,10 +2,10 @@
 -- test_mingge_drop_contract.lua — 五行命格掉落合同与定价测试（blocking）
 --
 -- 覆盖范围（§5.3）：
---   D1: SELL_PRICE 完整（3 tier × 3 quality）且满足 purple < orange < cyan
+--   D1: SELL_PRICE 完整（4 tier × 3 quality）且满足 purple < orange < cyan
 --   D2: SELL_PRICE 跨 tier 递增：T(n)[q] <= T(n+1)[q]
 --   D3: DROP_RULES 字段完整且数值合理
---   D4: SOURCES 等级约束 — T1:[36,89], T2:[90,119], T3:120
+--   D4: SOURCES 等级约束 — T1:[36,89], T2:[90,119], T3:[120,139], T4:140
 --   D5: SOURCES 五行分布 — 每个元素至少有来源
 --   D6: BOSS_TO_MINGGE 映射目标都在 SOURCES 中
 --   D7: GetMinggeId 格式验证 — element_bossId
@@ -55,7 +55,7 @@ SUITE("D1: SELL_PRICE 完整性与品质递增")
 
 ASSERT(MinggeData.SELL_PRICE ~= nil, "SELL_PRICE 存在")
 
-local TIERS = { 1, 2, 3 }
+local TIERS = { 1, 2, 3, 4 }
 local QUALITIES = { "purple", "orange", "cyan" }
 
 if MinggeData.SELL_PRICE then
@@ -87,6 +87,9 @@ if MinggeData.SELL_PRICE then
     ASSERT_EQ(MinggeData.SELL_PRICE[3].purple, 3, "T3 purple 售价 = 3")
     ASSERT_EQ(MinggeData.SELL_PRICE[3].orange, 6, "T3 orange 售价 = 6")
     ASSERT_EQ(MinggeData.SELL_PRICE[3].cyan, 9, "T3 cyan 售价 = 9")
+    ASSERT_EQ(MinggeData.SELL_PRICE[4].purple, 4, "T4 purple 售价 = 4")
+    ASSERT_EQ(MinggeData.SELL_PRICE[4].orange, 8, "T4 orange 售价 = 8")
+    ASSERT_EQ(MinggeData.SELL_PRICE[4].cyan, 12, "T4 cyan 售价 = 12")
 end
 
 -- ============================================================================
@@ -96,7 +99,7 @@ SUITE("D2: SELL_PRICE 跨 tier 递增")
 
 if MinggeData.SELL_PRICE then
     for _, q in ipairs(QUALITIES) do
-        for i = 1, 2 do
+        for i = 1, #TIERS - 1 do
             local curr = MinggeData.SELL_PRICE[i]
             local next = MinggeData.SELL_PRICE[i + 1]
             if curr and next and curr[q] and next[q] then
@@ -147,8 +150,13 @@ for bossId, source in pairs(MinggeData.SOURCES) do
         ASSERT(source.level >= 90 and source.level <= 119,
             bossId .. ": T2 level=" .. source.level .. " 在 [90,119]")
     elseif source.tier == 3 then
-        ASSERT_EQ(source.level, 120,
-            bossId .. ": T3 level=" .. source.level .. " = 120")
+        ASSERT(source.level >= 120 and source.level <= 139,
+            bossId .. ": T3 level=" .. source.level .. " 在 [120,139]")
+    elseif source.tier == 4 then
+        ASSERT_EQ(source.level, 140,
+            bossId .. ": T4 level=" .. source.level .. " = 140")
+    else
+        ASSERT(false, bossId .. ": 未知 tier=" .. tostring(source.tier))
     end
 end
 

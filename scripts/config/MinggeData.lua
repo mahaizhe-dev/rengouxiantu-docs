@@ -141,6 +141,7 @@ MinggeData.SELL_PRICE = {
     [1] = { purple = 1, orange = 2, cyan = 3 },
     [2] = { purple = 2, orange = 4, cyan = 6 },
     [3] = { purple = 3, orange = 6, cyan = 9 },
+    [4] = { purple = 4, orange = 8, cyan = 12 },
 }
 
 -- ============================================================================
@@ -210,7 +211,7 @@ MinggeData.DECIMAL_STATS = {
 }
 
 -- ============================================================================
--- 7. T1/T2/T3 属性范围表
+-- 7. T1/T2/T3/T4 属性范围表
 -- ============================================================================
 -- 格式: STAT_RANGES[tier][statId][quality] = { min, max }
 -- 百分比属性存储为小数（如 1.0% 存为 0.01）
@@ -270,10 +271,28 @@ MinggeData.STAT_RANGES = {
         constitution  = { purple = {7, 8},      orange = {9, 10},     cyan = {11, 12} },
         physique      = { purple = {7, 8},      orange = {9, 10},     cyan = {11, 12} },
     },
+    -- T4 (Lv.140 第六章终盘)
+    [4] = {
+        atk           = { purple = {12, 13},    orange = {14, 15},    cyan = {16, 17} },
+        def           = { purple = {12, 13},    orange = {14, 15},    cyan = {16, 17} },
+        maxHp         = { purple = {60, 65},    orange = {65, 75},    cyan = {75, 85} },
+        hpRegen       = { purple = {6.0, 6.5},  orange = {6.5, 7.5},  cyan = {7.5, 8.5} },
+        killHeal      = { purple = {34, 38},    orange = {39, 43},    cyan = {44, 48} },
+        heavyHit      = { purple = {42, 47},    orange = {48, 53},    cyan = {54, 59} },
+        critRate      = { purple = {0.037, 0.041}, orange = {0.042, 0.046}, cyan = {0.047, 0.051} },
+        critDmg       = { purple = {0.088, 0.098}, orange = {0.099, 0.109}, cyan = {0.110, 0.120} },
+        moveSpeed     = { purple = {0.037, 0.041}, orange = {0.042, 0.046}, cyan = {0.047, 0.051} },
+        tianzhuChance = { purple = {0.037, 0.041}, orange = {0.042, 0.046}, cyan = {0.047, 0.051} },
+        tianzhuDamage = { purple = {0.088, 0.098}, orange = {0.099, 0.109}, cyan = {0.110, 0.120} },
+        fortune       = { purple = {10, 11},    orange = {12, 13},    cyan = {14, 15} },
+        wisdom        = { purple = {10, 11},    orange = {12, 13},    cyan = {14, 15} },
+        constitution  = { purple = {10, 11},    orange = {12, 13},    cyan = {14, 15} },
+        physique      = { purple = {10, 11},    orange = {12, 13},    cyan = {14, 15} },
+    },
 }
 
 -- ============================================================================
--- 8. 37 个命格来源表
+-- 8. 命格来源表
 -- ============================================================================
 -- 格式: SOURCES[bossId] = { name, element, stat, tier, level }
 -- bossId 与 MonsterTypes 的 typeId 对应
@@ -322,6 +341,21 @@ MinggeData.SOURCES = {
     marshal_shugu   = { name = "镇渊魔帅·蚀骨",         element = "earth", stat = "def",           tier = 3, level = 120 },
     marshal_liesoul = { name = "镇渊魔帅·裂魂",         element = "fire",  stat = "atk",           tier = 3, level = 120 },
     outer_celestial_boss = { name = "域外天魔",         element = "fire",  stat = "moveSpeed",     tier = 3, level = 120 },
+
+    -- ======================== Ch6 T3 (7个, Lv.124~138) ========================
+    ch6_lingfeng    = { name = "巡游天神·凌风",         element = "fire",  stat = "wisdom",        tier = 3, level = 124 },
+    ch6_zhuyou      = { name = "夜游神·烛幽",           element = "water", stat = "hpRegen",       tier = 3, level = 128 },
+    ch6_duanyue     = { name = "两界山神·断岳",         element = "wood",  stat = "physique",      tier = 3, level = 132 },
+    ch6_pojun       = { name = "西大营天将·破军",       element = "metal", stat = "killHeal",      tier = 3, level = 137 },
+    ch6_zhenyuan    = { name = "西大营天将·镇垣",       element = "earth", stat = "constitution",  tier = 3, level = 138 },
+    ch6_qingfeng    = { name = "东大营天将·青锋",       element = "wood",  stat = "heavyHit",      tier = 3, level = 137 },
+    ch6_leice       = { name = "东大营天将·雷策",       element = "earth", stat = "fortune",       tier = 3, level = 138 },
+
+    -- ======================== Ch6 T4 (4个, Lv.140) ========================
+    ch6_heng_marshal  = { name = "哼元帅",              element = "earth", stat = "fortune",       tier = 4, level = 140 },
+    ch6_ha_marshal    = { name = "哈元帅",              element = "fire",  stat = "moveSpeed",     tier = 4, level = 140 },
+    ch6_gua_master    = { name = "呱大人",              element = "water", stat = "tianzhuChance", tier = 4, level = 140 },
+    ch6_mojun_shixuan = { name = "魔君·蚀玄",          element = "metal", stat = "tianzhuDamage", tier = 4, level = 140 },
 }
 
 -- ============================================================================
@@ -370,6 +404,18 @@ MinggeData.PORTRAITS = {
     marshal_shugu   = "Textures/monster_marshal_shugu.png",
     marshal_liesoul = "Textures/monster_marshal_liesoul.png",
     outer_celestial_boss = "image/edited_monster_outer_celestial_20260619095204.png",
+    -- Ch6 T3/T4
+    ch6_lingfeng      = "image/monster_ch6_narrow_lingfeng_q_20260627083109.png",
+    ch6_zhuyou        = "image/monster_ch6_zhuyou_q2_20260627084954.png",
+    ch6_duanyue       = "image/monster_ch6_duanyue_majestic_20260627093145.png",
+    ch6_pojun         = "image/monster_ch6_pojun_serious_20260627102842.png",
+    ch6_zhenyuan      = "image/monster_ch6_zhenyuan_serious_20260627102859.png",
+    ch6_qingfeng      = "image/monster_ch6_qingfeng_serious_20260627102842.png",
+    ch6_leice         = "image/monster_ch6_leice_serious_20260627103121.png",
+    ch6_heng_marshal  = "image/monster_ch6_heng_marshal_comic_20260627102506.png",
+    ch6_ha_marshal    = "image/monster_ch6_ha_marshal_comic_20260627102518.png",
+    ch6_gua_master    = "image/monster_ch6_gua_master_funny_ref_20260627104326.png",
+    ch6_mojun_shixuan = "image/monster_ch6_mojun_shixuan_ref_darker_20260627105823.png",
 }
 
 -- ============================================================================

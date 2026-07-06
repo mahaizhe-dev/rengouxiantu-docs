@@ -36,6 +36,7 @@ local VALID_TREE_IDS = {
     dao_tree_ch3 = true,
     dao_tree_ch4 = true,
     dao_tree_ch5 = true,  -- 第五章·洗剑寒池悟道树
+    dao_tree_ch6 = true,  -- 第六章·两界村之影悟道树
     dao_tree_mz  = true,  -- 中洲·瑶池悟道古树
 }
 M.VALID_TREE_IDS = VALID_TREE_IDS

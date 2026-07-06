@@ -94,6 +94,11 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
             local QuestSystem = require("systems.QuestSystem")
             QuestSystem.Deserialize(saveData.quests)
         end
+        GameState.triggeredBattles = saveData.triggeredBattles or {}
+        do
+            local TreasureRunnerSystem = require("systems.TreasureRunnerSystem")
+            TreasureRunnerSystem.Deserialize(saveData.treasureRunner)
+        end
         if saveData.shop then
             SaveSerializer.DeserializeShop(saveData.shop)
         end
@@ -407,6 +412,11 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
             FortuneFruitSystem.Deserialize(saveData.fortuneFruits)
         end
 
+        do
+            local QinglianBodySystem = require("systems.QinglianBodySystem")
+            QinglianBodySystem.Deserialize(saveData.qinglianBody)
+        end
+
         if saveData.seaPillar then
             local SeaPillarSystem = require("systems.SeaPillarSystem")
             SeaPillarSystem.Deserialize(saveData.seaPillar)
@@ -436,6 +446,14 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
             end
             -- 透传服务端写入的待选奖励（客户端不解析，存档时原样写回）
             SS._pendingXianyuanRewards = saveData.pendingXianyuanRewards
+        end
+
+        -- 乌家宝藏（角色级一次性状态，nil 安全）
+        do
+            local wOk, WubaoTreasureSystem = pcall(require, "systems.WubaoTreasureSystem")
+            if wOk and WubaoTreasureSystem then
+                WubaoTreasureSystem.Deserialize(saveData.wubaoTreasureState)
+            end
         end
 
         if saveData.trialTower then

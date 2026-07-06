@@ -24,13 +24,15 @@ end
 
 -- ── 仙体贴图映射 ──
 local BODY_TEXTURES = {
-    mortal          = "image/body_mortal_20260627133129.png",
-    immortal_body_1 = "image/body_immortal_1_20260627133119.png",
+    mortal                  = "image/body_mortal_20260627133129.png",
+    immortal_body_1         = "image/body_immortal_1_20260627133119.png",
+    immortal_body_qinglian  = "image/body_qinglian_changsheng_20260701120319.png",
 }
 
 -- ── 卡片常量 ──
 local COLS = 2
 local CARD_GAP = T.spacing.sm
+local BODY_CARD_ASPECT_RATIO = 129 / 192
 
 -- ============================================================================
 -- BuildInto
@@ -190,10 +192,10 @@ function ImmortalBodyPanel._MakeCard(body, profile, activeId, cost, player)
         borderColor = borderColor,
         overflow = "hidden",
         children = {
-            -- 贴图预览（紧凑正方形）
+            -- 贴图预览（竖版仙体卡比例）
             UI.Panel {
-                width = "100%", aspectRatio = 1.0,
-                backgroundColor = T.color.surfaceDeep,
+                width = "100%", aspectRatio = BODY_CARD_ASPECT_RATIO,
+                backgroundColor = {10, 14, 20, 255},
                 backgroundImage = texture,
                 backgroundFit = "contain",
                 children = isActive and {

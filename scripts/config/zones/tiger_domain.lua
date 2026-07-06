@@ -9,6 +9,26 @@ tiger_domain.regions = {
     tiger_domain = { x1 = 58, y1 = 2, x2 = 78, y2 = 25, zone = "tiger_domain" },
 }
 
+-- 交互对象
+tiger_domain.npcs = {
+    {
+        id = "ch1_tiger_trial_forge",
+        name = "虎王试炼炉",
+        subtitle = "极虎锻造",
+        x = 66.5,
+        y = 6.5,
+        image = "image/tiger_trial_forge_table_20260703120928.png",
+        portrait = "image/tiger_trial_forge_table_20260703120928.png",
+        interactType = "tiger_trial_forge",
+        isObject = true,
+        hideName = false,
+        showNameplate = true,
+        zone = "tiger_domain",
+        label = "虎王试炼炉",
+        dialog = "古炉伏在虎啸林深处，炉火吞吐虎王余威。\n投入虎王三件套与帝尊壹戒，可铸成极虎盔。",
+    },
+}
+
 -- 怪物刷新点
 -- 区域 (58,2)→(78,25)，DrawBorder 概率占边界1格
 -- Barriers: 西墙 x=56~57, 南墙 y=26~27(留口67~68), 东侧 x=79

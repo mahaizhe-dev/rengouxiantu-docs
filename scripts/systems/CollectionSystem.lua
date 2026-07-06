@@ -68,8 +68,8 @@ function CollectionSystem.FindInBackpack(equipId)
                     return i
                 end
             else
-                -- 常规独特装备：按名称匹配
-                if item.isSpecial and item.name == template.name then
+                -- 常规独特装备：优先按 equipId 精确匹配；名称匹配仅用于兼容旧存档。
+                if item.isSpecial and (item.equipId == equipId or item.name == template.name) then
                     return i
                 end
             end
@@ -167,6 +167,7 @@ function CollectionSystem.RecalcBonuses()
 
     player:InvalidateStatsCache()
     EventBus.Emit("collection_stats_changed")
+    EventBus.Emit("player_stats_changed")
 end
 
 --- 获取图录总加成属性

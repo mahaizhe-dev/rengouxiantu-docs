@@ -395,4 +395,136 @@ function M.RenderXianyuanChests(nvg, l, camera)
     end
 end
 
+-- ============================================================================
+-- 乌家宝藏渲染 - 单格宝箱 + 紫金光效 + 交互提示
+-- ============================================================================
+
+local WubaoTreasureSystem_ = nil
+local WubaoTreasureConfig_ = nil
+
+function M.RenderWubaoTreasureChests(nvg, l, camera)
+    if GameConfig.DUNGEON_ENABLED then
+        local okDC, DungeonClient = pcall(require, "network.DungeonClient")
+        if okDC and DungeonClient and DungeonClient.IsDungeonMode() then return end
+    end
+
+    if not WubaoTreasureSystem_ then
+        WubaoTreasureSystem_ = require("systems.WubaoTreasureSystem")
+    end
+    if not WubaoTreasureConfig_ then
+        WubaoTreasureConfig_ = require("config.WubaoTreasureConfig")
+    end
+
+    local chapter = GameState.currentChapter or 1
+    local chests = WubaoTreasureSystem_.GetChestsForChapter(chapter)
+    if #chests == 0 then return end
+
+    local ts = camera:GetTileSize()
+    local time = GameState.gameTime or 0
+    local player = GameState.player
+    local img = RenderUtils.GetCachedImage(nvg, WubaoTreasureConfig_.CHEST_TEXTURE)
+
+    for _, entry in ipairs(chests) do
+        local cfg = entry.cfg
+        if camera:IsVisible(cfg.x, cfg.y, l.w, l.h, 2) then
+            local sx, sy = RenderUtils.WorldToLocal(cfg.x, cfg.y, camera, l)
+            local opened = entry.opened
+            local dist = 999
+            if player then
+                local dx = player.x - cfg.x
+                local dy = player.y - cfg.y
+                dist = math.sqrt(dx * dx + dy * dy)
+            end
+            local nearby = (not opened) and dist <= (WubaoTreasureConfig_.INTERACT_RANGE or 1.5)
+            local chestW = ts * 1.15
+            local chestH = ts * 1.15
+            local bob = opened and 0 or math.sin(time * 1.7 + cfg.x * 0.13) * 1.5
+
+            if opened then
+                nvgGlobalAlpha(nvg, 0.32)
+                if img and img > 0 then
+                    local pat = nvgImagePattern(nvg, sx - chestW / 2, sy - chestH / 2, chestW, chestH, 0, img, 1.0)
+                    nvgBeginPath(nvg)
+                    nvgRect(nvg, sx - chestW / 2, sy - chestH / 2, chestW, chestH)
+                    nvgFillPaint(nvg, pat)
+                    nvgFill(nvg)
+                end
+                nvgGlobalAlpha(nvg, 1.0)
+            else
+                local pulse = 0.65 + 0.25 * math.sin(time * 2.2 + cfg.y * 0.17)
+                local glowR = nearby and ts * 1.4 or ts * 1.0
+                local glow = nvgRadialGradient(nvg,
+                    sx, sy + bob, 0, glowR,
+                    nvgRGBA(165, 95, 255, nearby and math.floor(70 * pulse) or math.floor(38 * pulse)),
+                    nvgRGBA(255, 205, 80, 0)
+                )
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, sx, sy + bob, glowR)
+                nvgFillPaint(nvg, glow)
+                nvgFill(nvg)
+
+                if img and img > 0 then
+                    local pat = nvgImagePattern(nvg, sx - chestW / 2, sy + bob - chestH / 2, chestW, chestH, 0, img, 1.0)
+                    nvgBeginPath(nvg)
+                    nvgRect(nvg, sx - chestW / 2, sy + bob - chestH / 2, chestW, chestH)
+                    nvgFillPaint(nvg, pat)
+                    nvgFill(nvg)
+                end
+
+                if nearby then
+                    local progress, channelChestId = WubaoTreasureSystem_.GetChannelProgress()
+                    local isChanneling = progress and channelChestId == entry.chestId
+                    local promptY = sy + bob - chestH / 2 - 14
+
+                    if isChanneling then
+                        local barW = 78
+                        local barH = 12
+                        local barX = sx - barW / 2
+                        local barY = promptY - barH / 2
+                        nvgBeginPath(nvg)
+                        nvgRoundedRect(nvg, barX, barY, barW, barH, 4)
+                        nvgFillColor(nvg, nvgRGBA(0, 0, 0, 180))
+                        nvgFill(nvg)
+
+                        local fillW = (barW - 4) * math.min(progress or 0, 1)
+                        if fillW > 0 then
+                            nvgBeginPath(nvg)
+                            nvgRoundedRect(nvg, barX + 2, barY + 2, fillW, barH - 4, 2)
+                            local barGrad = nvgLinearGradient(nvg,
+                                barX + 2, barY, barX + 2 + fillW, barY,
+                                nvgRGBA(165, 95, 255, 255),
+                                nvgRGBA(255, 215, 90, 255)
+                            )
+                            nvgFillPaint(nvg, barGrad)
+                            nvgFill(nvg)
+                        end
+
+                        nvgBeginPath(nvg)
+                        nvgRoundedRect(nvg, barX, barY, barW, barH, 4)
+                        nvgStrokeColor(nvg, nvgRGBA(255, 215, 90, 190))
+                        nvgStrokeWidth(nvg, 1)
+                        nvgStroke(nvg)
+
+                        nvgFontFace(nvg, "sans")
+                        nvgFontSize(nvg, 10)
+                        nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+                        nvgFillColor(nvg, nvgRGBA(255, 255, 255, 230))
+                        nvgText(nvg, sx, promptY, math.floor((progress or 0) * 100) .. "%", nil)
+                    else
+                        nvgFontFace(nvg, "sans")
+                        nvgFontSize(nvg, 13)
+                        nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+                        nvgBeginPath(nvg)
+                        nvgRoundedRect(nvg, sx - 38, promptY - 10, 76, 20, 6)
+                        nvgFillColor(nvg, nvgRGBA(0, 0, 0, 165))
+                        nvgFill(nvg)
+                        nvgFillColor(nvg, nvgRGBA(255, 220, 120, 255))
+                        nvgText(nvg, sx, promptY, "按E查看", nil)
+                    end
+                end
+            end
+        end
+    end
+end
+
 return M

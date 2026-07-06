@@ -318,6 +318,14 @@ function Monster:Update(dt, player, pet, gameMap)
     -- 更新 debuff
     self:UpdateDebuffs(dt)
 
+    if self.isTreasureRunner then
+        local ok, TreasureRunnerSystem = pcall(require, "systems.TreasureRunnerSystem")
+        if ok and TreasureRunnerSystem then
+            TreasureRunnerSystem.UpdateMonster(self, dt, player, pet, gameMap)
+        end
+        return
+    end
+
     local playerX = player and player.x or self.spawnX
     local playerY = player and player.y or self.spawnY
     local distToPlayerSq = DistanceSq(self.x, self.y, playerX, playerY)
@@ -919,6 +927,14 @@ end
 --- @return number actualDamage 实际造成的伤害（未存活时返回 0）
 function Monster:TakeDamage(damage, source)
     if not self.alive then return 0 end
+
+    if self.isTreasureRunner then
+        local ok, TreasureRunnerSystem = pcall(require, "systems.TreasureRunnerSystem")
+        if ok and TreasureRunnerSystem then
+            return TreasureRunnerSystem.HandleDamage(self, damage, source)
+        end
+        return 0
+    end
 
     -- 易伤增伤：受到所有伤害增加
     local vulnDebuff = self.debuffs["vulnerability"]

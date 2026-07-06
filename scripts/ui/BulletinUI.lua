@@ -23,9 +23,9 @@ local visible_ = false
 
 ---@type {rewardId: string, title: string, desc: string, items: {type: string, id: string|nil, name: string, icon: string, count: number}[]}|nil
 local ACTIVE_REWARD = {
-    rewardId = "update_reward_v1.12.19",
+    rewardId = "update_reward_v1.13.3",
     title = "更新福利",
-    desc = "仙劫丹、渡劫系统更新，第六章内容即将陆续开放，感谢各位道友的支持。",
+    desc = "极虎盔、魔君之影、钻风家族登场！感谢各位道友的支持。",
     items = {
         { type = "lingYun", count = 100, name = "灵韵", icon = "✨" },
         { type = "consumable", id = "gold_bar", count = 10, name = "金条", icon = "🥇" },

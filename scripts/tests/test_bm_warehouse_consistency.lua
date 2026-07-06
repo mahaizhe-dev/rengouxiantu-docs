@@ -394,6 +394,42 @@ end)
 -- 恢复全局
 -- ============================================================================
 
+test("T17. Deserialize restores legacy spirit_pill display fields on page1", function()
+    resetState()
+    WarehouseSystem.Deserialize({
+        unlockedRows = 1,
+        items = {
+            ["1"] = { consumableId = "spirit_pill", count = 1 },
+        },
+    })
+
+    local item = WarehouseSystem.GetItem(1)
+    assertTrue(item ~= nil, "warehouse item should exist")
+    assertEqual(item.category, "consumable", "category")
+    assertEqual(item.name, GameConfig.PET_MATERIALS.spirit_pill.name, "name")
+    assertEqual(item.icon, "icon_spirit_pill.png", "icon")
+    assertEqual(item.quality, "purple", "quality")
+end)
+
+test("T18. Deserialize restores legacy spirit_pill display fields on page2", function()
+    resetState()
+    WarehouseSystem.Deserialize({
+        unlockedRows = 6,
+        page2UnlockedRows = 1,
+        items = {},
+        page2Items = {
+            ["1"] = { consumableId = "spirit_pill", count = 1 },
+        },
+    })
+
+    local item = WarehouseSystem.GetPage2Item(1)
+    assertTrue(item ~= nil, "warehouse page2 item should exist")
+    assertEqual(item.category, "consumable", "category")
+    assertEqual(item.name, GameConfig.PET_MATERIALS.spirit_pill.name, "name")
+    assertEqual(item.icon, "icon_spirit_pill.png", "icon")
+    assertEqual(item.quality, "purple", "quality")
+end)
+
 EventBus.Emit = _origEmit  -- 恢复原始 Emit
 
 for k, v in pairs(_origGlobals) do

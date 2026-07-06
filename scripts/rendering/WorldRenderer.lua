@@ -92,6 +92,9 @@ function WorldRenderer:Render(nvg)
         -- 绘制仙缘宝箱（地面交互物）
         EntityRenderer.RenderXianyuanChests(nvg, l, camera)
 
+        -- 绘制乌家宝藏（地面交互物）
+        EntityRenderer.RenderWubaoTreasureChests(nvg, l, camera)
+
         -- 绘制 NPC
         EntityRenderer.RenderNPCs(nvg, l, camera)
 
@@ -445,8 +448,8 @@ function WorldRenderer:RenderSealBarriers(nvg, l)
                     nvgStroke(nvg)
                 end
             end
-        elseif chapter == 5 then
-            -- ═══ 第五章·双色封印光效（逐瓦片渲染） ═══
+        elseif chapter == 5 or chapter == 6 then
+            -- ═══ 第五/六章·双色封印光效（逐瓦片渲染） ═══
             -- sealColor="white" 白色剑气封印（城墙入口）
             -- sealColor="red"   红色血色封印（剑宫入口）
             local isRed = (sealData.sealColor == "red")

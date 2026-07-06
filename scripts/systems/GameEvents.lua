@@ -25,6 +25,7 @@ local ChallengeSystem = require("systems.ChallengeSystem")
 local TrialTowerSystem = require("systems.TrialTowerSystem")
 local PrisonTowerSystem = require("systems.PrisonTowerSystem")
 local DungeonClient = require("network.DungeonClient")
+local TreasureRunnerSystem = require("systems.TreasureRunnerSystem")
 
 local GameEvents = {}
 
@@ -52,10 +53,17 @@ function GameEvents.Register(refs)
     UnregisterAll()
 
     RegisterEvent("monster_death", function(monster)
+        if monster.isTreasureRunner then
+            TreasureRunnerSystem.OnMonsterDeath(monster)
+            return
+        end
+
         -- 副本BOSS死亡由服务端 S2C_BossDefeated 驱动，不走本地掉落/记录流程
         if monster.isDungeonBoss then return end
         -- 训练假人不死亡、不掉落、不记录（兜底防护）
         if monster.isTrainingDummy then return end
+        -- 触发式战斗怪物的奖励由专用结算服务端发放，不进入普通击杀/掉落链。
+        if monster.isTriggeredBattle then return end
 
         -- BOSS击杀冷却记录（防止切换章节刷新BOSS）— 封魔BOSS不影响原BOSS刷新
         if GameConfig.BOSS_CATEGORIES[monster.category] and not monster.isSealDemon and not monster.isSwordWall then

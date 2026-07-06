@@ -447,6 +447,7 @@ test("I6: 多分类高风险商品均触发相同拒绝行为", function()
     -- 加上 consumable_mat 的代表
     representatives[#representatives + 1] = { cat = "consumable_mat", id = "dragon_scale_fire" }
     representatives[#representatives + 1] = { cat = "consumable_mat", id = "taixu_token_box" }
+    representatives[#representatives + 1] = { cat = "consumable_mat", id = "zhexian_ling_box" }
     representatives[#representatives + 1] = { cat = "consumable_mat", id = "gold_brick" }
 
     for _, rep in ipairs(representatives) do

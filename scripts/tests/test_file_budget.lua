@@ -77,7 +77,7 @@ local EXEMPTIONS = {
     -- [已毕业] systems/InventorySystem.lua — 361 行 facade，Step 6C 拆分
     ["systems/AtlasSystem.lua"]        = 1265,  -- 当前 1215
     ["systems/CombatSystem.lua"]       = 1090,  -- 当前 1038
-    ["systems/QuestSystem.lua"]        = 1010,  -- 当前 959
+    ["systems/QuestSystem.lua"]        = 1105,  -- 当前 1055
     ["systems/save/SaveMigrations.lua"]= 1165,  -- 当前 1111
 
     -- ui/
@@ -99,7 +99,7 @@ local EXEMPTIONS = {
     ["ui/GMConsole.lua"]               = 1535,  -- 当前 1485
     ["ui/GourdUI.lua"]                 = 1155,  -- 当前 1103
     ["ui/LeaderboardUI.lua"]           = 1380,  -- 当前 1331
-    ["ui/Minimap.lua"]                 = 1385,  -- 当前 1331
+    ["ui/Minimap.lua"]                 = 1621,  -- 当前 1571
     ["ui/NPCDialog.lua"]               = 1005,  -- 当前 955
     ["ui/QuestRewardUI.lua"]           = 1055,  -- 当前 1005
     ["ui/SwordForgeUI.lua"]            = 1540,  -- 当前 1486

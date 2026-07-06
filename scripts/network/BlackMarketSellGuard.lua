@@ -17,7 +17,7 @@
 --   bagua 碎片        → ArtifactSystem_ch4.lua:212 ConsumeConsumable → 伪安全
 --   tiandi 碎片       → ArtifactSystem_tiandi.lua:123 ConsumeConsumable → 伪安全
 --   dragon_scale_*(4) → DragonForgeUI.lua:1112 ConsumeConsumable → 伪安全
---   token_box(3)      → InventorySystem.lua:997-1001 _UseTokenBox → 伪安全
+--   token_box(5)      → InventorySystem.lua _UseTokenBox → 伪安全
 --   lingyu / herb / skill_book / special_equip / gold_brick → 已为高风险
 --
 -- 结果：安全类 = 0 项，高风险类 = 全部黑市商品

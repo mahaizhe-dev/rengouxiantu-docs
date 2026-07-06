@@ -183,6 +183,11 @@ local function DispatchGenerator(recipe, weapon, fromBagItem)
         if not ok then return nil, err end
         return nil, nil  -- replace_weapon 模式，无独立 item
 
+    elseif genType == "fixed_special_equipment" then
+        local item = LootSystem.CreateSpecialEquipment(gen.outputId)
+        if not item then return nil, "CreateSpecialEquipment 返回 nil: " .. tostring(gen.outputId) end
+        return item, nil
+
     elseif genType == "jiefeng_sword" then
         -- 直接修改 weapon
         local ok, err = GenerateJiefengSword(weapon, gen.outputId)
@@ -267,13 +272,6 @@ function ForgeSystem.Check(recipeId)
         end
     end
 
-    -- 背包空间检查（add_to_bag 模式）
-    if recipe.outputMode == "add_to_bag" then
-        if InventorySystem.GetFreeSlots() <= 0 then
-            return { canForge = false, error = "背包已满，无法打造" }
-        end
-    end
-
     -- 背包物品检查
     local usedSlots = {}
 
@@ -304,6 +302,15 @@ function ForgeSystem.Check(recipeId)
                 return { canForge = false, error = "背包中缺少：" .. (def and def.name or fb.equipId) }
             end
             usedSlots[slot] = true
+        end
+    end
+
+    -- 背包空间检查：允许消耗背包装备后腾出的格子承接产物。
+    if recipe.outputMode == "add_to_bag" then
+        local consumedSlots = 0
+        for _ in pairs(usedSlots) do consumedSlots = consumedSlots + 1 end
+        if InventorySystem.GetFreeSlots() + consumedSlots <= 0 then
+            return { canForge = false, error = "背包已满，无法打造" }
         end
     end
 

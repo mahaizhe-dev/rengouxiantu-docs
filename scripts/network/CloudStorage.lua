@@ -15,6 +15,7 @@
 -- ============================================================================
 
 local SaveProtocol = require("network.SaveProtocol")
+local SavePayloadCodec = require("network.SavePayloadCodec")
 local FeatureFlags = require("config.FeatureFlags")
 
 ---@diagnostic disable-next-line: undefined-global
@@ -67,8 +68,9 @@ end
 ---@return integer
 local function RegisterCallback(events)
     local id = NextRequestId()
+    local now = (time and time.elapsedTime) or os.clock()
     -- P1-SAVE-2: 记录注册时间，用于超时清理
-    _pendingCallbacks[id] = { events = events, registeredAt = time.elapsedTime }
+    _pendingCallbacks[id] = { events = events, registeredAt = now }
     return id
 end
 
@@ -403,19 +405,60 @@ function CloudStorage.BatchSet()
 
             local requestId = RegisterCallback(events)
 
-            local eventData = VariantMap()
-            eventData["slot"] = Variant(slot)
-            eventData["coreData"] = Variant(json_core)
-            eventData["slotsIndex"] = Variant(json_slots)
-            eventData["rankData"] = Variant(json_rank)
-            eventData["bulletin"] = Variant(json_bulletin)
-            eventData["playerLevel"] = Variant(playerLevel or 0)
-            eventData["codeVersion"] = Variant(codeVersion or 0)
-            eventData["requestId"] = Variant(requestId)
-
             local serverConn = network:GetServerConnection()
             if serverConn then
-                serverConn:SendRemoteEvent(SaveProtocol.C2S_SaveGame, true, eventData)
+                local extraBytes = #json_slots + #json_rank + #json_bulletin
+                if extraBytes > SavePayloadCodec.SAFE_SINGLE_PAYLOAD_BYTES then
+                    Logger.error("CloudStorage", "save metadata envelope too large: " .. tostring(extraBytes))
+                    _pendingCallbacks[requestId] = nil
+                    if events and events.error then
+                        events.error(-2, "save_metadata_too_large")
+                    end
+                    return
+                end
+                if SavePayloadCodec.NeedsChunking(json_core, extraBytes) then
+                    local chunks = SavePayloadCodec.Split(json_core)
+                    local beginData = VariantMap()
+                    beginData["slot"] = Variant(slot)
+                    beginData["requestId"] = Variant(requestId)
+                    beginData["totalBytes"] = Variant(#json_core)
+                    beginData["totalChunks"] = Variant(#chunks)
+                    beginData["checksum"] = Variant(SavePayloadCodec.Checksum(json_core))
+                    beginData["slotsIndex"] = Variant(json_slots)
+                    beginData["rankData"] = Variant(json_rank)
+                    beginData["bulletin"] = Variant(json_bulletin)
+                    beginData["playerLevel"] = Variant(playerLevel or 0)
+                    beginData["codeVersion"] = Variant(codeVersion or 0)
+                    serverConn:SendRemoteEvent(SaveProtocol.C2S_SaveGameBegin, true, beginData)
+
+                    for i, chunk in ipairs(chunks) do
+                        local chunkData = VariantMap()
+                        chunkData["slot"] = Variant(slot)
+                        chunkData["requestId"] = Variant(requestId)
+                        chunkData["chunkIndex"] = Variant(i)
+                        chunkData["chunkData"] = Variant(chunk)
+                        serverConn:SendRemoteEvent(SaveProtocol.C2S_SaveGameChunk, true, chunkData)
+                    end
+
+                    local commitData = VariantMap()
+                    commitData["slot"] = Variant(slot)
+                    commitData["requestId"] = Variant(requestId)
+                    serverConn:SendRemoteEvent(SaveProtocol.C2S_SaveGameCommit, true, commitData)
+                    Logger.info("CloudStorage", "chunked save sent: slot=" .. tostring(slot)
+                        .. " chunks=" .. tostring(#chunks)
+                        .. " bytes=" .. tostring(#json_core))
+                else
+                    local eventData = VariantMap()
+                    eventData["slot"] = Variant(slot)
+                    eventData["coreData"] = Variant(json_core)
+                    eventData["slotsIndex"] = Variant(json_slots)
+                    eventData["rankData"] = Variant(json_rank)
+                    eventData["bulletin"] = Variant(json_bulletin)
+                    eventData["playerLevel"] = Variant(playerLevel or 0)
+                    eventData["codeVersion"] = Variant(codeVersion or 0)
+                    eventData["requestId"] = Variant(requestId)
+                    serverConn:SendRemoteEvent(SaveProtocol.C2S_SaveGame, true, eventData)
+                end
             else
                 Logger.error("CloudStorage", "No server connection for Save")
                 pcall(function() require("network.NetDiagClient").RecordCloudNoConn("save") end)

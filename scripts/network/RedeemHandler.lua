@@ -10,6 +10,7 @@
 
 local Session      = require("network.ServerSession")
 local SaveProtocol = require("network.SaveProtocol")
+local SaveBackupService = require("network.SaveBackupService")
 
 ---@diagnostic disable-next-line: undefined-global
 local cjson = cjson
@@ -455,48 +456,55 @@ function M.HandleRedeemCode(eventType, eventData)
 
                         -- Step 6: 写入存档（成功 = 兑换完成；失败 = 什么都没发生，可重试）
                         local function writeSaveAndNotify(globalQuotaConsumed)
-                            serverCloud:BatchSet(userId)
-                                :Set(saveKey, saveData)
-                                :Set(accountRedeemKey, accountRedeemed)
-                                :Save("兑换码奖励写入存档: " .. code, {
-                                    ok = function()
-                                        ReleaseSlotLock(userId, slot)
-                                        -- 全局使用次数计数（best-effort，存档已写入，丢了也不影响玩家）
-                                        if codeData.maxUses and codeData.maxUses > 0 and not globalQuotaConsumed then
-                                            local gKey = "redeem_global_" .. code
-                                            serverCloud.quota:Add(REDEEM_SYSTEM_UID, gKey, 1, codeData.maxUses, "forever", {
-                                                ok = function() end,
-                                                error = function()
-                                                    print("[Server][Redeem] WARNING: global quota count failed (non-critical)")
-                                                end,
-                                            })
-                                        end
-                                        -- 通知客户端
-                                        local rewardsJson = cjson.encode(rewardsArray)
-                                        print("[Server][Redeem] SUCCESS: code=" .. code .. " userId=" .. tostring(userId) .. " slot=" .. slot)
-                                        local data = VariantMap()
-                                        data["ok"] = Variant(true)
-                                        data["code"] = Variant(code)
-                                        data["rewards"] = Variant(rewardsJson)
-                                        data["msg"] = Variant("兑换成功")
-                                        SafeSend(connection, SaveProtocol.S2C_RedeemResult, data)
-                                    end,
-                                    error = function(errCode, reason)
-                                        ReleaseSlotLock(userId, slot)
-                                        print("[Server][Redeem] Save FAILED: " .. tostring(reason))
-                                        -- 存档写入失败 → 奖励没进存档 → 回滚全局配额 → 玩家可重试
-                                        if globalQuotaConsumed then
-                                            local gKey = "redeem_global_" .. code
-                                            serverCloud.quota:Add(REDEEM_SYSTEM_UID, gKey, -1, codeData.maxUses, "forever", {
-                                                ok = function() print("[Server][Redeem] Global quota rolled back") end,
-                                                error = function() print("[Server][Redeem] WARNING: Global quota rollback FAILED") end,
-                                            })
-                                        end
-                                        sendFail("服务器错误，请重试")
-                                    end,
-                                })
-                        end
+                            local function rollbackQuotaIfNeeded()
+                                if globalQuotaConsumed then
+                                    local gKey = "redeem_global_" .. code
+                                    serverCloud.quota:Add(REDEEM_SYSTEM_UID, gKey, -1, codeData.maxUses, "forever", {
+                                        ok = function() print("[Server][Redeem] Global quota rolled back") end,
+                                        error = function() print("[Server][Redeem] WARNING: Global quota rollback FAILED") end,
+                                    })
+                                end
+                            end
 
+                            SaveBackupService.BeforeOverwrite(userId, slot, "redeem " .. code, function()
+                                serverCloud:BatchSet(userId)
+                                    :Set(saveKey, saveData)
+                                    :Set(accountRedeemKey, accountRedeemed)
+                                    :Save("兑换码奖励写入存档 " .. code, {
+                                        ok = function()
+                                            ReleaseSlotLock(userId, slot)
+                                            if codeData.maxUses and codeData.maxUses > 0 and not globalQuotaConsumed then
+                                                local gKey = "redeem_global_" .. code
+                                                serverCloud.quota:Add(REDEEM_SYSTEM_UID, gKey, 1, codeData.maxUses, "forever", {
+                                                    ok = function() end,
+                                                    error = function()
+                                                        print("[Server][Redeem] WARNING: global quota count failed (non-critical)")
+                                                    end,
+                                                })
+                                            end
+                                            local rewardsJson = cjson.encode(rewardsArray)
+                                            print("[Server][Redeem] SUCCESS: code=" .. code .. " userId=" .. tostring(userId) .. " slot=" .. slot)
+                                            local data = VariantMap()
+                                            data["ok"] = Variant(true)
+                                            data["code"] = Variant(code)
+                                            data["rewards"] = Variant(rewardsJson)
+                                            data["msg"] = Variant("兑换成功")
+                                            SafeSend(connection, SaveProtocol.S2C_RedeemResult, data)
+                                        end,
+                                        error = function(errCode, reason)
+                                            ReleaseSlotLock(userId, slot)
+                                            print("[Server][Redeem] Save FAILED: " .. tostring(reason))
+                                            rollbackQuotaIfNeeded()
+                                            sendFail("服务器错误，请重试")
+                                        end,
+                                    })
+                            end, function(code2, reason2)
+                                ReleaseSlotLock(userId, slot)
+                                print("[Server][Redeem] Save BACKUP FAILED: " .. tostring(reason2))
+                                rollbackQuotaIfNeeded()
+                                sendFail("服务器错误，请重试")
+                            end)
+                        end
                         -- Step 7: 全局使用次数限制
                         if codeData.maxUses and codeData.maxUses > 0 then
                             local globalQuotaKey = "redeem_global_" .. code

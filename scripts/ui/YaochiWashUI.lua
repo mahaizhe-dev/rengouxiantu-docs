@@ -439,7 +439,7 @@ local function CreatePillRow(pillId)
         gap = T.spacing.sm,
         paddingLeft = T.spacing.xs,
         paddingRight = T.spacing.xs,
-        height = 36,
+        height = 32,
         children = {
             -- 丹药名
             UI.Label {
@@ -468,7 +468,7 @@ local function CreatePillRow(pillId)
             -- 操作按钮
             UI.Button {
                 text = "+1",
-                width = 38, height = 28,
+                width = 38, height = 26,
                 fontSize = T.fontSize.xs,
                 borderRadius = T.radius.sm,
                 backgroundColor = {70, 60, 120, 255},
@@ -476,7 +476,7 @@ local function CreatePillRow(pillId)
             },
             UI.Button {
                 text = "+10",
-                width = 42, height = 28,
+                width = 42, height = 26,
                 fontSize = T.fontSize.xs,
                 borderRadius = T.radius.sm,
                 backgroundColor = {70, 60, 120, 255},
@@ -484,7 +484,7 @@ local function CreatePillRow(pillId)
             },
             UI.Button {
                 text = "全部",
-                width = 46, height = 28,
+                width = 46, height = 26,
                 fontSize = T.fontSize.xs,
                 borderRadius = T.radius.sm,
                 backgroundColor = {90, 70, 140, 255},
@@ -531,17 +531,18 @@ function YaochiWashUI.Create(parentOverlay)
         onClick = function(self) YaochiWashUI.Hide() end,
         children = {
             UI.Panel {
-                width = T.size.npcPanelMaxW,
-                maxHeight = "85%",
+                width = "94%",
+                maxWidth = T.size.npcPanelMaxW,
+                maxHeight = "76%",
                 backgroundColor = T.color.panelBg,
                 borderRadius = T.radius.lg,
                 borderWidth = 1,
                 borderColor = {140, 120, 200, 120},
-                paddingTop = T.spacing.lg,
-                paddingBottom = T.spacing.lg,
-                paddingLeft = T.spacing.lg,
-                paddingRight = T.spacing.lg,
-                gap = T.spacing.sm,
+                paddingTop = T.spacing.md,
+                paddingBottom = T.spacing.md,
+                paddingLeft = T.spacing.md,
+                paddingRight = T.spacing.md,
+                gap = T.spacing.xs,
                 onClick = function(self) end, -- 阻止冒泡
                 children = {
                     -- 标题
@@ -639,15 +640,40 @@ function YaochiWashUI.Create(parentOverlay)
                         width = "100%",
                     },
                     -- 丹药行列表
-                    table.unpack(pillChildren),
+                    UI.ScrollView {
+                        width = "100%",
+                        height = 220,
+                        paddingRight = T.spacing.xs,
+                        children = {
+                            UI.Panel {
+                                width = "100%",
+                                gap = T.spacing.xxs,
+                                children = pillChildren,
+                            },
+                        },
+                    },
                 },
             },
         },
     }
 
-    -- 丹药行后面的元素需要单独添加（因为 table.unpack 必须在最后）
-    -- 找到内容面板
+    -- Main card footer and absolute close button are appended after the scrollable pill list.
     local contentPanel = panel_.children[1]
+
+    contentPanel:AddChild(UI.Button {
+        text = "X",
+        position = "absolute",
+        top = T.spacing.sm,
+        right = T.spacing.sm,
+        width = T.size.closeButton,
+        height = T.size.closeButton,
+        fontSize = T.fontSize.md,
+        fontWeight = "bold",
+        borderRadius = T.radius.sm,
+        backgroundColor = {255, 100, 100, 30},
+        fontColor = T.color.error,
+        onClick = function(self) YaochiWashUI.Hide() end,
+    })
 
     -- 分隔线
     contentPanel:AddChild(UI.Panel {

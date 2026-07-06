@@ -294,7 +294,8 @@ function M.RenderMonster(nvg, l, camera, m)
     end
 
     -- 3) 绘制分级圆形边框
-    M.RenderMonsterFrame(nvg, cx, cy, radius, m.category, time)
+    local frameCategory = m.frameCategory or (m.data and m.data.frameCategory) or m.category
+    M.RenderMonsterFrame(nvg, cx, cy, radius, frameCategory, time)
 
     -- 3.5) 试炼塔·锁链封印效果（stationary BOSS专属）
     if m.data and m.data.stationary and (m.category == "boss" or m.category == "king_boss" or m.category == "emperor_boss" or m.category == "saint_boss") then
@@ -972,7 +973,7 @@ function M.RenderMonsterHealthBars(nvg, l, camera)
     local monsters = GameState.monsters
     for i = 1, #monsters do
         local m = monsters[i]
-        if m.alive and m.hp < m.maxHp and not m.isPillar and camera:IsVisible(m.x, m.y, l.w, l.h, 2) then
+        if m.alive and (m.hp < m.maxHp or m.isTreasureRunner) and not m.isPillar and camera:IsVisible(m.x, m.y, l.w, l.h, 2) then
             local sx, sy = RenderUtils.WorldToLocal(m.x, m.y, camera, l)
             local ts = camera:GetTileSize()
             local radius = ts * m.bodySize * 0.32
@@ -1003,6 +1004,31 @@ function M.RenderMonsterHealthBars(nvg, l, camera)
             nvgStrokeColor(nvg, nvgRGBA(0, 0, 0, 120))
             nvgStrokeWidth(nvg, 0.5)
             nvgStroke(nvg)
+
+            if m.isTreasureRunner then
+                local maxBars = m.treasureMaxHpBars or 50
+                local curBars = math.max(0, math.min(maxBars, m.treasureHpBarsCurrent or m.hp or maxBars))
+                local gap = 1.5
+                local segW = (barW - gap * (maxBars - 1)) / maxBars
+                for b = 1, maxBars do
+                    local x = cx - barW / 2 + (b - 1) * (segW + gap)
+                    nvgBeginPath(nvg)
+                    nvgRoundedRect(nvg, x, barY, segW, barH + 1, 1.5)
+                    nvgFillColor(nvg, nvgRGBA(35, 20, 10, 210))
+                    nvgFill(nvg)
+                    if b <= curBars then
+                        nvgBeginPath(nvg)
+                        nvgRoundedRect(nvg, x, barY, segW, barH + 1, 1.5)
+                        nvgFillColor(nvg, nvgRGBA(70, 245, 170, 245))
+                        nvgFill(nvg)
+                    end
+                    nvgBeginPath(nvg)
+                    nvgRoundedRect(nvg, x, barY, segW, barH + 1, 1.5)
+                    nvgStrokeColor(nvg, nvgRGBA(255, 220, 80, 165))
+                    nvgStrokeWidth(nvg, 0.5)
+                    nvgStroke(nvg)
+                end
+            end
         end
     end
 end

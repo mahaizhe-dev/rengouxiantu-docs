@@ -73,6 +73,7 @@ function T.TC01_EmptyWarehouse()
     print("TC-01: 空仓库整理")
     local items = {}
     local sorted, ok, msg = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("空数组排序应成功", ok)
     assert_eq("结果应为空", #sorted, 0)
 end
@@ -84,6 +85,7 @@ function T.TC02_SingleItem()
     print("TC-02: 单物品不变")
     local items = { mkConsumable("potion", 5) }
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     assert_eq("数量不变", #sorted, 1)
     assert_eq("count 不变", sorted[1].count, 5)
@@ -99,6 +101,7 @@ function T.TC03_MergeSameConsumable()
         mkConsumable("potion", 20),
     }
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     assert_eq("应合并为 1 堆", #sorted, 1)
     assert_eq("总数 50", sorted[1].count, 50)
@@ -115,6 +118,7 @@ function T.TC04_StackOverflowSplit()
         mkConsumable("potion", 10),
     }
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     assert_eq("应拆为 2 堆", #sorted, 2)
     local total = 0
@@ -133,6 +137,7 @@ function T.TC05_LockedUnlockedNoMerge()
         mkConsumable("potion", 10, { bmLockUntil = now + 3600, bmLockBatchId = "b1" }),
     }
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     assert_eq("不合并，仍为 2 堆", #sorted, 2)
 end
@@ -148,6 +153,7 @@ function T.TC06_DiffBatchNoMerge()
         mkConsumable("potion", 10, { bmLockUntil = now + 3600, bmLockBatchId = "b2" }),
     }
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     assert_eq("不合并，仍为 2 堆", #sorted, 2)
 end
@@ -163,6 +169,7 @@ function T.TC07_SameBatchMerge()
         mkConsumable("potion", 10, { bmLockUntil = now + 3600, bmLockBatchId = "b1" }),
     }
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     assert_eq("同批次合并为 1 堆", #sorted, 1)
     assert_eq("总数 20", sorted[1].count, 20)
@@ -179,6 +186,7 @@ function T.TC08_EquipSortByQuality()
         mkEquip("weapon", "blue", 3),
     }
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     assert_eq("第 1 个应为 orange", sorted[1].quality, "orange")
     assert_eq("第 2 个应为 blue", sorted[2].quality, "blue")
@@ -196,6 +204,7 @@ function T.TC09_EquipSortByTier()
         mkEquip("weapon", "blue", 1),
     }
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     assert_eq("tier 降序: 第 1 个 tier=5", sorted[1].tier, 5)
     assert_eq("tier 降序: 第 2 个 tier=2", sorted[2].tier, 2)
@@ -213,6 +222,7 @@ function T.TC10_EquipBeforeConsumable()
         mkConsumable("scroll", 3),
     }
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     assert_eq("第 1 个应为装备", sorted[1].category, "equipment")
     assert_eq("第 2 个应为消耗品", sorted[2].category, "consumable")
@@ -230,6 +240,7 @@ function T.TC11_ConsumableSortById()
         mkConsumable("potion", 5),
     }
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     assert_eq("第 1 个 cId=arrow", sorted[1].consumableId, "arrow")
     assert_eq("第 2 个 cId=potion", sorted[2].consumableId, "potion")
@@ -249,6 +260,7 @@ function T.TC12_EquipReferenceIdentity()
     local origRef = e1
     local items = { mkConsumable("potion", 10), e1 }
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     -- 找到装备
     local foundEquip = nil
@@ -274,6 +286,7 @@ function T.TC13_QuantityConservation()
     }
     local beforeCounts = SortUtil.CountConsumables(items)
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     local afterCounts = SortUtil.CountConsumables(sorted)
     local conserved, msg = SortUtil.VerifyConservation(beforeCounts, afterCounts)
@@ -309,6 +322,7 @@ function T.TC15_MixedLargeSort()
         items[#items + 1] = mkConsumable("item_" .. (i % 5), math.random(1, 30))
     end
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     -- 验证装备在前
     local lastEquipIdx = 0
@@ -345,6 +359,7 @@ function T.TC17_SameQualitySameTierSortBySlot()
         mkEquip("helmet", "blue", 3),
     }
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     assert_eq("slot 升序: armor", sorted[1].slot, "armor")
     assert_eq("slot 升序: helmet", sorted[2].slot, "helmet")
@@ -363,6 +378,7 @@ function T.TC18_MultiTypeConsumableMerge()
         mkConsumable("scroll", 15),
     }
     local sorted, ok = SortUtil.SortItems(items)
+    sorted = sorted or {}
     assert_true("排序成功", ok)
     assert_eq("应合并为 2 种", #sorted, 2)
     -- 验证总数

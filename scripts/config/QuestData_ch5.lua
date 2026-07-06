@@ -33,14 +33,14 @@ QuestData_ch5.ZONE_QUESTS = {
                     count = 3,
                 },
             },
-            -- 主线2：剑心初悟 — 击杀问剑长老×10 + 洗剑霜鸾×10 → T9青装3选1
+            -- 主线2：剑心初悟 — 击杀问剑长老×20 + 洗剑霜鸾×20 → T9青装3选1
             {
                 id = "clear_sword_cold",
                 name = "剑心初悟",
-                desc = "击败问剑长老·裴千岳10次、洗剑霜鸾10次，感悟太虚剑意",
+                desc = "击败问剑长老·裴千岳20次、洗剑霜鸾20次，感悟太虚剑意",
                 targets = {
-                    { targetType = "ch5_pei_qianyue", targetCount = 10, name = "问剑长老·裴千岳" },
-                    { targetType = "ch5_frost_luan",   targetCount = 10, name = "洗剑霜鸾" },
+                    { targetType = "ch5_pei_qianyue", targetCount = 20, name = "问剑长老·裴千岳" },
+                    { targetType = "ch5_frost_luan",   targetCount = 20, name = "洗剑霜鸾" },
                 },
                 reward = {
                     type = "equipment_pick",
@@ -49,15 +49,15 @@ QuestData_ch5.ZONE_QUESTS = {
                     count = 3,
                 },
             },
-            -- 主线3：炉火淬锋 — 击杀铸剑长老·韩百炼×10 + 精英×50 → 渡劫丹×1 + 金砖×1
+            -- 主线3：炉火淬锋 — 击杀铸剑长老·韩百炼×20 + 精英×100 → 渡劫丹×1 + 金砖×1
             {
                 id = "clear_forge",
                 name = "炉火淬锋",
-                desc = "击败铸剑长老·韩百炼10次并消灭50个太虚精英残魂",
+                desc = "击败铸剑长老·韩百炼20次并消灭100个太虚精英残魂",
                 targets = {
-                    { targetType = "ch5_han_bailian", targetCount = 10, name = "铸剑长老·韩百炼" },
+                    { targetType = "ch5_han_bailian", targetCount = 20, name = "铸剑长老·韩百炼" },
                     {
-                        targetType = "ch5_sword_shadow", targetCount = 50, name = "太虚精英",
+                        targetType = "ch5_sword_shadow", targetCount = 100, name = "太虚精英",
                         targetAliases = {
                             "ch5_ice_turtle", "ch5_forge_soldier",
                             "ch5_stele_phantom", "ch5_night_guard", "ch5_book_demon",
@@ -72,15 +72,15 @@ QuestData_ch5.ZONE_QUESTS = {
                     },
                 },
             },
-            -- 主线4：碑林悟道 — 击杀守碑长老·石观澜×10 + 精英×50 → T10橙装3选1
+            -- 主线4：碑林悟道 — 击杀守碑长老·石观澜×20 + 精英×100 → T10橙装3选1
             {
                 id = "clear_stele",
                 name = "碑林悟道",
-                desc = "击败守碑长老·石观澜10次并消灭50个太虚精英残魂",
+                desc = "击败守碑长老·石观澜20次并消灭100个太虚精英残魂",
                 targets = {
-                    { targetType = "ch5_shi_guanlan", targetCount = 10, name = "守碑长老·石观澜" },
+                    { targetType = "ch5_shi_guanlan", targetCount = 20, name = "守碑长老·石观澜" },
                     {
-                        targetType = "ch5_sword_shadow", targetCount = 50, name = "太虚精英",
+                        targetType = "ch5_sword_shadow", targetCount = 100, name = "太虚精英",
                         targetAliases = {
                             "ch5_ice_turtle", "ch5_forge_soldier",
                             "ch5_stele_phantom", "ch5_night_guard", "ch5_book_demon",
@@ -94,15 +94,15 @@ QuestData_ch5.ZONE_QUESTS = {
                     count = 3,
                 },
             },
-            -- 主线5：栖剑归鞘 — 击杀别院院主·宁栖梧×10 + 精英×50 → 渡劫丹×1 + 金砖×3
+            -- 主线5：栖剑归鞘 — 击杀别院院主·宁栖梧×20 + 精英×100 → 渡劫丹×1 + 金砖×3
             {
                 id = "clear_court",
                 name = "栖剑归鞘",
-                desc = "击败别院院主·宁栖梧10次并消灭50个太虚精英残魂",
+                desc = "击败别院院主·宁栖梧20次并消灭100个太虚精英残魂",
                 targets = {
-                    { targetType = "ch5_ning_qiwu", targetCount = 10, name = "别院院主·宁栖梧" },
+                    { targetType = "ch5_ning_qiwu", targetCount = 20, name = "别院院主·宁栖梧" },
                     {
-                        targetType = "ch5_sword_shadow", targetCount = 50, name = "太虚精英",
+                        targetType = "ch5_sword_shadow", targetCount = 100, name = "太虚精英",
                         targetAliases = {
                             "ch5_ice_turtle", "ch5_forge_soldier",
                             "ch5_stele_phantom", "ch5_night_guard", "ch5_book_demon",
@@ -117,15 +117,15 @@ QuestData_ch5.ZONE_QUESTS = {
                     },
                 },
             },
-            -- 主线6：书阁破妄 — 击杀藏经阁主·温素章×10 + 精英×50 → T10青装3选1
+            -- 主线6：书阁破妄 — 击杀藏经阁主·温素章×20 + 精英×100 → T10青装3选1
             {
                 id = "clear_library",
                 name = "书阁破妄",
-                desc = "击败藏经阁主·温素章10次并消灭50个太虚精英残魂",
+                desc = "击败藏经阁主·温素章20次并消灭100个太虚精英残魂",
                 targets = {
-                    { targetType = "ch5_wen_suzhang", targetCount = 10, name = "藏经阁主·温素章" },
+                    { targetType = "ch5_wen_suzhang", targetCount = 20, name = "藏经阁主·温素章" },
                     {
-                        targetType = "ch5_sword_shadow", targetCount = 50, name = "太虚精英",
+                        targetType = "ch5_sword_shadow", targetCount = 100, name = "太虚精英",
                         targetAliases = {
                             "ch5_ice_turtle", "ch5_forge_soldier",
                             "ch5_stele_phantom", "ch5_night_guard", "ch5_book_demon",

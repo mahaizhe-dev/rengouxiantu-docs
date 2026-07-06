@@ -219,6 +219,10 @@ function SavePersistence.DoSave(slot, callback, epoch, attemptId)
             local FortuneFruitSystem = require("systems.FortuneFruitSystem")
             return FortuneFruitSystem.Serialize()
         end)(),
+        qinglianBody = (function()
+            local QinglianBodySystem = require("systems.QinglianBodySystem")
+            return QinglianBodySystem.Serialize()
+        end)(),
         seaPillar = (function()
             local SeaPillarSystem = require("systems.SeaPillarSystem")
             return SeaPillarSystem.Serialize()
@@ -248,6 +252,18 @@ function SavePersistence.DoSave(slot, callback, epoch, attemptId)
                 return XianyuanChestSystem.Serialize()
             end
             return {}
+        end)(),
+        wubaoTreasureState = (function()
+            local ok, WubaoTreasureSystem = pcall(require, "systems.WubaoTreasureSystem")
+            if ok and WubaoTreasureSystem then
+                return WubaoTreasureSystem.Serialize()
+            end
+            return { rewardOrder = {}, opened = {} }
+        end)(),
+        triggeredBattles = GameState.triggeredBattles or {},
+        treasureRunner = (function()
+            local TreasureRunnerSystem = require("systems.TreasureRunnerSystem")
+            return TreasureRunnerSystem.Serialize()
         end)(),
         -- 透传服务端写入的仙缘宝箱待选奖励（客户端不解析，原样写回防覆盖）
         pendingXianyuanRewards = SS._pendingXianyuanRewards,

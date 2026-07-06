@@ -24,6 +24,7 @@
 -- ============================================================================
 
 local SaveProtocol = require("network.SaveProtocol")
+local SavePayloadCodec = require("network.SavePayloadCodec")
 local CloudStorage = require("network.CloudStorage")
 local GameConfig = require("config.GameConfig")
 local MigrationPolicy = require("network.MigrationPolicy")
@@ -117,6 +118,8 @@ function SaveSystemNet._getPendingSnapshot()
     return snapshot
 end
 
+local _loadChunkState = nil
+
 --- 暴露给测试：重置所有状态
 function SaveSystemNet._resetForTest()
     _pending = {}
@@ -124,6 +127,7 @@ function SaveSystemNet._resetForTest()
     _queuedFetchSlots = nil
     _handlersSubscribed = false
     _delayedTasks = {}
+    _loadChunkState = nil
 end
 
 local _handlersSubscribed = false
@@ -173,6 +177,9 @@ function SaveSystemNet.InitHandlers()
 
     SubscribeToEvent(SaveProtocol.S2C_SlotsData, "SaveSystemNet_HandleSlotsData")
     SubscribeToEvent(SaveProtocol.S2C_LoadResult, "SaveSystemNet_HandleLoadResult")
+    SubscribeToEvent(SaveProtocol.S2C_LoadGameBegin, "SaveSystemNet_HandleLoadGameBegin")
+    SubscribeToEvent(SaveProtocol.S2C_LoadGameChunk, "SaveSystemNet_HandleLoadGameChunk")
+    SubscribeToEvent(SaveProtocol.S2C_LoadGameEnd, "SaveSystemNet_HandleLoadGameEnd")
     SubscribeToEvent(SaveProtocol.S2C_CharResult, "SaveSystemNet_HandleCharResult")
     SubscribeToEvent(SaveProtocol.S2C_MigrateResult, "SaveSystemNet_HandleMigrateResult")
 
@@ -423,11 +430,34 @@ function SaveSystemNet.Load(slot, callback, _retryCount)
     Logger.info("SaveSystemNet", "C2S_LoadGame sent: slot=" .. slot)
 end
 
---- S2C_LoadResult 处理
+--- S2C_LoadResult handler (single-packet path)
+local function ProcessLoadPayload(slot, saveDataJson, cb)
+    local SaveSystem = require("systems.SaveSystem")
+    local decodeOk, saveData = pcall(cjson.decode, saveDataJson)
+    if not decodeOk or type(saveData) ~= "table" then
+        Logger.error("SaveSystemNet", "LoadGame: saveData decode failed")
+        SaveSystem.loaded = false
+        if cb then cb(false, "存档数据解码失败") end
+        return false
+    end
+
+    saveData.inventory = {
+        equipment = saveData.equipment or {},
+        backpack = saveData.backpack or {},
+    }
+    saveData.equipment = nil
+    saveData.backpack = nil
+    Logger.info("SaveSystemNet", "Inventory assembled from single-key network response")
+
+    SaveSystem.ProcessLoadedData(slot, saveData, nil, cb)
+    Logger.info("SaveSystemNet", "LoadGame ok: slot=" .. tostring(slot))
+    return true
+end
+
 function SaveSystemNet_HandleLoadResult(eventType, eventData)
-    -- R2: 统一 resolvePending
     local cb, meta = resolvePending(ACTION_LOAD)
-    if not cb then return end  -- 晚到响应，已在 resolvePending 中记录 warn
+    if not cb then return end
+    _loadChunkState = nil
 
     local SaveSystem = require("systems.SaveSystem")
     local ok = eventData["ok"]:GetBool()
@@ -442,32 +472,126 @@ function SaveSystemNet_HandleLoadResult(eventType, eventData)
     end
 
     local slot = meta.slot
-
-    -- 解码服务端发送的 JSON 数据
     local saveDataJson = eventData["saveData"]:GetString()
-    local decodeOk, saveData = pcall(cjson.decode, saveDataJson)
-    if not decodeOk or type(saveData) ~= "table" then
-        Logger.error("SaveSystemNet", "LoadGame: saveData decode failed")
-        SaveSystem.loaded = false
-        cb(false, "存档数据解码失败")
+    ProcessLoadPayload(slot, saveDataJson, cb)
+end
+
+local function FailLoadChunk(reason)
+    local cb = resolvePending(ACTION_LOAD)
+    _loadChunkState = nil
+    local SaveSystem = require("systems.SaveSystem")
+    SaveSystem.loaded = false
+    if cb then cb(false, reason or "Load chunk failed") end
+end
+
+function SaveSystemNet_HandleLoadGameBegin(eventType, eventData)
+    if not hasPending(ACTION_LOAD) then
+        Logger.warn("SaveSystemNet", "Load chunk begin without pending load")
         return
     end
 
-    -- v11: equipment + backpack 已在顶层，重组 inventory 供 ProcessLoadedData 使用
-    -- v10 fallback: 服务端已合并 bag → saveData.backpack
-    saveData.inventory = {
-        equipment = saveData.equipment or {},
-        backpack = saveData.backpack or {},
-    }
-    saveData.equipment = nil   -- 清除顶层，统一到 inventory 下
-    saveData.backpack = nil
-    Logger.info("SaveSystemNet", "Inventory assembled from single-key network response")
+    local ok = true
+    pcall(function() ok = eventData["ok"]:GetBool() end)
+    if not ok then
+        local message = nil
+        pcall(function() message = eventData["message"]:GetString() end)
+        FailLoadChunk(message or "Load failed")
+        return
+    end
 
-    -- 交给 SaveSystem.ProcessLoadedData 处理（版本迁移 + 反序列化）
-    SaveSystem.ProcessLoadedData(slot, saveData, nil, cb)
-    Logger.info("SaveSystemNet", "LoadGame ok: slot=" .. slot)
+    local slot = eventData["slot"]:GetInt()
+    local totalBytes = eventData["totalBytes"]:GetInt()
+    local totalChunks = eventData["totalChunks"]:GetInt()
+    local checksum = eventData["checksum"]:GetString()
+    local valid, reason = SavePayloadCodec.ValidateMetadata(totalBytes, totalChunks)
+    if not valid or checksum == "" then
+        FailLoadChunk(reason or "invalid_load_chunk_begin")
+        return
+    end
+
+    _loadChunkState = {
+        slot = slot,
+        totalBytes = totalBytes,
+        totalChunks = totalChunks,
+        checksum = checksum,
+        chunks = {},
+        received = 0,
+    }
+    Logger.info("SaveSystemNet", "Load chunk begin: slot=" .. tostring(slot)
+        .. " chunks=" .. tostring(totalChunks) .. " bytes=" .. tostring(totalBytes))
 end
 
+function SaveSystemNet_HandleLoadGameChunk(eventType, eventData)
+    local state = _loadChunkState
+    if not state then
+        Logger.warn("SaveSystemNet", "Load chunk without begin")
+        return
+    end
+
+    local slot = eventData["slot"]:GetInt()
+    local chunkIndex = eventData["chunkIndex"]:GetInt()
+    local chunkData = eventData["chunkData"]:GetString()
+    if slot ~= state.slot or chunkIndex < 1 or chunkIndex > state.totalChunks or #chunkData > SavePayloadCodec.CHUNK_BYTES then
+        FailLoadChunk("invalid_load_chunk")
+        return
+    end
+
+    local existing = state.chunks[chunkIndex]
+    if existing == nil then
+        state.chunks[chunkIndex] = chunkData
+        state.received = state.received + 1
+    elseif existing ~= chunkData then
+        FailLoadChunk("conflicting_load_chunk")
+    end
+end
+
+function SaveSystemNet_HandleLoadGameEnd(eventType, eventData)
+    local state = _loadChunkState
+    if not state then
+        Logger.warn("SaveSystemNet", "Load chunk end without begin")
+        return
+    end
+
+    local slot = eventData["slot"]:GetInt()
+    local totalBytes = eventData["totalBytes"]:GetInt()
+    local totalChunks = eventData["totalChunks"]:GetInt()
+    local checksum = eventData["checksum"]:GetString()
+    if slot ~= state.slot or totalBytes ~= state.totalBytes
+        or totalChunks ~= state.totalChunks or checksum ~= state.checksum then
+        FailLoadChunk("load_chunk_metadata_mismatch")
+        return
+    end
+    if state.received ~= state.totalChunks then
+        FailLoadChunk("load_chunk_incomplete")
+        return
+    end
+
+    local cb, meta = resolvePending(ACTION_LOAD)
+    if not cb then
+        _loadChunkState = nil
+        return
+    end
+
+    local joinedOk, payloadOrReason = SavePayloadCodec.Join(state.chunks, state.totalChunks)
+    if not joinedOk then
+        _loadChunkState = nil
+        local SaveSystem = require("systems.SaveSystem")
+        SaveSystem.loaded = false
+        cb(false, payloadOrReason)
+        return
+    end
+
+    local payload = payloadOrReason
+    _loadChunkState = nil
+    if #payload ~= state.totalBytes or SavePayloadCodec.Checksum(payload) ~= state.checksum then
+        local SaveSystem = require("systems.SaveSystem")
+        SaveSystem.loaded = false
+        cb(false, "load_chunk_checksum_failed")
+        return
+    end
+
+    ProcessLoadPayload((meta and meta.slot) or state.slot, payload, cb)
+end
 -- ============================================================================
 -- CreateCharacter（网络模式）
 -- ============================================================================

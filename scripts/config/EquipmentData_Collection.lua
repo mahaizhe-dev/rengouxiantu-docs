@@ -19,6 +19,7 @@ return {
                 "tiger_set_necklace",
                 "tiger_set_cape",
                 "dizun_ring_ch1",
+                "jihu_helmet_ch1",
             },
         },
         {
@@ -35,7 +36,9 @@ return {
                 "wu_armor_ch2",
                 "wu_necklace_ch2",
                 "wu_hammer_ch2",
+                "jianxin_belt_ch2",
                 "dizun_ring_ch2",
+                "xuehai_shenchou_ring_ch2",
                 "fabao_xuehaitu_t5",
                 "fabao_haoqiyin_t5",
                 "fabao_qingyunta_t5",
@@ -133,6 +136,32 @@ return {
                 "fabao_longhunling",
             },
         },
+        {
+            name = "第六章",
+            order = {
+                "ch6_xuntian_helmet",
+                "ch6_xuntian_boots",
+                "ch6_yingyou_ring",
+                "ch6_yingyou_necklace",
+                "ch6_lieshan_shoulder",
+                "ch6_lieshan_armor",
+                "ch6_tianbing_belt",
+                "ch6_tianbing_weapon",
+                "ch6_zhenjie_helmet",
+                "ch6_zhenjie_armor",
+                "ch6_zhenjie_shoulder",
+                "ch6_zhenjie_belt",
+                "ch6_zhenjie_boots",
+                "ch6_toad_immortal_boots",
+                "ch6_heng_weapon",
+                "ch6_heng_cyan_helmet",
+                "ch6_ha_weapon",
+                "ch6_ha_cyan_armor",
+                "ch6_gua_king_ring",
+                "ch6_xianzun_1_ring",
+                "ch6_shixuan_demon_cape",
+            },
+        },
     },
     -- 完整顺序（兼容旧接口）
     order = {
@@ -147,6 +176,7 @@ return {
         "tiger_set_cape",
         "bandit_second_belt",
         "dizun_ring_ch1",
+        "jihu_helmet_ch1",
         "gold_helmet_ch2",
         "boar_belt_ch2",
         "snake_cape_ch2",
@@ -158,7 +188,9 @@ return {
         "wu_armor_ch2",
         "wu_necklace_ch2",
         "wu_hammer_ch2",
+        "jianxin_belt_ch2",
         "dizun_ring_ch2",
+        "xuehai_shenchou_ring_ch2",
         "fabao_xuehaitu_t5",
         "fabao_haoqiyin_t5",
         "fabao_qingyunta_t5",
@@ -240,6 +272,28 @@ return {
         "fabao_qingyunta_t10",
         "fabao_fengmopan_t10",
         "fabao_longhunling",
+        -- 第六章·两界村之影（仙1橙过渡）
+        "ch6_xuntian_helmet",
+        "ch6_xuntian_boots",
+        "ch6_yingyou_ring",
+        "ch6_yingyou_necklace",
+        "ch6_lieshan_shoulder",
+        "ch6_lieshan_armor",
+        "ch6_tianbing_belt",
+        "ch6_tianbing_weapon",
+        "ch6_zhenjie_helmet",
+        "ch6_zhenjie_armor",
+        "ch6_zhenjie_shoulder",
+        "ch6_zhenjie_belt",
+        "ch6_zhenjie_boots",
+        "ch6_toad_immortal_boots",
+        "ch6_heng_weapon",
+        "ch6_heng_cyan_helmet",
+        "ch6_ha_weapon",
+        "ch6_ha_cyan_armor",
+        "ch6_gua_king_ring",
+        "ch6_xianzun_1_ring",
+        "ch6_shixuan_demon_cape",
     },
 
     -- 每个条目的收录奖励（总计≈T3绿全套的20%）
@@ -288,6 +342,10 @@ return {
             bonus = { fortune = 2 },
             desc = "帝尊初铸之戒，虎啸山林，福缘深厚。",
         },
+        jihu_helmet_ch1 = {
+            bonus = { atk = 5 },
+            desc = "虎王试炼炉合铸的终局战盔，舍虎王套装之形，取其攻伐之意。",
+        },
         -- 第二章（加成合计≈Ch1的2倍：atk+18, def+20, maxHp+79）
         gold_helmet_ch2 = {
             bonus = { fortune = 3 },
@@ -333,9 +391,17 @@ return {
             bonus = { maxHp = 12 },
             desc = "大傻二傻合力铸就的蛮荒巨锤，一锤落地，山崩石裂。",
         },
+        jianxin_belt_ch2 = {
+            bonus = { killHeal = 20 },
+            desc = "乌万海大殿秘藏的剑心腰带，杀意回流，越战越稳。",
+        },
         dizun_ring_ch2 = {
             bonus = { fortune = 3 },
             desc = "帝尊再铸之戒，双煞淬炼，福缘深厚。",
+        },
+        xuehai_shenchou_ring_ch2 = {
+            bonus = { def = 5, maxHp = 20 },
+            desc = "乌堡三戒合炼而成，血海仇意凝于指间，守身护命，血气绵长。",
         },
         -- 法宝图鉴（第二章·T5）
         fabao_xuehaitu_t5 = {
@@ -660,6 +726,91 @@ return {
         fabao_longhunling = {
             bonus = { constitution = 5, physique = 5 },
             desc = "龙魂令在手，龙息长存，生生不息。",
+        },
+        -- 第六章·两界村之影（掉落特殊装备，合计：atk=64, def=88, maxHp=420, killHeal=48, hpRegen=6, fortune=7）
+        ch6_xuntian_helmet = {
+            bonus = { def = 8, maxHp = 30 },
+            desc = "巡天仙兵所遗头盔，云纹护额，天威仍在。",
+        },
+        ch6_xuntian_boots = {
+            bonus = { def = 8, maxHp = 30 },
+            desc = "凌风踏云巡游所穿战履，步起风雷，守御不散。",
+        },
+        ch6_yingyou_ring = {
+            bonus = { atk = 8, killHeal = 12 },
+            desc = "影游使凝影成戒，暗芒藏锋，杀意入骨。",
+        },
+        ch6_yingyou_necklace = {
+            bonus = { atk = 8, killHeal = 12 },
+            desc = "烛幽夜影所化项链，幽月沉光，斩影续命。",
+        },
+        ch6_lieshan_shoulder = {
+            bonus = { def = 8, maxHp = 30 },
+            desc = "山岭巨像裂石为肩，厚土之力护体。",
+        },
+        ch6_lieshan_armor = {
+            bonus = { def = 8, maxHp = 30 },
+            desc = "两界山神以山脉气息凝成的战衣，坚如断岳。",
+        },
+        ch6_tianbing_belt = {
+            bonus = { atk = 8, maxHp = 30 },
+            desc = "西营天兵制式战带，军阵杀气仍缠其上。",
+        },
+        ch6_tianbing_weapon = {
+            bonus = { atk = 8, maxHp = 30 },
+            desc = "东营天兵制式战刃，锋光如令，斩敌不退。",
+        },
+        ch6_zhenjie_helmet = {
+            bonus = { def = 8, maxHp = 30 },
+            desc = "东西营天兵镇守阵地的灵盔，青金符纹压住两界动荡。",
+        },
+        ch6_zhenjie_armor = {
+            bonus = { def = 8, maxHp = 30 },
+            desc = "破军天将所藏镇界甲，兵锋入甲，仍能护身不动。",
+        },
+        ch6_zhenjie_shoulder = {
+            bonus = { def = 8, maxHp = 30 },
+            desc = "镇垣天将遗落的肩甲，厚重如墙，镇守一方。",
+        },
+        ch6_zhenjie_belt = {
+            bonus = { atk = 8, def = 8 },
+            desc = "青锋天将束甲之带，风雷藏刃，攻守兼备。",
+        },
+        ch6_zhenjie_boots = {
+            bonus = { def = 8, maxHp = 30 },
+            desc = "雷策天将踏阵之履，雷纹凝固，步履沉稳。",
+        },
+        ch6_toad_immortal_boots = {
+            bonus = { maxHp = 30, hpRegen = 2 },
+            desc = "蛤蟆仙人跳跃山泽的仙履，轻灵之中暗藏生机。",
+        },
+        ch6_heng_weapon = {
+            bonus = { atk = 8, killHeal = 12 },
+            desc = "哼元帅震营大刀，刀背厚重，杀意沉稳。",
+        },
+        ch6_heng_cyan_helmet = {
+            bonus = { def = 8, hpRegen = 1 },
+            desc = "哼元帅战盔，威声震西营，回生之力暗伏其中。",
+        },
+        ch6_ha_weapon = {
+            bonus = { atk = 8, killHeal = 12 },
+            desc = "哈元帅长啸大刀，刃光如雷，斩敌续战。",
+        },
+        ch6_ha_cyan_armor = {
+            bonus = { maxHp = 30, hpRegen = 1 },
+            desc = "哈元帅战甲，雷声入甲，血气回转不息。",
+        },
+        ch6_gua_king_ring = {
+            bonus = { atk = 8, maxHp = 30 },
+            desc = "呱大人凝泽成戒，王威藏于鸣声，仙缘自会均衡。",
+        },
+        ch6_xianzun_1_ring = {
+            bonus = { fortune = 7 },
+            desc = "仙尊一戒，仙1段福缘汇聚于此，气运自生。",
+        },
+        ch6_shixuan_demon_cape = {
+            bonus = { def = 8, maxHp = 30, hpRegen = 2 },
+            desc = "蚀玄魔君氅，暗影成披，魔气侵蚀而护身。",
         },
     },
 }

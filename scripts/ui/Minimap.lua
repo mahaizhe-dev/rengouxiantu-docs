@@ -13,6 +13,8 @@ local QuestData = require("config.QuestData")
 local DaoTreeUI = require("ui.DaoTreeUI")
 local SealDemonSystem = require("systems.SealDemonSystem")
 local TrialTowerSystem = require("systems.TrialTowerSystem")
+local TreasureRunnerSystem = require("systems.TreasureRunnerSystem")
+local WubaoTreasureSystem = require("systems.WubaoTreasureSystem")
 local T = require("config.UITheme")
 
 local Minimap = {}
@@ -227,6 +229,7 @@ local REGION_LABEL_DEFS = {
     { key = "boar_forest",   name = "野猪林",   color = {150, 220, 130, 255} },
     { key = "bandit_camp",   name = "山贼寨",   color = {220, 180, 140, 255} },
     { key = "tiger_domain",  name = "虎王领地", color = {255, 180, 100, 255} },
+    { key = "boundary_rift_path", name = "界匙残阵", color = {180, 100, 255, 255}, subtitle = "事件区域", subtitleColor = {210, 180, 255, 220} },
     -- ch2
     { key = "camp_a",        name = "临时营地", color = {200, 180, 140, 255} },
     { key = "wild_b",        name = "野猪坡",   color = {150, 200, 130, 255} },
@@ -353,6 +356,74 @@ local function MarkMonsterCategory(hasCategory, category)
     end
 end
 
+local function DrawTreasureRunnerMarker(nvg, x, y, size, drawLabel, label)
+    local t = time.elapsedTime
+    local pulse = 0.65 + 0.35 * math.sin(t * 4.0)
+    nvgBeginPath(nvg)
+    nvgCircle(nvg, x, y, size + 5 * pulse)
+    nvgFillColor(nvg, nvgRGBA(80, 255, 180, math.floor(55 * pulse)))
+    nvgFill(nvg)
+    nvgBeginPath(nvg)
+    nvgMoveTo(nvg, x, y - size)
+    nvgLineTo(nvg, x + size, y)
+    nvgLineTo(nvg, x, y + size)
+    nvgLineTo(nvg, x - size, y)
+    nvgClosePath(nvg)
+    nvgFillColor(nvg, nvgRGBA(70, 245, 170, 255))
+    nvgFill(nvg)
+    nvgStrokeColor(nvg, nvgRGBA(255, 230, 100, 230))
+    nvgStrokeWidth(nvg, 1.2)
+    nvgStroke(nvg)
+
+    if drawLabel then
+        nvgFontSize(nvg, 11)
+        nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_BOTTOM)
+        nvgFillColor(nvg, nvgRGBA(0, 0, 0, 180))
+        nvgText(nvg, x + 1, y - size - 3, label or "小钻风")
+        nvgFillColor(nvg, nvgRGBA(120, 255, 190, 245))
+        nvgText(nvg, x, y - size - 4, label or "小钻风")
+    end
+end
+
+local function GetWubaoTreasureMarkers()
+    return WubaoTreasureSystem.GetChestsForChapter(GameState.currentChapter or 1)
+end
+
+local function DrawWubaoTreasureMarker(nvg, x, y, size, opened)
+    local alpha = opened and 100 or 235
+    local glow = opened and 18 or 45
+    nvgBeginPath(nvg)
+    nvgCircle(nvg, x, y, size + 2.4)
+    nvgFillColor(nvg, nvgRGBA(170, 90, 255, glow))
+    nvgFill(nvg)
+
+    nvgBeginPath(nvg)
+    nvgRect(nvg, x - size, y - size * 0.55, size * 2, size * 1.25)
+    nvgFillColor(nvg, nvgRGBA(165, 95, 255, alpha))
+    nvgFill(nvg)
+    nvgStrokeColor(nvg, nvgRGBA(245, 220, 120, opened and 90 or 210))
+    nvgStrokeWidth(nvg, 1.0)
+    nvgStroke(nvg)
+
+    nvgBeginPath(nvg)
+    nvgMoveTo(nvg, x - size * 0.65, y - size * 0.55)
+    nvgLineTo(nvg, x - size * 0.35, y - size)
+    nvgLineTo(nvg, x + size * 0.35, y - size)
+    nvgLineTo(nvg, x + size * 0.65, y - size * 0.55)
+    nvgStrokeColor(nvg, nvgRGBA(245, 220, 120, opened and 80 or 220))
+    nvgStrokeWidth(nvg, 0.9)
+    nvgStroke(nvg)
+end
+
+local function DrawWubaoTreasureMarkers(nvg, ox, oy, scaleX, scaleY, size)
+    for _, chest in ipairs(GetWubaoTreasureMarkers()) do
+        local cfg = chest.cfg
+        if cfg then
+            DrawWubaoTreasureMarker(nvg, ox + cfg.x * scaleX, oy + cfg.y * scaleY, size, chest.opened)
+        end
+    end
+end
+
 local function GetLegendState()
     local zd = ActiveZoneData.Get()
     local hasCategory = {}
@@ -371,6 +442,10 @@ local function GetLegendState()
         end
     end
 
+    if TreasureRunnerSystem.HasActiveMarker(GameState.currentChapter) then
+        hasCategory.treasure_runner = true
+    end
+
     local parts = {}
     if hasCategory.npc then
         table.insert(parts, "npc")
@@ -379,6 +454,9 @@ local function GetLegendState()
         if hasCategory[def.key] then
             table.insert(parts, def.key)
         end
+    end
+    if hasCategory.treasure_runner then
+        table.insert(parts, "treasure_runner")
     end
 
     return table.concat(parts, "|"), hasCategory
@@ -401,6 +479,10 @@ local function BuildLegendItems(hasCategory)
                 table.insert(items, Minimap._Legend(def.color, def.label))
             end
         end
+    end
+
+    if hasCategory.treasure_runner then
+        table.insert(items, Minimap._LegendDiamond({80, 255, 180, 255}, "小钻风"))
     end
 
     return items
@@ -491,7 +573,7 @@ function MinimapWidget:Render(nvg)
     local monsters = GameState.monsters
     if monsters then
         for _, m in ipairs(monsters) do
-            if m.alive then
+            if m.alive and not m.isTreasureRunner then
                 local mx = l.x + m.x * scaleX
                 local my = l.y + m.y * scaleY
                 local cat = m.category or "normal"
@@ -575,6 +657,13 @@ function MinimapWidget:Render(nvg)
     end
 
     -- 绘制 NPC（黄点）
+    for _, marker in ipairs(TreasureRunnerSystem.GetActiveMarkers(GameState.currentChapter)) do
+        local tx = l.x + marker.x * scaleX
+        local ty = l.y + marker.y * scaleY
+        DrawTreasureRunnerMarker(nvg, tx, ty, 3.6, false, marker.label)
+    end
+    DrawWubaoTreasureMarkers(nvg, l.x, l.y, scaleX, scaleY, 2.6)
+
     local npcs = ActiveZoneData.Get().NPCs or {}
     nvgFillColor(nvg, nvgRGBA(255, 215, 0, 255))
     for _, npc in ipairs(npcs) do
@@ -763,7 +852,7 @@ function FullMapWidget:Render(nvg)
     local monsters = GameState.monsters
     if monsters then
         for _, m in ipairs(monsters) do
-            if m.alive then
+            if m.alive and not m.isTreasureRunner then
                 local mx = ox + m.x * scaleX
                 local my = oy + m.y * scaleY
                 local cat = m.category or "normal"
@@ -847,6 +936,13 @@ function FullMapWidget:Render(nvg)
     end
 
     -- 绘制 NPC（黄色菱形 + 名字）
+    for _, marker in ipairs(TreasureRunnerSystem.GetActiveMarkers(GameState.currentChapter)) do
+        local tx = ox + marker.x * scaleX
+        local ty = oy + marker.y * scaleY
+        DrawTreasureRunnerMarker(nvg, tx, ty, 5.0, true, marker.label)
+    end
+    DrawWubaoTreasureMarkers(nvg, ox, oy, scaleX, scaleY, 4.0)
+
     local fullNpcs = ActiveZoneData.Get().NPCs or {}
     nvgFontSize(nvg, 11)
     nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_TOP)

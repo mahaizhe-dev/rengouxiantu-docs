@@ -20,6 +20,51 @@ local WarehouseSystem = {}
 -- 黑市卖出前读此标记来决定是否拦截
 WarehouseSystem._dirty = false
 
+local function GetConsumableConfig(consumableId)
+    if not consumableId then return nil, nil, nil end
+
+    local skillBook = nil
+    local ok, PetSkillData = pcall(require, "config.PetSkillData")
+    if ok and PetSkillData and PetSkillData.SKILL_BOOKS then
+        skillBook = PetSkillData.SKILL_BOOKS[consumableId]
+    end
+
+    local foodData = GameConfig.PET_FOOD and GameConfig.PET_FOOD[consumableId]
+    local cfgData = skillBook
+        or foodData
+        or (GameConfig.PET_MATERIALS and GameConfig.PET_MATERIALS[consumableId])
+        or (GameConfig.EVENT_ITEMS and GameConfig.EVENT_ITEMS[consumableId])
+        or (GameConfig.CONSUMABLES and GameConfig.CONSUMABLES[consumableId])
+
+    return cfgData, foodData, skillBook
+end
+
+local function NormalizeWarehouseItemDisplayFields(itemData)
+    if not itemData or not itemData.consumableId then return end
+
+    local cfgData, foodData, skillBook = GetConsumableConfig(itemData.consumableId)
+    if not cfgData then return end
+
+    itemData.category = itemData.category or "consumable"
+    itemData.icon = cfgData.icon or itemData.icon
+    itemData.image = itemData.image or cfgData.image
+    itemData.name = cfgData.name or itemData.name
+    itemData.quality = itemData.quality or cfgData.quality
+    itemData.sellPrice = itemData.sellPrice
+        or cfgData.sellPrice
+        or 1
+    itemData.desc = itemData.desc or cfgData.desc
+
+    if foodData and not itemData.petExp then
+        itemData.petExp = foodData.exp
+    end
+    if skillBook then
+        itemData.isSkillBook = true
+        itemData.skillId = itemData.skillId or skillBook.skillId
+        itemData.bookTier = itemData.bookTier or skillBook.tier
+    end
+end
+
 -- ── 运行时数据（GameState 上挂载） ──
 -- GameState.warehouse = {
 --     unlockedRows = 1,             -- 已解锁排数
@@ -609,6 +654,7 @@ function WarehouseSystem.Deserialize(data)
             local slotIdx = tonumber(slotStr)
             if slotIdx and slotIdx >= 1 and slotIdx <= WarehouseConfig.MAX_SLOTS then
                 NormalizePercentStats(itemData)
+                NormalizeWarehouseItemDisplayFields(itemData)
                 if itemData.slot and not itemData.tier then
                     itemData.tier = 1
                 end
@@ -629,6 +675,7 @@ function WarehouseSystem.Deserialize(data)
             local slotIdx = tonumber(slotStr)
             if slotIdx and slotIdx >= 1 and slotIdx <= WarehouseConfig.PAGE2_MAX_SLOTS then
                 NormalizePercentStats(itemData)
+                NormalizeWarehouseItemDisplayFields(itemData)
                 if itemData.slot and not itemData.tier then
                     itemData.tier = 1
                 end

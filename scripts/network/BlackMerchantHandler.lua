@@ -8,6 +8,7 @@
 
 local Session = require("network.ServerSession")
 local SaveProtocol = require("network.SaveProtocol")
+local SaveBackupService = require("network.SaveBackupService")
 local BMConfig = require("config.BlackMerchantConfig")
 local TradeLogger = require("network.BlackMerchantTradeLogger")
 
@@ -131,19 +132,25 @@ end
 local function WriteSaveBack(userId, slot, saveData, desc, onOk, onError)
     local saveKey = "save_" .. slot
     saveData.timestamp = os.time()
-    serverCloud:BatchSet(userId)
-        :Set(saveKey, saveData)
-        :Save(desc, {
-            ok = function()
-                print("[BlackMerchant] SaveBack OK: " .. desc)
-                if onOk then onOk() end
-            end,
-            error = function(code, reason)
-                print("[BlackMerchant] SaveBack FAILED: " .. desc
-                    .. " code=" .. tostring(code) .. " " .. tostring(reason))
-                if onError then onError() end
-            end,
-        })
+    SaveBackupService.BeforeOverwrite(userId, slot, desc, function()
+        serverCloud:BatchSet(userId)
+            :Set(saveKey, saveData)
+            :Save(desc, {
+                ok = function()
+                    print("[BlackMerchant] SaveBack OK: " .. desc)
+                    if onOk then onOk() end
+                end,
+                error = function(code, reason)
+                    print("[BlackMerchant] SaveBack FAILED: " .. desc
+                        .. " code=" .. tostring(code) .. " " .. tostring(reason))
+                    if onError then onError() end
+                end,
+            })
+    end, function(code, reason)
+        print("[BlackMerchant] SaveBack BACKUP FAILED: " .. desc
+            .. " code=" .. tostring(code) .. " " .. tostring(reason))
+        if onError then onError() end
+    end)
 end
 
 -- ============================================================================

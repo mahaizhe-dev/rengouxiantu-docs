@@ -62,8 +62,10 @@ local ChapterConfig = require("config.ChapterConfig")
 local ActiveZoneData = require("config.ActiveZoneData")
 local TileRenderer = require("rendering.TileRenderer")
 local ChallengeSystem = require("systems.ChallengeSystem")
+local TriggerBattleSystem = require("systems.TriggerBattleSystem")
 local ChallengeUI = require("ui.ChallengeUI")
 local SealDemonSystem = require("systems.SealDemonSystem")
+local TreasureRunnerSystem = require("systems.TreasureRunnerSystem")
 local TrialTowerSystem = require("systems.TrialTowerSystem")
 local TrialTowerUI = require("ui.TrialTowerUI")
 local PrisonTowerUI = require("ui.PrisonTowerUI")
@@ -81,8 +83,11 @@ local ArtifactSystem_ch5 = require("systems.ArtifactSystem_ch5")
 local ArtifactSystem_tiandi = require("systems.ArtifactSystem_tiandi")
 local AtlasUI = require("ui.AtlasUI")
 local FortuneFruitSystem = require("systems.FortuneFruitSystem")
+local QinglianBodySystem = require("systems.QinglianBodySystem")
 local XianyuanChestSystem = require("systems.XianyuanChestSystem")
 local XianyuanChestUI = require("ui.XianyuanChestUI")
+local WubaoTreasureSystem = require("systems.WubaoTreasureSystem")
+local WubaoTreasureUI = require("ui.WubaoTreasureUI")
 local _whOk, WarehouseUI = pcall(require, "ui.WarehouseUI")
 if not _whOk then WarehouseUI = nil end
 local WineSystem = require("systems.WineSystem")
@@ -154,6 +159,7 @@ local function CopyNPC(npcData)
         hideName = npcData.hideName,
         showNameplate = npcData.showNameplate,
         iconScale = npcData.iconScale,
+        triggerBattleId = npcData.triggerBattleId,
     }
 end
 
@@ -397,6 +403,7 @@ function StartGame(isNewGame, slot, charName, classId)
         end
 
         CreateUI()
+        TreasureRunnerSystem.OnWorldReady(gameMap_)
 
         -- 天道问心：新角色创建后首帧触发（不绑创角回调，延迟到 HandleUpdate 检测）
         daoQuestionPending_ = true
@@ -485,6 +492,7 @@ function StartGame(isNewGame, slot, charName, classId)
                     end
                 end
 
+                TreasureRunnerSystem.OnWorldReady(gameMap_)
                 CreateUI()
                 GameState.paused = false
 
@@ -505,6 +513,7 @@ function StartGame(isNewGame, slot, charName, classId)
                 print("[Main] Load FAILED, resetting to character select. Reason: " .. tostring(msg))
                 -- 重置游戏状态，回到选角界面
                 GameState.Init()
+                TreasureRunnerSystem.ResetRuntime()
                 GameState.paused = true
                 gameMap_ = nil
                 camera_ = nil
@@ -654,6 +663,7 @@ function ReturnToLogin()
 
     -- 重置游戏状态
     GameState.Init()
+    TreasureRunnerSystem.ResetRuntime()
     GameState.paused = true
 
     -- 🔴 重置存档系统（清除 loaded 标记和 saveTimer，防止残留状态触发 auto-save）
@@ -721,6 +731,7 @@ function RebuildWorld(chapterId, spawnOverride)
     PrisonTowerUI.SetGameMap(gameMap_, camera_)
     local SwordWallUI = require("ui.SwordWallUI")
     SwordWallUI.SetGameMap(gameMap_)
+    TriggerBattleSystem.SetGameMap(gameMap_)
     MobileControls.SetGameMap(gameMap_)
 
     -- 7. 定位玩家/宠物到出生点
@@ -759,6 +770,7 @@ function RebuildWorld(chapterId, spawnOverride)
     end
     if DungeonClient then DungeonClient.SetGameRefs(gameMap_, camera_) end
     GameEvents.Register({ camera = camera_, gameMap = gameMap_ })
+    TreasureRunnerSystem.OnWorldReady(gameMap_)
     print("[Main] RebuildWorld complete: " .. chapterCfg.name)
 end
 
@@ -769,7 +781,9 @@ function SwitchChapter(targetChapterId)
     if GameState.currentChapter == targetChapterId then return end
 
     -- 挑战/试炼/镇狱/多人副本中禁止切换章节
-    if ChallengeSystem.IsActive() or TrialTowerSystem.IsActive() or PrisonTowerSystem.IsActive() or (DungeonClient and DungeonClient.IsDungeonMode()) then
+    if ChallengeSystem.IsActive() or TrialTowerSystem.IsActive() or PrisonTowerSystem.IsActive()
+        or TriggerBattleSystem.IsActive()
+        or (DungeonClient and DungeonClient.IsDungeonMode()) then
         local p = GameState.player
         if p then
             CombatSystem.AddFloatingText(p.x, p.y - 1.0, "副本中无法传送", {255, 100, 100, 255}, 2.0)
@@ -867,6 +881,7 @@ function InitGame(classId)
 
     -- 初始化游戏状态
     GameState.Init()
+    TreasureRunnerSystem.ResetRuntime()
 
     -- 根据当前章节获取对应的区域数据
     local chapterId = GameState.currentChapter or 1
@@ -890,6 +905,7 @@ function InitGame(classId)
     ChallengeUI.SetGameMap(gameMap_, camera_)
     TrialTowerUI.SetGameMap(gameMap_, camera_)
     PrisonTowerUI.SetGameMap(gameMap_, camera_)
+    TriggerBattleSystem.SetGameMap(gameMap_)
     MobileControls.SetGameMap(gameMap_)
 
     -- 创建玩家
@@ -933,6 +949,8 @@ function InitGame(classId)
     SwordWallSystem.Init()
     local SwordWallUI = require("ui.SwordWallUI")
     SwordWallUI.RegisterEvents()
+    TriggerBattleSystem.Init()
+    TriggerBattleSystem.RegisterNetworkEvents()
 
     -- 重初始化存档系统状态
     -- 🔴 注意：不在此处设置 loaded=true！
@@ -1322,10 +1340,13 @@ function CreateUI()
 
     -- 初始化福源果系统（传入 overlay 用于弹窗）
     FortuneFruitSystem.Init(overlay)
+    QinglianBodySystem.Init(overlay)
 
     -- 初始化仙缘宝箱系统与 UI
     XianyuanChestSystem.Init()
     XianyuanChestUI.Create(overlay)
+    WubaoTreasureSystem.Init()
+    WubaoTreasureUI.Create(overlay)
 
     -- 创建小地图
     Minimap.Create(overlay)
@@ -1431,7 +1452,10 @@ function HandleUpdate(eventType, eventData)
         player:Update(dt, gameMap_)
 
         -- 区域切换检测（委托给 ZoneManager）— 副本/挑战/试炼/镇狱中跳过（坐标不属于正常地图）
-        if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not TribulationScene.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
+        if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive()
+            and not TriggerBattleSystem.IsActive()
+            and not TribulationScene.IsActive()
+            and not (DungeonClient and DungeonClient.IsDungeonMode()) then
             ZoneManager.CheckZoneChange(gameMap_, player, uiRoot_)
         end
 
@@ -1483,8 +1507,12 @@ function HandleUpdate(eventType, eventData)
 
     -- 更新怪物刷新（挑战/试炼/镇狱/多人副本中暂停刷怪）
     local SwordWallSystem = require("systems.SwordWallSystem")
-    if spawner_ and not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not TribulationScene.IsActive() and not SwordWallSystem.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
+    if spawner_ and not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive()
+        and not PrisonTowerSystem.IsActive() and not TriggerBattleSystem.IsActive()
+        and not TribulationScene.IsActive() and not SwordWallSystem.IsActive()
+        and not (DungeonClient and DungeonClient.IsDungeonMode()) then
         spawner_:Update(dt)
+        TreasureRunnerSystem.Update(dt, gameMap_)
     end
 
     -- 更新挑战系统（副本内计时器等）
@@ -1495,6 +1523,9 @@ function HandleUpdate(eventType, eventData)
 
     -- 更新镇狱塔系统
     PrisonTowerSystem.Update(dt, gameMap_)
+
+    -- 更新触发式战斗
+    TriggerBattleSystem.Update(dt, gameMap_)
 
     -- 更新渡劫场景
     TribulationScene.Update(dt)
@@ -1527,6 +1558,7 @@ function HandleUpdate(eventType, eventData)
 
     -- 福源果弹窗计时
     FortuneFruitSystem.Update(dt)
+    QinglianBodySystem.Update(dt)
 
     -- 快捷回城读条 + 按钮状态
     TownReturnSystem.Update(dt)
@@ -1535,6 +1567,8 @@ function HandleUpdate(eventType, eventData)
     -- 仙缘宝箱读条 + UI 计时
     XianyuanChestSystem.Update(dt)
     XianyuanChestUI.Update(dt)
+    WubaoTreasureSystem.Update(dt)
+    WubaoTreasureUI.Update(dt)
     if WarehouseUI then WarehouseUI.Update(dt) end
 
     -- 封魔任务状态更新（超时/距离检测等）
@@ -1560,7 +1594,9 @@ function HandleUpdate(eventType, eventData)
     PerfMonitor.StartSegment("save")
     SaveSystem.UpdateCritical(dt)
     -- 自动保存调度仅在非副本模式运行（副本中暂停自动存档，防中间状态持久化）
-    if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive() and not TribulationScene.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
+    if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive()
+        and not PrisonTowerSystem.IsActive() and not TriggerBattleSystem.IsActive()
+        and not TribulationScene.IsActive() and not (DungeonClient and DungeonClient.IsDungeonMode()) then
         SaveSystem.Update(dt)
     end
     PerfMonitor.EndSegment("save")
@@ -1681,7 +1717,9 @@ function HandleKeyDown(eventType, eventData)
             GMConsole.Hide()
             return
         end
-        if QuestRewardUI.IsVisible() or QuestRewardUI.IsMaterialVisible() then
+        if QuestRewardUI.IsVisible()
+            or QuestRewardUI.IsMaterialVisible()
+            or QuestRewardUI.IsGrantedRewardVisible() then
             -- 奖励弹窗不允许ESC关闭，必须领取
             return
         end

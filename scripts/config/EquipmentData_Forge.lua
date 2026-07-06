@@ -187,6 +187,59 @@ EquipmentData.SetBonuses = {
             },
         },
     },
+
+    -- ===================== 第六章·仙1橙过渡 2件套 =====================
+
+    ch6_xuntian_guard = {
+        name = "巡天防御套",
+        pieces = {
+            [2] = {
+                name = "巡天守御",
+                description = "防御 +80",
+                bonuses = { def = 80 },
+            },
+        },
+    },
+    ch6_yingyou_assault = {
+        name = "影游攻击套",
+        pieces = {
+            [2] = {
+                name = "影游袭杀",
+                description = "攻击力 +100",
+                bonuses = { atk = 100 },
+            },
+        },
+    },
+    ch6_lieshan_vitality = {
+        name = "裂山生命套",
+        pieces = {
+            [2] = {
+                name = "裂山厚命",
+                description = "最大生命 +600",
+                bonuses = { maxHp = 600 },
+            },
+        },
+    },
+    ch6_tianbing_battle = {
+        name = "天兵战套",
+        pieces = {
+            [2] = {
+                name = "天兵续战",
+                description = "击杀回血 +400",
+                bonuses = { killHeal = 400 },
+            },
+        },
+    },
+    ch6_hengha_regen = {
+        name = "哼哈回生套",
+        pieces = {
+            [2] = {
+                name = "哼哈回生",
+                description = "生命回复 +60",
+                bonuses = { hpRegen = 60 },
+            },
+        },
+    },
 }
 
 -- ===================== 葫芦升级配置（金币消耗 → 提升阶级） =====================
@@ -573,8 +626,10 @@ EquipmentData.FORGE_SET_POOLS = {
 
 --- 打造站点定义
 EquipmentData.FORGE_STATIONS = {
-    dragon_forge = { name = "龙神熔炉", desc = "以四龙之力锻造圣器" },
-    sword_forge  = { name = "铸剑地炉", desc = "太虚遗藏，铸剑成圣" },
+    dragon_forge      = { name = "龙神熔炉", desc = "以四龙之力锻造圣器", image = "image/furnace_3x3_20260515085411.png" },
+    sword_forge       = { name = "铸剑地炉", desc = "太虚遗藏，铸剑成圣", image = "image/furnace_3x3_20260515085411.png" },
+    tiger_trial_forge = { name = "虎王试炼炉", subtitle = "极虎锻造", desc = "虎啸林深处的古炉，只铸一件终局头盔。", image = "image/tiger_trial_forge_table_20260703120928.png" },
+    wubao_forge       = { name = "乌堡锻造台", subtitle = "血海锻戒", desc = "乌家堡大殿旧台，专炼血海深仇戒。", image = "image/tiger_trial_forge_table_20260703120928.png" },
 }
 
 --- 统一打造配方表（ForgeSystem.Execute 的单一入口配置）
@@ -602,6 +657,7 @@ EquipmentData.FORGE_STATIONS = {
 ---
 --- 生成器类型枚举：
 ---   "special_equipment"   : 龙神圣器（T9红，spiritStat，原地替换）
+---   "fixed_special_equipment": 固定特殊装备模板（放入背包）
 ---   "jiefeng_sword"       : 解封古剑（T10圣器，saintStat，原地替换）
 ---   "fabao"               : 法宝生成（龙极令）
 ---   "longhunling"         : 龙魂令（升级自龙极令）
@@ -609,6 +665,47 @@ EquipmentData.FORGE_STATIONS = {
 ---   "random_lingqi_mixed" : 随机灵器（概率套装/普通）
 
 EquipmentData.FORGE_RECIPES = {
+    -- ===================== 虎王试炼炉：极虎盔 =====================
+    tiger_trial_jihu_helmet = {
+        stationId   = "tiger_trial_forge",
+        outputId    = "jihu_helmet_ch1",
+        label       = "极虎盔",
+        desc        = "以虎王三件套与帝尊壹戒合炼，铸成第一章终局进攻头盔。",
+        inputMode   = "bag_consume",
+        outputMode  = "add_to_bag",
+        gold        = 10000,
+        fromBagList = {
+            { equipId = "tiger_set_weapon" },
+            { equipId = "tiger_set_armor" },
+            { equipId = "tiger_set_necklace" },
+            { equipId = "dizun_ring_ch1" },
+        },
+        generator   = {
+            type     = "fixed_special_equipment",
+            outputId = "jihu_helmet_ch1",
+        },
+    },
+
+    -- ===================== 乌堡锻造台：血海深仇戒 =====================
+    wubao_xuehai_shenchou_ring = {
+        stationId   = "wubao_forge",
+        outputId    = "xuehai_shenchou_ring_ch2",
+        label       = "血海深仇戒",
+        desc        = "以乌堡戒·海、乌堡戒·仇与帝尊贰戒合炼，凝成第二章终局攻伐戒。",
+        inputMode   = "bag_consume",
+        outputMode  = "add_to_bag",
+        gold        = 100000,
+        fromBagList = {
+            { equipId = "wu_ring_hai" },
+            { equipId = "wu_ring_chou" },
+            { equipId = "dizun_ring_ch2" },
+        },
+        generator   = {
+            type     = "fixed_special_equipment",
+            outputId = "xuehai_shenchou_ring_ch2",
+        },
+    },
+
     -- ===================== 龙神熔炉：圣器打造 =====================
     dragon_shengqi_duanliu = {
         stationId   = "dragon_forge",
@@ -932,6 +1029,12 @@ EquipmentData.FORGE_RECIPES = {
 
 --- 各站点的配方显示顺序
 EquipmentData.FORGE_RECIPE_ORDER = {
+    tiger_trial_forge = {
+        "tiger_trial_jihu_helmet",
+    },
+    wubao_forge = {
+        "wubao_xuehai_shenchou_ring",
+    },
     dragon_forge = {
         "dragon_shengqi_duanliu",
         "dragon_shengqi_fentian",

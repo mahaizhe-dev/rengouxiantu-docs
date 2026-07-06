@@ -14,6 +14,7 @@ local SaveSystem = require("systems.SaveSystem")
 local CombatSystem = require("systems.CombatSystem")
 local Utils = require("core.Utils")
 local PetPanelForms = require("ui.PetPanelForms")
+local ActiveZoneData = require("config.ActiveZoneData")
 local T = require("config.UITheme")
 
 -- PC端显示快捷键标记
@@ -660,16 +661,9 @@ function BottomBar.Update(root)
     -- 区域
     local zoneLabel = bar_:FindById("bb_zone")
     if zoneLabel then
-        local zoneNames = {
-            town = "两界村",
-            narrow_trail = "羊肠小径",
-            spider_cave = "蜘蛛洞",
-            boar_forest = "野猪林",
-            bandit_camp = "山贼寨",
-            tiger_domain = "虎王领地",
-            wilderness = "荒野",
-        }
-        zoneLabel:SetText("📍 " .. (zoneNames[GameState.currentZone] or "未知"))
+        local zd = ActiveZoneData.Get()
+        local info = zd and zd.ZONE_INFO and zd.ZONE_INFO[GameState.currentZone]
+        zoneLabel:SetText("📍 " .. ((info and info.name) or "未知"))
     end
 
     -- 自动释放技能（每0.5秒尝试一次）

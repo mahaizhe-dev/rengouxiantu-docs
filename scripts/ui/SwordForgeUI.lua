@@ -1,6 +1,6 @@
 -- ============================================================================
--- SwordForgeUI.lua - 铸剑地炉打造界面（独立于龙神圣器打造）
--- 第五章专属：每个配方一个顶级页签，无二级子页签
+-- SwordForgeUI.lua - 站点式锻造界面（默认铸剑地炉）
+-- 每个配方一个顶级页签，无二级子页签
 -- ============================================================================
 
 local UI = require("urhox-libs/UI")
@@ -28,9 +28,13 @@ local tabBarPanel_ = nil
 local resultLabel_ = nil
 local parentOverlay_ = nil
 local successPanel_ = nil
+local titleLabel_ = nil
+local subtitleLabel_ = nil
+local stationImagePanel_ = nil
 
--- 当前选中配方索引（对应 SWORD_FORGE_ORDER，1-based）
+-- 当前选中配方索引（对应当前站点配方顺序，1-based）
 local currentRecipeIdx_ = 1
+local currentStationId_ = "sword_forge"
 
 local RED_COLOR = {255, 80, 50, 255}
 local STAT_ROW_H = 22  -- 属性行统一高度（对齐 EquipTooltip）
@@ -41,10 +45,45 @@ local FormatGold = FormatUtils.Gold
 local STAT_NAMES = StatNames.NAMES
 local STAT_ICONS = StatNames.ICONS
 local FormatStatVal = StatNames.FormatValue
+local DEFAULT_STATION_ID = "sword_forge"
+local DEFAULT_STATION_IMAGE = "image/furnace_3x3_20260515085411.png"
 
 -- ============================================================================
 -- 内部工具函数
 -- ============================================================================
+
+local function GetStation()
+    local stations = EquipmentData.FORGE_STATIONS or {}
+    return stations[currentStationId_] or stations[DEFAULT_STATION_ID] or {}
+end
+
+local function GetRecipeOrder()
+    local orders = EquipmentData.FORGE_RECIPE_ORDER or {}
+    return orders[currentStationId_] or (currentStationId_ == DEFAULT_STATION_ID and EquipmentData.SWORD_FORGE_ORDER) or {}
+end
+
+local function GetRecipe(recipeId)
+    local unified = EquipmentData.FORGE_RECIPES and EquipmentData.FORGE_RECIPES[recipeId]
+    local legacy = EquipmentData.SWORD_FORGE_COSTS and EquipmentData.SWORD_FORGE_COSTS[recipeId]
+    if not unified and not legacy then return nil end
+    local merged = {}
+    if legacy then for k, v in pairs(legacy) do merged[k] = v end end
+    if unified then for k, v in pairs(unified) do merged[k] = v end end
+    local gen = merged.generator
+    if merged.outputId == nil and gen then
+        merged.outputId = gen.outputId or gen.targetId or gen.templateId
+    end
+    return merged
+end
+
+local function ApplyStationHeader()
+    local station = GetStation()
+    if titleLabel_ then titleLabel_:SetText(station.name or "铸剑地炉") end
+    if subtitleLabel_ then subtitleLabel_:SetText(station.subtitle or station.desc or "第五章·圣器锻造") end
+    if stationImagePanel_ then
+        stationImagePanel_:SetStyle({ backgroundImage = station.image or station.portrait or DEFAULT_STATION_IMAGE })
+    end
+end
 
 --- 在背包中按 equipId 查找第一个匹配装备，跳过已占用格子
 ---@param manager table
@@ -181,7 +220,9 @@ end
 --- 构建产出装备属性预览面板（仿第四章打造）
 local function BuildForgePreviewRows(targetDef)
     local rows = {}
-    local qColor = {255, 50, 50, 255}
+    local qualityKey = targetDef.quality or "red"
+    local qualityConfig = GameConfig.QUALITY[qualityKey] or GameConfig.QUALITY.red
+    local qColor = qualityConfig and qualityConfig.color or {255, 50, 50, 255}
     local randLo = 1.1
     local randHi = 1.5
     -- 使用产出装备的实际阶级，而非 hardcode T9（铸剑地炉圣器均为 T10）
@@ -190,18 +231,19 @@ local function BuildForgePreviewRows(targetDef)
                    or (EquipmentData.SUB_STAT_TIER_MULT and EquipmentData.SUB_STAT_TIER_MULT[9]) or 11.0
     local pctTM  = (EquipmentData.PCT_SUB_TIER_MULT  and EquipmentData.PCT_SUB_TIER_MULT[tier])
                    or (EquipmentData.PCT_SUB_TIER_MULT  and EquipmentData.PCT_SUB_TIER_MULT[9])  or 6.0
-    local qMult  = GameConfig.QUALITY["red"] and GameConfig.QUALITY["red"].multiplier or 2.1
+    local qMult  = qualityConfig and qualityConfig.multiplier or 2.1
 
     -- 装备名称 & 阶位
     local tierLabel = targetDef.tier and EquipmentData.GetTierDisplayName(targetDef.tier) or "9阶"
     local slotLabel = EquipmentData.SLOT_NAMES and EquipmentData.SLOT_NAMES[targetDef.slot] or (targetDef.slot or "装备")
+    local qualityName = qualityConfig and qualityConfig.name or qualityKey
     table.insert(rows, UI.Label {
         text = targetDef.name,
         fontSize = T.fontSize.lg, fontWeight = "bold",
         fontColor = qColor, textAlign = "center",
     })
     table.insert(rows, UI.Label {
-        text = tierLabel .. "  [圣器] " .. slotLabel,
+        text = tierLabel .. "  [" .. qualityName .. "] " .. slotLabel,
         fontSize = T.fontSize.sm,
         fontColor = {qColor[1], qColor[2], qColor[3], 180}, textAlign = "center",
     })
@@ -652,6 +694,10 @@ function SwordForgeUI.DoForgeSword(recipeId)
         title       = "✨ 灵器铸成！"
         subtitle    = (result.item and result.item.setId) and "套装灵器，天工巧铸" or "灵器出炉，神光隐现"
         displayItem = result.item
+    elseif recipe and recipe.generator and recipe.generator.type == "fixed_special_equipment" then
+        displayItem = result.item
+        title       = "🔥 " .. ((displayItem and displayItem.name) or recipe.label or "装备") .. "铸成！"
+        subtitle    = (GetStation().name or "锻造完成")
     else
         title       = "🔥 圣器铸成！"
         subtitle    = (recipe and recipe.desc) or "铸剑地炉，圣威显现"
@@ -677,8 +723,7 @@ local function BuildRecipeContent(recipeId)
     local player = GameState.player
     local children = {}
 
-    local costs = EquipmentData.SWORD_FORGE_COSTS or {}
-    local recipe = costs[recipeId]
+    local recipe = GetRecipe(recipeId)
     if not recipe then
         return { UI.Label { text = "（配方数据缺失）", fontSize = T.fontSize.sm, fontColor = {255, 130, 100, 255} } }
     end
@@ -732,26 +777,18 @@ local function BuildRecipeContent(recipeId)
         table.insert(materialRows, UI.Panel { width = "100%", height = 1, backgroundColor = {80, 80, 100, 60} })
     end
 
-    -- ── 背包空位（解封古剑原地变换，无需空位）──────────────────────────────
-    local isJiefengRecipe = recipe.fromBag and recipe.fromBag.equipId
-                            and string.find(recipe.fromBag.equipId, "fengyin_")
     local freeSlots = InventorySystem.GetFreeSlots()
-    local hasSpace = isJiefengRecipe or (freeSlots > 0)
-    if not hasSpace then canForge = false end
-    if not isJiefengRecipe then
-        table.insert(materialRows, UI.Label {
-            text = "📦 背包空位：" .. freeSlots,
-            fontSize = T.fontSize.xs,
-            fontColor = (freeSlots > 0) and {130, 230, 130, 255} or {255, 130, 100, 255},
-        })
-    end
+    local needsOutputSlot = recipe.outputMode ~= "replace_weapon"
+    local freedSlots = 0
+    local hasSpace = true
 
     -- ── 金币 ────────────────────────────────────────────────────────────────
-    local canAfford = (recipe.gold == 0) or (player.gold >= recipe.gold)
+    local goldCost = recipe.gold or 0
+    local canAfford = (goldCost == 0) or (player.gold >= goldCost)
     if not canAfford then canForge = false end
-    if recipe.gold > 0 then
+    if goldCost > 0 then
         table.insert(materialRows, UI.Label {
-            text = "💰 " .. FormatGold(recipe.gold) .. "  （持有：" .. FormatGold(player.gold) .. "）",
+            text = "💰 " .. FormatGold(goldCost) .. "  （持有：" .. FormatGold(player.gold) .. "）",
             fontSize = T.fontSize.xs,
             fontColor = canAfford and {130, 230, 130, 255} or {255, 130, 100, 255},
         })
@@ -772,6 +809,7 @@ local function BuildRecipeContent(recipeId)
             hasFb = fbItem ~= nil
         end
         if not hasFb then canForge = false end
+        if hasFb then freedSlots = freedSlots + 1 end
         table.insert(materialRows, BuildBagEquipRow(recipe.fromBag.equipId, hasFb))
     end
 
@@ -780,6 +818,7 @@ local function BuildRecipeContent(recipeId)
         local fb2Item = mgr and FindBagItemByEquipId(mgr, recipe.fromBag2.equipId)
         local hasFb2 = fb2Item ~= nil
         if not hasFb2 then canForge = false end
+        if hasFb2 then freedSlots = freedSlots + 1 end
         table.insert(materialRows, BuildBagEquipRow(recipe.fromBag2.equipId, hasFb2))
     end
 
@@ -791,6 +830,7 @@ local function BuildRecipeContent(recipeId)
             local has = foundItem ~= nil
             if not has then canForge = false end
             if foundSlot then usedSlots2[foundSlot] = true end
+            if has then freedSlots = freedSlots + 1 end
             table.insert(materialRows, BuildBagEquipRow(fb.equipId, has))
         end
     end
@@ -802,6 +842,17 @@ local function BuildRecipeContent(recipeId)
             if have < mat.count then canForge = false end
             table.insert(materialRows, BuildMaterialRow(mat.id, mat.count, have))
         end
+    end
+
+    -- ── 背包空位（消耗装备腾出的格子可承接产物）──────────────────────────────
+    hasSpace = (not needsOutputSlot) or (freeSlots + freedSlots > 0)
+    if not hasSpace then canForge = false end
+    if needsOutputSlot then
+        table.insert(materialRows, UI.Label {
+            text = "📦 背包空位：" .. freeSlots .. "（打造后释放：" .. freedSlots .. "）",
+            fontSize = T.fontSize.xs,
+            fontColor = hasSpace and {130, 230, 130, 255} or {255, 130, 100, 255},
+        })
     end
 
     -- ── 配方描述 ─────────────────────────────────────────────────────────────
@@ -826,8 +877,8 @@ local function BuildRecipeContent(recipeId)
     elseif not canForge then
         btnText = "材料不足"
     else
-        if recipe.gold > 0 then
-            btnText = "🔥 铸造（" .. FormatGold(recipe.gold) .. "）"
+        if goldCost > 0 then
+            btnText = "🔥 铸造（" .. FormatGold(goldCost) .. "）"
         else
             btnText = "🔥 铸造"
         end
@@ -1087,12 +1138,11 @@ end
 
 --- 构建页签栏（每个配方一个顶级页签）
 local function BuildTabBar()
-    local order = EquipmentData.SWORD_FORGE_ORDER or {}
-    local costs = EquipmentData.SWORD_FORGE_COSTS or {}
+    local order = GetRecipeOrder()
     local tabs = {}
 
     for idx, recipeId in ipairs(order) do
-        local recipe = costs[recipeId]
+        local recipe = GetRecipe(recipeId)
         if recipe then
             local isActive = (idx == currentRecipeIdx_)
             table.insert(tabs, UI.Button {
@@ -1146,7 +1196,7 @@ local function RefreshUI_internal()
     tabBarPanel_ = BuildTabBar()
     outerPanel_:AddChild(tabBarPanel_)
 
-    local order = EquipmentData.SWORD_FORGE_ORDER or {}
+    local order = GetRecipeOrder()
     local recipeId = order[currentRecipeIdx_]
     local newChildren = recipeId and BuildRecipeContent(recipeId) or {}
 
@@ -1176,6 +1226,20 @@ function SwordForgeUI.Create(parentOverlay)
     outerPanel_ = UI.Panel {
         width = "100%",
         gap = T.spacing.sm,
+    }
+
+    titleLabel_ = UI.Label { text = "铸剑地炉", fontSize = T.fontSize.lg,
+                             fontWeight = "bold", fontColor = T.color.gold }
+    subtitleLabel_ = UI.Label { text = "第五章·圣器锻造", fontSize = T.fontSize.xs,
+                                fontColor = T.color.textMuted }
+    stationImagePanel_ = UI.Panel {
+        width = 64, height = 64,
+        borderRadius = T.radius.md,
+        backgroundColor = T.color.headerBg,
+        backgroundImage = DEFAULT_STATION_IMAGE,
+        backgroundFit = "cover",
+        borderWidth = 1, borderColor = T.color.forgeBorderRed,
+        overflow = "hidden",
     }
 
     panel_ = UI.Panel {
@@ -1210,21 +1274,11 @@ function SwordForgeUI.Create(parentOverlay)
                         borderColor = T.color.goldDark,
                         children = {
                             -- NPC 肖像
-                            UI.Panel {
-                                width = 64, height = 64,
-                                borderRadius = T.radius.md,
-                                backgroundColor = T.color.headerBg,
-                                backgroundImage = "image/furnace_3x3_20260515085411.png",
-                                backgroundFit = "cover",
-                                borderWidth = 1, borderColor = T.color.forgeBorderRed,
-                                overflow = "hidden",
-                            },
+                            stationImagePanel_,
                             -- 标题区
                             UI.Panel { flexGrow = 1, flexShrink = 1, gap = T.spacing.xxs, children = {
-                                UI.Label { text = "铸剑地炉", fontSize = T.fontSize.lg,
-                                           fontWeight = "bold", fontColor = T.color.gold },
-                                UI.Label { text = "第五章·圣器锻造", fontSize = T.fontSize.xs,
-                                           fontColor = T.color.textMuted },
+                                titleLabel_,
+                                subtitleLabel_,
                             }},
                             -- 关闭按钮（右侧）
                             UI.Button {
@@ -1265,11 +1319,15 @@ function SwordForgeUI.Create(parentOverlay)
     parentOverlay_ = parentOverlay
 end
 
-function SwordForgeUI.Show()
+function SwordForgeUI.Show(npc, stationId)
     if panel_ and not visible_ then
+        local requested = stationId or (npc and (npc.forgeStationId or npc.stationId)) or DEFAULT_STATION_ID
+        local orders = EquipmentData.FORGE_RECIPE_ORDER or {}
+        currentStationId_ = orders[requested] and requested or DEFAULT_STATION_ID
         visible_ = true
-        GameState.uiOpen = "sword_forge"
+        GameState.uiOpen = currentStationId_
         currentRecipeIdx_ = 1
+        ApplyStationHeader()
         resultLabel_:SetText("")
         RefreshUI()
         panel_:Show()
@@ -1280,7 +1338,7 @@ function SwordForgeUI.Hide()
     if panel_ and visible_ then
         visible_ = false
         panel_:Hide()
-        if GameState.uiOpen == "sword_forge" then
+        if GameState.uiOpen == currentStationId_ or GameState.uiOpen == DEFAULT_STATION_ID then
             GameState.uiOpen = nil
         end
     end
@@ -1296,8 +1354,11 @@ function SwordForgeUI.Destroy()
     contentPanel_ = nil
     outerPanel_ = nil
     tabBarPanel_ = nil
+    titleLabel_ = nil
+    subtitleLabel_ = nil
     parentOverlay_ = nil
     successPanel_ = nil
+    currentStationId_ = DEFAULT_STATION_ID
     visible_ = false
 end
 

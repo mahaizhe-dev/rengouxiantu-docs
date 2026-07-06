@@ -3,19 +3,14 @@
 -- ============================================================================
 
 local GameState = require("core.GameState")
-local ChapterConfig = require("config.ChapterConfig")
+local ActiveZoneData = require("config.ActiveZoneData")
 
 local ZoneManager = {}
 
--- 区域信息表（从各章节 ZoneData.ZONE_INFO 自动合并）
-ZoneManager.ZONE_INFO = {}
-for _, chapter in pairs(ChapterConfig.CHAPTERS) do
-    local ok, zd = pcall(require, chapter.zoneDataModule)
-    if ok and zd and zd.ZONE_INFO then
-        for zoneId, info in pairs(zd.ZONE_INFO) do
-            ZoneManager.ZONE_INFO[zoneId] = info
-        end
-    end
+-- 区域信息从当前 ActiveZoneData 读取，避免同名 zoneId 串章。
+function ZoneManager.GetZoneInfo(zoneId)
+    local zd = ActiveZoneData.Get()
+    return zd and zd.ZONE_INFO and zd.ZONE_INFO[zoneId] or nil
 end
 
 -- 上次显示的区域名
@@ -40,8 +35,8 @@ end
 ---@param uiRoot table|nil
 function ZoneManager.OnZoneChanged(fromZone, toZone, uiRoot)
     local T = require("config.UITheme")
-    local info = ZoneManager.ZONE_INFO[toZone]
-    local name = info and info.name or toZone
+    local info = ZoneManager.GetZoneInfo(toZone)
+    local name = info and info.name or tostring(toZone or "unknown")
     if name ~= lastZoneNotice_ then
         lastZoneNotice_ = name
         print("[Zone] Entered: " .. name)
@@ -55,7 +50,10 @@ function ZoneManager.OnZoneChanged(fromZone, toZone, uiRoot)
                 end
                 local levelLabel = notice:FindById("zoneNoticeLevel")
                 if levelLabel then
-                    if info and info.levelRange then
+                    if info and info.levelText then
+                        levelLabel:SetText(info.levelText)
+                        levelLabel:SetVisible(true)
+                    elseif info and info.levelRange then
                         levelLabel:SetText("Lv." .. info.levelRange[1] .. " ~ Lv." .. info.levelRange[2])
                         levelLabel:SetVisible(true)
                     else

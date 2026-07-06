@@ -205,7 +205,22 @@ PillRecipes.TOKEN_BOXES = {
     { tokenId = "sha_hai_ling",    boxId = "sha_hai_ling_box",    chapter = 3 },
     { tokenId = "taixu_token",     boxId = "taixu_token_box",     chapter = 4 },
     { tokenId = "taixu_jianling",  boxId = "taixu_jianling_box",  chapter = 5 },
+    { tokenId = "zhexian_ling",    boxId = "zhexian_ling_box",    chapter = 6, lingYunCost = 200 },
 }
+
+function PillRecipes.GetTokenBoxRecipe(tokenId, boxId)
+    for _, cfg in ipairs(PillRecipes.TOKEN_BOXES) do
+        if cfg.tokenId == tokenId and cfg.boxId == boxId then
+            return cfg
+        end
+    end
+    return nil
+end
+
+function PillRecipes.GetTokenBoxLingYunCost(tokenId, boxId)
+    local cfg = PillRecipes.GetTokenBoxRecipe(tokenId, boxId)
+    return (cfg and cfg.lingYunCost) or PillRecipes.TOKEN_BOX_LINGYUN_COST
+end
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- 属性显示名称映射（用于生成成功消息）

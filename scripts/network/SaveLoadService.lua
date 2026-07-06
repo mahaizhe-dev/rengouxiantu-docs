@@ -14,6 +14,8 @@
 local SaveLoadService = {}
 
 local SaveProtocol      = require("network.SaveProtocol")
+local SavePayloadCodec  = require("network.SavePayloadCodec")
+local SaveBackupService = require("network.SaveBackupService")
 local Session           = require("network.ServerSession")
 local DungeonConfig     = require("config.DungeonConfig")
 local RedeemHandler     = require("network.RedeemHandler")
@@ -39,6 +41,55 @@ local function SendResult(connection, eventName, success, message)
         data["message"] = Variant(message)
     end
     SafeSend(connection, eventName, data)
+end
+
+local function SendLoadSuccess(connection, slot, saveData)
+    local encodeOk, saveDataJson = pcall(cjson.encode, saveData)
+    if not encodeOk then
+        print("[Server] LoadGame encode failed: " .. tostring(saveDataJson))
+        SendResult(connection, SaveProtocol.S2C_LoadResult, false, "encode_failed")
+        return false
+    end
+
+    if not SavePayloadCodec.NeedsChunking(saveDataJson, 0) then
+        local resultData = VariantMap()
+        resultData["ok"] = Variant(true)
+        resultData["slot"] = Variant(slot)
+        resultData["saveData"] = Variant(saveDataJson)
+        SafeSend(connection, SaveProtocol.S2C_LoadResult, resultData)
+        return true
+    end
+
+    local chunks = SavePayloadCodec.Split(saveDataJson)
+    local checksum = SavePayloadCodec.Checksum(saveDataJson)
+
+    local beginData = VariantMap()
+    beginData["ok"] = Variant(true)
+    beginData["slot"] = Variant(slot)
+    beginData["totalBytes"] = Variant(#saveDataJson)
+    beginData["totalChunks"] = Variant(#chunks)
+    beginData["checksum"] = Variant(checksum)
+    SafeSend(connection, SaveProtocol.S2C_LoadGameBegin, beginData)
+
+    for i, chunk in ipairs(chunks) do
+        local chunkData = VariantMap()
+        chunkData["slot"] = Variant(slot)
+        chunkData["chunkIndex"] = Variant(i)
+        chunkData["chunkData"] = Variant(chunk)
+        SafeSend(connection, SaveProtocol.S2C_LoadGameChunk, chunkData)
+    end
+
+    local endData = VariantMap()
+    endData["ok"] = Variant(true)
+    endData["slot"] = Variant(slot)
+    endData["totalBytes"] = Variant(#saveDataJson)
+    endData["totalChunks"] = Variant(#chunks)
+    endData["checksum"] = Variant(checksum)
+    SafeSend(connection, SaveProtocol.S2C_LoadGameEnd, endData)
+
+    print("[Server] LoadGame chunked sent: slot=" .. tostring(slot)
+        .. " chunks=" .. tostring(#chunks) .. " bytes=" .. tostring(#saveDataJson))
+    return true
 end
 
 -- ============================================================================
@@ -67,6 +118,7 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
     local oldSaveKey = "save_data_" .. slot
     local oldBag1Key = "save_bag1_" .. slot
     local oldBag2Key = "save_bag2_" .. slot
+    local latestBackupKey = SaveBackupService.BackupKey(slot)
 
     -- ── [过渡代码] 兑换码 pending + 副本 pending ──
     local pendingKey = "pending_redeem_s" .. slot
@@ -81,6 +133,7 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
         :Key(oldSaveKey)
         :Key(oldBag1Key)
         :Key(oldBag2Key)
+        :Key(latestBackupKey)
         :Key("account_atlas")
         :Key("account_cosmetics")
         :Key(pendingKey)
@@ -108,6 +161,16 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
                         for k, v in pairs(b2) do backpack[k] = v end
                     end
                     saveData.backpack = backpack
+                end
+
+                if not saveData then
+                    local latestBackup = scores[latestBackupKey]
+                    local backupData = latestBackup and latestBackup.data or latestBackup
+                    if backupData and type(backupData) == "table" and backupData.player then
+                        saveData = backupData
+                        print("[Server] LoadGame: using prewrite backup for slot " .. slot
+                            .. " userId=" .. tostring(userId))
+                    end
                 end
 
                 if not saveData then
@@ -145,6 +208,7 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
                     else
                         print("[Server] LoadGame: rewards SKIPPED (already in save) for code=" .. tostring(pendingCode))
                     end
+                    SaveBackupService.BeforeOverwrite(userId, slot, "load pending redeem", function()
                     serverCloud:BatchSet(userId)
                         :Set(newSaveKey, saveData)
                         :Delete(pendingKey)
@@ -158,6 +222,9 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
                                 print("[Server] LoadGame: WARNING pending redeem merge FAILED: " .. tostring(reason))
                             end,
                         })
+                    end, function(code, reason)
+                        print("[Server] LoadGame: WARNING pending redeem backup FAILED: " .. tostring(reason))
+                    end)
                 end
 
                 -- ── [过渡代码] 旧格式副本 pending key 迁移 ──
@@ -196,6 +263,7 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
                     PetSkillRepair.ApplyRepair(saveData, repairPlan.tier)
                     -- 原子写回存档 + 标记
                     saveData.timestamp = os.time()
+                    SaveBackupService.BeforeOverwrite(userId, slot, "pet skill repair", function()
                     serverCloud:BatchSet(userId)
                         :Set(newSaveKey, saveData)
                         :Set(petRepairFlagKey, PetSkillRepair.FLAG_REPAIRED)
@@ -209,6 +277,10 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
                                     .. " slot=" .. slot .. " err=" .. tostring(reason))
                             end,
                         })
+                    end, function(code, reason)
+                        print("[PetSkillRepair V1] BACKUP FAILED: userId=" .. tostring(userId)
+                            .. " slot=" .. slot .. " err=" .. tostring(reason))
+                    end)
                 elseif repairPlan.shouldMark then
                     -- 不需要修复，但打上"已检查"标记避免后续重复判定
                     serverCloud:BatchSet(userId)
@@ -225,11 +297,7 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
                 end
 
                 -- ── [回包] 发送存档数据（v11 单 key 格式） ──
-                local resultData = VariantMap()
-                resultData["ok"] = Variant(true)
-                resultData["slot"] = Variant(slot)
-                resultData["saveData"] = Variant(cjson.encode(saveData))
-                SafeSend(connection, SaveProtocol.S2C_LoadResult, resultData)
+                SendLoadSuccess(connection, slot, saveData)
 
                 print("[Server] LoadGame sent: userId=" .. tostring(userId) .. " slot=" .. slot)
 

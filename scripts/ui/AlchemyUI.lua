@@ -110,9 +110,7 @@ local SHADOW_GOD_PILL = {
     materialCount = _sg.materialCount or 1,
 }
 
-local TOKEN_BOX_LINGYUN_COST = PillRecipes.TOKEN_BOX_LINGYUN_COST
 local TOKEN_BOX_TOKEN_COST   = PillRecipes.TOKEN_BOX_TOKEN_COST
-local TOKEN_BOX_RECIPES      = PillRecipes.TOKEN_BOXES
 
 -- 分类标签配置已迁移到共享组件 CategoryBadge.PRESETS
 
@@ -416,7 +414,8 @@ local function CreateTokenBoxCard(cfg)
     local lingYun = player and player.lingYun or 0
     local tokenCount = InventorySystem.CountConsumable(cfg.tokenId)
     local boxCount = InventorySystem.CountConsumable(cfg.boxId)
-    local canCraft = lingYun >= TOKEN_BOX_LINGYUN_COST and tokenCount >= TOKEN_BOX_TOKEN_COST
+    local lingYunCost = PillRecipes.GetTokenBoxLingYunCost(cfg.tokenId, cfg.boxId)
+    local canCraft = lingYun >= lingYunCost and tokenCount >= TOKEN_BOX_TOKEN_COST
     local quality = GetItemQuality(cfg.boxId)
 
     return UI.Panel {
@@ -473,7 +472,7 @@ local function CreateTokenBoxCard(cfg)
                     },
                     -- 炼制消耗
                     UI.Label {
-                        text = "炼制消耗：灵韵×" .. FormatPrice(TOKEN_BOX_LINGYUN_COST) .. "，" .. cfg.tokenName .. "×" .. TOKEN_BOX_TOKEN_COST .. "(" .. tokenCount .. ")",
+                        text = "炼制消耗：灵韵×" .. FormatPrice(lingYunCost) .. "，" .. cfg.tokenName .. "×" .. TOKEN_BOX_TOKEN_COST .. "(" .. tokenCount .. ")",
                         fontSize = T.fontSize.xs,
                         fontColor = canCraft and T.color.warning or T.color.error,
                         marginLeft = ICON_SIZE + T.spacing.sm,
@@ -561,6 +560,7 @@ local function BuildCh6Content()
             maxCount = SHADOW_GOD_PILL.maxBuy,
             getCount = AS.GetShadowGodPillCount,
         }),
+        CreateTokenBoxCard({ name = "谪仙令盒", tokenId = "zhexian_ling", boxId = "zhexian_ling_box", tokenName = "谪仙令" }),
     }
 end
 

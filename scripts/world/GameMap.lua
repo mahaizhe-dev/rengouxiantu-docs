@@ -39,6 +39,8 @@ function GameMap.New(zoneDataOverride, mapWidth, mapHeight)
     self.width = mapWidth or GameConfig.MAP_WIDTH
     self.height = mapHeight or GameConfig.MAP_HEIGHT
     self.tiles = {}   -- 2D array [y][x]
+    self.sealBlockCounts = {}   -- 封印阻挡层，key="x,y" → 引用计数
+    self.sealBlockZones = {}    -- zoneId → { ["x,y"] = true }
     self.zoneData = zoneDataOverride or ActiveZoneData.Get()  -- 保存当前使用的 ZoneData 引用
     activeZoneData = self.zoneData  -- 更新模块级引用，供所有方法使用
 
@@ -301,6 +303,8 @@ function GameMap:Generate()
     -- ================================================================
     -- 仙缘宝箱藏宝室（5×5 独立房间，必须在最后覆写）
     -- ================================================================
+    -- Boundary rift path must run before the final Xianyuan room overwrite.
+    self:CarveBoundaryRiftHiddenPath()
     self:BuildXianyuanRooms()
 end
 
@@ -331,11 +335,67 @@ function GameMap:GetTile(x, y)
     return activeZoneData.TILE.WATER  -- 边界外视为水
 end
 
+local function tileKey(x, y)
+    return tostring(x) .. "," .. tostring(y)
+end
+
+--- 写入某个封印的独立阻挡层；与瓦片类型分离，避免视觉/地形覆盖导致穿封印。
+---@param zoneId string
+---@param tiles table
+function GameMap:SetSealBlockedTiles(zoneId, tiles)
+    if not zoneId or not tiles then return end
+    self:ClearSealBlockedTiles(zoneId)
+
+    local zoneSet = {}
+    for _, tile in ipairs(tiles) do
+        local x = math.floor(tile.x + 0.5)
+        local y = math.floor(tile.y + 0.5)
+        if x >= 1 and x <= self.width and y >= 1 and y <= self.height then
+            local key = tileKey(x, y)
+            zoneSet[key] = true
+            self.sealBlockCounts[key] = (self.sealBlockCounts[key] or 0) + 1
+        end
+    end
+    self.sealBlockZones[zoneId] = zoneSet
+end
+
+--- 清除某个封印的独立阻挡层；引用计数保证重叠封印不会互相拆掉。
+---@param zoneId string
+function GameMap:ClearSealBlockedTiles(zoneId)
+    if not zoneId or not self.sealBlockZones then return end
+    local zoneSet = self.sealBlockZones[zoneId]
+    if not zoneSet then return end
+
+    for key, _ in pairs(zoneSet) do
+        local count = (self.sealBlockCounts[key] or 0) - 1
+        if count > 0 then
+            self.sealBlockCounts[key] = count
+        else
+            self.sealBlockCounts[key] = nil
+        end
+    end
+    self.sealBlockZones[zoneId] = nil
+end
+
+--- 判断坐标是否被当前未解封封印阻挡。
+---@param x number
+---@param y number
+---@return boolean
+function GameMap:IsSealBlocked(x, y)
+    if not self.sealBlockCounts then return false end
+    local tx = math.floor(x + 0.5)
+    local ty = math.floor(y + 0.5)
+    return (self.sealBlockCounts[tileKey(tx, ty)] or 0) > 0
+end
+
 --- 判断坐标是否可通行
 ---@param x number 瓦片坐标（浮点）
 ---@param y number
 ---@return boolean
 function GameMap:IsWalkable(x, y)
+    if self:IsSealBlocked(x, y) then
+        return false
+    end
     local tileType = self:GetTile(x, y)
     return activeZoneData.WALKABLE[tileType] == true
 end

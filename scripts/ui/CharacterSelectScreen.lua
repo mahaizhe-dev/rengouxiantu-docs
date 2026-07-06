@@ -43,7 +43,7 @@ function CharacterSelectScreen.Create(uiRoot, onStart)
         justifyContent = "flex-end",
         alignItems = "center",
         -- 全屏插画背景
-        backgroundImage = "image/login_bg_ch5_taixu_v2.png",
+        backgroundImage = "image/login_bg_ch6_liangjie_clean_v9.png",
         backgroundFit = "cover",
         backgroundPosition = "center top",
         visible = false,
@@ -112,7 +112,7 @@ function CharacterSelectScreen.Create(uiRoot, onStart)
                             },
                             -- 章节副标题
                             UI.Label {
-                                text = "第五章 · 太虚之殇",
+                                text = "第六章 · 两界村之影",
                                 fontSize = T.fontSize.md,
                                 fontColor = {220, 235, 255, 240},
                                 letterSpacing = 2,

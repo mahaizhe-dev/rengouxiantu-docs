@@ -16,6 +16,84 @@ local ImageItemSlot = ItemSlot:Extend("ImageItemSlot")
 
 local isImagePath = IconUtils.IsImagePath
 
+local function ConfigImagePath(cfg)
+    if not cfg then return nil end
+    if cfg.image and isImagePath(cfg.image) then
+        return cfg.image
+    end
+    if cfg.icon and isImagePath(cfg.icon) then
+        return cfg.icon
+    end
+    return nil
+end
+
+local function ResolveConsumableConfig(consumableId)
+    if not consumableId then return nil end
+    local GameConfig = require("config.GameConfig")
+    return (GameConfig.PET_FOOD and GameConfig.PET_FOOD[consumableId])
+        or (GameConfig.PET_MATERIALS and GameConfig.PET_MATERIALS[consumableId])
+        or (GameConfig.EVENT_ITEMS and GameConfig.EVENT_ITEMS[consumableId])
+        or (GameConfig.CONSUMABLES and GameConfig.CONSUMABLES[consumableId])
+end
+
+local function ResolveEquipmentImage(item)
+    if not item or not item.equipId then return nil end
+    local ok, EquipmentData = pcall(require, "config.EquipmentData")
+    if not ok or not EquipmentData then return nil end
+
+    local tpl = nil
+    if item.isFabao and EquipmentData.FabaoTemplates then
+        tpl = EquipmentData.FabaoTemplates[item.equipId]
+    end
+    if not tpl and EquipmentData.SpecialEquipment then
+        tpl = EquipmentData.SpecialEquipment[item.equipId]
+    end
+    if not tpl then return nil end
+
+    if tpl.iconByTier and item.tier then
+        local tierIcon = tpl.iconByTier[item.tier] or tpl.iconByTier[9]
+        if isImagePath(tierIcon) then return tierIcon end
+    end
+    return ConfigImagePath(tpl)
+end
+
+local function ResolveImagePath(item)
+    if not item then return nil end
+    if item.image and isImagePath(item.image) then
+        return item.image
+    end
+    if isImagePath(item.icon) then
+        return item.icon
+    end
+    if item.category == "mingge" and item.bossId then
+        local MinggeData = require("config.MinggeData")
+        if MinggeData.PORTRAITS and MinggeData.PORTRAITS[item.bossId] then
+            return MinggeData.PORTRAITS[item.bossId]
+        end
+    end
+    if item.consumableId then
+        return ConfigImagePath(ResolveConsumableConfig(item.consumableId))
+    end
+    return ResolveEquipmentImage(item)
+end
+
+ImageItemSlot.ResolveImagePath = ResolveImagePath
+
+local function BuildParentDisplayItem(item, imgPath)
+    if not item then return nil end
+    local displayItem = {}
+    for k, v in pairs(item) do
+        displayItem[k] = v
+    end
+    if item.count then
+        displayItem.quantity = item.count
+    end
+    if imgPath or isImagePath(displayItem.icon) then
+        displayItem.icon = ""
+    end
+    return displayItem
+end
+
 function ImageItemSlot:Init(props)
     ItemSlot.Init(self, props)
 
@@ -59,17 +137,20 @@ end
 --- 生成物品显示指纹（用于跳过无变化的 UpdateDisplay）
 local function ItemFingerprint(item)
     if not item then return nil end
+    local imagePath = ResolveImagePath(item) or item.image or item.icon or ""
     -- 包含影响显示的所有关键字段
-    return string.format("%s|%s|%s|%s|%d|%s|%s|%s|%s",
+    return string.format("%s|%s|%s|%s|%d|%s|%s|%s|%s|%s|%s",
         tostring(item.name),
-        tostring(item.image or item.icon or ""),
+        tostring(imagePath),
         tostring(item.quality or ""),
         tostring(item.element or ""),
         item.count or item.quantity or 1,
         tostring(item.locked or false),
         tostring(item.equipped or false),
         tostring(item.setId or ""),
-        tostring(item.bmNoResell or false)
+        tostring(item.bmNoResell or false),
+        tostring(item.consumableId or ""),
+        tostring(item.equipId or "")
     )
 end
 
@@ -90,12 +171,13 @@ function ImageItemSlot:GetSlotBorderStyle()
     if item then
         -- 有物品：查品质色（装备和消耗品通用）
         local GameConfig = require("config.GameConfig")
+        local quality = item.quality
         -- 消耗品兼容：从配置补全 quality（统一用 CONSUMABLES 覆盖全品类）
-        if item.category == "consumable" and not item.quality and item.consumableId then
-            local cfgData = GameConfig.CONSUMABLES and GameConfig.CONSUMABLES[item.consumableId]
-            if cfgData then item.quality = cfgData.quality end
+        if item.category == "consumable" and not quality and item.consumableId then
+            local cfgData = ResolveConsumableConfig(item.consumableId)
+            if cfgData then quality = cfgData.quality end
         end
-        local qCfg = item.quality and GameConfig.QUALITY[item.quality]
+        local qCfg = quality and GameConfig.QUALITY[quality]
         if qCfg then
             return qCfg.color, 2
         end
@@ -110,46 +192,22 @@ function ImageItemSlot:UpdateDisplay()
     -- Call parent to handle standard logic (emoji text, background color, quantity badge)
     -- 兼容 count 字段：引擎 ItemSlot 只识别 quantity，游戏数据用 count
     local curItem = self.props.item
-    if curItem and curItem.count then
-        curItem.quantity = curItem.count
-    end
+    -- Keep the source item immutable; count is copied into a display-only item below.
 
-    -- 🔴 FIX: 确定有效图标路径（优先 image 字段，其次 icon，最后从 GameConfig 查）
-    local imgPath = nil
-    if curItem then
-        if curItem.image and isImagePath(curItem.image) then
-            imgPath = curItem.image
-        elseif isImagePath(curItem.icon) then
-            imgPath = curItem.icon
-        elseif curItem.category == "mingge" and curItem.bossId then
-            -- 旧存档命格没有 image 字段，从 MinggeData.PORTRAITS 回退查
-            local MinggeData = require("config.MinggeData")
-            if MinggeData.PORTRAITS and MinggeData.PORTRAITS[curItem.bossId] then
-                imgPath = MinggeData.PORTRAITS[curItem.bossId]
-            end
-        elseif curItem.category == "consumable" and curItem.consumableId then
-            -- 旧存档可能没有 image 字段，从 GameConfig 实时查
-            local GameConfig = require("config.GameConfig")
-            local cfgData = GameConfig.CONSUMABLES and GameConfig.CONSUMABLES[curItem.consumableId]
-            if cfgData and cfgData.image and isImagePath(cfgData.image) then
-                imgPath = cfgData.image
-            end
-        end
-    end
+    local imgPath = ResolveImagePath(curItem)
 
     -- 阻止基类把 .png 路径写入 iconLabel（56px 容器放 ~395px 文本
     --    → CheckOverflow 每帧 100+ 次 print() → I/O 卡死）
-    local savedIcon = nil
-    if curItem and (isImagePath(curItem.icon) or imgPath) then
-        savedIcon = curItem.icon
-        curItem.icon = ""  -- 临时清空，基类只会 SetText("")
+    local parentItem = BuildParentDisplayItem(curItem, imgPath)
+    if parentItem then
+        self.props.item = parentItem
     end
 
     ItemSlot.UpdateDisplay(self)
 
-    -- 还原 icon，不污染原始数据
-    if savedIcon then
-        curItem.icon = savedIcon
+    -- Restore the original item reference after the parent renders the display copy.
+    if parentItem then
+        self.props.item = curItem
     end
 
     -- Guard: imageOverlay_ not yet created during parent Init
@@ -159,8 +217,7 @@ function ImageItemSlot:UpdateDisplay()
 
     if item and imgPath then
         -- Item with image icon: show image, hide emoji text (iconLabel already "" from above)
-        self.imageOverlay_.props.backgroundImage = imgPath
-        self.imageOverlay_.props.opacity = 1.0
+        self.imageOverlay_:SetStyle({ backgroundImage = imgPath, opacity = 1.0 })
         self.imageOverlay_:SetVisible(true)
 
         -- 已装备：亮底 + 品质色边框
@@ -172,8 +229,7 @@ function ImageItemSlot:UpdateDisplay()
     elseif not item and self.props.showTypeIcon ~= false and isImagePath(self.props.slotTypeIcon) then
         -- Empty equipment slot with image type icon (grayed out)
         self.iconLabel_:SetText("")
-        self.imageOverlay_.props.backgroundImage = self.props.slotTypeIcon
-        self.imageOverlay_.props.opacity = 0.15
+        self.imageOverlay_:SetStyle({ backgroundImage = self.props.slotTypeIcon, opacity = 0.15 })
         self.imageOverlay_:SetVisible(true)
 
         -- 空槽：暗底 + 虚线感边框
@@ -183,7 +239,7 @@ function ImageItemSlot:UpdateDisplay()
         self.props.borderWidth = bw
     else
         -- Fallback to emoji (already handled by parent)
-        self.imageOverlay_.props.backgroundImage = nil
+        self.imageOverlay_:SetStyle({ backgroundImage = "", opacity = 1.0 })
         self.imageOverlay_:SetVisible(false)
         -- 有物品时显示品质色边框，无物品恢复默认
         if item and item.quality then

@@ -32,6 +32,7 @@ local RankHandler = require("network.RankHandler")
 local RedeemHandler = require("network.RedeemHandler")
 local BlackMerchantHandler = require("network.BlackMerchantHandler")
 local XianyuanChestHandler = require("network.XianyuanChestHandler")
+local WubaoTreasureHandler = require("network.WubaoTreasureHandler")
 local SkinShopHandler = require("network.SkinShopHandler")
 local Blacklist = require("config.Blacklist")
 local AdminPenaltyControl = require("network.AdminPenaltyControl")
@@ -48,6 +49,11 @@ local _swOk, SwordWallHandler = pcall(require, "network.SwordWallHandler")
 if not _swOk then
     print("[Server][WARN] SwordWallHandler load failed: " .. tostring(SwordWallHandler))
     SwordWallHandler = nil
+end
+local _tbOk, TriggeredBattleHandler = pcall(require, "network.TriggeredBattleHandler")
+if not _tbOk then
+    print("[Server][WARN] TriggeredBattleHandler load failed: " .. tostring(TriggeredBattleHandler))
+    TriggeredBattleHandler = nil
 end
 local _ehOk, EventHandler = pcall(require, "network.EventHandler")
 if not _ehOk then
@@ -193,6 +199,9 @@ function Start()
     RateLimitedSubscribe(SaveProtocol.C2S_DeleteChar, "HandleDeleteChar")
     RateLimitedSubscribe(SaveProtocol.C2S_LoadGame, "HandleLoadGame")
     RateLimitedSubscribe(SaveProtocol.C2S_SaveGame, "HandleSaveGame")
+    RateLimitedSubscribe(SaveProtocol.C2S_SaveGameBegin, "HandleSaveGameBegin")
+    RateLimitedSubscribe(SaveProtocol.C2S_SaveGameChunk, "HandleSaveGameChunk")
+    RateLimitedSubscribe(SaveProtocol.C2S_SaveGameCommit, "HandleSaveGameCommit")
     RateLimitedSubscribe(SaveProtocol.C2S_MigrateData, "HandleMigrateData")
     RateLimitedSubscribe(SaveProtocol.C2S_GetRankList, "HandleGetRankList")
     SubscribeToEvent(SaveProtocol.C2S_VersionHandshake, "HandleVersionHandshake")  -- 握手不限流
@@ -231,11 +240,17 @@ function Start()
         RateLimitedSubscribe(SaveProtocol.C2S_SwordWallShopQuery, "HandleSwordWallShopQuery")
         RateLimitedSubscribe(SaveProtocol.C2S_SwordWallShopBuy, "HandleSwordWallShopBuy")
     end
+    -- 触发式战斗副本
+    if TriggeredBattleHandler then
+        RateLimitedSubscribe(SaveProtocol.C2S_TriggeredBattleStart, "HandleTriggeredBattleStart")
+        RateLimitedSubscribe(SaveProtocol.C2S_TriggeredBattleFinish, "HandleTriggeredBattleFinish")
+    end
     -- 仙缘宝箱
     RateLimitedSubscribe(SaveProtocol.C2S_XianyuanChest_StartOpen, "HandleXianyuanChestStartOpen")
     RateLimitedSubscribe(SaveProtocol.C2S_XianyuanChest_CancelOpen, "HandleXianyuanChestCancelOpen")
     RateLimitedSubscribe(SaveProtocol.C2S_XianyuanChest_CompleteOpen, "HandleXianyuanChestCompleteOpen")
     RateLimitedSubscribe(SaveProtocol.C2S_XianyuanChest_Pick, "HandleXianyuanChestPick")
+    RateLimitedSubscribe(SaveProtocol.C2S_WubaoTreasure_StartOpen, "HandleWubaoTreasureStartOpen"); RateLimitedSubscribe(SaveProtocol.C2S_WubaoTreasure_CancelOpen, "HandleWubaoTreasureCancelOpen"); RateLimitedSubscribe(SaveProtocol.C2S_WubaoTreasure_CompleteOpen, "HandleWubaoTreasureCompleteOpen")
     -- 五一活动（Kill Switch 守卫：EventConfig.IsActive() 在 Handler 内部检查）
     if EventHandler then
         RateLimitedSubscribe(SaveProtocol.C2S_EventExchange, "HandleEventExchange")
@@ -363,7 +378,10 @@ function HandleClientDisconnected(eventType, eventData)
     end
 
     pcall(BlackMerchantHandler.OnDisconnect, connKey)
-    pcall(XianyuanChestHandler.CleanupConnection, connKey)
+    pcall(XianyuanChestHandler.CleanupConnection, connKey); pcall(WubaoTreasureHandler.CleanupConnection, connKey)
+    if TriggeredBattleHandler then
+        pcall(TriggeredBattleHandler.CleanupConnection, connKey)
+    end
 
     if EventHandler and userId then
         pcall(EventHandler.OnDisconnect, userId)
@@ -506,6 +524,7 @@ function HandleCreateChar(eventType, eventData)
                 collection = {},
                 pet = {},
                 quests = {},
+                triggeredBattles = {},
             }
 
             -- 更新 slots_index
@@ -711,6 +730,33 @@ function HandleSaveGame(eventType, eventData)
 
     -- §R3: 委托 SaveWriteService
     SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
+end
+
+local function HandleSaveGameChunkEvent(eventData, handlerName)
+    local connection = eventData["Connection"]:GetPtr("Connection")
+    local connKey = ConnKey(connection)
+
+    local userId = GetUserId(connKey)
+    if not userId then
+        print("[Server] " .. handlerName .. ": no userId for connKey=" .. connKey)
+        return
+    end
+
+    local slot = eventData["slot"]:GetInt()
+    connSlots_[connKey] = slot
+    SaveWriteService[handlerName](connection, connKey, userId, slot, eventData)
+end
+
+function HandleSaveGameBegin(eventType, eventData)
+    HandleSaveGameChunkEvent(eventData, "HandleChunkBegin")
+end
+
+function HandleSaveGameChunk(eventType, eventData)
+    HandleSaveGameChunkEvent(eventData, "HandleChunk")
+end
+
+function HandleSaveGameCommit(eventType, eventData)
+    HandleSaveGameChunkEvent(eventData, "HandleChunkCommit")
 end
 
 -- ============================================================================
@@ -1032,6 +1078,18 @@ function HandleSwordWallShopBuy(eventType, eventData)
 end
 
 -- ============================================================================
+-- 触发式战斗副本 — 全局包装函数
+-- ============================================================================
+
+function HandleTriggeredBattleStart(eventType, eventData)
+    if TriggeredBattleHandler then TriggeredBattleHandler.HandleStart(eventData["Connection"]:GetPtr("Connection"), eventData) end
+end
+
+function HandleTriggeredBattleFinish(eventType, eventData)
+    if TriggeredBattleHandler then TriggeredBattleHandler.HandleFinish(eventData["Connection"]:GetPtr("Connection"), eventData) end
+end
+
+-- ============================================================================
 -- 仙缘宝箱 — 全局包装函数
 -- ============================================================================
 
@@ -1051,6 +1109,9 @@ function HandleXianyuanChestPick(eventType, eventData)
     XianyuanChestHandler.HandlePick(eventType, eventData)
 end
 
+function HandleWubaoTreasureStartOpen(eventType, eventData) WubaoTreasureHandler.HandleStartOpen(eventType, eventData) end
+function HandleWubaoTreasureCancelOpen(eventType, eventData) WubaoTreasureHandler.HandleCancelOpen(eventType, eventData) end
+function HandleWubaoTreasureCompleteOpen(eventType, eventData) WubaoTreasureHandler.HandleCompleteOpen(eventType, eventData) end
 -- ============================================================================
 -- 五一活动 — 全局包装函数
 -- ============================================================================

@@ -516,6 +516,9 @@ function SaveSerializer.DeserializeInventory(data)
     -- 导出 fillEquipFields 供外部使用（保持 API 兼容）
     SaveSerializer.fillEquipFields = fillEquipFields
 
+    local oldOnChange = mgr.onChange
+    mgr.onChange = nil
+    local restoreOk, restoreErr = pcall(function()
     if data.equipment then
         for slotId, itemData in pairs(data.equipment) do
             NormalizePercentStats(itemData)
@@ -588,6 +591,9 @@ function SaveSerializer.DeserializeInventory(data)
             end
         end
     end
+    end)
+    mgr.onChange = oldOnChange
+    if not restoreOk then error(restoreErr) end
 
     InventorySystem.RecalcEquipStats()
     print("[SaveSystem] Inventory restored")

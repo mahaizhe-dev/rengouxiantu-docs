@@ -29,6 +29,17 @@ function M.HandleGMCommand(eventType, eventData)
         return
     end
 
+    if cmd == "wubao_keys_16" or cmd == "wubao_reset_treasure" then
+        local slot = Session.connSlots_[connKey]
+        local WubaoTreasureHandler = require("network.WubaoTreasureHandler")
+        if cmd == "wubao_keys_16" then
+            WubaoTreasureHandler.GMGrantKeys16(userId, slot, connection)
+        else
+            WubaoTreasureHandler.GMResetTreasure(userId, slot, connection, connKey)
+        end
+        return
+    end
+
     -- §12 黑市收购：异步分支（服务端执行后返回结果）
     if cmd == "bm_recycle" then
         print("[Server][GM] bm_recycle: 开始异步执行")

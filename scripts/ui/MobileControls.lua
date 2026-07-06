@@ -141,6 +141,22 @@ function MobileControls._onNPCInteract()
                 return
             end
 
+            -- 乌家宝藏：先打开交互面板，再在面板内消耗堡主钥匙开启
+            local WubaoTreasureSystem = require("systems.WubaoTreasureSystem")
+            local wubaoChestId = WubaoTreasureSystem.FindNearby(
+                GameState.player.x, GameState.player.y,
+                GameState.currentChapter or 1
+            )
+            if wubaoChestId then
+                local WubaoTreasureUI = require("ui.WubaoTreasureUI")
+                if not WubaoTreasureUI.IsVisible() then
+                    if WubaoTreasureUI_ShowInspectPanel then
+                        WubaoTreasureUI_ShowInspectPanel(wubaoChestId)
+                    end
+                end
+                return
+            end
+
             -- 没有宝箱时尝试福源果交互
             local FortuneFruitSystem = require("systems.FortuneFruitSystem")
             if FortuneFruitSystem.TryInteract() then return end

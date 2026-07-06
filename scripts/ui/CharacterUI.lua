@@ -142,6 +142,12 @@ function CharacterUI.Create(parentOverlay)
             CharacterUI.Refresh()
         end
     end)
+
+    EventBus.On("collection_stats_changed", function()
+        if visible_ then
+            CharacterUI.Refresh()
+        end
+    end)
 end
 
 -- ── 公共接口 ──

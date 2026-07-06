@@ -26,15 +26,19 @@ bandit_camp.regions = {
 bandit_camp.spawns = {
     -- ===== 山贼寨主寨 (2,2)→(28,48) Lv.8~12 =====
     -- 山贼 Lv.8~10（主力小怪）
-    { type = "bandit_small", x = 8,  y = 15 },   -- 避开 tent(5,10)
-    { type = "bandit_small", x = 12, y = 20 },   -- 安全
-    { type = "bandit_small", x = 15, y = 13 },   -- 避开 flag(14,14)
-    { type = "bandit_small", x = 20, y = 26 },   -- 避开 watchtower(24,24~25,25)
-    { type = "bandit_small", x = 10, y = 30 },   -- 安全
-    { type = "bandit_small", x = 18, y = 35 },   -- 安全
-    { type = "bandit_small", x = 22, y = 16 },   -- 避开 fence(10~12,24)
-    { type = "bandit_small", x = 25, y = 42 },   -- 避开 barrel(24,36) 和边界
-    { type = "bandit_small", x = 7,  y = 44 },   -- 避开边界 x=2
+    { type = "bandit_small", x = 7,  y = 12 },   -- 西北营帐外
+    { type = "bandit_small", x = 12, y = 16 },   -- 北部通道
+    { type = "bandit_guard", x = 17, y = 13 },   -- 东北营地护卫
+    { type = "bandit_small", x = 22, y = 17 },   -- 东北巡逻
+    { type = "bandit_small", x = 6,  y = 22 },   -- 西侧木栅外
+    { type = "bandit_small", x = 20, y = 26 },   -- 中东部
+    { type = "bandit_small", x = 8,  y = 32 },   -- 西南通路
+    { type = "bandit_small", x = 15, y = 34 },   -- 中南营地
+    { type = "bandit_guard", x = 21, y = 36 },   -- 东南帐篷护卫
+    { type = "bandit_small", x = 26, y = 42 },   -- 东南边缘
+    { type = "bandit_small", x = 7,  y = 44 },   -- 西南边缘
+    { type = "bandit_guard", x = 13, y = 42 },   -- 南侧通道护卫
+    { type = "bandit_small", x = 20, y = 44 },   -- 南部巡逻
     -- 山贼护卫 Lv.11~13 练气初期（数量较少）
     { type = "bandit_guard", x = 10, y = 22 },   -- 安全
     { type = "bandit_guard", x = 22, y = 32 },   -- 安全
@@ -53,19 +57,18 @@ bandit_camp.spawns = {
             },
         },
     },
-    -- 军师 Lv.12 精英 练气初期（3个刷新点）
+    -- 军师 Lv.12 精英 练气初期（4个刷新点）
     { type = "bandit_strategist", x = 18, y = 22 }, -- 中部
     { type = "bandit_strategist", x = 8,  y = 33 }, -- 西南区域
     { type = "bandit_strategist", x = 24, y = 12 }, -- 东北区域
+    { type = "bandit_strategist", x = 23, y = 39 }, -- 东南区域
 
     -- ===== 山贼寨后山 (33,4)→(47,20) Lv.11~15 =====
     -- 山贼护卫 Lv.11~13 练气初期（后山主力）
     { type = "bandit_guard_back", x = 37, y = 9 },   -- 避开 tent(36,7) barrel(37,7) 和岩群(35,5~6)
     { type = "bandit_guard_back", x = 40, y = 7 },   -- 避开 岩群(39,6)
     { type = "bandit_guard_back", x = 43, y = 16 },  -- 避开 岩群(43,19) tent(44,15)
-    { type = "bandit_guard_back", x = 44, y = 10 },  -- 避开 岩群(45,12)(46,8~9)
     { type = "bandit_guard_back", x = 38, y = 16 },  -- 避开 岩群(34,17)(35,17)
-    { type = "bandit_guard_back", x = 40, y = 10 },  -- 安全，避开 岩群(41,13)
     { type = "bandit_guard_back", x = 36, y = 13 },  -- 避开 岩群(34,14) watchtower(33,10~34,11)
     -- 大大王 Lv.15 BOSS 练气初期
     { type = "bandit_chief", x = 39, y = 14 },       -- 中心偏安全，避开岩群(41,13)(42,13~14)

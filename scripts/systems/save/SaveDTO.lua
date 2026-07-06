@@ -61,12 +61,15 @@ local DTO_FIELDS = {
     trialTower      = true,  -- 试炼塔数据（TrialTowerSystem.Serialize）
     artifact        = true,  -- 神器数据（ArtifactSystem.Serialize）
     fortuneFruits   = true,  -- 福果数据（FortuneFruitSystem.Serialize）
+    qinglianBody    = true,  -- 青莲长生体白莲激活数据（QinglianBodySystem.Serialize）
     seaPillar       = true,  -- 海柱数据（SeaPillarSystem.Serialize）
     prisonTower     = true,  -- 镇妖塔数据（PrisonTowerSystem.Serialize）
     warehouse       = true,  -- 仓库数据（SerializeWarehouse）
     yaochi_wash     = true,  -- 瑶池洗练数据（YaochiWashSystem.Serialize）
     event_data      = true,  -- 活动数据（EventSystem.Serialize）
     openedXianyuanChests = true, -- 仙缘宝箱（XianyuanChestSystem.Serialize）
+    wubaoTreasureState = true, -- 乌家宝藏角色级状态
+    triggeredBattles = true, -- 角色级触发式战斗完成/发奖状态
     bossKillTimes   = true,  -- BOSS击杀冷却
     mingge          = true,  -- 五行命格数据（SaveSerializer.SerializeMingge）
     ascension       = true,  -- 仙阶系统数据（AscensionSystem.Serialize）
@@ -77,6 +80,8 @@ local DTO_FIELDS = {
 --- DoSave 构建 coreData 时附加的 7 个信封/元数据字段
 --- 这些字段在 coreData 中存在，但不属于 P0-3A 合同定义的 DTO 主体
 ---@type table<string, true>
+DTO_FIELDS.treasureRunner = true
+
 local ENVELOPE_FIELDS = {
     code_version       = true,  -- GameConfig.CODE_VERSION 快照
     timestamp          = true,  -- 存档时间戳

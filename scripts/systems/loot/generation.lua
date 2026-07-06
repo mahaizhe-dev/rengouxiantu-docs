@@ -35,6 +35,43 @@ local function GetSubStatRandRange(quality)
     return 0.8 + shift, 0.4
 end
 
+local function RoundScaledSpecialSubStat(stat, value)
+    if EquipmentData.PCT_STATS[stat] then
+        return math.floor(value * 10000 + 0.5) / 10000
+    end
+    return math.floor(value * 100 + 0.5) / 100
+end
+
+local function ShouldScaleFixedSpecialSubStats(equipId, item)
+    if item.scaleFixedSubStats == true then
+        return true
+    end
+    if item.scaleFixedSubStats == false then
+        return false
+    end
+    return item.fixedSubStats == true
+        and item.tier ~= nil
+        and item.tier >= 11
+        and type(equipId) == "string"
+        and string.sub(equipId, 1, 4) == "ch6_"
+end
+
+local function ScaleFixedSpecialSubStats(item)
+    local fluct = SPECIAL_FLUCTUATION[item.quality] or { 1.0, 0.2 }
+    local specialBase = fluct[1]
+    local numTierMult = EquipmentData.SUB_STAT_TIER_MULT[item.tier] or 1.0
+    local pctTierMult = EquipmentData.PCT_SUB_TIER_MULT[item.tier] or 1.0
+
+    for _, sub in ipairs(item.subStats or {}) do
+        local baseInfo = SUB_BASE_MAP[sub.stat]
+        if baseInfo and not baseInfo.linearGrowth then
+            local tierMult = EquipmentData.PCT_STATS[sub.stat] and pctTierMult or numTierMult
+            local rawValue = baseInfo.baseValue * tierMult
+            sub.value = RoundScaledSpecialSubStat(sub.stat, rawValue * specialBase)
+        end
+    end
+end
+
 -- ============================================================================
 -- Tier+品质 联合权重
 -- ============================================================================
@@ -565,7 +602,12 @@ function M.CreateSpecialEquipment(equipId)
     item.sellCurrency = template.sellCurrency
     item.isSpecial = true
 
-    if item.subStats and item.tier then
+    if item.subStats and item.tier and ShouldScaleFixedSpecialSubStats(equipId, item) then
+        ScaleFixedSpecialSubStats(item)
+    end
+
+    -- 第六章过渡特殊装备要求副属性固定；旧章节未标记模板继续沿用波动逻辑。
+    if item.subStats and item.tier and not item.fixedSubStats then
         local fluct = SPECIAL_FLUCTUATION[item.quality] or { 1.0, 0.2 }
         local specialBase = fluct[1]
         local specialRange = fluct[2]

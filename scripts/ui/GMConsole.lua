@@ -55,6 +55,30 @@ local function SendGMCommand(cmdId, callback)
     ShowLog("请求授权: " .. cmdId .. "...", {255, 200, 100, 255})
 end
 
+local function ReadGMString(eventData, key)
+    if not eventData or not key then return "" end
+    local ok, value = pcall(function()
+        local v = eventData[key]
+        return v and v:GetString() or ""
+    end)
+    if ok and value then return value end
+    return ""
+end
+
+local function DecodeGMJson(jsonText)
+    if not jsonText or jsonText == "" then return nil end
+    ---@diagnostic disable-next-line: undefined-global
+    local json = cjson
+    if not json then
+        local ok, lib = pcall(require, "cjson") ---@diagnostic disable-line: unresolved-require
+        if ok then json = lib end
+    end
+    if not json then return nil end
+    local ok, data = pcall(json.decode, jsonText)
+    if ok then return data end
+    return nil
+end
+
 -- ============================================================================
 -- GM 指令实现
 -- ============================================================================
@@ -213,6 +237,51 @@ local function CmdGiveDragonForgeMats()
     end)
 end
 
+local function CmdGiveTigerTrialForgeKit()
+    SendGMCommand("give_tiger_trial_forge_kit", function()
+        local player = GameState.player
+        if not player then return end
+        local InventorySystem = require("systems.InventorySystem")
+        local LootSystem = require("systems.LootSystem")
+        local equipIds = {
+            "tiger_set_weapon",
+            "tiger_set_armor",
+            "tiger_set_necklace",
+            "dizun_ring_ch1",
+        }
+
+        if InventorySystem.GetFreeSlots() < #equipIds then
+            ShowLog("背包空位不足，需要4格", {255, 120, 100, 255})
+            return
+        end
+
+        local items = {}
+        for _, eqId in ipairs(equipIds) do
+            local item = LootSystem.CreateSpecialEquipment(eqId)
+            if not item then
+                ShowLog("创建失败：" .. eqId, {255, 120, 100, 255})
+                return
+            end
+            items[#items + 1] = item
+        end
+
+        local added = 0
+        for _, item in ipairs(items) do
+            if InventorySystem.AddItem(item) then
+                added = added + 1
+            end
+        end
+
+        if added == #equipIds then
+            player.gold = player.gold + 10000
+            EventBus.Emit("save_request")
+            ShowLog("极虎合成材料包：装备×4 + 1万金币", {255, 200, 80, 255})
+        else
+            ShowLog("极虎材料发放不完整：" .. added .. "/4", {255, 120, 100, 255})
+        end
+    end)
+end
+
 local function CmdGiveBaguaFullKit()
     SendGMCommand("give_bagua_full", function()
         local player = GameState.player
@@ -355,6 +424,7 @@ local GM_CATEGORIES = {
                 end)
             end },
             { label = "龙神材料+5000W", action = CmdGiveDragonForgeMats },
+            { label = "极虎材料包", action = CmdGiveTigerTrialForgeKit },
             { label = "龙血草 +10", action = function()
                 SendGMCommand("give_dragon_herb", function()
                     local InventorySystem = require("systems.InventorySystem")
@@ -366,6 +436,16 @@ local GM_CATEGORIES = {
                 local InventorySystem = require("systems.InventorySystem")
                 InventorySystem.AddConsumable("wubao_token", 1000)
                 ShowLog("发放 1000 乌堡令", {200, 150, 255, 255})
+            end },
+            { label = "堡主钥匙 ×16", action = function()
+                SendGMCommand("wubao_keys_16", function(msg, eventData)
+                    local WubaoTreasureSystem = require("systems.WubaoTreasureSystem")
+                    local patchJson = ReadGMString(eventData, "backpackPatch")
+                    if patchJson ~= "" then
+                        WubaoTreasureSystem.ApplyBackpackPatch(patchJson)
+                    end
+                    ShowLog(msg or "堡主钥匙 ×16 已发放", {200, 150, 255, 255})
+                end)
             end },
             { label = "沙海令 +1000", action = function()
                 local InventorySystem = require("systems.InventorySystem")
@@ -396,6 +476,14 @@ local GM_CATEGORIES = {
                 local InventorySystem = require("systems.InventorySystem")
                 InventorySystem.AddConsumable("gold_brick", 10)
                 ShowLog("发放 10 金砖", {255, 215, 0, 255})
+            end },
+            { label = "莲池仙露 +9", action = function()
+                SendGMCommand("give_lotus_pool_dew", function()
+                    local InventorySystem = require("systems.InventorySystem")
+                    InventorySystem.AddConsumable("lotus_pool_dew", 9)
+                    EventBus.Emit("save_request")
+                    ShowLog("发放 9 莲池仙露", {170, 255, 235, 255})
+                end)
             end },
             { label = "上品修炼果 +10", action = function()
                 local InventorySystem = require("systems.InventorySystem")
@@ -1019,6 +1107,18 @@ local GM_CATEGORIES = {
                 FortuneFruitSystem.Reset()
                 ShowLog("福源果已全部重置", {255, 100, 100, 255})
             end },
+            { label = "乌家宝藏重置", action = function()
+                SendGMCommand("wubao_reset_treasure", function(msg, eventData)
+                    local WubaoTreasureSystem = require("systems.WubaoTreasureSystem")
+                    local state = DecodeGMJson(ReadGMString(eventData, "stateJson"))
+                    if state then
+                        WubaoTreasureSystem.Deserialize(state)
+                    else
+                        WubaoTreasureSystem.Reset()
+                    end
+                    ShowLog(msg or "乌家宝藏已重置", {255, 120, 180, 255})
+                end)
+            end },
             { label = "重置所有日常", action = function()
                 if pendingGMCommands_["reset_daily"] then
                     ShowLog("请求处理中，请稍候...", {255, 200, 100, 255})
@@ -1425,6 +1525,24 @@ local GM_CATEGORIES = {
 -- UI
 -- ============================================================================
 
+table.insert(GM_CATEGORIES, {
+    name = "钻风",
+    color = {80, 255, 180, 255},
+    commands = {
+        { label = "重置今日", action = function()
+            local TreasureRunnerSystem = require("systems.TreasureRunnerSystem")
+            local ok, msg = TreasureRunnerSystem.GMResetToday()
+            ShowLog(msg or "钻风已重置", ok and {100, 255, 150, 255} or {255, 120, 100, 255})
+        end },
+        { label = "刷当前章", action = function()
+            local TreasureRunnerSystem = require("systems.TreasureRunnerSystem")
+            local ok, msg = TreasureRunnerSystem.GMForceCurrentChapter()
+            ShowLog((msg or "钻风刷新") .. " | " .. TreasureRunnerSystem.GetDebugSummary(),
+                ok and {100, 255, 150, 255} or {255, 120, 100, 255})
+        end },
+    },
+})
+
 function GMConsole.Create(parentOverlay)
     if not GMConsole.IsDebugMode() then return end
     overlay_ = parentOverlay
@@ -1574,7 +1692,7 @@ function GMConsole_HandleGMCommandResult(eventType, eventData)
     local callback = pendingGMCommands_[cmd]
     pendingGMCommands_[cmd] = nil
     if ok and callback then
-        callback(msg)
+        callback(msg, eventData)
     elseif not ok then
         ShowLog("GM被拒: " .. cmd .. " - " .. msg, {255, 120, 100, 255})
     end

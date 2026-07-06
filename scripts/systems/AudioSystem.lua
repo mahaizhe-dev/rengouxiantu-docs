@@ -28,6 +28,7 @@ local bgmScene_ = nil       ---@type Scene|nil
 local bgmSource_ = nil      ---@type SoundSource|nil
 local bgmLevel_ = "high"    -- "high"|"low"|"off"
 local dropLevel_ = "high"   -- "high"|"low"|"off"
+local currentBgmPath_ = nil ---@type string|nil
 
 local dropScene_ = nil      ---@type Scene|nil
 local dropSource_ = nil     ---@type SoundSource|nil
@@ -82,6 +83,7 @@ local CHAPTER_BGM = {
     [3]   = "audio/music_1773407979739.ogg",    -- 万里黄沙
     [4]   = "audio/music_1775307731590.ogg",    -- 八卦海
     [5]   = "audio/music_1780401351910.ogg",    -- 太虚之殇
+    [6]   = "audio/music_1772863945987.ogg",    -- 两界村之影（复用两界村/登录音乐）
     [101] = "audio/music_1780401197569.ogg",    -- 中洲仙城
 }
 
@@ -216,6 +218,12 @@ function AudioSystem.PlayBGM(chapterId)
     -- 关闭状态不播放
     if bgmLevel_ == "off" then return end
 
+    local checkOk, playing = pcall(function() return bgmSource_:IsPlaying() end)
+    if checkOk and playing and currentBgmPath_ == path then
+        bgmSource_.gain = BGM_GAIN[bgmLevel_]
+        return
+    end
+
     local sound = cache:GetResource("Sound", path)
     if not sound then return end
 
@@ -224,6 +232,7 @@ function AudioSystem.PlayBGM(chapterId)
         bgmSource_.gain = BGM_GAIN[bgmLevel_]
         bgmSource_:Play(sound)
     end)
+    currentBgmPath_ = path
 end
 
 --- 停止背景音乐
@@ -231,6 +240,7 @@ function AudioSystem.StopBGM()
     if bgmSource_ then
         pcall(function() bgmSource_:Stop() end)
     end
+    currentBgmPath_ = nil
 end
 
 --- 设置 BGM 音量档位
@@ -297,6 +307,7 @@ end
 ---@param priority number 优先级数值（越大越高）
 local function PlayDropCueInternal(audioPath, priority)
     if dropLevel_ == "off" then return end
+    if (GameState.currentChapter or 1) >= 6 then return end
 
     if not dropSource_ then
         pcall(AudioSystem.Init)

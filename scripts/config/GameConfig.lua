@@ -5,7 +5,7 @@
 local GameConfig = {}
 
 -- GM 调试开关（发布正式版前改为 false）
-GameConfig.GM_ENABLED = true
+GameConfig.GM_ENABLED = false
 GameConfig.GM_SHOW_COORDS = false  -- GM：鼠标悬停显示瓦片坐标
 
 -- 多人副本功能总开关（Kill Switch）
@@ -15,7 +15,7 @@ GameConfig.DUNGEON_ENABLED = false
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
 GameConfig.CODE_VERSION = 7
-GameConfig.DISPLAY_VERSION = "v1.12.19"
+GameConfig.DISPLAY_VERSION = "v1.13.4"
 
 -- 地图设置
 GameConfig.TILE_SIZE = 128         -- 每个瓦片的逻辑像素大小（基准值，不要直接用于渲染）
@@ -184,7 +184,7 @@ GameConfig.PET_FOOD = {
     meat_bone     = { name = "肉骨头", icon = "🦴", exp = 20,  sellPrice = 5,   quality = "white", desc = "普通的肉骨头，散发着淡淡肉香。\n用途：喂食宠物，恢复少量经验。" },
     spirit_meat   = { name = "灵肉",   icon = "🥩", exp = 80,  sellPrice = 25,  quality = "green", desc = "蕴含灵气的精炼兽肉，品质上乘。\n用途：喂食宠物，恢复可观经验。" },
     immortal_bone = { name = "仙骨",   icon = "✨", exp = 300, sellPrice = 100, quality = "purple", desc = "远古仙兽遗骨，蕴藏强大灵力。\n用途：喂食宠物，恢复大量经验。" },
-    beast_meat    = { name = "灵兽肉", icon = "🍖", exp = 150, sellPrice = 60,  quality = "blue",   desc = "灵兽身上的精华肉块，灵气充沛。\n用途：喂食宠物，恢复较多经验。" },
+    beast_meat    = { name = "灵兽肉", icon = "🍖", exp = 160, sellPrice = 60,  quality = "blue",   desc = "灵兽身上的精华肉块，灵气充沛。\n用途：喂食宠物，恢复较多经验。" },
     demon_essence = { name = "妖兽精华", icon = "🔥", exp = 800, sellPrice = 300, quality = "orange", desc = "强大妖兽体内凝结的精华，蕴含磅礴灵力。\n用途：喂食宠物，恢复海量经验。" },
     dragon_marrow = { name = "龙髓", icon = "🐉", exp = 3000, sellPrice = 1000, quality = "red", desc = "远古龙族脊髓凝结的精华，蕴含毁天灭地之力。\n用途：喂食宠物，恢复惊人经验。" },
     immortal_beast_soul = { name = "仙兽精华", icon = "🔮", exp = 8000, sellPrice = 3000, quality = "gold", desc = "仙兽体内凝结的高阶精华，内蕴纯净仙灵之力。\n用途：喂食宠物，恢复8000点经验。" },
@@ -214,6 +214,7 @@ GameConfig.PET_MATERIALS = {
     diamond_wood = { name = "金刚木", icon = "icon_diamond_wood.png", sellPrice = 1000, quality = "orange", desc = "坚硬如铁的灵木，据说吸收了天地精华。\n用途：炼制金刚丹的必需材料。\n获取：击败乌天南、乌地北（3%掉率）" },
     wind_eroded_grass = { name = "风蚀草", icon = "🌿", sellPrice = 1000, quality = "orange", desc = "沙漠中被风沙打磨千年的灵草，韧如精钢。\n用途：炼制千锤百炼丹的材料。\n获取：沙漠九寨怪物掉落" },
     night_shadow_grass = { name = "影神草", icon = "🌿", sellPrice = 3000, quality = "red", desc = "只在两界村暗影灵脉旁生长的幽草，叶脉泛着淡淡黑光。\n用途：炼制影神丹的必需材料。\n获取：第六章皇级及以上BOSS稀有世界掉落。" },
+    lotus_pool_dew = { name = "莲池仙露", icon = "image/icon_lotus_pool_dew_20260701120319.png", sellPrice = 30000, quality = "red", desc = "呱大人领地莲湖中凝结的圣器级仙露，青白光华流转不散。\n用途：激活天青白莲，解锁青莲长生体。\n获取：蛤蟆仙人、呱大人极低概率掉落。" },
     lingyun_fruit = { name = "灵韵果", icon = "🍇", sellPrice = 0, quality = "orange", desc = "八卦海灵脉孕育的奇果，咬破果皮，灵韵四溢。\n用途：使用后获得50灵韵（不可出售）。\n获取：第四章BOSS掉落" },
     lingyun_fruit_superior = { name = "上品灵韵果", icon = "🍇", sellPrice = 0, quality = "red", desc = "太虚宗灵脉深处孕育的上品奇果，灵韵浓郁，异香扑鼻。\n用途：使用后获得500灵韵（不可出售）。\n获取：第五章BOSS掉落" },
     -- 高阶境界突破材料
@@ -238,12 +239,14 @@ GameConfig.PET_MATERIALS = {
     sha_hai_ling = { name = "沙海令", icon = "🏜️", sellPrice = 100, quality = "blue", desc = "沙漠九寨的通行令牌，散发着炽热的气息。\n用途：向浩气宗或血煞盟使者上交，解锁沙海试炼。\n售价：100金币" },
     taixu_token = { name = "太虚令", icon = "🔱", sellPrice = 100, quality = "blue", desc = "太虚宗上古令牌，蕴含修补海神柱的灵力。\n用途：修复和升级海神柱，开启四兽岛传送。\n获取：八卦阵怪物掉落。" },
     zhexian_ling = { name = "谪仙令", icon = "🔱", sellPrice = 100, quality = "blue", desc = "两界村之影中流转的谪仙令牌，记录着踏入仙阶后的试炼印记。\n用途：第六章后续挑战与兑换信物。\n售价：100金币。\n获取：第六章世界掉落。" },
-    -- 令牌盒（100令牌+100灵韵→1盒，使用获得100令牌）
+    -- 令牌盒（使用获得100令牌；第2~5章100灵韵打包，第6章200灵韵打包）
     wubao_token_box = { name = "乌堡令盒", icon = "📦", sellPrice = 0, quality = "purple", desc = "封装了100枚乌堡令的锦盒，散发幽冷气息。\n用途：使用后获得100枚乌堡令。\n炼制：100乌堡令 + 100灵韵（第二章炼丹炉）" },
+    wubao_treasure_key = { name = "堡主钥匙", icon = "image/wubao_treasure_key_20260704023406.png", sellPrice = 10000, quality = "purple", desc = "乌万海随身秘钥，钥身缠绕乌堡大殿的幽紫封纹。\n用途：开启乌家宝藏中未开启的宝箱。\n获取：击败乌万海独立掉落（1%）" },
     sha_hai_ling_box = { name = "沙海令盒", icon = "📦", sellPrice = 0, quality = "purple", desc = "封装了100枚沙海令的锦盒，散发炽热气息。\n用途：使用后获得100枚沙海令。\n炼制：100沙海令 + 100灵韵（第三章炼丹炉）" },
     taixu_token_box = { name = "太虚令盒", icon = "📦", sellPrice = 0, quality = "purple", desc = "封装了100枚太虚令的锦盒，蕴含上古灵力。\n用途：使用后获得100枚太虚令。\n炼制：100太虚令 + 100灵韵（第四章炼丹炉）" },
     taixu_jianling = { name = "太虚剑令", icon = "⚔️", sellPrice = 100, quality = "blue", desc = "太虚宗剑台传承之令，残留着上古剑意。\n用途：向浩气宗或血煞盟使者上交，解锁太虚试炼。\n售价：100金币" },
     taixu_jianling_box = { name = "太虚剑令盒", icon = "📦", sellPrice = 0, quality = "purple", desc = "封装了100枚太虚剑令的锦盒，剑意流转其间。\n用途：使用后获得100枚太虚剑令。\n炼制：100太虚剑令 + 100灵韵（第五章炼丹炉）" },
+    zhexian_ling_box = { name = "谪仙令盒", icon = "📦", sellPrice = 0, quality = "purple", desc = "封装了100枚谪仙令的锦盒，盒面映出两界阴影。\n用途：使用后获得100枚谪仙令。\n炼制：100谪仙令 + 200灵韵（第六章炼丹炉）" },
     -- 上宝逊金钯残片（圣器品质，8片合成）
     rake_fragment_1 = { name = "上宝逊金钯残片·壹", icon = "icon_rake_fragment.png", sellPrice = 50000, quality = "red", desc = "上古神兵「上宝逊金钯」的碎片，仍残留着神器余威。\n用途：集齐九片可重铸神兵。\n获取：枯木妖王掉落（0.1%）" },
     rake_fragment_2 = { name = "上宝逊金钯残片·贰", icon = "icon_rake_fragment.png", sellPrice = 50000, quality = "red", desc = "上古神兵「上宝逊金钯」的碎片，隐约可见钯齿纹路。\n用途：集齐九片可重铸神兵。\n获取：岩蟾妖王掉落（0.1%）" },
@@ -276,6 +279,8 @@ GameConfig.PET_MATERIALS = {
     -- 仙人精血（屠血将0.2%+噬渊血犼/蚀骨/裂魂1%+四仙剑3%，圣器打造材料）
     immortal_essence_blood = { name = "仙人精血", icon = "🩸", sellPrice = 10000, quality = "red", desc = "洒落的仙人之血，浸透断壁残兵，千年不枯。谪仙之上，无一不是从尸山血海中走出来的。\n用途：圣器打造材料。\n获取：第五章高阶BOSS掉落；第六章皇级BOSS掉落（1%）。" },
     shadow_crystal = { name = "影子水晶", icon = "image/icon_shadow_crystal_20260701001812.png", sellPrice = 10000, quality = "red", desc = "凝结自两界阴影的幽暗水晶，内部似有影游之息流动。\n用途：第六章稀有材料（暂未开放锻造用途）。\n获取：哼哈元帅、呱大人、魔君·蚀玄掉落。" },
+    -- 界匙碎片（第六章神器线索，本次只注册碎片物品；神器本体后置）
+    jieshi_fragment_1 = { name = "界匙碎片·壹", icon = "🗝️", sellPrice = 0, quality = "red", desc = "残缺界匙的第一枚碎片，边缘缠绕着两界裂隙的微光。\n用途：第六章神器「界匙」碎片之一；神器本体与重铸功能后续开放。\n获取：第一章隐藏触发战斗「界隙残阵」胜利奖励。\n（一次性剧情碎片，无法出售）" },
     -- 天帝剑痕碎片（仙劫战场·域外邪魔掉落，9片合成天帝剑痕）
     tiandi_fragment_1 = { name = "天帝剑痕碎片·壹", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "远古天帝斩落域外邪魔时遗留的剑痕残片，剑意犹存，隐约可闻天雷余响。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },
     tiandi_fragment_2 = { name = "天帝剑痕碎片·贰", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "据传天帝以此一剑斩断天外入侵通道，立下中洲万世屏障。碎片表面仍残留斩裂虚空的痕迹。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },

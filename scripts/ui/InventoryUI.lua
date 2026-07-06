@@ -600,6 +600,9 @@ function InventoryUI.Create(parentOverlay)
         end
     end)
 
+    UpdateAllSlots()
+    InventoryUI.UpdateStats()
+    InventoryUI.UpdateFreeSlots()
 end
 
 --- 显示背包面板

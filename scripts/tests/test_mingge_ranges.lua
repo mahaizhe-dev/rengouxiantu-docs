@@ -2,7 +2,7 @@
 -- test_mingge_ranges.lua — 五行命格属性范围与粒度测试（blocking）
 --
 -- 覆盖范围（§5.2）：
---   R1: STAT_RANGES 覆盖 3 tier × 15 stat × 3 quality
+--   R1: STAT_RANGES 覆盖 4 tier × 15 stat × 3 quality
 --   R2: 每条 range {min, max} 满足 min <= max
 --   R3: 同一 tier 内品质递增：purple.max <= orange.min, orange.max <= cyan.min
 --   R4: 跨 tier 品质衔接：T(n) cyan.max <= T(n+1) purple.min（允许等号）
@@ -50,7 +50,7 @@ end
 
 -- ── 辅助 ─────────────────────────────────────────────────────────────────────
 
-local TIERS = { 1, 2, 3 }
+local TIERS = { 1, 2, 3, 4 }
 local QUALITIES = { "purple", "orange", "cyan" }
 
 -- 所有 stat id（从 STAT_RANGES[1] 的 key 收集）
@@ -67,7 +67,7 @@ local function isInteger(v)
 end
 
 -- ============================================================================
--- R1: STAT_RANGES 覆盖 3 tier × 15 stat × 3 quality
+-- R1: STAT_RANGES 覆盖 4 tier × 15 stat × 3 quality
 -- ============================================================================
 SUITE("R1: STAT_RANGES 完整覆盖")
 
@@ -153,7 +153,7 @@ end
 -- ============================================================================
 SUITE("R4: 跨 tier 天花板提升")
 
-for i = 1, 2 do
+for i = 1, #TIERS - 1 do
     local currTier = MinggeData.STAT_RANGES[i]
     local nextTier = MinggeData.STAT_RANGES[i + 1]
     if currTier and nextTier then
