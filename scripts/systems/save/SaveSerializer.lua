@@ -827,6 +827,8 @@ end
 
 function SaveSerializer.SerializeAtlas()
     local AtlasSystem = require("systems.AtlasSystem")
+    -- P0-fix: 未正常加载时返回 nil，防止空结构覆盖云端 account_atlas
+    if not AtlasSystem.loaded then return nil end
     return AtlasSystem.Serialize()
 end
 

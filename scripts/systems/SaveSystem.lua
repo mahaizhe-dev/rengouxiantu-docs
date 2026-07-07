@@ -67,6 +67,8 @@ function SaveSystem.Init()
     SaveSystem._onConnLost = function()
         SaveSystem._disconnected = true
         print("[SaveSystem] Connection lost — auto-save paused")
+        -- P0-fix: 断线时清除所有加载 pending，解除 single-flight 死锁
+        pcall(function() require("network.SaveSystemNet").ClearAllPending() end)
     end
     SaveSystem._onConnRestored = function()
         SaveSystem._disconnected = false
@@ -92,6 +94,12 @@ end
 -- ============================================================================
 
 function SaveSystem.UpdateCritical(dt)
+    -- P0-fix: pending 超时清扫必须在 loaded 检查之前运行
+    -- （FetchSlots/Load 的 pending 发生在 loaded=true 之前）
+    if CloudStorage.IsNetworkMode() then
+        pcall(function() require("network.SaveSystemNet").Tick() end)
+    end
+
     if not SaveSystem.loaded then return end
     if not SaveSystem.activeSlot then return end
 

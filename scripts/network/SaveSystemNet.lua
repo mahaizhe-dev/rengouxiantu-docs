@@ -59,6 +59,9 @@ local function hasPending(actionType)
     return _pending[actionType] ~= nil
 end
 
+--- pending 超时阈值（秒）
+local PENDING_TIMEOUT = 20
+
 --- 开始一个 pending 请求（single-flight reject：已有则返回 false）
 ---@param actionType string
 ---@param callback function
@@ -73,7 +76,7 @@ local function beginPending(actionType, callback, meta)
     _pending[actionType] = {
         callback = callback,
         meta = meta or {},
-        createdAt = os.clock(),
+        createdAt = time.elapsedTime,  -- P0-fix: os.clock()=0 in WASM, use time.elapsedTime
     }
     Logger.diag("SaveSystemNet", "beginPending: " .. actionType)
     return true
@@ -93,7 +96,7 @@ local function resolvePending(actionType)
         return nil, nil
     end
     Logger.diag("SaveSystemNet", "resolvePending: " .. actionType
-        .. " (elapsed=" .. string.format("%.1f", os.clock() - entry.createdAt) .. "s)")
+        .. " (elapsed=" .. string.format("%.1f", time.elapsedTime - entry.createdAt) .. "s)")
     return entry.callback, entry.meta
 end
 
@@ -106,6 +109,27 @@ local function rejectPending(actionType, errorMsg)
     if entry and entry.callback then
         Logger.warn("SaveSystemNet", "rejectPending: " .. actionType .. " reason=" .. errorMsg)
         entry.callback(nil, errorMsg)
+    end
+end
+
+--- P0-fix: 超时清扫 — 由 SaveSystem.UpdateCritical 每帧驱动
+--- 超过 PENDING_TIMEOUT 的 pending 自动 reject，解除 single-flight 死锁
+function SaveSystemNet.Tick()
+    local now = time.elapsedTime
+    for actionType, entry in pairs(_pending) do
+        local elapsed = now - entry.createdAt
+        if elapsed > PENDING_TIMEOUT then
+            Logger.warn("SaveSystemNet", "TIMEOUT: " .. actionType
+                .. " pending for " .. string.format("%.1f", elapsed) .. "s, auto-rejecting")
+            rejectPending(actionType, "pending_timeout")
+        end
+    end
+end
+
+--- P0-fix: 断线时清除所有 pending（由 connection_lost 事件触发）
+function SaveSystemNet.ClearAllPending()
+    for actionType, _ in pairs(_pending) do
+        rejectPending(actionType, "connection_lost")
     end
 end
 

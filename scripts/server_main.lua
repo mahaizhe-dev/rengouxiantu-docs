@@ -337,9 +337,17 @@ function HandleClientIdentity(eventType, eventData)
             print("[Server] Duplicate login userId=" .. tostring(userId) .. " oldConn=" .. oldKey .. " (engine auto-kicks)")
             connections_[oldKey] = nil
             userIds_[oldKey] = nil
+            connSlots_[oldKey] = nil  -- P0-fix: 防止 Disconnect 时 userId=nil 导致锁泄漏
+            rateLimitCounters_[oldKey] = nil
+            sealDemonActive_[oldKey] = nil
+            daoTreeMeditating_[oldKey] = nil
+            trialClaimingActive_[oldKey] = nil
             break
         end
     end
+    -- P0-fix: 无论旧连接是否存在，都释放该 userId 的所有 slot 锁
+    -- 防止旧连接在异步回调中获取了锁、但 Disconnect 时 userId 已为 nil 无法释放
+    Session.ReleaseAllLocksForUser(userId)
 
     connections_[connKey] = connection
     userIds_[connKey] = userId
@@ -450,7 +458,14 @@ function HandleFetchSlots(eventType, eventData)
     local connection = eventData["Connection"]:GetPtr("Connection")
     local connKey = ConnKey(connection)
     local userId = GetUserId(connKey)
-    if not userId then return end
+    if not userId then
+        -- P0-fix: 回错误包，不静默丢弃（客户端 pending 否则永挂）
+        local data = VariantMap()
+        data["ok"] = Variant(false)
+        data["message"] = Variant("identity_not_ready")
+        SafeSend(connection, SaveProtocol.S2C_FetchSlotsResult, data)
+        return
+    end
 
     -- §R3: 委托 SlotReadService
     SlotReadService.Execute(connection, connKey, userId)
@@ -464,7 +479,14 @@ function HandleCreateChar(eventType, eventData)
     local connection = eventData["Connection"]:GetPtr("Connection")
     local connKey = ConnKey(connection)
     local userId = GetUserId(connKey)
-    if not userId then return end
+    if not userId then
+        -- P0-fix: 回错误包
+        local data = VariantMap()
+        data["ok"] = Variant(false)
+        data["message"] = Variant("identity_not_ready")
+        SafeSend(connection, SaveProtocol.S2C_CreateCharResult, data)
+        return
+    end
 
     local slot = eventData["slot"]:GetInt()
     local charName = eventData["charName"]:GetString()
@@ -494,17 +516,31 @@ function HandleCreateChar(eventType, eventData)
     end
     creatingChar_[guardKey] = true
 
-    -- 先读取当前 slots_index
-    serverCloud:Get(userId, "slots_index", {
+    -- P0-fix: 同时读取 slots_index 和 save_{slot}，防止索引丢失时覆盖真实存档
+    local saveKey = "save_" .. slot
+    serverCloud:BatchGet(userId)
+        :Key("slots_index")
+        :Key(saveKey)
+        :Fetch({
         ok = function(scores)
             local slotsIndex = scores["slots_index"] or { version = 1, slots = {} }
             slotsIndex.slots = slotsIndex.slots or {}
             NormalizeSlotsIndex(slotsIndex)
 
-            -- 检查槽位是否已被占用
+            -- 检查槽位是否已被占用（索引层）
             if slotsIndex.slots[slot] then
                 creatingChar_[guardKey] = nil
                 SendResult(connection, SaveProtocol.S2C_CharResult, false, "槽位已被占用")
+                return
+            end
+
+            -- P0-fix #5: 双保险 — 即使索引为空，也检查数据键是否存在
+            local existingSave = scores[saveKey]
+            if existingSave and type(existingSave) == "table" and existingSave.player then
+                creatingChar_[guardKey] = nil
+                print("[Server] CreateChar BLOCKED: save_" .. slot .. " data exists but index missing!"
+                    .. " userId=" .. tostring(userId) .. " — refusing overwrite")
+                SendResult(connection, SaveProtocol.S2C_CharResult, false, "该槽位存在数据，请联系客服")
                 return
             end
 
@@ -538,8 +574,6 @@ function HandleCreateChar(eventType, eventData)
                 lastSave = os.time(),
                 saveVersion = coreData.version,
             }
-
-            local saveKey = "save_" .. slot
 
             serverCloud:BatchSet(userId)
                 :Set(saveKey, coreData)
@@ -578,7 +612,13 @@ function HandleDeleteChar(eventType, eventData)
     local connection = eventData["Connection"]:GetPtr("Connection")
     local connKey = ConnKey(connection)
     local userId = GetUserId(connKey)
-    if not userId then return end
+    if not userId then
+        local data = VariantMap()
+        data["ok"] = Variant(false)
+        data["message"] = Variant("identity_not_ready")
+        SafeSend(connection, SaveProtocol.S2C_DeleteCharResult, data)
+        return
+    end
 
     local slot = eventData["slot"]:GetInt()
 
@@ -702,7 +742,14 @@ function HandleLoadGame(eventType, eventData)
     local connection = eventData["Connection"]:GetPtr("Connection")
     local connKey = ConnKey(connection)
     local userId = GetUserId(connKey)
-    if not userId then return end
+    if not userId then
+        -- P0-fix: 回错误包，不静默丢弃
+        local data = VariantMap()
+        data["ok"] = Variant(false)
+        data["message"] = Variant("identity_not_ready")
+        SafeSend(connection, SaveProtocol.S2C_LoadResult, data)
+        return
+    end
 
     local slot = eventData["slot"]:GetInt()
     connSlots_[connKey] = slot
@@ -721,7 +768,15 @@ function HandleSaveGame(eventType, eventData)
 
     local userId = GetUserId(connKey)
     if not userId then
+        -- P0-fix: 回错误包，不静默丢弃（客户端否则 15s 超时累计失败）
         print("[Server] SaveGame: no userId for connKey=" .. connKey)
+        local data = VariantMap()
+        data["ok"] = Variant(false)
+        data["message"] = Variant("identity_not_ready")
+        local reqId = 0
+        pcall(function() reqId = eventData["requestId"]:GetInt() end)
+        if reqId > 0 then data["requestId"] = Variant(reqId) end
+        SafeSend(connection, SaveProtocol.S2C_SaveResult, data)
         return
     end
 

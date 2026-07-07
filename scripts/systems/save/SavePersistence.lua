@@ -453,6 +453,7 @@ function SavePersistence.DoSave(slot, callback, epoch, attemptId)
                 SS.saving = false
                 SS._saveTimeoutActive = false
                 SS._consecutiveFailures = 0
+                SS._slotLockedCount = 0  -- P0-fix: 成功时重置 locked 计数
                 SS._retryTimer = nil
                 SS._lastKnownCloudLevel = playerData.level or 1
                 SS._lastSaveTime = time.elapsedTime
@@ -582,6 +583,7 @@ function SavePersistence.DoSave(slot, callback, epoch, attemptId)
             SS.saving = false
             SS._saveTimeoutActive = false
             SS._consecutiveFailures = 0
+            SS._slotLockedCount = 0  -- P0-fix: 成功时重置 locked 计数
             SS._retryTimer = nil
             SS._lastSaveTime = time.elapsedTime
             SS.saveTimer = 0  -- P0优化：成功保存后重置自动存档计时器
@@ -638,15 +640,33 @@ function SavePersistence.DoSave(slot, callback, epoch, attemptId)
             SS.saving = false
             SS._saveTimeoutActive = false
 
-            -- WP-03: 临时失败分类 —— slot_locked 是短暂冲突，不累计失败次数，短退避即可
+            -- WP-03: 临时失败分类 —— slot_locked 是短暂冲突，短退避
+            -- P0-fix: 加上限，连续 10 次 slot_locked 升级为普通失败（防锁泄漏时无限静默循环）
             local reasonStr = tostring(reason or "")
             if reasonStr:find("slot_locked") or reasonStr:find("locked") then
+                SS._slotLockedCount = (SS._slotLockedCount or 0) + 1
+                if SS._slotLockedCount >= 10 then
+                    -- 超过阈值：升级为普通失败，触发告警
+                    print("[SaveSystem] slot_locked PERSISTENT (" .. SS._slotLockedCount
+                        .. " consecutive), escalating to failure")
+                    SS._slotLockedCount = 0
+                    SS._consecutiveFailures = SS._consecutiveFailures + 1
+                    local retryDelay = math.min(10 * SS._consecutiveFailures, 60)
+                    SS._retryTimer = retryDelay
+                    if SS._consecutiveFailures >= 2 then
+                        EventBus.Emit("save_warning", { failures = SS._consecutiveFailures, reason = "slot_locked_persistent" })
+                    end
+                    if callback then callback(false, "slot_locked_persistent") end
+                    return
+                end
                 SS._retryTimer = 3  -- 3 秒后重试（服务端写完即释放，通常 <2s）
-                print("[SaveSystem] Save deferred (slot_locked), retry in 3s")
+                print("[SaveSystem] Save deferred (slot_locked " .. SS._slotLockedCount .. "/10), retry in 3s")
                 -- WP-02: _dirty 保持 true（保存意图不丢）
                 if callback then callback(false, reason) end
                 return
             end
+            -- 非 slot_locked 错误时重置 locked 计数
+            SS._slotLockedCount = 0
 
             -- 其他错误（网络中断/unknown）：累计失败 + 线性退避
             SS._consecutiveFailures = SS._consecutiveFailures + 1

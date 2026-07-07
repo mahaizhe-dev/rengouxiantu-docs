@@ -75,7 +75,10 @@ end
 -- ============================================================================
 -- Per-slot 写入锁
 -- ============================================================================
-M.slotWriteLocks_ = {}
+M.slotWriteLocks_ = {}  -- key -> { acquiredAt = os.time() }
+
+--- slot 锁 TTL（秒）：超过此时间的锁视为泄漏，自动释放
+M.SLOT_LOCK_TTL = 30
 
 --- 获取 slot 写入锁 key
 ---@param userId integer|string
@@ -85,16 +88,25 @@ function M.SlotLockKey(userId, slot)
     return tostring(userId) .. ":" .. tostring(slot)
 end
 
---- 尝试获取 slot 写入锁（非阻塞）
+--- 尝试获取 slot 写入锁（非阻塞，带 TTL 自动过期）
 ---@param userId integer|string
 ---@param slot number
 ---@return boolean 是否成功获取锁
 function M.AcquireSlotLock(userId, slot)
     local key = M.SlotLockKey(userId, slot)
-    if M.slotWriteLocks_[key] then
-        return false
+    local existing = M.slotWriteLocks_[key]
+    if existing then
+        -- TTL 过期自动释放
+        local elapsed = os.time() - existing.acquiredAt
+        if elapsed > M.SLOT_LOCK_TTL then
+            print("[LOCK-EXPIRED] slot lock auto-released: key=" .. key
+                .. " held=" .. elapsed .. "s (TTL=" .. M.SLOT_LOCK_TTL .. "s)")
+            M.slotWriteLocks_[key] = nil
+        else
+            return false
+        end
     end
-    M.slotWriteLocks_[key] = true
+    M.slotWriteLocks_[key] = { acquiredAt = os.time() }
     return true
 end
 
@@ -106,12 +118,39 @@ function M.ReleaseSlotLock(userId, slot)
     M.slotWriteLocks_[key] = nil
 end
 
---- 检查 slot 是否被锁定
+--- 检查 slot 是否被锁定（带 TTL 检查）
 ---@param userId integer|string
 ---@param slot number
 ---@return boolean
 function M.IsSlotLocked(userId, slot)
-    return M.slotWriteLocks_[M.SlotLockKey(userId, slot)] == true
+    local key = M.SlotLockKey(userId, slot)
+    local existing = M.slotWriteLocks_[key]
+    if not existing then return false end
+    -- TTL 过期自动释放
+    local elapsed = os.time() - existing.acquiredAt
+    if elapsed > M.SLOT_LOCK_TTL then
+        print("[LOCK-EXPIRED] slot lock auto-released (IsSlotLocked): key=" .. key
+            .. " held=" .. elapsed .. "s")
+        M.slotWriteLocks_[key] = nil
+        return false
+    end
+    return true
+end
+
+--- 释放指定 userId 的所有 slot 锁（用于断线/重复登录清理）
+---@param userId integer|string
+function M.ReleaseAllLocksForUser(userId)
+    local prefix = tostring(userId) .. ":"
+    local released = 0
+    for key, _ in pairs(M.slotWriteLocks_) do
+        if key:sub(1, #prefix) == prefix then
+            M.slotWriteLocks_[key] = nil
+            released = released + 1
+        end
+    end
+    if released > 0 then
+        print("[Server] ReleaseAllLocksForUser: userId=" .. tostring(userId) .. " released=" .. released)
+    end
 end
 
 -- ============================================================================
