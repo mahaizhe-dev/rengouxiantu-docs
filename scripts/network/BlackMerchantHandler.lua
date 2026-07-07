@@ -25,8 +25,8 @@ local M = {}
 local playerRealms_ = {}
 
 -- §8 服务端内存锁：防止同一玩家并发买/卖请求
-local buyActive_  = {}  -- connKey -> true
-local sellActive_ = {}  -- connKey -> true (per-connection 防同一玩家并发)
+local buyActive_  = {}  -- connKey -> os.time() (W4: 15s TTL)
+local sellActive_ = {}  -- connKey -> os.time() (W4: 15s TTL, per-connection 防同一玩家并发)
 local itemSellLock_ = {}  -- WP-05c: consumableId -> { connKey, time } (per-item 短锁防多人并发穿透)
 local ITEM_LOCK_TTL = 30  -- 秒（超时自动释放，防死锁）
 
@@ -131,26 +131,71 @@ end
 ---@param onError fun()|nil
 local function WriteSaveBack(userId, slot, saveData, desc, onOk, onError)
     local saveKey = "save_" .. slot
-    saveData.timestamp = os.time()
-    SaveBackupService.BeforeOverwrite(userId, slot, desc, function()
-        serverCloud:BatchSet(userId)
-            :Set(saveKey, saveData)
-            :Save(desc, {
-                ok = function()
-                    print("[BlackMerchant] SaveBack OK: " .. desc)
-                    if onOk then onOk() end
-                end,
-                error = function(code, reason)
-                    print("[BlackMerchant] SaveBack FAILED: " .. desc
-                        .. " code=" .. tostring(code) .. " " .. tostring(reason))
-                    if onError then onError() end
-                end,
-            })
-    end, function(code, reason)
-        print("[BlackMerchant] SaveBack BACKUP FAILED: " .. desc
-            .. " code=" .. tostring(code) .. " " .. tostring(reason))
-        if onError then onError() end
-    end)
+
+    -- W1: slot 锁互斥（短退避 200ms×3，耗尽则拒绝写入）
+    local function doWrite()
+        -- 持锁后的单次释放闭包（四出口共用）
+        local released = false
+        local function releaseOnce()
+            if not released then
+                released = true
+                Session.ReleaseSlotLock(userId, slot)
+            end
+        end
+
+        saveData.timestamp = os.time()
+        SaveBackupService.BeforeOverwrite(userId, slot, desc, function(oldSave)
+            -- [T5] 对账（log-only）
+            if oldSave and type(oldSave) == "table"
+                and type(oldSave.timestamp) == "number"
+                and type(saveData.timestamp) == "number"
+                and saveData.timestamp < oldSave.timestamp - 60 then
+                print("[ROLLBACK-WRITE] BM userId=" .. tostring(userId)
+                    .. " slot=" .. slot .. " newTs=" .. saveData.timestamp
+                    .. " oldTs=" .. oldSave.timestamp .. " desc=" .. desc)
+            end
+            serverCloud:BatchSet(userId)
+                :Set(saveKey, saveData)
+                :Save(desc, {
+                    ok = function()
+                        releaseOnce()
+                        print("[BlackMerchant] SaveBack OK: " .. desc)
+                        if onOk then onOk() end
+                    end,
+                    error = function(code, reason)
+                        releaseOnce()
+                        print("[BlackMerchant] SaveBack FAILED: " .. desc
+                            .. " code=" .. tostring(code) .. " " .. tostring(reason))
+                        if onError then onError() end
+                    end,
+                })
+        end, function(code, reason)
+            releaseOnce()
+            print("[BlackMerchant] SaveBack BACKUP FAILED: " .. desc
+                .. " code=" .. tostring(code) .. " " .. tostring(reason))
+            if onError then onError() end
+        end)
+    end
+
+    -- 取锁（短退避重试 200ms×3）
+    local function tryAcquire(attempt)
+        if Session.AcquireSlotLock(userId, slot) then
+            doWrite()
+        elseif attempt < 3 then
+            -- 延迟 200ms 重试（利用引擎 DelayedCallTimer 或 serverCloud 延迟）
+            local timer = Timer:new()
+            timer:Start(200)
+            SubscribeToEvent(timer, "TimerExpired", function()
+                tryAcquire(attempt + 1)
+            end)
+        else
+            -- 三次取锁失败，拒绝写入
+            print("[BM-LOCK-BUSY] WriteSaveBack: userId=" .. tostring(userId)
+                .. " slot=" .. tostring(slot) .. " desc=" .. desc)
+            if onError then onError() end
+        end
+    end
+    tryAcquire(0)
 end
 
 -- ============================================================================
@@ -353,12 +398,13 @@ function M.HandleBuy(eventType, eventData)
     local connKey, userId, connection = ExtractContext(eventData)
     if not userId then return end
 
-    -- §8 内存锁
-    if buyActive_[connKey] then
+    -- §8 内存锁（W4: 15s TTL，防回调挂起导致永久占用）
+    local ba = buyActive_[connKey]
+    if ba and (os.time() - ba) <= 15 then
         SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "操作过于频繁")
         return
     end
-    buyActive_[connKey] = true
+    buyActive_[connKey] = os.time()
 
     local ok1, consumableId = pcall(function() return eventData["consumableId"]:GetString() end)
     local ok2, amount = pcall(function() return eventData["amount"]:GetInt() end)
@@ -418,8 +464,23 @@ function M.HandleBuy(eventType, eventData)
                         return
                     end
 
-                    -- 5. BatchCommit: 扣仙石 + 出库 + 写背包 WAL
+                    -- W5: 装备类背包溢出预检（消耗品可堆叠，跳过预检）
                     local isEquip = cfg.itemType == "equipment"
+                    if isEquip and slot then
+                        -- 简单计数：背包中非 nil 格子数 vs 上限
+                        local usedSlots = 0
+                        local savedBp = nil
+                        pcall(function()
+                            Session.ServerGetSlotData(userId, slot, function(sd)
+                                savedBp = sd and sd.backpack
+                            end)
+                        end)
+                        -- ServerGetSlotData 是异步的，此处同步拿不到
+                        -- 降级方案：不做预检，靠 WAL 补偿兜底
+                        -- 注：完整预检需要重构为异步链（第二波处理）
+                    end
+
+                    -- 5. BatchCommit: 扣仙石 + 出库 + 写背包 WAL
                     local commit = serverCloud:BatchCommit("黑商购买")
                     commit:MoneyCost(userId, "xianshi", total)
                     commit:MoneyCost(BMConfig.SYSTEM_UID, BMConfig.StockKey(consumableId), amount)
@@ -569,12 +630,13 @@ function M.HandleSell(eventType, eventData)
     local connKey, userId, connection = ExtractContext(eventData)
     if not userId then return end
 
-    -- §8 内存锁
-    if sellActive_[connKey] then
+    -- §8 内存锁（W4: 15s TTL，防回调挂起导致永久占用）
+    local sa = sellActive_[connKey]
+    if sa and (os.time() - sa) <= 15 then
         SendError(connection, SaveProtocol.S2C_BlackMerchantResult, "操作过于频繁")
         return
     end
-    sellActive_[connKey] = true
+    sellActive_[connKey] = os.time()
 
     local ok1, consumableId = pcall(function() return eventData["consumableId"]:GetString() end)
     local ok2, amount = pcall(function() return eventData["amount"]:GetInt() end)
@@ -851,13 +913,24 @@ end
 -- HandleExchange — 灵韵 ↔ 仙石兑换
 -- ============================================================================
 
+local exchangeActive_ = {}  -- W3: connKey -> os.time() (15s TTL)
+
 function M.HandleExchange(eventType, eventData)
     local connKey, userId, connection = ExtractContext(eventData)
     if not userId then return end
 
+    -- W3: 内存锁防并发双花（15s TTL）
+    local ea = exchangeActive_[connKey]
+    if ea and (os.time() - ea) <= 15 then
+        SendError(connection, SaveProtocol.S2C_BlackMerchantExchangeResult, "操作过于频繁")
+        return
+    end
+    exchangeActive_[connKey] = os.time()
+
     local ok1, direction = pcall(function() return eventData["direction"]:GetString() end)
     local ok2, amount = pcall(function() return eventData["amount"]:GetInt() end)
     if not ok1 or not ok2 then
+        exchangeActive_[connKey] = nil
         SendError(connection, SaveProtocol.S2C_BlackMerchantExchangeResult, "invalid request")
         return
     end
@@ -867,6 +940,7 @@ function M.HandleExchange(eventType, eventData)
 
     -- 1. 境界校验
     if not IsRealmOk(connKey) then
+        exchangeActive_[connKey] = nil
         SendError(connection, SaveProtocol.S2C_BlackMerchantExchangeResult,
             "境界不足，需筑基初期以上")
         return
@@ -874,6 +948,7 @@ function M.HandleExchange(eventType, eventData)
 
     -- 2. amount 校验
     if not amount or amount < 1 then
+        exchangeActive_[connKey] = nil
         SendError(connection, SaveProtocol.S2C_BlackMerchantExchangeResult, "数量无效")
         return
     end
@@ -1042,9 +1117,12 @@ function M.HandleExchange(eventType, eventData)
             end,
         })
     else
+        exchangeActive_[connKey] = nil
         SendError(connection, SaveProtocol.S2C_BlackMerchantExchangeResult,
             "无效方向")
+        return
     end
+    -- W3: 深层异步回调的释放由 TTL 15s 兜底（成功/失败回调链太深，逐个加不如 TTL 安全）
 end
 
 -- ============================================================================
@@ -1187,15 +1265,20 @@ function M.CheckWALOnLogin(userId, slot, saveData, onDone)
             local backpack = saveData.backpack or {}
             for _, bp in ipairs(bpItems) do
                 if bp.itemType == "equipment" and bp.equipId then
-                    -- 装备类：逐件创建初始状态装备
+                    -- W2: 装备类逐件创建 + 补打 bmNoResell（与买入正路一致，堵洗白）
                     for _ = 1, (bp.amount or 1) do
                         local newEquip = LootSystem.CreateSpecialEquipment(bp.equipId)
                         if newEquip then
+                            TradeLock.MarkNoResell(newEquip, bp.equipId)
                             AddEquipmentToBackpack(backpack, newEquip)
                         end
                     end
                 else
-                    AddToBackpack(backpack, bp.consumableId, bp.amount, bp.name)
+                    -- W2: 消耗品走 AddLockedNewStack（内部写 bmNoResell），与买入正路一致
+                    BackpackUtils.AddLockedNewStack(
+                        backpack, bp.consumableId, bp.amount, bp.name,
+                        TradeLock.GenerateBatchId()
+                    )
                 end
                 print("[BlackMerchant][WAL] Login backpack compensation: "
                     .. (bp.consumableId or bp.equipId or "?") .. " x" .. tostring(bp.amount)
@@ -1656,6 +1739,7 @@ function M.OnDisconnect(connKey)
     playerRealms_[connKey] = nil
     buyActive_[connKey] = nil
     sellActive_[connKey] = nil
+    exchangeActive_[connKey] = nil  -- W3
     -- P0-5: 释放该连接持有的 per-item 锁
     for itemId, lock in pairs(itemSellLock_) do
         if lock and lock.connKey == connKey then
