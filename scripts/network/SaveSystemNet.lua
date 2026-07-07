@@ -495,6 +495,20 @@ function SaveSystemNet_HandleLoadResult(eventType, eventData)
         return
     end
 
+    -- T4: 从备份加载时告警
+    local fromBackup = false
+    pcall(function() fromBackup = eventData["fromBackup"]:GetBool() end)
+    if fromBackup then
+        local backupTs = 0
+        pcall(function() backupTs = eventData["backupTimestamp"]:GetInt() end)
+        Logger.warn("SaveSystemNet", "LOAD-FROM-BACKUP: slot=" .. tostring(meta.slot)
+            .. " backupTs=" .. tostring(backupTs))
+        pcall(function()
+            local EventBus = require("core.EventBus")
+            EventBus.Emit("toast", "云端主存档暂不可读，已为你加载最近的备份进度")
+        end)
+    end
+
     local slot = meta.slot
     local saveDataJson = eventData["saveData"]:GetString()
     ProcessLoadPayload(slot, saveDataJson, cb)
@@ -531,6 +545,20 @@ function SaveSystemNet_HandleLoadGameBegin(eventType, eventData)
     if not valid or checksum == "" then
         FailLoadChunk(reason or "invalid_load_chunk_begin")
         return
+    end
+
+    -- T4: 从备份加载时告警（分片模式）
+    local fromBackup = false
+    pcall(function() fromBackup = eventData["fromBackup"]:GetBool() end)
+    if fromBackup then
+        local backupTs = 0
+        pcall(function() backupTs = eventData["backupTimestamp"]:GetInt() end)
+        Logger.warn("SaveSystemNet", "LOAD-FROM-BACKUP (chunked): slot=" .. tostring(slot)
+            .. " backupTs=" .. tostring(backupTs))
+        pcall(function()
+            local EventBus = require("core.EventBus")
+            EventBus.Emit("toast", "云端主存档暂不可读，已为你加载最近的备份进度")
+        end)
     end
 
     _loadChunkState = {

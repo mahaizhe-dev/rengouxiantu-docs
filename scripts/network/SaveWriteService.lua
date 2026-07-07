@@ -350,7 +350,20 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
         })
     end
 
-    SaveBackupService.BeforeOverwrite(userId, slot, "SaveGame", CommitSave, function(code, reason)
+    SaveBackupService.BeforeOverwrite(userId, slot, "SaveGame", function(oldSave)
+        -- [T5 ROLLBACK-WRITE] 对账日志（log-only，绝不阻断写入）
+        if oldSave and type(oldSave) == "table"
+            and type(oldSave.timestamp) == "number"
+            and type(coreData.timestamp) == "number"
+            and coreData.timestamp < oldSave.timestamp - 60 then
+            print("[ROLLBACK-WRITE] userId=" .. tostring(userId)
+                .. " slot=" .. slot
+                .. " newTs=" .. coreData.timestamp
+                .. " oldTs=" .. oldSave.timestamp
+                .. " gap=" .. (oldSave.timestamp - coreData.timestamp) .. "s source=client_snapshot")
+        end
+        CommitSave()
+    end, function(code, reason)
         Logger.error("SaveGame", "PREWRITE BACKUP FAILED: " .. tostring(code) .. " " .. tostring(reason))
         SendResult(connection, SaveProtocol.S2C_SaveResult, false, "backup_failed", requestId)
     end)

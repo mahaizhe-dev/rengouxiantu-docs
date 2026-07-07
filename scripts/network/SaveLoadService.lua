@@ -43,7 +43,7 @@ local function SendResult(connection, eventName, success, message)
     SafeSend(connection, eventName, data)
 end
 
-local function SendLoadSuccess(connection, slot, saveData)
+local function SendLoadSuccess(connection, slot, saveData, fromBackup)
     local encodeOk, saveDataJson = pcall(cjson.encode, saveData)
     if not encodeOk then
         print("[Server] LoadGame encode failed: " .. tostring(saveDataJson))
@@ -56,6 +56,10 @@ local function SendLoadSuccess(connection, slot, saveData)
         resultData["ok"] = Variant(true)
         resultData["slot"] = Variant(slot)
         resultData["saveData"] = Variant(saveDataJson)
+        if fromBackup then
+            resultData["fromBackup"] = Variant(true)
+            resultData["backupTimestamp"] = Variant(saveData.timestamp or 0)
+        end
         SafeSend(connection, SaveProtocol.S2C_LoadResult, resultData)
         return true
     end
@@ -69,6 +73,10 @@ local function SendLoadSuccess(connection, slot, saveData)
     beginData["totalBytes"] = Variant(#saveDataJson)
     beginData["totalChunks"] = Variant(#chunks)
     beginData["checksum"] = Variant(checksum)
+    if fromBackup then
+        beginData["fromBackup"] = Variant(true)
+        beginData["backupTimestamp"] = Variant(saveData.timestamp or 0)
+    end
     SafeSend(connection, SaveProtocol.S2C_LoadGameBegin, beginData)
 
     for i, chunk in ipairs(chunks) do
@@ -163,13 +171,16 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
                     saveData.backpack = backpack
                 end
 
+                local loadedFromBackup = false
                 if not saveData then
                     local latestBackup = scores[latestBackupKey]
                     local backupData = latestBackup and latestBackup.data or latestBackup
                     if backupData and type(backupData) == "table" and backupData.player then
                         saveData = backupData
-                        print("[Server] LoadGame: using prewrite backup for slot " .. slot
-                            .. " userId=" .. tostring(userId))
+                        loadedFromBackup = true
+                        print("[LOAD-FROM-BACKUP] userId=" .. tostring(userId)
+                            .. " slot=" .. slot
+                            .. " backupTs=" .. tostring(backupData.timestamp or 0))
                     end
                 end
 
@@ -297,7 +308,7 @@ function SaveLoadService.Execute(connection, connKey, userId, slot)
                 end
 
                 -- ── [回包] 发送存档数据（v11 单 key 格式） ──
-                SendLoadSuccess(connection, slot, saveData)
+                SendLoadSuccess(connection, slot, saveData, loadedFromBackup)
 
                 print("[Server] LoadGame sent: userId=" .. tostring(userId) .. " slot=" .. slot)
 

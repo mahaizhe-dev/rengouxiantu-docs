@@ -1413,6 +1413,11 @@ function HandleUpdate(eventType, eventData)
     if cloudStorageTickTimer_ >= 5.0 then
         cloudStorageTickTimer_ = 0
         CloudStorage.Tick()
+        -- P0-fix T2: pending 超时清扫必须在 gameStarted_/paused 门之前驱动
+        -- FetchSlots/Load 的 pending 只存在于选角与加载阶段
+        if CloudStorage.IsNetworkMode() then
+            pcall(function() require("network.SaveSystemNet").Tick() end)
+        end
     end
 
     -- 角色选择界面超时检测（游戏未开始时也需要运行）

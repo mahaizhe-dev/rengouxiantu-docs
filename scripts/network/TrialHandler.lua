@@ -30,18 +30,34 @@ function M.HandleTrialClaimDaily(eventType, eventData)
     local userId = GetUserId(connKey)
     if not userId then return end
 
-    -- ① 内存锁：防止同一用户并发请求
-    if trialClaimingActive_[connKey] then
-        print("[Server] TrialClaimDaily: already processing, skip")
-        return
+    -- ① 内存锁：防止同一用户并发请求（带 15s TTL，防回调挂起导致永久卡死）
+    local activeAt = trialClaimingActive_[connKey]
+    if activeAt then
+        local age = os.time() - (type(activeAt) == "number" and activeAt or 0)
+        if age <= 15 then
+            print("[Server] TrialClaimDaily: already processing, skip connKey=" .. connKey
+                .. " userId=" .. tostring(userId) .. " age=" .. age .. "s")
+            local data = VariantMap()
+            data["ok"] = Variant(false)
+            data["msg"] = Variant("正在处理中，请稍后再试")
+            SafeSend(connection, SaveProtocol.S2C_TrialClaimDailyResult, data)
+            return
+        end
+        print("[Server] TrialClaimDaily: stale claiming flag expired (age=" .. age .. "s), releasing")
     end
-    trialClaimingActive_[connKey] = true
+    trialClaimingActive_[connKey] = os.time()
 
     print("[Server] TrialClaimDaily: userId=" .. tostring(userId))
 
     local slot = connSlots_[connKey]
     if not slot then
-        print("[Server] WARNING: connSlots_ not loaded for connKey=" .. connKey .. ", rejecting")
+        trialClaimingActive_[connKey] = nil  -- P0-fix T3: 必须清标志，否则永久静默失败
+        print("[Server] WARNING: TrialClaimDaily connSlots_ not loaded, connKey=" .. connKey
+            .. " userId=" .. tostring(userId) .. ", rejecting")
+        local data = VariantMap()
+        data["ok"] = Variant(false)
+        data["msg"] = Variant("存档未就绪，请稍后再试")
+        SafeSend(connection, SaveProtocol.S2C_TrialClaimDailyResult, data)
         return
     end
     local saveKey = "save_" .. slot

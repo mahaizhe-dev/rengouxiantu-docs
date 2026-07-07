@@ -463,7 +463,7 @@ function HandleFetchSlots(eventType, eventData)
         local data = VariantMap()
         data["ok"] = Variant(false)
         data["message"] = Variant("identity_not_ready")
-        SafeSend(connection, SaveProtocol.S2C_FetchSlotsResult, data)
+        SafeSend(connection, SaveProtocol.S2C_SlotsData, data)
         return
     end
 
@@ -484,7 +484,7 @@ function HandleCreateChar(eventType, eventData)
         local data = VariantMap()
         data["ok"] = Variant(false)
         data["message"] = Variant("identity_not_ready")
-        SafeSend(connection, SaveProtocol.S2C_CreateCharResult, data)
+        SafeSend(connection, SaveProtocol.S2C_CharResult, data)
         return
     end
 
@@ -616,7 +616,7 @@ function HandleDeleteChar(eventType, eventData)
         local data = VariantMap()
         data["ok"] = Variant(false)
         data["message"] = Variant("identity_not_ready")
-        SafeSend(connection, SaveProtocol.S2C_DeleteCharResult, data)
+        SafeSend(connection, SaveProtocol.S2C_CharResult, data)
         return
     end
 

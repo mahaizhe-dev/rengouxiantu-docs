@@ -28,7 +28,7 @@ function SaveBackupService.BeforeOverwrite(userId, slot, desc, onReady, onError)
             ok = function(scores)
                 local current = scores and scores[saveKey]
                 if type(current) ~= "table" then
-                    onReady()
+                    onReady(nil)  -- T5: 旧档不存在/非 table 时传 nil
                     return
                 end
 
@@ -40,7 +40,7 @@ function SaveBackupService.BeforeOverwrite(userId, slot, desc, onReady, onError)
                     })
                     :Save("prewrite backup " .. tostring(desc or saveKey), {
                         ok = function()
-                            onReady()
+                            onReady(current)  -- T5: 备份成功后传旧档给调用方
                         end,
                         error = function(code, reason)
                             print("[SaveBackupService] backup write failed: userId="
