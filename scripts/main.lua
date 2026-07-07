@@ -507,6 +507,16 @@ function StartGame(isNewGame, slot, charName, classId)
                     end
                 end
 
+                -- N3-fix: 网络模式 fromBackup 延迟展示（此时 UI 已创建）
+                pcall(function()
+                    local SSN = require("network.SaveSystemNet")
+                    if SSN._loadedFromBackup then
+                        SSN._loadedFromBackup = false
+                        local EventBus = require("core.EventBus")
+                        EventBus.Emit("toast", "云端主存档暂不可读，已为你加载最近的备份进度")
+                    end
+                end)
+
                 print("[Main] Game started from slot " .. slot .. "!")
             else
                 -- 🔴 加载失败：不进入游戏，清理已初始化的游戏状态

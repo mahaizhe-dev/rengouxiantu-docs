@@ -106,9 +106,17 @@ end
 local function rejectPending(actionType, errorMsg)
     local entry = _pending[actionType]
     _pending[actionType] = nil
+    -- N1-fix: LOAD 被 reject 时必须清分片状态机，防迟到分片污染重试
+    if actionType == ACTION_LOAD then
+        _loadChunkState = nil
+    end
     if entry and entry.callback then
         Logger.warn("SaveSystemNet", "rejectPending: " .. actionType .. " reason=" .. errorMsg)
-        entry.callback(nil, errorMsg)
+        -- N4-fix: pcall 防回调抛错中断 ClearAllPending 循环
+        local ok, err = pcall(entry.callback, nil, errorMsg)
+        if not ok then
+            Logger.error("SaveSystemNet", "rejectPending callback error: " .. tostring(err))
+        end
     end
 end
 
@@ -495,7 +503,7 @@ function SaveSystemNet_HandleLoadResult(eventType, eventData)
         return
     end
 
-    -- T4: 从备份加载时告警
+    -- T4+N3: 从备份加载时置全局标志（进档后 SystemMenu 创建时展示）
     local fromBackup = false
     pcall(function() fromBackup = eventData["fromBackup"]:GetBool() end)
     if fromBackup then
@@ -503,10 +511,8 @@ function SaveSystemNet_HandleLoadResult(eventType, eventData)
         pcall(function() backupTs = eventData["backupTimestamp"]:GetInt() end)
         Logger.warn("SaveSystemNet", "LOAD-FROM-BACKUP: slot=" .. tostring(meta.slot)
             .. " backupTs=" .. tostring(backupTs))
-        pcall(function()
-            local EventBus = require("core.EventBus")
-            EventBus.Emit("toast", "云端主存档暂不可读，已为你加载最近的备份进度")
-        end)
+        SaveSystemNet._loadedFromBackup = true
+        SaveSystemNet._backupTimestamp = backupTs
     end
 
     local slot = meta.slot
@@ -547,7 +553,7 @@ function SaveSystemNet_HandleLoadGameBegin(eventType, eventData)
         return
     end
 
-    -- T4: 从备份加载时告警（分片模式）
+    -- T4+N3: 从备份加载时置全局标志（分片模式）
     local fromBackup = false
     pcall(function() fromBackup = eventData["fromBackup"]:GetBool() end)
     if fromBackup then
@@ -555,10 +561,8 @@ function SaveSystemNet_HandleLoadGameBegin(eventType, eventData)
         pcall(function() backupTs = eventData["backupTimestamp"]:GetInt() end)
         Logger.warn("SaveSystemNet", "LOAD-FROM-BACKUP (chunked): slot=" .. tostring(slot)
             .. " backupTs=" .. tostring(backupTs))
-        pcall(function()
-            local EventBus = require("core.EventBus")
-            EventBus.Emit("toast", "云端主存档暂不可读，已为你加载最近的备份进度")
-        end)
+        SaveSystemNet._loadedFromBackup = true
+        SaveSystemNet._backupTimestamp = backupTs
     end
 
     _loadChunkState = {

@@ -211,6 +211,13 @@ function M.HandleExchange(eventType, eventData)
     serverCloud:Get(userId, saveKey, {
         ok = function(scores)
             local saveData = scores[saveKey] or {}
+            -- DL-4 fix: 空档防御，防止骨架数据覆盖真实存档
+            if not saveData.player then
+                Session.ReleaseSlotLock(userId, currentSlot)
+                exchangeLocks_[userId] = nil
+                SendError(connection, SaveProtocol.S2C_EventExchangeResult, "存档未就绪")
+                return
+            end
             local backpack = saveData.backpack or {}
             local evtAllData = saveData.event_data or {}
             local evtState = evtAllData[EventConfig.GetEventId()] or {}
@@ -339,6 +346,12 @@ function M.HandleOpenFudai(eventType, eventData)
     serverCloud:Get(userId, saveKey, {
         ok = function(scores)
             local saveData = scores[saveKey] or {}
+            -- DL-4 fix: 空档防御
+            if not saveData.player then
+                releaseLocks()
+                SendError(connection, SaveProtocol.S2C_EventOpenFudaiResult, "存档未就绪")
+                return
+            end
             local backpack = saveData.backpack or {}
 
             -- 服务端校验背包物品数量（BM-S4A: 只统计未锁定堆叠，防止锁定物品通过校验后扣除失败）
@@ -1103,6 +1116,13 @@ function M.HandleClaimBossMilestone(eventType, eventData)
         :Fetch({
         ok = function(scores)
             local saveData = scores[saveKey] or {}
+            -- DL-4 fix: 空档防御
+            if not saveData.player then
+                milestoneLocks_[userId] = nil
+                Session.ReleaseSlotLock(userId, currentSlot)
+                SendError(connection, SaveProtocol.S2C_EventBossMilestoneResult, "存档未就绪")
+                return
+            end
             local backpack = saveData.backpack or {}
             local msData = scores[msKey]
 
