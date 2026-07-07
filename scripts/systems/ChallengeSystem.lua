@@ -202,8 +202,9 @@ function ChallengeSystem.Init()
         end
     end
 
-    -- 监听怪物死亡事件
-    EventBus.On("monster_death", function(monster)
+    -- P0-S1: 先退订旧监听，防止切角色时累加
+    if ChallengeSystem._unsubMonsterDeath then ChallengeSystem._unsubMonsterDeath() end
+    ChallengeSystem._unsubMonsterDeath = EventBus.On("monster_death", function(monster)
         ChallengeSystem.OnMonsterDeath(monster)
     end)
 

@@ -52,8 +52,9 @@ function PrisonTowerSystem.Init()
     PrisonTowerSystem._camera = nil
     PrisonTowerSystem._gameMap = nil
 
-    -- 监听怪物死亡
-    EventBus.On("monster_death", function(monster)
+    -- P0-S1: 先退订旧监听，防止切角色时累加
+    if PrisonTowerSystem._unsubMonsterDeath then PrisonTowerSystem._unsubMonsterDeath() end
+    PrisonTowerSystem._unsubMonsterDeath = EventBus.On("monster_death", function(monster)
         PrisonTowerSystem.OnMonsterDeath(monster)
     end)
 

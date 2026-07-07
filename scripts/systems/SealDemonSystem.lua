@@ -58,8 +58,9 @@ function SealDemonSystem.Init()
         SealDemonSystem.questStates[q.id] = "locked"
     end
 
-    -- 监听怪物死亡
-    EventBus.On("monster_death", function(monster)
+    -- P0-S1: 先退订旧监听，防止切角色时累加
+    if SealDemonSystem._unsubMonsterDeath then SealDemonSystem._unsubMonsterDeath() end
+    SealDemonSystem._unsubMonsterDeath = EventBus.On("monster_death", function(monster)
         SealDemonSystem.OnMonsterDeath(monster)
     end)
 

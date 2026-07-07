@@ -43,8 +43,9 @@ function SwordWallSystem._getGameMap()
 end
 
 function SwordWallSystem.Init()
-    -- 监听怪物死亡
-    EventBus.On("monster_death", function(monster)
+    -- P0-S1: 先退订旧监听，防止切角色/章节时累加
+    if SwordWallSystem._unsubMonsterDeath then SwordWallSystem._unsubMonsterDeath() end
+    SwordWallSystem._unsubMonsterDeath = EventBus.On("monster_death", function(monster)
         SwordWallSystem.OnMonsterDeath(monster)
     end)
     print("[SwordWall] Initialized")

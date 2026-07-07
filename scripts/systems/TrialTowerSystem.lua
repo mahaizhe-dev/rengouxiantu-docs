@@ -51,8 +51,9 @@ function TrialTowerSystem.Init()
     TrialTowerSystem._camera = nil
     TrialTowerSystem._gameMap = nil
 
-    -- 监听怪物死亡
-    EventBus.On("monster_death", function(monster)
+    -- P0-S1: 先退订旧监听，防止切角色时累加
+    if TrialTowerSystem._unsubMonsterDeath then TrialTowerSystem._unsubMonsterDeath() end
+    TrialTowerSystem._unsubMonsterDeath = EventBus.On("monster_death", function(monster)
         TrialTowerSystem.OnMonsterDeath(monster)
     end)
 
