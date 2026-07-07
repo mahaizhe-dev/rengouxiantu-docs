@@ -42,6 +42,8 @@ local cjson = cjson
 local SafeSend            = Session.SafeSend
 local NormalizeSlotsIndex = Session.NormalizeSlotsIndex
 local IsSlotLocked        = Session.IsSlotLocked
+local AcquireSlotLock     = Session.AcquireSlotLock
+local ReleaseSlotLock     = Session.ReleaseSlotLock
 
 local function SendResult(connection, eventName, success, message, requestId)
     local data = VariantMap()
@@ -329,9 +331,10 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
     -- ※ BM-01A 依赖链关键节点：batch:Save("存档") → ok 回调 → S2C_SaveResult ok=true
     --   拆壳后此语义不变。
     -- ════════════════════════════════════════════════════════════════
-    local function CommitSave()
+    local function CommitSave(releaseSlot)
         batch:Save("存档", {
         ok = function()
+            if releaseSlot then releaseSlot() end  -- T1: 写档成功释放 slot 锁
             Logger.info("SaveGame", "OK: userId=" .. tostring(userId) .. " slot=" .. slot)
 
             local resultData = VariantMap()
@@ -340,6 +343,7 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
             SafeSend(connection, SaveProtocol.S2C_SaveResult, resultData)
         end,
         error = function(code, reason)
+            if releaseSlot then releaseSlot() end  -- T1: 写档失败释放 slot 锁
             Logger.error("SaveGame", "FAILED: " .. tostring(code) .. " " .. tostring(reason))
             local resultData = VariantMap()
             resultData["ok"] = Variant(false)
@@ -348,6 +352,17 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
             SafeSend(connection, SaveProtocol.S2C_SaveResult, resultData)
         end,
         })
+    end
+
+    -- T1: 写档阶段取 slot 锁（与黑市 WriteSaveBack 双向互斥）
+    -- 注：IsSlotLocked 快速拒绝在前面已做（:87），此处是真正 Acquire
+    if not AcquireSlotLock(userId, slot) then
+        SendResult(connection, SaveProtocol.S2C_SaveResult, false, "slot_locked", requestId)
+        return
+    end
+    local slotReleased = false
+    local function releaseSlot()
+        if not slotReleased then slotReleased = true; ReleaseSlotLock(userId, slot) end
     end
 
     SaveBackupService.BeforeOverwrite(userId, slot, "SaveGame", function(oldSave)
@@ -362,8 +377,9 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
                 .. " oldTs=" .. oldSave.timestamp
                 .. " gap=" .. (oldSave.timestamp - coreData.timestamp) .. "s source=client_snapshot")
         end
-        CommitSave()
+        CommitSave(releaseSlot)
     end, function(code, reason)
+        releaseSlot()
         Logger.error("SaveGame", "PREWRITE BACKUP FAILED: " .. tostring(code) .. " " .. tostring(reason))
         SendResult(connection, SaveProtocol.S2C_SaveResult, false, "backup_failed", requestId)
     end)

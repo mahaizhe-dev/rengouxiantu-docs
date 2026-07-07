@@ -177,25 +177,14 @@ local function WriteSaveBack(userId, slot, saveData, desc, onOk, onError)
         end)
     end
 
-    -- 取锁（短退避重试 200ms×3）
-    local function tryAcquire(attempt)
-        if Session.AcquireSlotLock(userId, slot) then
-            doWrite()
-        elseif attempt < 3 then
-            -- 延迟 200ms 重试（利用引擎 DelayedCallTimer 或 serverCloud 延迟）
-            local timer = Timer:new()
-            timer:Start(200)
-            SubscribeToEvent(timer, "TimerExpired", function()
-                tryAcquire(attempt + 1)
-            end)
-        else
-            -- 三次取锁失败，拒绝写入
-            print("[BM-LOCK-BUSY] WriteSaveBack: userId=" .. tostring(userId)
-                .. " slot=" .. tostring(slot) .. " desc=" .. desc)
-            if onError then onError() end
-        end
+    -- T2: 取锁失败即快速失败（客户端会重试保存；买入 WAL_BP 登录补偿；30s slot TTL 兜底）
+    if Session.AcquireSlotLock(userId, slot) then
+        doWrite()
+    else
+        print("[BM-LOCK-BUSY] WriteSaveBack: userId=" .. tostring(userId)
+            .. " slot=" .. tostring(slot) .. " desc=" .. desc)
+        if onError then onError() end
     end
-    tryAcquire(0)
 end
 
 -- ============================================================================
