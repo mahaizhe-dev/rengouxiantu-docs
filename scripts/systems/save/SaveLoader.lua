@@ -299,6 +299,9 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
                         abyss_seal   = AlchemySystem.GetAbyssSealPillCount(),
                         -- 第六章丹药
                         shadow_god   = AlchemySystem.GetShadowGodPillCount(),
+                        -- 活动丹药
+                        zong         = p.premiumZongEaten or 0,
+                        redbean_cake = p.premiumRedbeanCakeEaten or 0,
                     }
 
                     if not p.pillCounts then
@@ -364,6 +367,29 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
                         print("[ZongValidation] pillCounts.zong drift: " .. (p.pillCounts.zong or 0) .. " -> " .. eaten)
                         p.pillCounts.zong = eaten
                     end
+                end
+            end
+        end
+
+        -- ================================================================
+        -- 相思红豆糕三字段对齐校验
+        -- 权威来源：premiumRedbeanCakeEaten，上限 10
+        -- ================================================================
+        do
+            local p = GameState.player
+            if p then
+                local MAX_REDBEAN_CAKE = 10
+                local eaten = math.min(p.premiumRedbeanCakeEaten or 0, MAX_REDBEAN_CAKE)
+                p.premiumRedbeanCakeEaten = eaten
+                if (p.pillWisdom or 0) ~= eaten then
+                    print("[RedbeanCakeValidation] pillWisdom drift: " .. (p.pillWisdom or 0) .. " -> " .. eaten)
+                    p.pillWisdom = eaten
+                end
+                if not p.pillCounts then p.pillCounts = {} end
+                if (p.pillCounts.redbean_cake or 0) ~= eaten then
+                    print("[RedbeanCakeValidation] pillCounts.redbean_cake drift: "
+                        .. (p.pillCounts.redbean_cake or 0) .. " -> " .. eaten)
+                    p.pillCounts.redbean_cake = eaten
                 end
             end
         end

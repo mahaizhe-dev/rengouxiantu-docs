@@ -16,7 +16,6 @@ local MonsterData = require("config.MonsterData")
 local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
 local CloudStorage = require("network.CloudStorage")  -- P1-SAVE-2: Tick 超时清理
-local MigrationPolicy = require("network.MigrationPolicy")  -- P0-4: 迁移状态统一判断
 local Utils = require("core.Utils")
 local Player = require("entities.Player")
 local Pet = require("entities.Pet")
@@ -266,103 +265,10 @@ function GameStart()
     -- 6. 播放背景音乐（登录界面即开始，与第1章共用）
     PlayBGM(1)
 
-    -- 7. PC(WASM) 平台迁移拦截：检查 clientCloud 标记，无备份则禁止进入
-    -- Phase 2（multiplayer.enabled=true）时 clientCloud 为 nil，跳过整段拦截
-    -- P0-4: 当 SAVE_MIGRATION_SINGLE_ENTRY=true 时，由 MigrationPolicy 统一判断是否需要 PC 拦截
-    local platform = GetPlatform()
-    local pcMigrationNeeded = MigrationPolicy.IsPCMigrationCheckNeeded()
-    if pcMigrationNeeded and clientCloud and (platform == "Web" or platform == "Windows") then
-        -- 先显示全屏遮罩阻止操作，等待 clientCloud 查询结果
-        local blockOverlay = UI.Panel {
-            id = "pcMigrationBlock",
-            position = "absolute",
-            width = "100%", height = "100%",
-            justifyContent = "center", alignItems = "center",
-            backgroundColor = {0, 0, 0, 220},
-            zIndex = 3000,
-            children = {
-                UI.Panel {
-                    width = 320,
-                    backgroundColor = {35, 38, 50, 250},
-                    borderRadius = 12,
-                    borderWidth = 1,
-                    borderColor = {255, 180, 50, 200},
-                    paddingTop = 24, paddingBottom = 24,
-                    paddingLeft = 24, paddingRight = 24,
-                    alignItems = "center",
-                    gap = 16,
-                    children = {
-                        UI.Label {
-                            text = "存档迁移提示",
-                            fontSize = 20, fontWeight = "bold",
-                            fontColor = {255, 200, 50, 255},
-                        },
-                        UI.Label {
-                            id = "pcMigrationMsg",
-                            text = "正在检查存档备份状态...",
-                            fontSize = 15,
-                            fontColor = {220, 220, 230, 230},
-                            textAlign = "center", lineHeight = 1.5,
-                        },
-                    },
-                },
-            },
-        }
-        uiRoot_:AddChild(blockOverlay)
-
-        -- 异步查询 clientCloud 标记
-        if clientCloud then
-            clientCloud:Get("migration_backup_done", {
-                ok = function(values, iscores)
-                    local done = iscores and iscores["migration_backup_done"]
-                    if done and done > 0 then
-                        -- 手机端已备份，放行
-                        print("[Migration] PC: backup flag found, allowing entry")
-                        local overlay = uiRoot_:FindById("pcMigrationBlock")
-                        if overlay then overlay:Destroy() end
-                    else
-                        -- 未备份，更新提示文本，保持阻止
-                        print("[Migration] PC: no backup flag, blocking entry")
-                        local msgLabel = uiRoot_:FindById("pcMigrationMsg")
-                        if msgLabel then
-                            msgLabel:SetText(
-                                "游戏即将升级为服务器版本。\n\n"
-                                .. "PC端存档无法自动备份，\n"
-                                .. "请先在手机端登录同一账号，\n"
-                                .. "进入游戏并保存一次。\n\n"
-                                .. "手机端保存成功后，\n"
-                                .. "重新打开PC端即可正常游玩。")
-                        end
-                    end
-                end,
-                ng = function()
-                    -- 网络失败，保守阻止
-                    print("[Migration] PC: cloud query failed, blocking entry")
-                    local msgLabel = uiRoot_:FindById("pcMigrationMsg")
-                    if msgLabel then
-                        msgLabel:SetText(
-                            "网络查询失败，无法确认存档状态。\n\n"
-                            .. "请先在手机端登录同一账号，\n"
-                            .. "进入游戏并保存一次。\n\n"
-                            .. "手机端保存成功后，\n"
-                            .. "重新打开PC端即可正常游玩。")
-                    end
-                end,
-            })
-        else
-            print("[Migration] PC: clientCloud is nil, blocking entry")
-            local msgLabel = uiRoot_:FindById("pcMigrationMsg")
-            if msgLabel then
-                msgLabel:SetText(
-                    "游戏即将升级为服务器版本。\n\n"
-                    .. "PC端存档无法自动备份，\n"
-                    .. "请先在手机端登录同一账号，\n"
-                    .. "进入游戏并保存一次。\n\n"
-                    .. "手机端保存成功后，\n"
-                    .. "重新打开PC端即可正常游玩。")
-            end
-        end
-    end
+    -- 7. PC(WASM) 平台旧迁移拦截已废弃。
+    -- 迁移功能不再作为登录前置条件，避免错误运行配置或 clientCloud 状态把玩家挡在登录界面外。
+    -- 玩家进入游戏后由当前 C/S 存档链路加载服务器角色数据；这里不再展示“存档迁移提示”。
+    print("[Migration] Legacy PC migration gate disabled")
 
     print("=== 开局一条狗 ===")
 end

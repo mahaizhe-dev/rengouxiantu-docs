@@ -235,7 +235,7 @@ function M.RegisterRedeemCodesFromConfig()
                 targetUID = entry.targetUID or 0,
                 createdBy = "config",
                 createdAt = os.time(),
-                enabled = true,
+                enabled = (entry.enabled ~= false and entry.disabled ~= true),
             }
             serverCloud:Set(REDEEM_SYSTEM_UID, codeKey, codeData, {
                 ok = function()

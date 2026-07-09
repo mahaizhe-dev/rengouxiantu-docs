@@ -24,6 +24,7 @@ SkinShopConfig.SKIN_IDS = {
     "pet_premium_biling",    -- 樱华天犬
     "pet_premium_fuyuan",    -- 瑞光天犬（六一活动）
     "pet_premium_wuxing",    -- 灵悟天犬（端午活动）
+    "pet_premium_gengu",     -- 磐岩天犬（情人节活动）
 }
 
 -- NPC 展示信息

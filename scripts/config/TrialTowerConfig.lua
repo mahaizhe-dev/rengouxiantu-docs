@@ -1,6 +1,6 @@
 -- ============================================================================
 -- TrialTowerConfig.lua - 青云试炼（试炼塔）配置
--- 260层爬塔系统，当前实现前10层（练气初期·蛛穴试炼）
+-- 300层爬塔系统，按章节主题每10层生成一个怪物块
 -- ============================================================================
 
 local TrialTowerConfig = {}
@@ -10,7 +10,7 @@ local TrialTowerConfig = {}
 -- ============================================================================
 
 TrialTowerConfig.ARENA_SIZE = 10            -- 内部可行走区域（12×12含墙）
-TrialTowerConfig.MAX_FLOOR = 260            -- 总层数上限
+TrialTowerConfig.MAX_FLOOR = 300            -- 总层数上限
 TrialTowerConfig.DAILY_UNLOCK_FLOOR = 10    -- 通关第10层才能领每日奖励
 
 -- ============================================================================
@@ -53,22 +53,59 @@ TrialTowerConfig.REALMS = {
     [20] = { id = "dacheng_2", name = "大乘中期", floors = {201, 220}, reqLevel = 105, maxLevel = 120 },
     [21] = { id = "dacheng_3", name = "大乘后期", floors = {221, 240}, reqLevel = 110, maxLevel = 120 },
     [22] = { id = "dacheng_4", name = "大乘巅峰", floors = {241, 260}, reqLevel = 115, maxLevel = 120 },
+    -- ===== 第六章·两界村之影（261-300层）=====
+    [23] = { id = "zhexian_1", name = "谪仙一阶", floors = {261, 270}, reqLevel = 121, maxLevel = 126 },
+    [24] = { id = "zhexian_4", name = "谪仙四阶", floors = {271, 280}, reqLevel = 127, maxLevel = 132 },
+    [25] = { id = "zhexian_7", name = "谪仙七阶", floors = {281, 290}, reqLevel = 133, maxLevel = 138 },
+    [26] = { id = "zhexian_9", name = "谪仙九阶", floors = {291, 300}, reqLevel = 139, maxLevel = 140 },
 }
 
 --- 根据层数获取境界信息
 --- 1-180层: 每10层一个境界 (realmIndex 1-18)
 --- 181-260层: 每20层一个境界 (realmIndex 19-22)
+--- 261-300层: 第六章每10层一个境界 (realmIndex 23-26)
 ---@param floor number
 ---@return table|nil realm, number realmIndex
 function TrialTowerConfig.GetRealmByFloor(floor)
     local realmIndex
-    if floor <= 180 then
+    if floor < 1 or floor > TrialTowerConfig.MAX_FLOOR then
+        return nil, nil
+    elseif floor <= 180 then
         realmIndex = math.ceil(floor / 10)
-    else
+    elseif floor <= 260 then
         realmIndex = 18 + math.ceil((floor - 180) / 20)
+    else
+        realmIndex = 22 + math.ceil((floor - 260) / 10)
     end
     local realm = TrialTowerConfig.REALMS[realmIndex]
     return realm, realmIndex
+end
+
+--- 根据层数获取境界限制 order
+--- 1-260 层沿用历史 realmIndex；261+ 仙阶段使用 GameConfig.REALMS[realm.id].order
+---@param floor number
+---@return number requiredOrder
+function TrialTowerConfig.GetRequiredOrderByFloor(floor)
+    local realm, realmIndex = TrialTowerConfig.GetRealmByFloor(floor)
+    if not realm then return 0 end
+    if floor <= 260 then
+        return realmIndex or 0
+    end
+
+    local okAsc, AscensionConfig = pcall(require, "config.AscensionConfig")
+    if okAsc and AscensionConfig and AscensionConfig.EnsureRealmsRegistered then
+        AscensionConfig.EnsureRealmsRegistered()
+    end
+
+    local ok, GameConfig = pcall(require, "config.GameConfig")
+    if ok and GameConfig and GameConfig.REALMS then
+        local realmData = GameConfig.REALMS[realm.id]
+        if realmData and realmData.order then
+            return realmData.order
+        end
+    end
+
+    return realmIndex or 0
 end
 
 --- 根据层数计算怪物等级
@@ -86,59 +123,47 @@ function TrialTowerConfig.CalcMonsterLevel(floor)
 end
 
 --- 层内位置（相对于境界起始层）
---- 1-180层: 1~10; 181-260层: 1~20
 ---@param floor number
 ---@return number localFloor
 function TrialTowerConfig.GetLocalFloor(floor)
-    if floor <= 180 then
-        return ((floor - 1) % 10) + 1
-    else
-        return ((floor - 181) % 20) + 1
+    local realm = TrialTowerConfig.GetRealmByFloor(floor)
+    if realm and realm.floors then
+        return floor - realm.floors[1] + 1
     end
+    return ((floor - 1) % 10) + 1
 end
 
 -- ============================================================================
--- 首通奖励公式（线性增长，所有层统一灵韵+金条）
+-- 首通奖励公式（逐层交替增长）
 -- ============================================================================
 
 --- 计算某层的首通奖励
---- 使用 rewardTier（每10层一档，1-26）保持奖励线性递增
---- 灵韵 = rewardTier * 2 + floor(localFloor10 / 3) + 1
---- 金条 = max(1, round((rewardTier * 500 + localFloor10 * 100) / 500))
+--- 从第1层开始，奇数层灵韵+1，偶数层金条+1
+--- 目标锚点：100层=50/50，200层=100/100，300层=150/150
 ---@param floor number
 ---@return number lingYun, number goldBar
 function TrialTowerConfig.CalcFirstClearReward(floor)
     if floor < 1 or floor > TrialTowerConfig.MAX_FLOOR then return 0, 0 end
-    -- 奖励档位：始终按每10层递增（与每日档位一致）
-    local rewardTier = math.ceil(floor / 10)
-    local localFloor10 = ((floor - 1) % 10) + 1  -- 1~10
-
-    local lingYun = rewardTier * 2 + math.floor(localFloor10 / 3) + 1
-    local goldBar = math.max(1, math.floor((rewardTier * 500 + localFloor10 * 100) / 500 + 0.5))
-
+    local lingYun = math.ceil(floor / 2)
+    local goldBar = math.floor(floor / 2)
     return lingYun, goldBar
 end
 
 -- ============================================================================
--- 每日奖励（= 第10层首通 × 2，按档位领取）
+-- 每日奖励（= 对应10层首通奖励，按档位领取）
 -- ============================================================================
 
-TrialTowerConfig.MAX_DAILY_TIER = 26  -- 最高26档（对应260层）
+TrialTowerConfig.MAX_DAILY_TIER = 30  -- 最高30档（对应300层）
 
 --- 计算某个档位的每日奖励
---- 档位tier = floor(最高通关层/10)，取该档第10层首通值×2
----@param tier number 档位（1-26）
+--- 档位tier = floor(最高通关层/10)，奖励等于该档对应10层首通奖励
+---@param tier number 档位（1-30）
 ---@return number dailyLingYun, number dailyGoldBar
 function TrialTowerConfig.CalcDailyRewardByTier(tier)
     if tier <= 0 or tier > TrialTowerConfig.MAX_DAILY_TIER then
         return 0, 0
     end
-    -- 第10层首通: lingYun = tier*2 + floor(10/3) + 1 = tier*2 + 4
-    -- 第10层首通: goldBar = max(1, round((tier*500 + 1000) / 500))
-    -- 每日 = 首通 × 2
-    local lingYun = (tier * 2 + 4) * 2
-    local goldBar = math.max(1, math.floor((tier * 500 + 1000) / 500 + 0.5)) * 2
-    return lingYun, goldBar
+    return TrialTowerConfig.CalcFirstClearReward(tier * 10)
 end
 
 --- 根据最高通关层获取当前每日档位
@@ -162,7 +187,7 @@ function TrialTowerConfig.CalcDailyReward(highestFloor)
 end
 
 -- ============================================================================
--- 怪物配置（120层，12个境界段各10层）
+-- 怪物配置（300层，按章节主题每10层一个块）
 -- ============================================================================
 -- 每10层组合规则（统一模式）：
 --   1-3: 8只小怪(N)
@@ -190,20 +215,22 @@ local function GenerateFloorBlock(cfg)
     for i = 1, 10 do
         local floor = baseFloor + i - 1
         local level = TrialTowerConfig.CalcMonsterLevel(floor)
+        local realm = TrialTowerConfig.GetRealmByFloor(floor)
+        local realmId = realm and realm.id or nil
         if i <= 3 then
             -- 纯小怪 8只（双种各4）
-            floors[floor] = { level = level, comp = "8N",
+            floors[floor] = { level = level, realm = realmId, comp = "8N",
                 monsters = { { id = n1, count = 4 }, { id = n2, count = 4 } } }
         elseif i <= 6 then
             -- 小怪6 + 精英2（双种小怪各3，双种精英各1）
-            floors[floor] = { level = level, comp = "6N+2E",
+            floors[floor] = { level = level, realm = realmId, comp = "6N+2E",
                 monsters = {
                     { id = n1, count = 3 }, { id = n2, count = 3 },
                     { id = e1, count = 1 }, { id = e2, count = 1 },
                 } }
         elseif i <= 9 then
             -- 小怪4 + 精英4（双种小怪各2，双种精英各2）
-            floors[floor] = { level = level, comp = "4N+4E",
+            floors[floor] = { level = level, realm = realmId, comp = "4N+4E",
                 monsters = {
                     { id = n1, count = 2 }, { id = n2, count = 2 },
                     { id = e1, count = 2 }, { id = e2, count = 2 },
@@ -216,7 +243,7 @@ local function GenerateFloorBlock(cfg)
                 table.insert(bossMonsters, { id = b3, count = 1 })
                 bossComp = "3B"
             end
-            floors[floor] = { level = level, comp = bossComp,
+            floors[floor] = { level = level, realm = realmId, comp = bossComp,
                 monsters = bossMonsters,
                 isBoss = true, bossGroundSpike = true,
                 bossName = bossName }
@@ -444,9 +471,43 @@ local FLOOR_THEMES = {
       elites  = { "ch5_blood_general" },
       bosses  = { "ch5_sword_xian", "ch5_sword_lu", "ch5_sword_jue" },
       bossName = "四剑封台·三圣（地刺）" },
+
+    -- ===== 第六章·两界村之影（261-300层）=====
+
+    -- ── 谪仙初期（261-270层）· 两界初影 ──
+    -- 小怪：巡逻仙兵+影游使  精英：凌风+烛幽  BOSS：凌风+烛幽
+    { baseFloor = 261,
+      normals = { "ch6_patrol_immortal_soldier", "ch6_shadow_wanderer" },
+      elites  = { "ch6_lingfeng", "ch6_zhuyou" },
+      bosses  = { "ch6_lingfeng", "ch6_zhuyou" },
+      bossName = "凌风+烛幽（地刺）" },
+
+    -- ── 谪仙中期（271-280层）· 山影夜游 ──
+    -- 小怪：山岭巨像+影游使  精英：断岳+烛幽  BOSS：断岳+烛幽
+    { baseFloor = 271,
+      normals = { "ch6_mountain_colossus", "ch6_shadow_wanderer" },
+      elites  = { "ch6_duanyue", "ch6_zhuyou" },
+      bosses  = { "ch6_duanyue", "ch6_zhuyou" },
+      bossName = "断岳+烛幽（地刺）" },
+
+    -- ── 谪仙后期（281-290层）· 东西营界守 ──
+    -- 小怪：西营天兵+东营天兵  精英：镇垣+雷策  BOSS：破军+青锋
+    { baseFloor = 281,
+      normals = { "ch6_west_celestial_soldier", "ch6_east_celestial_soldier" },
+      elites  = { "ch6_zhenyuan", "ch6_leice" },
+      bosses  = { "ch6_pojun", "ch6_qingfeng" },
+      bossName = "破军+青锋（地刺）" },
+
+    -- ── 谪仙巅峰（291-300层）· 呱王魔君 ──
+    -- 小怪：蛤蟆仙人+东营天兵  精英：哼元帅+哈元帅  BOSS：呱大人+魔君·蚀玄
+    { baseFloor = 291,
+      normals = { "ch6_toad_immortal", "ch6_east_celestial_soldier" },
+      elites  = { "ch6_heng_marshal", "ch6_ha_marshal" },
+      bosses  = { "ch6_gua_master", "ch6_mojun_shixuan" },
+      bossName = "呱大人+魔君·蚀玄（地刺）" },
 }
 
--- 自动生成260层配置
+-- 自动生成300层配置
 TrialTowerConfig.FLOOR_MONSTERS = {}
 for _, theme in ipairs(FLOOR_THEMES) do
     local block = GenerateFloorBlock(theme)

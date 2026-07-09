@@ -660,6 +660,8 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
             { field = "seaPillarHpRegen", max = 30, name = "海神柱恢复" },
             { field = "premiumZongEaten", max = 10, name = "仙界精品粽" },
             { field = "pillFortune",      max = 10, name = "福缘(精品粽)" },
+            { field = "premiumRedbeanCakeEaten", max = 10, name = "相思红豆糕" },
+            { field = "pillWisdom",       max = 10, name = "悟性(相思红豆糕)" },
         }
         for _, pill in ipairs(playerPillLimits) do
             local v = coreData.player[pill.field]
@@ -673,18 +675,31 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
 
         -- V5d: 仙界精品粽三字段对齐（§10.15）
         local cp = coreData.player
+        if type(cp.pillCounts) ~= "table" then cp.pillCounts = {} end
         local eaten = cp.premiumZongEaten or 0
-        if cp.pillFortune and cp.pillFortune ~= eaten then
-            Logger.warn("SaveGame", "[V5d] pillFortune realigned: " .. cp.pillFortune .. " -> " .. eaten
+        if (cp.pillFortune or 0) ~= eaten then
+            Logger.warn("SaveGame", "[V5d] pillFortune realigned: " .. (cp.pillFortune or 0) .. " -> " .. eaten
                 .. " userId=" .. tostring(userId))
             cp.pillFortune = eaten
         end
-        if cp.pillCounts and type(cp.pillCounts) == "table" then
-            if (cp.pillCounts.zong or 0) ~= eaten then
-                Logger.warn("SaveGame", "[V5d] pillCounts.zong realigned: " .. (cp.pillCounts.zong or 0) .. " -> " .. eaten
-                    .. " userId=" .. tostring(userId))
-                cp.pillCounts.zong = eaten
-            end
+        if (cp.pillCounts.zong or 0) ~= eaten then
+            Logger.warn("SaveGame", "[V5d] pillCounts.zong realigned: " .. (cp.pillCounts.zong or 0) .. " -> " .. eaten
+                .. " userId=" .. tostring(userId))
+            cp.pillCounts.zong = eaten
+        end
+
+        -- V5e: 相思红豆糕三字段对齐
+        local redbeanEaten = cp.premiumRedbeanCakeEaten or 0
+        if (cp.pillWisdom or 0) ~= redbeanEaten then
+            Logger.warn("SaveGame", "[V5e] pillWisdom realigned: " .. (cp.pillWisdom or 0) .. " -> " .. redbeanEaten
+                .. " userId=" .. tostring(userId))
+            cp.pillWisdom = redbeanEaten
+        end
+        if (cp.pillCounts.redbean_cake or 0) ~= redbeanEaten then
+            Logger.warn("SaveGame", "[V5e] pillCounts.redbean_cake realigned: "
+                .. (cp.pillCounts.redbean_cake or 0) .. " -> " .. redbeanEaten
+                .. " userId=" .. tostring(userId))
+            cp.pillCounts.redbean_cake = redbeanEaten
         end
     end
 

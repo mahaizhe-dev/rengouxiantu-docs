@@ -20,6 +20,28 @@ local trialClaimingActive_ = Session.trialClaimingActive_
 
 local M = {}
 
+--- B2 止血：把供奉奖励写进 saveData（灵韵进 player，金条进 backpack）
+--- 与 quota/状态同一 BatchCommit 落盘，防“quota 扣了但奖励只在客户端内存”丢失
+---@param saveData table
+---@param lingYun number
+---@param goldBar number
+function M._GrantRewardToSave(saveData, lingYun, goldBar)
+    if lingYun and lingYun > 0 and saveData.player then
+        saveData.player.lingYun = (saveData.player.lingYun or 0) + lingYun
+    end
+    if goldBar and goldBar > 0 then
+        saveData.backpack = saveData.backpack or {}
+        local BackpackUtils = require("network.BackpackUtils")
+        local name = "金条"
+        pcall(function()
+            local GameConfig = require("config.GameConfig")
+            local c = GameConfig.CONSUMABLES and GameConfig.CONSUMABLES["gold_bar"]
+            if c and c.name then name = c.name end
+        end)
+        BackpackUtils.AddToBackpack(saveData.backpack, "gold_bar", goldBar, name)
+    end
+end
+
 -- ============================================================================
 -- C2S_TrialClaimDaily — 试炼塔领取每日供奉（服务端校验）
 -- ============================================================================
@@ -91,7 +113,7 @@ function M.HandleTrialClaimDaily(eventType, eventData)
 
             -- 内联 TrialTowerConfig 常量和计算
             local DAILY_UNLOCK_FLOOR = 10
-            local MAX_DAILY_TIER = 26
+            local MAX_DAILY_TIER = 30
 
             local currentTier = 0
             if highestFloor >= DAILY_UNLOCK_FLOOR then
@@ -108,11 +130,12 @@ function M.HandleTrialClaimDaily(eventType, eventData)
                 return
             end
 
-            --- 内联 CalcDailyRewardByTier
+            --- 内联 CalcDailyRewardByTier：每日奖励=对应10层首通奖励
             local function calcReward(tier)
                 if tier <= 0 or tier > MAX_DAILY_TIER then return 0, 0 end
-                local lingYun = (tier * 2 + 4) * 2
-                local goldBar = math.max(1, math.floor((tier * 500 + 1000) / 500 + 0.5)) * 2
+                local floor = tier * 10
+                local lingYun = math.ceil(floor / 2)
+                local goldBar = math.floor(floor / 2)
                 return lingYun, goldBar
             end
 
@@ -126,6 +149,8 @@ function M.HandleTrialClaimDaily(eventType, eventData)
 
                 trialTower.dailyClaimedTier = nextTier
                 saveData.trialTower = trialTower
+                -- B2 止血：奖励写进存档，与 dailyClaimedTier 状态同一 BatchCommit 原子落盘
+                M._GrantRewardToSave(saveData, lingYun, goldBar)
                 saveData.timestamp = os.time()
 
                 -- ② 里程碑只需保存存档，不需要 QuotaAdd
@@ -161,6 +186,9 @@ function M.HandleTrialClaimDaily(eventType, eventData)
                 local lingYun, goldBar = calcReward(currentTier)
                 trialTower.dailyDate = serverToday
                 saveData.trialTower = trialTower
+                -- B2 止血：奖励写进存档，与 quota+状态同一 BatchCommit 原子落盘
+                -- 客户端 _grantReward 仍更新内存以保持快照一致，不会双发
+                M._GrantRewardToSave(saveData, lingYun, goldBar)
                 saveData.timestamp = os.time()
 
                 -- ② 原子事务：quota + 存档在同一 BatchCommit

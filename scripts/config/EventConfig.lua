@@ -2,7 +2,7 @@
 -- EventConfig.lua — 通用活动掉落框架配置
 --
 -- 职责：定义当前激活的活动（道具/掉率/奖池/排行榜）
--- 设计文档：docs/端午世界掉落活动（代码执行文档）.md v1.0
+-- 当前活动：情人节世界掉落活动
 --
 -- 换活动时：替换 ACTIVE_EVENT 配置块即可
 -- ============================================================================
@@ -13,130 +13,139 @@ local EventConfig = {}
 -- 当前激活的活动（同一时间只有一个活动）
 -- ═══════════════════════════════════════
 EventConfig.ACTIVE_EVENT = {
-    eventId = "dragonboat_2026",
+    eventId = "valentine_2027",
     enabled = true,
-    name = "端午仙粽",
-    npcName = "粽仙使者",
-    npcSubtitle = "端午活动宝箱",
+    name = "情缘天降",
+    npcName = "月老仙使",
+    npcSubtitle = "情人节活动宝箱",
+    npcPortrait = "Textures/npc_valentine_fairy.png",
+    npcDialog = "情丝入世，月老赐缘。\n击败BOSS掉落同心红线开小宝箱，\n高境界BOSS还会掉落鸳鸯玉佩开大宝箱！",
 
     -- ═══ 活动道具 ID 列表（用于 LootSystem 掉落判定）═══
     items = {
-        "dragonboat_colored_rope", "dragonboat_sachet",
+        "valentine_red_thread", "valentine_pair_jade",
     },
 
     -- ═══ 双宝箱开启物定义 ═══
     openBoxes = {
         small = {
-            itemId = "dragonboat_colored_rope",
+            itemId = "valentine_red_thread",
             score = 1,
             poolKey = "smallBoxPool",
         },
         big = {
-            itemId = "dragonboat_sachet",
+            itemId = "valentine_pair_jade",
             score = 10,
             poolKey = "bigBoxPool",
         },
     },
 
-    -- ═══ 普通开启物（端午彩绳）掉率：[chapterId][category] ═══
+    acquisitionTips = {
+        small = "同心红线：击败各章节BOSS掉落（章节越高概率越大）",
+        big = "鸳鸯玉佩：击败元婴及以上BOSS掉落（最高掉落四仙剑1%）",
+    },
+
+    -- ═══ 普通开启物（同心红线）掉率：[chapterId][category] ═══
     dropRates = {
-        [1] = { -- 初章·两界村
-            boss      = { dragonboat_colored_rope = 0.01 },
-            king_boss = { dragonboat_colored_rope = 0.015 },
+        [1] = {
+            boss      = { valentine_red_thread = 0.01 },
+            king_boss = { valentine_red_thread = 0.015 },
         },
-        [2] = { -- 贰章·乌家堡
-            boss      = { dragonboat_colored_rope = 0.015 },
-            king_boss = { dragonboat_colored_rope = 0.02 },
+        [2] = {
+            boss      = { valentine_red_thread = 0.015 },
+            king_boss = { valentine_red_thread = 0.02 },
         },
-        [3] = { -- 叁章·万里黄沙
-            boss         = { dragonboat_colored_rope = 0.02 },
-            king_boss    = { dragonboat_colored_rope = 0.03 },
-            emperor_boss = { dragonboat_colored_rope = 0.04 },
+        [3] = {
+            boss         = { valentine_red_thread = 0.02 },
+            king_boss    = { valentine_red_thread = 0.03 },
+            emperor_boss = { valentine_red_thread = 0.04 },
         },
-        [4] = { -- 肆章·八卦海
-            boss         = { dragonboat_colored_rope = 0.03 },
-            king_boss    = { dragonboat_colored_rope = 0.04 },
-            emperor_boss = { dragonboat_colored_rope = 0.05 },
+        [4] = {
+            boss         = { valentine_red_thread = 0.03 },
+            king_boss    = { valentine_red_thread = 0.04 },
+            emperor_boss = { valentine_red_thread = 0.05 },
         },
-        [5] = { -- 伍章·中洲
-            king_boss    = { dragonboat_colored_rope = 0.04 },
-            emperor_boss = { dragonboat_colored_rope = 0.05 },
-            saint_boss   = { dragonboat_colored_rope = 0.06 },
+        [5] = {
+            king_boss    = { valentine_red_thread = 0.04 },
+            emperor_boss = { valentine_red_thread = 0.05 },
+            saint_boss   = { valentine_red_thread = 0.06 },
         },
-        [101] = { -- 中洲战场（仙劫+仙殒）
-            king_boss    = { dragonboat_colored_rope = 0.04 },
-            emperor_boss = { dragonboat_colored_rope = 0.05 },
+        [101] = {
+            king_boss    = { valentine_red_thread = 0.04 },
+            emperor_boss = { valentine_red_thread = 0.05 },
+        },
+        [6] = {
+            boss         = { valentine_red_thread = 0.02 },
+            king_boss    = { valentine_red_thread = 0.03 },
+            emperor_boss = { valentine_red_thread = 0.05 },
+            saint_boss   = { valentine_red_thread = 0.06 },
         },
     },
 
-    -- ═══ 稀有开启物（辟邪香囊）掉率：按怪物境界 monster.realm ═══
+    -- ═══ 稀有开启物（鸳鸯玉佩）掉率：按怪物境界 monster.realm ═══
     realmDropRates = {
-        -- 元婴 0.2%
-        yuanying_1 = { dragonboat_sachet = 0.002 },
-        yuanying_2 = { dragonboat_sachet = 0.002 },
-        yuanying_3 = { dragonboat_sachet = 0.002 },
-        -- 化神 0.3%
-        huashen_1  = { dragonboat_sachet = 0.003 },
-        huashen_2  = { dragonboat_sachet = 0.003 },
-        huashen_3  = { dragonboat_sachet = 0.003 },
-        -- 合体 0.4%
-        heti_1     = { dragonboat_sachet = 0.004 },
-        heti_2     = { dragonboat_sachet = 0.004 },
-        heti_3     = { dragonboat_sachet = 0.004 },
-        -- 大乘 0.6%
-        dacheng_1  = { dragonboat_sachet = 0.006 },
-        dacheng_2  = { dragonboat_sachet = 0.006 },
-        dacheng_3  = { dragonboat_sachet = 0.006 },
-        dacheng_4  = { dragonboat_sachet = 0.006 },
-        -- 谪仙 0.8%
-        dujie_1    = { dragonboat_sachet = 0.008 },
-        dujie_2    = { dragonboat_sachet = 0.008 },
-        dujie_3    = { dragonboat_sachet = 0.008 },
-        dujie_4    = { dragonboat_sachet = 0.008 },
+        yuanying_1 = { valentine_pair_jade = 0.002 },
+        yuanying_2 = { valentine_pair_jade = 0.002 },
+        yuanying_3 = { valentine_pair_jade = 0.002 },
+        huashen_1  = { valentine_pair_jade = 0.003 },
+        huashen_2  = { valentine_pair_jade = 0.003 },
+        huashen_3  = { valentine_pair_jade = 0.003 },
+        heti_1     = { valentine_pair_jade = 0.004 },
+        heti_2     = { valentine_pair_jade = 0.004 },
+        heti_3     = { valentine_pair_jade = 0.004 },
+        dacheng_1  = { valentine_pair_jade = 0.006 },
+        dacheng_2  = { valentine_pair_jade = 0.006 },
+        dacheng_3  = { valentine_pair_jade = 0.006 },
+        dacheng_4  = { valentine_pair_jade = 0.006 },
+        dujie_1    = { valentine_pair_jade = 0.008 },
+        dujie_2    = { valentine_pair_jade = 0.008 },
+        dujie_3    = { valentine_pair_jade = 0.008 },
+        dujie_4    = { valentine_pair_jade = 0.008 },
     },
 
-    -- ═══ 四仙剑特殊覆盖（优先于 realmDropRates）═══
+    -- ═══ 特殊覆盖（优先于 realmDropRates，按 typeId 精确控制）═══
     monsterOverrides = {
-        ch5_sword_zhu  = { dragonboat_sachet = 0.01 },  -- 1%
-        ch5_sword_xian = { dragonboat_sachet = 0.01 },  -- 1%
-        ch5_sword_lu   = { dragonboat_sachet = 0.01 },  -- 1%
-        ch5_sword_jue  = { dragonboat_sachet = 0.01 },  -- 1%
+        -- 第五章·四仙剑
+        ch5_sword_zhu  = { valentine_pair_jade = 0.01 },
+        ch5_sword_xian = { valentine_pair_jade = 0.01 },
+        ch5_sword_lu   = { valentine_pair_jade = 0.01 },
+        ch5_sword_jue  = { valentine_pair_jade = 0.01 },
+        -- 第六章·呱大王/魔君（圣级）: 1.2%
+        ch6_gua_master     = { valentine_pair_jade = 0.012 },
+        ch6_mojun_shixuan  = { valentine_pair_jade = 0.012 },
+        -- 第六章·哼元帅/哈元帅: 1%
+        ch6_heng_marshal   = { valentine_pair_jade = 0.01 },
+        ch6_ha_marshal     = { valentine_pair_jade = 0.01 },
+        -- 第六章·其他皇级BOSS: 0.8%（王级/普通BOSS不掉落，故不列入）
+        ch6_lingfeng       = { valentine_pair_jade = 0.008 },
+        ch6_zhuyou         = { valentine_pair_jade = 0.008 },
+        ch6_duanyue        = { valentine_pair_jade = 0.008 },
+        ch6_pojun          = { valentine_pair_jade = 0.008 },
+        ch6_zhenyuan       = { valentine_pair_jade = 0.008 },
+        ch6_qingfeng       = { valentine_pair_jade = 0.008 },
+        ch6_leice          = { valentine_pair_jade = 0.008 },
     },
 
-    -- ═══ 仙界精品粽独立掉落配置（第三段，与彩绳/香囊互不排斥）═══
-    -- 仅 BOSS + realm >= yuanying_1 参与；四仙剑走 typeId 覆盖
-    -- rewards.lua RollEventDrops 第三段读取此表
-    premiumZongDropRates = {
-        yuanying_1 = 0.0005, yuanying_2 = 0.0005, yuanying_3 = 0.0005,
-        huashen_1  = 0.0008, huashen_2  = 0.0008, huashen_3  = 0.0008,
-        heti_1     = 0.0010, heti_2     = 0.0010, heti_3     = 0.0010,
-        dacheng_1  = 0.0012, dacheng_2  = 0.0012, dacheng_3  = 0.0012, dacheng_4 = 0.0012,
-        dujie_1    = 0.0015, dujie_2    = 0.0015, dujie_3    = 0.0015, dujie_4   = 0.0015,
-        -- 四仙剑覆盖
-        ch5_sword_zhu  = 0.0020,
-        ch5_sword_xian = 0.0020,
-        ch5_sword_lu   = 0.0020,
-        ch5_sword_jue  = 0.0020,
-    },
+    -- ═══ 活动食品掉落已移除（红豆糕不再世界掉落，仅通过开箱获取）═══
 
-    -- ═══ 兑换商品表（端午不启用兑换）═══
+    -- ═══ 兑换商品表（本活动不启用兑换）═══
     exchanges = {},
 
-    -- ═══ BOSS 击杀里程碑任务（10 档，每档奖励辟邪香囊 ×1）═══
+    -- ═══ BOSS 击杀里程碑任务（10 档，每档奖励鸳鸯玉佩 ×1）═══
     bossMilestones = {
-        { id = "dragonboat_boss_300",  target = 300,  reward = { { type = "consumable", id = "dragonboat_sachet", count = 1 } } },
-        { id = "dragonboat_boss_600",  target = 600,  reward = { { type = "consumable", id = "dragonboat_sachet", count = 1 } } },
-        { id = "dragonboat_boss_900",  target = 900,  reward = { { type = "consumable", id = "dragonboat_sachet", count = 1 } } },
-        { id = "dragonboat_boss_1200", target = 1200, reward = { { type = "consumable", id = "dragonboat_sachet", count = 1 } } },
-        { id = "dragonboat_boss_1500", target = 1500, reward = { { type = "consumable", id = "dragonboat_sachet", count = 1 } } },
-        { id = "dragonboat_boss_1800", target = 1800, reward = { { type = "consumable", id = "dragonboat_sachet", count = 1 } } },
-        { id = "dragonboat_boss_2100", target = 2100, reward = { { type = "consumable", id = "dragonboat_sachet", count = 1 } } },
-        { id = "dragonboat_boss_2400", target = 2400, reward = { { type = "consumable", id = "dragonboat_sachet", count = 1 } } },
-        { id = "dragonboat_boss_2700", target = 2700, reward = { { type = "consumable", id = "dragonboat_sachet", count = 1 } } },
-        { id = "dragonboat_boss_3000", target = 3000, reward = { { type = "consumable", id = "dragonboat_sachet", count = 1 } } },
+        { id = "valentine_boss_300",  target = 300,  reward = { { type = "consumable", id = "valentine_pair_jade", count = 1 } } },
+        { id = "valentine_boss_600",  target = 600,  reward = { { type = "consumable", id = "valentine_pair_jade", count = 1 } } },
+        { id = "valentine_boss_900",  target = 900,  reward = { { type = "consumable", id = "valentine_pair_jade", count = 1 } } },
+        { id = "valentine_boss_1200", target = 1200, reward = { { type = "consumable", id = "valentine_pair_jade", count = 1 } } },
+        { id = "valentine_boss_1500", target = 1500, reward = { { type = "consumable", id = "valentine_pair_jade", count = 1 } } },
+        { id = "valentine_boss_1800", target = 1800, reward = { { type = "consumable", id = "valentine_pair_jade", count = 1 } } },
+        { id = "valentine_boss_2100", target = 2100, reward = { { type = "consumable", id = "valentine_pair_jade", count = 1 } } },
+        { id = "valentine_boss_2400", target = 2400, reward = { { type = "consumable", id = "valentine_pair_jade", count = 1 } } },
+        { id = "valentine_boss_2700", target = 2700, reward = { { type = "consumable", id = "valentine_pair_jade", count = 1 } } },
+        { id = "valentine_boss_3000", target = 3000, reward = { { type = "consumable", id = "valentine_pair_jade", count = 1 } } },
     },
 
-    -- ═══ 小宝箱奖池（总权重 1000，已确认按1000等比放大）═══
+    -- ═══ 小宝箱奖池（总权重 1000）═══
     smallBoxPool = {
         { id = "small_bone_15", name = "肉骨头×15",     weight = 150, rarity = "common",
           rewards = { { type = "consumable", id = "meat_bone", count = 15 } } },
@@ -158,10 +167,10 @@ EventConfig.ACTIVE_EVENT = {
           rewards = { { type = "consumable", id = "gold_bar", count = 15 } } },
         { id = "small_ly_fruit",name = "灵韵果×1",      weight = 30,  rarity = "rare",
           rewards = { { type = "consumable", id = "lingyun_fruit", count = 1 } } },
-        { id = "small_sachet",  name = "辟邪香囊×1",    weight = 20,  rarity = "legendary",
-          rewards = { { type = "consumable", id = "dragonboat_sachet", count = 1 } } },
-        { id = "small_zong",    name = "仙界精品粽×1",  weight = 10,  rarity = "legendary",
-          rewards = { { type = "consumable", id = "xianjie_premium_zong", count = 1 } } },
+        { id = "small_pair_jade", name = "鸳鸯玉佩×1",  weight = 20,  rarity = "legendary",
+          rewards = { { type = "consumable", id = "valentine_pair_jade", count = 1 } } },
+        { id = "small_redbean_cake", name = "相思红豆糕×1", weight = 10, rarity = "legendary",
+          rewards = { { type = "consumable", id = "valentine_xiangsi_redbean_cake", count = 1 } } },
     },
 
     -- ═══ 大宝箱奖池（总权重 1000）═══
@@ -188,42 +197,43 @@ EventConfig.ACTIVE_EVENT = {
           rewards = { { type = "lingYun", count = 300 } } },
         { id = "big_ly_400",    name = "灵韵×400",      weight = 40,  rarity = "rare",
           rewards = { { type = "lingYun", count = 400 } } },
-        { id = "big_zong",      name = "仙界精品粽×1",  weight = 20,  rarity = "legendary",
-          rewards = { { type = "consumable", id = "xianjie_premium_zong", count = 1 } } },
-        { id = "big_skin",      name = "悟性皮肤",      weight = 10,  rarity = "legendary",
-          rewards = { { type = "petSkin", id = "pet_premium_wuxing", dupLingYun = 5000 } } },
+        { id = "big_redbean_cake", name = "相思红豆糕×1", weight = 20, rarity = "legendary",
+          rewards = { { type = "consumable", id = "valentine_xiangsi_redbean_cake", count = 1 } } },
+        { id = "big_skin",      name = "根骨皮肤",      weight = 10,  rarity = "legendary",
+          rewards = { { type = "petSkin", id = "pet_premium_gengu", dupLingYun = 5000 } } },
     },
 
     -- ═══ 保底机制（按箱型独立计数，命中后重置）═══
     pity = {
-        small = { threshold = 120, targetId = "small_zong" },   -- 小宝箱120次保底：仙界精品粽×1
-        big   = { threshold = 120, targetId = "big_skin" },     -- 大宝箱120次保底：悟性皮肤
+        small = { threshold = 120, targetId = "small_redbean_cake" },
+        big   = { threshold = 120, targetId = "big_skin" },
     },
 
     -- ═══ 大奖弹窗触发条目（命中这些条目ID时弹"恭喜获得大奖"窗口）═══
     jackpotIds = {
-        small_sachet = true,    -- 辟邪香囊（小宝箱稀有大奖）
-        small_zong   = true,    -- 仙界精品粽（小宝箱传说大奖）
-        big_zong     = true,    -- 仙界精品粽（大宝箱传说大奖）
-        big_skin     = true,    -- 悟性皮肤（大宝箱传说大奖）
+        small_pair_jade = true,
+        small_redbean_cake = true,
+        big_redbean_cake = true,
+        big_skin = true,
     },
 
     -- ═══ 黑市商品（仅供参考，实际价格以 BlackMerchantConfig.lua 为准）═══
     blackMarketItems = {
-        dragonboat_colored_rope = { name = "端午彩绳",   buy_price = 1,  sell_price = 2,  category = "consumable_mat", boss = "各章节BOSS" },
-        dragonboat_sachet       = { name = "辟邪香囊",   buy_price = 6,  sell_price = 12, category = "consumable_mat", boss = "高境界BOSS/里程碑" },
-        xianjie_premium_zong    = { name = "仙界精品粽", buy_price = 10, sell_price = 20, category = "consumable_mat", boss = "宝箱大奖" },
+        valentine_red_thread = { name = "同心红线", buy_price = 1, sell_price = 2, category = "consumable_mat", boss = "各章节BOSS" },
+        valentine_pair_jade = { name = "鸳鸯玉佩", buy_price = 6, sell_price = 12, category = "consumable_mat", boss = "高境界BOSS/里程碑" },
+        valentine_xiangsi_redbean_cake = { name = "相思红豆糕", buy_price = 10, sell_price = 20, category = "consumable_mat", boss = "高阶BOSS/宝箱大奖" },
+        xianjie_premium_zong = { name = "仙界精品粽", buy_price = 10, sell_price = 20, category = "consumable_mat", boss = "端午遗留黑市" },
     },
 
     -- ═══ 排行榜配置（积分榜）═══
     leaderboard = {
-        rankKey = "evt_dragonboat_score",
-        infoKey = "evt_dragonboat_info",
-        recordsKey = "evt_dragonboat_records",
+        rankKey = "evt_valentine_score",
+        infoKey = "evt_valentine_info",
+        recordsKey = "evt_valentine_records",
         displayCount = 10,
         rewardTopN = 3,
         rewardHint = "活动结束后，积分榜前3的玩家将在交流群(QQ群: 1054419838)获得小额现金红包奖励！",
-        lockHint = "6月28日晚上10点榜单锁定，活动将在锁榜后2小时内关闭",
+        lockHint = "8月2日晚上10点榜单锁定，届时排名将不再变化",
     },
 }
 

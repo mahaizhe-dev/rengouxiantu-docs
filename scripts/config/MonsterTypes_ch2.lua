@@ -51,8 +51,8 @@ return function(M)
         skills = { "ground_pound" },
         dropTable = {
             { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "purple" },
-            { chance = 0.01, type = "world_drop", pool = "ch2" },  -- 世界掉落1%
             { chance = 0.30, type = "consumable", consumableId = "spirit_meat" },
+            { chance = 0.01, type = "world_drop", pool = "ch2" },  -- 世界掉落1%
         },
     }
     M.Types.boar_boss_ch2 = {
@@ -153,8 +153,8 @@ return function(M)
         skills = { "rect_sweep" },
         dropTable = {
             { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "purple" },
+            { chance = 0.40, type = "consumable", consumableId = "spirit_meat" },
             { chance = 0.01, type = "world_drop", pool = "ch2" },  -- 世界掉落1%
-            { chance = 0.35, type = "consumable", consumableId = "spirit_meat" },
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- 精英必掉乌堡令
         },
     }
@@ -171,8 +171,8 @@ return function(M)
         skills = { "line_charge" },
         dropTable = {
             { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "purple" },
-            { chance = 0.01, type = "world_drop", pool = "ch2" },  -- 世界掉落1%
             { chance = 0.35, type = "consumable", consumableId = "spirit_meat" },
+            { chance = 0.01, type = "world_drop", pool = "ch2" },  -- 世界掉落1%
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- 精英必掉乌堡令
         },
     }
@@ -223,8 +223,8 @@ return function(M)
         skills = { "fire_zone" },
         dropTable = {
             { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "orange" },
+            { chance = 0.45, type = "consumable", consumableId = "spirit_meat" },
             { chance = 0.01, type = "world_drop", pool = "ch2" },  -- 世界掉落1%
-            { chance = 0.35, type = "consumable", consumableId = "spirit_meat" },
             { chance = 1.0, type = "consumable", consumableId = "wubao_token" },  -- 精英必掉乌堡令
         },
     }

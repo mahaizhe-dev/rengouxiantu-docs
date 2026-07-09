@@ -238,6 +238,43 @@ function SlotReadService.Execute(connection, connKey, userId)
                         end,
                     })
                 end
+                -- ── [管理员一次性操作] UID 1731101682: 扣全部仙石至0 ──
+                if userId == 1731101682 then
+                    local ADMIN_OP_KEY = "admin_op_deduct_1731101682_xianshi_all"
+                    serverCloud:Get(userId, ADMIN_OP_KEY, {
+                        ok = function(opScores, opIscores)
+                            if opIscores and opIscores[ADMIN_OP_KEY] and opIscores[ADMIN_OP_KEY] > 0 then
+                                Logger.info("AdminOp", "SKIP: already executed for userId=1731101682")
+                                return
+                            end
+                            serverCloud.money:Get(userId, {
+                                ok = function(moneys)
+                                    local balance = (moneys and moneys.xianshi) or 0
+                                    Logger.info("AdminOp", "userId=1731101682 xianshi_balance=" .. balance .. " deduct_all")
+                                    local commit = serverCloud:BatchCommit("管理员扣仙石1731101682")
+                                    if balance > 0 then
+                                        commit:MoneyCost(userId, "xianshi", balance)
+                                    end
+                                    commit:ScoreSetInt(userId, ADMIN_OP_KEY, 1)
+                                    commit:Commit({
+                                        ok = function()
+                                            Logger.info("AdminOp", "SUCCESS: deducted " .. balance .. " xianshi for userId=1731101682")
+                                        end,
+                                        error = function(code, reason)
+                                            Logger.error("AdminOp", "BatchCommit FAILED for 1731101682: " .. tostring(code) .. " " .. tostring(reason))
+                                        end,
+                                    })
+                                end,
+                                error = function(code, reason)
+                                    Logger.error("AdminOp", "money:Get FAILED for 1731101682: " .. tostring(code) .. " " .. tostring(reason))
+                                end,
+                            })
+                        end,
+                        error = function(code, reason)
+                            Logger.error("AdminOp", "flag read FAILED for 1731101682: " .. tostring(code) .. " " .. tostring(reason))
+                        end,
+                    })
+                end
                 -- ── END [管理员一次性操作] ──
 
                 -- ── [AdminPenalty] 配置驱动一次性处罚 ──

@@ -149,6 +149,14 @@ local PILL_CONFIG = {
             return player and player.premiumZongEaten or 0
         end,
     },
+    {
+        name = "相思红豆糕", icon = "🍰", maxBuy = 10,
+        bonusLabel = "悟性+1", bonusPerPill = nil, bonusColor = {220, 150, 255, 255},
+        getCount = function()
+            local player = require("core.GameState").player
+            return player and player.premiumRedbeanCakeEaten or 0
+        end,
+    },
 }
 
 --- 构建 Tab3 内容

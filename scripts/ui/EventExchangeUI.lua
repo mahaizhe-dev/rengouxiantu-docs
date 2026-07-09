@@ -287,13 +287,7 @@ local function ShowLegendaryItemPopup(itemName, rewardId)
     end
     if not parentOverlay_ then return end
 
-    -- 根据 rewardId 区分描述：辟邪香囊是大宝箱钥匙，仙界精品粽是传说材料
-    local descText
-    if rewardId == "small_sachet" then
-        descText = "大宝箱开启钥匙，非常稀有！"
-    else
-        descText = "传说级珍稀材料，可在黑市高价出售！"
-    end
+    local descText = "活动传说奖励，可在背包中查看详情。"
 
     skinPopup_ = UI.Panel {
         position = "absolute",
@@ -467,10 +461,11 @@ function EventExchangeUI.Show(npc)
     showPoolPopup_ = nil
 
     -- NPC 信息
-    local npcName = (npc and npc.name) or ev.npcName or "粽仙使者"
-    local npcSubtitle = (npc and npc.subtitle) or ev.npcSubtitle or "端午活动宝箱"
-    local npcDialog = (npc and npc.dialog) or "端午仙粽，天庭赐宝箱与灵韵！\n击败BOSS掉落彩绳开小宝箱，\n高境界BOSS还会掉落香囊开大宝箱！"
-    local npcPortrait = (npc and npc.portrait) or "Textures/npc_zongxian.png"
+    local npcName = (npc and npc.name) or ev.npcName or "月老仙使"
+    local npcSubtitle = (npc and npc.subtitle) or ev.npcSubtitle or "情人节活动宝箱"
+    local npcDialog = (npc and npc.dialog) or ev.npcDialog
+        or "情丝入世，月老赐缘。\n击败BOSS掉落同心红线开小宝箱，\n高境界BOSS还会掉落鸳鸯玉佩开大宝箱！"
+    local npcPortrait = (npc and npc.portrait) or ev.npcPortrait or "Textures/npc_valentine_fairy.png"
 
     -- NPC 头像组件
     local portrait = UI.Panel {

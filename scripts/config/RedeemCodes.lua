@@ -255,6 +255,17 @@ RedeemCodes.CODES = {
         disabled  = true,
         note      = "[已废除] 端午活动：彩绳x5+香囊x1",
     },
+    -- ====== 情人节活动兑换码 ======
+    {
+        code      = "QINGREN2027",
+        rewards   = {
+            { type = "item", id = "valentine_red_thread", amount = 5 },
+            { type = "item", id = "valentine_pair_jade", amount = 1 },
+        },
+        maxUses   = 100,
+        perUser   = 1,
+        note      = "情人节活动：同心红线x5+鸳鸯玉佩x1，限100次",
+    },
     {
         code      = "LIUYI61FU",
         rewards   = {

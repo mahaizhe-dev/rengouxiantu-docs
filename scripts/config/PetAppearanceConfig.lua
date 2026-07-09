@@ -138,7 +138,7 @@ PetAppearanceConfig.premium = {
         texture     = "Textures/pet_skin_gengu.png",
         sourceType  = "activity",
         bonus       = { constitution = 10 },
-        hidden      = true,  -- 暂未开放
+        hidden      = false, -- 情人节活动开放
     },
     {
         id          = "pet_premium_tipo",

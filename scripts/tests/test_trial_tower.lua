@@ -3,18 +3,19 @@
 --
 -- 覆盖场景：
 --   TEST 1:  REALMS 表完整性（1-26 全覆盖，无空洞）
---   TEST 2:  GetRealmByFloor 边界与连续性（1-260 穷举）
+--   TEST 2:  GetRealmByFloor 边界与连续性（1-300 穷举）
 --   TEST 3:  CalcMonsterLevel 等级范围验证（每个 REALM 段）
---   TEST 4:  FLOOR_MONSTERS 完整性（1-260 全层有配置）
+--   TEST 4:  FLOOR_MONSTERS 完整性（1-300 全层有配置）
 --   TEST 5:  FLOOR_MONSTERS 怪物 ID 非空验证
 --   TEST 6:  BOSS 层（第10层）每段验证
---   TEST 7:  CalcFirstClearReward 单调递增验证（realmIndex 维度）
---   TEST 8:  CalcDailyRewardByTier 公式验证（tier 1-26 逐一对照设计文档）
+--   TEST 7:  CalcFirstClearReward 交替增长与目标锚点验证
+--   TEST 8:  CalcDailyRewardByTier 等于对应10层首通奖励
 --   TEST 9:  GetDailyTier 边界验证
---   TEST 10: 大乘段（181-260）境界 ID 正确性
+--   TEST 10: 大乘/仙阶段境界 ID 正确性
 --   TEST 11: 251-260 三BOSS关卡验证
 --   TEST 12: CalcBossPositions 2/3 BOSS 出生点数量验证
---   PERF 1:  260 层完整遍历基准（时间 < 50ms）
+--   TEST 13: 第六章 261-300 怪物主题验证
+--   PERF 1:  300 层完整遍历基准（时间 < 50ms）
 -- ============================================================================
 
 local passed = 0
@@ -39,10 +40,6 @@ end
 
 local function assert_true(cond, testName)
     assert_eq(cond, true, testName)
-end
-
-local function assert_false(cond, testName)
-    assert_eq(cond, false, testName)
 end
 
 local function assert_range(val, lo, hi, testName)
@@ -75,10 +72,9 @@ local TrialTowerConfig = require("config.TrialTowerConfig")
 
 print("=== TEST 1: REALMS 表完整性（1-26 全覆盖）===")
 do
-    -- 期望 MAX_DAILY_TIER = 26
-    assert_eq(TrialTowerConfig.MAX_DAILY_TIER, 26, "MAX_DAILY_TIER == 26")
+    assert_eq(TrialTowerConfig.MAX_DAILY_TIER, 30, "MAX_DAILY_TIER == 30")
+    assert_eq(TrialTowerConfig.MAX_FLOOR, 300, "MAX_FLOOR == 300")
 
-    -- 所有 REALMS[1..26] 必须存在
     for i = 1, 26 do
         local realm = TrialTowerConfig.REALMS[i]
         assert_not_nil(realm, "REALMS[" .. i .. "] 存在")
@@ -91,12 +87,9 @@ do
         end
     end
 
-    -- 大乘段 id 配对校验
     local pairExpected = {
-        [19] = "dacheng_1", [20] = "dacheng_1",
-        [21] = "dacheng_2", [22] = "dacheng_2",
-        [23] = "dacheng_3", [24] = "dacheng_3",
-        [25] = "dacheng_4", [26] = "dacheng_4",
+        [19] = "dacheng_1", [20] = "dacheng_2", [21] = "dacheng_3", [22] = "dacheng_4",
+        [23] = "zhexian_1", [24] = "zhexian_4", [25] = "zhexian_7", [26] = "zhexian_9",
     }
     for idx, expectedId in pairs(pairExpected) do
         local realm = TrialTowerConfig.REALMS[idx]
@@ -106,61 +99,78 @@ do
     end
 end
 
-print("=== TEST 2: GetRealmByFloor 边界与连续性（1-260 穷举）===")
+print("=== TEST 2: GetRealmByFloor 边界与连续性（1-300 穷举）===")
 do
-    -- 每一层都必须能找到对应 realm
-    for floor = 1, 260 do
+    for floor = 1, 300 do
         local realm, realmIdx = TrialTowerConfig.GetRealmByFloor(floor)
         assert_not_nil(realm,    "floor " .. floor .. " realm 非空")
         assert_not_nil(realmIdx, "floor " .. floor .. " realmIdx 非空")
         if realm then
-            -- realmIndex 应等于 ceil(floor/10)
-            local expected = math.ceil(floor / 10)
+            local expected
+            if floor <= 180 then
+                expected = math.ceil(floor / 10)
+            elseif floor <= 260 then
+                expected = 18 + math.ceil((floor - 180) / 20)
+            else
+                expected = 22 + math.ceil((floor - 260) / 10)
+            end
             assert_eq(realmIdx, expected, "floor " .. floor .. " realmIdx = " .. expected)
         end
     end
 
-    -- 边界: 超出 260 层应返回 nil
-    local realmOut, _ = TrialTowerConfig.GetRealmByFloor(261)
-    assert_eq(realmOut, nil, "floor 261 realm == nil（超范围）")
+    local realmOut, _ = TrialTowerConfig.GetRealmByFloor(301)
+    assert_eq(realmOut, nil, "floor 301 realm == nil（超范围）")
 
-    -- 边界: 第1层
     local r1, ri1 = TrialTowerConfig.GetRealmByFloor(1)
     assert_eq(ri1, 1, "floor 1 realmIdx == 1")
     assert_eq(r1.id, "lianqi_1", "floor 1 realm.id == lianqi_1")
 
-    -- 边界: 第180层
     local r180, ri180 = TrialTowerConfig.GetRealmByFloor(180)
     assert_eq(ri180, 18, "floor 180 realmIdx == 18")
 
-    -- 边界: 第181层（大乘开始）
     local r181, ri181 = TrialTowerConfig.GetRealmByFloor(181)
     assert_eq(ri181, 19, "floor 181 realmIdx == 19")
     assert_eq(r181.id, "dacheng_1", "floor 181 realm.id == dacheng_1")
 
-    -- 边界: 第260层
     local r260, ri260 = TrialTowerConfig.GetRealmByFloor(260)
-    assert_eq(ri260, 26, "floor 260 realmIdx == 26")
+    assert_eq(ri260, 22, "floor 260 realmIdx == 22")
     assert_eq(r260.id, "dacheng_4", "floor 260 realm.id == dacheng_4")
+
+    local r261, ri261 = TrialTowerConfig.GetRealmByFloor(261)
+    assert_eq(ri261, 23, "floor 261 realmIdx == 23")
+    assert_eq(r261.id, "zhexian_1", "floor 261 realm.id == zhexian_1")
+
+    local requiredOrders = {
+        [260] = 22,
+        [261] = 23,
+        [270] = 23,
+        [271] = 26,
+        [280] = 26,
+        [281] = 29,
+        [290] = 29,
+        [291] = 31,
+        [300] = 31,
+    }
+    for floor, expectedOrder in pairs(requiredOrders) do
+        assert_eq(TrialTowerConfig.GetRequiredOrderByFloor(floor), expectedOrder,
+            "floor " .. floor .. " requiredOrder == " .. expectedOrder)
+    end
 end
 
 print("=== TEST 3: CalcMonsterLevel 等级范围验证 ===")
 do
-    -- 每段 REALM 的 reqLevel 和 maxLevel 边界验证
     local expectations = {
-        -- { floorFirst, floorLast, minLv, maxLv }
         { 1,   10,  10, 20  },
         { 11,  20,  20, 25  },
         { 171, 180, 95, 100 },
-        -- 大乘段
-        { 181, 190, 100, 120 },
-        { 191, 200, 100, 120 },
-        { 201, 210, 105, 120 },
-        { 211, 220, 105, 120 },
-        { 221, 230, 110, 120 },
-        { 231, 240, 110, 120 },
-        { 241, 250, 115, 120 },
-        { 251, 260, 115, 120 },
+        { 181, 200, 100, 120 },
+        { 201, 220, 105, 120 },
+        { 221, 240, 110, 120 },
+        { 241, 260, 115, 120 },
+        { 261, 270, 121, 126 },
+        { 271, 280, 127, 132 },
+        { 281, 290, 133, 138 },
+        { 291, 300, 139, 140 },
     }
     for _, exp in ipairs(expectations) do
         local f1, f10, minLv, maxLv = exp[1], exp[2], exp[3], exp[4]
@@ -168,23 +178,17 @@ do
         local lv10 = TrialTowerConfig.CalcMonsterLevel(f10)
         assert_range(lv1,  minLv, maxLv, "floor " .. f1  .. " level in [" .. minLv .. "," .. maxLv .. "]")
         assert_range(lv10, minLv, maxLv, "floor " .. f10 .. " level in [" .. minLv .. "," .. maxLv .. "]")
-        -- 同段内应单调递增
         assert_true(lv10 >= lv1, "floor " .. f1 .. "-" .. f10 .. " 等级单调递增")
     end
 
-    -- 大乘中期前第1层 level >= 105
-    local lv201 = TrialTowerConfig.CalcMonsterLevel(201)
-    assert_range(lv201, 105, 120, "floor 201 level in [105,120]")
-
-    -- 最后一层 260 的等级
-    local lv260 = TrialTowerConfig.CalcMonsterLevel(260)
-    assert_eq(lv260, 120, "floor 260 level == 120 (maxLevel)")
+    assert_eq(TrialTowerConfig.CalcMonsterLevel(260), 120, "floor 260 level == 120")
+    assert_eq(TrialTowerConfig.CalcMonsterLevel(300), 140, "floor 300 level == 140")
 end
 
-print("=== TEST 4: FLOOR_MONSTERS 完整性（1-260 全层）===")
+print("=== TEST 4: FLOOR_MONSTERS 完整性（1-300 全层）===")
 do
     local totalFloors = 0
-    for floor = 1, 260 do
+    for floor = 1, 300 do
         local cfg = TrialTowerConfig.FLOOR_MONSTERS[floor]
         if cfg then
             totalFloors = totalFloors + 1
@@ -194,14 +198,13 @@ do
             print("  FAIL: FLOOR_MONSTERS[" .. floor .. "] 缺失")
         end
     end
-    assert_eq(totalFloors, 260, "FLOOR_MONSTERS 共 260 层配置")
+    assert_eq(totalFloors, 300, "FLOOR_MONSTERS 共 300 层配置")
 end
 
 print("=== TEST 5: FLOOR_MONSTERS 怪物 ID 非空验证 ===")
 do
-    -- 抽查关键层
-    local checkFloors = { 1, 10, 100, 180, 181, 190, 191, 200, 201, 210,
-                          211, 220, 221, 230, 231, 240, 241, 250, 251, 260 }
+    local checkFloors = { 1, 10, 100, 180, 181, 190, 200, 210, 220, 230, 240, 250, 260,
+                          261, 270, 271, 280, 281, 290, 291, 300 }
     for _, floor in ipairs(checkFloors) do
         local cfg = TrialTowerConfig.FLOOR_MONSTERS[floor]
         assert_not_nil(cfg, "FLOOR_MONSTERS[" .. floor .. "] 非空")
@@ -221,7 +224,7 @@ end
 print("=== TEST 6: BOSS 层验证（每段第10层）===")
 do
     local bossFloors = {}
-    for i = 1, 26 do
+    for i = 1, 30 do
         table.insert(bossFloors, i * 10)
     end
     for _, floor in ipairs(bossFloors) do
@@ -231,7 +234,6 @@ do
             assert_true(cfg.isBoss == true, "floor " .. floor .. " isBoss == true")
             assert_true(cfg.bossGroundSpike == true, "floor " .. floor .. " bossGroundSpike == true")
             assert_not_nil(cfg.bossName, "floor " .. floor .. " bossName 非空")
-            -- BOSS层应有 1~3 只 BOSS
             if cfg.monsters then
                 local total = 0
                 for _, m in ipairs(cfg.monsters) do
@@ -243,90 +245,99 @@ do
     end
 end
 
-print("=== TEST 7: CalcFirstClearReward 单调递增验证 ===")
+print("=== TEST 7: CalcFirstClearReward 交替增长与目标锚点验证 ===")
 do
-    -- 比较各 realmIndex 的第10层奖励（即最高层）应单调递增
-    local prevLingYun = 0
-    for ri = 1, 26 do
-        local floor = ri * 10
+    local anchors = {
+        [1]   = { lingYun = 1,   goldBar = 0   },
+        [2]   = { lingYun = 1,   goldBar = 1   },
+        [3]   = { lingYun = 2,   goldBar = 1   },
+        [10]  = { lingYun = 5,   goldBar = 5   },
+        [100] = { lingYun = 50,  goldBar = 50  },
+        [200] = { lingYun = 100, goldBar = 100 },
+        [300] = { lingYun = 150, goldBar = 150 },
+    }
+    for floor, expected in pairs(anchors) do
         local ly, gb = TrialTowerConfig.CalcFirstClearReward(floor)
-        assert_true(ly >= prevLingYun, "realm " .. ri .. " 第10层灵韵(" .. ly .. ") >= 上段(" .. prevLingYun .. ")")
-        assert_true(gb > 0, "realm " .. ri .. " 第10层金条 > 0")
-        prevLingYun = ly
+        assert_eq(ly, expected.lingYun, "floor " .. floor .. " 首通灵韵 == " .. expected.lingYun)
+        assert_eq(gb, expected.goldBar, "floor " .. floor .. " 首通金条 == " .. expected.goldBar)
+    end
+
+    for floor = 2, 300 do
+        local prevLy, prevGb = TrialTowerConfig.CalcFirstClearReward(floor - 1)
+        local ly, gb = TrialTowerConfig.CalcFirstClearReward(floor)
+        if floor % 2 == 1 then
+            assert_eq(ly, prevLy + 1, "奇数层 floor " .. floor .. " 灵韵较上一层 +1")
+            assert_eq(gb, prevGb, "奇数层 floor " .. floor .. " 金条不变")
+        else
+            assert_eq(ly, prevLy, "偶数层 floor " .. floor .. " 灵韵不变")
+            assert_eq(gb, prevGb + 1, "偶数层 floor " .. floor .. " 金条较上一层 +1")
+        end
     end
 end
 
-print("=== TEST 8: CalcDailyRewardByTier 公式验证（对照设计文档）===")
+print("=== TEST 8: CalcDailyRewardByTier 等于对应10层首通奖励 ===")
 do
-    -- 设计文档明确给出的值（tier 19-26）
     local docValues = {
-        [19] = { lingYun = 84,  goldBar = 42 },
-        [20] = { lingYun = 88,  goldBar = 44 },
-        [21] = { lingYun = 92,  goldBar = 46 },
-        [22] = { lingYun = 96,  goldBar = 48 },
-        [23] = { lingYun = 100, goldBar = 50 },
-        [24] = { lingYun = 104, goldBar = 52 },
-        [25] = { lingYun = 108, goldBar = 54 },
-        [26] = { lingYun = 112, goldBar = 56 },
+        [10] = { lingYun = 50,  goldBar = 50  },
+        [20] = { lingYun = 100, goldBar = 100 },
+        [30] = { lingYun = 150, goldBar = 150 },
     }
-    for tier, expected in pairs(docValues) do
-        local ly, gb = TrialTowerConfig.CalcDailyRewardByTier(tier)
-        assert_eq(ly, expected.lingYun, "tier " .. tier .. " 灵韵 == " .. expected.lingYun)
-        assert_eq(gb, expected.goldBar, "tier " .. tier .. " 金条 == " .. expected.goldBar)
+    for tier = 1, 30 do
+        local dailyLy, dailyGb = TrialTowerConfig.CalcDailyRewardByTier(tier)
+        local firstLy, firstGb = TrialTowerConfig.CalcFirstClearReward(tier * 10)
+        assert_eq(dailyLy, firstLy, "tier " .. tier .. " 每日灵韵 == " .. (tier * 10) .. "层首通灵韵")
+        assert_eq(dailyGb, firstGb, "tier " .. tier .. " 每日金条 == " .. (tier * 10) .. "层首通金条")
+        if docValues[tier] then
+            assert_eq(dailyLy, docValues[tier].lingYun, "tier " .. tier .. " 目标灵韵 == " .. docValues[tier].lingYun)
+            assert_eq(dailyGb, docValues[tier].goldBar, "tier " .. tier .. " 目标金条 == " .. docValues[tier].goldBar)
+        end
     end
 
-    -- 公式正确性：tier 1-18 也应符合 (tier*2+4)*2 / (tier+2)*2
-    for tier = 1, 18 do
-        local ly, gb = TrialTowerConfig.CalcDailyRewardByTier(tier)
-        local expectedLy = (tier * 2 + 4) * 2
-        local expectedGb = (tier + 2) * 2
-        assert_eq(ly, expectedLy, "tier " .. tier .. " 灵韵公式验证")
-        assert_eq(gb, expectedGb, "tier " .. tier .. " 金条公式验证")
-    end
-
-    -- 越界：tier = 0 和 tier = 27 应返回 0,0
     local ly0, gb0 = TrialTowerConfig.CalcDailyRewardByTier(0)
     assert_eq(ly0, 0, "tier 0 灵韵 == 0")
     assert_eq(gb0, 0, "tier 0 金条 == 0")
 
-    local ly27, gb27 = TrialTowerConfig.CalcDailyRewardByTier(27)
-    assert_eq(ly27, 0, "tier 27 灵韵 == 0（超出上限）")
-    assert_eq(gb27, 0, "tier 27 金条 == 0（超出上限）")
+    local ly31, gb31 = TrialTowerConfig.CalcDailyRewardByTier(31)
+    assert_eq(ly31, 0, "tier 31 灵韵 == 0（超出上限）")
+    assert_eq(gb31, 0, "tier 31 金条 == 0（超出上限）")
 
-    -- 每日奖励单调递增
     local prevLy = 0
-    for tier = 1, 26 do
-        local ly, _ = TrialTowerConfig.CalcDailyRewardByTier(tier)
+    local prevGb = 0
+    for tier = 1, 30 do
+        local ly, gb = TrialTowerConfig.CalcDailyRewardByTier(tier)
         assert_true(ly > prevLy, "tier " .. tier .. " 灵韵(" .. ly .. ") > 上档(" .. prevLy .. ")")
+        assert_true(gb > prevGb, "tier " .. tier .. " 金条(" .. gb .. ") > 上档(" .. prevGb .. ")")
         prevLy = ly
+        prevGb = gb
     end
 end
 
 print("=== TEST 9: GetDailyTier 边界验证 ===")
 do
-    -- 未解锁（< 10层）
     assert_eq(TrialTowerConfig.GetDailyTier(0),  0, "highestFloor=0 → tier=0")
     assert_eq(TrialTowerConfig.GetDailyTier(9),  0, "highestFloor=9 → tier=0")
-    -- 刚解锁
     assert_eq(TrialTowerConfig.GetDailyTier(10), 1, "highestFloor=10 → tier=1")
-    -- 中间段
     assert_eq(TrialTowerConfig.GetDailyTier(100), 10, "highestFloor=100 → tier=10")
     assert_eq(TrialTowerConfig.GetDailyTier(180), 18, "highestFloor=180 → tier=18")
-    -- 大乘段
     assert_eq(TrialTowerConfig.GetDailyTier(190), 19, "highestFloor=190 → tier=19")
     assert_eq(TrialTowerConfig.GetDailyTier(200), 20, "highestFloor=200 → tier=20")
     assert_eq(TrialTowerConfig.GetDailyTier(260), 26, "highestFloor=260 → tier=26")
-    -- 超过 260：上限钳制到 26
-    assert_eq(TrialTowerConfig.GetDailyTier(300), 26, "highestFloor=300 → tier=26（上限钳制）")
+    assert_eq(TrialTowerConfig.GetDailyTier(270), 27, "highestFloor=270 → tier=27")
+    assert_eq(TrialTowerConfig.GetDailyTier(300), 30, "highestFloor=300 → tier=30")
+    assert_eq(TrialTowerConfig.GetDailyTier(330), 30, "highestFloor=330 → tier=30（上限钳制）")
 end
 
-print("=== TEST 10: 大乘段境界 ID 正确性 ===")
+print("=== TEST 10: 大乘/仙阶段境界 ID 正确性 ===")
 do
     local segments = {
         { floors = {181, 200}, expectedId = "dacheng_1" },
         { floors = {201, 220}, expectedId = "dacheng_2" },
         { floors = {221, 240}, expectedId = "dacheng_3" },
         { floors = {241, 260}, expectedId = "dacheng_4" },
+        { floors = {261, 270}, expectedId = "zhexian_1" },
+        { floors = {271, 280}, expectedId = "zhexian_4" },
+        { floors = {281, 290}, expectedId = "zhexian_7" },
+        { floors = {291, 300}, expectedId = "zhexian_9" },
     }
     for _, seg in ipairs(segments) do
         for floor = seg.floors[1], seg.floors[2] do
@@ -341,7 +352,6 @@ end
 
 print("=== TEST 11: 251-260 三BOSS关卡验证 ===")
 do
-    -- 第260层（第26段第10层）应为3BOSS关卡
     local cfg260 = TrialTowerConfig.FLOOR_MONSTERS[260]
     assert_not_nil(cfg260, "FLOOR_MONSTERS[260] 存在")
     if cfg260 then
@@ -350,7 +360,6 @@ do
         assert_not_nil(cfg260.monsters, "floor 260 monsters 非空")
         if cfg260.monsters then
             assert_eq(#cfg260.monsters, 3, "floor 260 monsters 数量 == 3")
-            -- 验证三个 BOSS ID
             local bossIds = {}
             for _, m in ipairs(cfg260.monsters) do
                 bossIds[m.id] = true
@@ -361,7 +370,6 @@ do
         end
     end
 
-    -- 对比：第250层（双BOSS）
     local cfg250 = TrialTowerConfig.FLOOR_MONSTERS[250]
     assert_not_nil(cfg250, "FLOOR_MONSTERS[250] 存在")
     if cfg250 then
@@ -373,32 +381,76 @@ end
 print("=== TEST 12: CalcBossPositions 出生点数量验证 ===")
 do
     local arenaSize = TrialTowerConfig.ARENA_SIZE
-    -- 2个BOSS（默认）
     local pos2 = TrialTowerConfig.CalcBossPositions(arenaSize)
     assert_eq(#pos2, 2, "CalcBossPositions(2) 返回 2 个位置")
 
-    -- 3个BOSS（四剑封台）
     local pos3 = TrialTowerConfig.CalcBossPositions(arenaSize, 3)
     assert_eq(#pos3, 3, "CalcBossPositions(3) 返回 3 个位置")
 
-    -- 出生点在竞技场范围内
     local function inArena(p)
         return p.x >= 1 and p.x <= arenaSize + 2 and p.y >= 1 and p.y <= arenaSize + 2
     end
     for i, p in ipairs(pos3) do
         assert_true(inArena(p), "3BOSS 出生点[" .. i .. "] 在竞技场范围内")
     end
-    -- 三个位置互不相同
     assert_true(pos3[1].x ~= pos3[2].x or pos3[1].y ~= pos3[2].y, "3BOSS 出生点[1]≠[2]")
     assert_true(pos3[1].x ~= pos3[3].x or pos3[1].y ~= pos3[3].y, "3BOSS 出生点[1]≠[3]")
     assert_true(pos3[2].x ~= pos3[3].x or pos3[2].y ~= pos3[3].y, "3BOSS 出生点[2]≠[3]")
 end
 
-print("=== PERF 1: 260 层完整遍历基准 ===")
+print("=== TEST 13: 第六章 261-300 怪物主题验证 ===")
+do
+    local expectedBosses = {
+        [270] = { "ch6_lingfeng", "ch6_zhuyou" },
+        [280] = { "ch6_duanyue", "ch6_zhuyou" },
+        [290] = { "ch6_pojun", "ch6_qingfeng" },
+        [300] = { "ch6_gua_master", "ch6_mojun_shixuan" },
+    }
+    for floor, ids in pairs(expectedBosses) do
+        local cfg = TrialTowerConfig.FLOOR_MONSTERS[floor]
+        assert_not_nil(cfg, "第六章 BOSS层 floor " .. floor .. " 存在")
+        if cfg and cfg.monsters then
+            assert_eq(cfg.comp, "2B", "floor " .. floor .. " comp == 2B")
+            local found = {}
+            for _, m in ipairs(cfg.monsters) do found[m.id] = true end
+            for _, id in ipairs(ids) do
+                assert_true(found[id] == true, "floor " .. floor .. " 含 " .. id)
+            end
+        end
+    end
+
+    local expectedRealms = {
+        [261] = "zhexian_1",
+        [270] = "zhexian_1",
+        [271] = "zhexian_4",
+        [280] = "zhexian_4",
+        [281] = "zhexian_7",
+        [290] = "zhexian_7",
+        [291] = "zhexian_9",
+        [300] = "zhexian_9",
+    }
+    for floor, realmId in pairs(expectedRealms) do
+        local cfg = TrialTowerConfig.FLOOR_MONSTERS[floor]
+        assert_not_nil(cfg, "第六章 floor " .. floor .. " 配置存在")
+        if cfg then
+            assert_eq(cfg.realm, realmId, "floor " .. floor .. " FLOOR_MONSTERS.realm == " .. realmId)
+        end
+    end
+
+    local cfg261 = TrialTowerConfig.FLOOR_MONSTERS[261]
+    assert_eq(cfg261.monsters[1].id, "ch6_patrol_immortal_soldier", "floor 261 第一普通怪 巡逻仙兵")
+    assert_eq(cfg261.monsters[2].id, "ch6_shadow_wanderer", "floor 261 第二普通怪 影游使")
+
+    local cfg291 = TrialTowerConfig.FLOOR_MONSTERS[291]
+    assert_eq(cfg291.monsters[1].id, "ch6_toad_immortal", "floor 291 第一普通怪 蛤蟆仙人")
+    assert_eq(cfg291.monsters[2].id, "ch6_east_celestial_soldier", "floor 291 第二普通怪 东营天兵")
+end
+
+print("=== PERF 1: 300 层完整遍历基准 ===")
 do
     local startTime = os.clock()
     local count = 0
-    for floor = 1, 260 do
+    for floor = 1, 300 do
         local cfg = TrialTowerConfig.FLOOR_MONSTERS[floor]
         if cfg and cfg.monsters then
             for _, m in ipairs(cfg.monsters) do
@@ -408,21 +460,18 @@ do
         TrialTowerConfig.CalcMonsterLevel(floor)
         TrialTowerConfig.CalcFirstClearReward(floor)
     end
-    local elapsed = (os.clock() - startTime) * 1000  -- ms
+    local elapsed = (os.clock() - startTime) * 1000
     totalTests = totalTests + 1
     if elapsed < 50 then
         passed = passed + 1
-        print("  PASS: 260 层完整遍历耗时 " .. string.format("%.2f", elapsed) .. "ms < 50ms")
+        print("  PASS: 300 层完整遍历耗时 " .. string.format("%.2f", elapsed) .. "ms < 50ms")
     else
         failed = failed + 1
-        print("  FAIL: 260 层完整遍历耗时 " .. string.format("%.2f", elapsed) .. "ms >= 50ms（性能回归）")
+        print("  FAIL: 300 层完整遍历耗时 " .. string.format("%.2f", elapsed) .. "ms >= 50ms（性能回归）")
     end
-    print("  INFO: 260 层怪物总召唤数 = " .. count)
+    print("  INFO: 300 层怪物总召唤数 = " .. count)
 end
 
--- ─────────────────────────────────────────────
--- 汇总
--- ─────────────────────────────────────────────
 print(string.rep("─", 50))
 print(string.format("结果: %d/%d 通过  失败: %d", passed, totalTests, failed))
 if failed == 0 then

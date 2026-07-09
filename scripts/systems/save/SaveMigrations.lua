@@ -16,28 +16,64 @@ local SaveMigrations = {}
 ---@param item table
 local function NormalizePercentStats(item)
     if not item then return end
-    local PERCENT_STATS = { critRate = 0.5, critDmg = 2.0 }
+
+    local EquipmentData = require("config.EquipmentData")
+    local PERCENT_STATS = { critRate = true, critDmg = true }
+
+    local function GetExpectedMainPercentValue(stat)
+        if not item.mainStat or type(item.mainStat[stat]) ~= "number" then return nil end
+        if not item.slot or not item.tier or not item.quality then return nil end
+        if not EquipmentData.PCT_MAIN_STATS[stat] then return nil end
+
+        local mainStatType = EquipmentData.MAIN_STAT[item.slot]
+        if mainStatType ~= stat then return nil end
+
+        local baseStat = EquipmentData.BASE_MAIN_STAT[item.slot]
+        local baseValue = baseStat and baseStat[stat]
+        if type(baseValue) ~= "number" then return nil end
+
+        local qualityConfig = GameConfig.QUALITY[item.quality]
+        local qualityMult = qualityConfig and qualityConfig.multiplier or 1.0
+        local tierMult = EquipmentData.PCT_TIER_MULTIPLIER[item.tier] or 1.0
+        return math.floor(baseValue * tierMult * qualityMult * 100 + 0.5) / 100
+    end
 
     if item.mainStat then
-        for stat, threshold in pairs(PERCENT_STATS) do
-            if item.mainStat[stat] and item.mainStat[stat] > threshold then
-                item.mainStat[stat] = item.mainStat[stat] / 100
+        for stat in pairs(PERCENT_STATS) do
+            local value = item.mainStat[stat]
+            if type(value) == "number" then
+                local expected = GetExpectedMainPercentValue(stat)
+                if expected then
+                    if value > expected * 10 then
+                        item.mainStat[stat] = value / 100
+                    elseif expected > 0.5 and value > 0 and value < expected * 0.1 then
+                        item.mainStat[stat] = expected
+                    end
+                elseif stat == "critRate" and value > 2.0 then
+                    item.mainStat[stat] = value / 100
+                elseif stat == "critDmg" and value > 5.0 then
+                    item.mainStat[stat] = value / 100
+                end
             end
         end
     end
 
     if item.subStats then
         for _, sub in ipairs(item.subStats) do
-            local threshold = PERCENT_STATS[sub.stat]
-            if threshold and sub.value > threshold then
-                sub.value = sub.value / 100
+            if sub and PERCENT_STATS[sub.stat] and type(sub.value) == "number" then
+                if sub.stat == "critRate" and sub.value > 2.0 then
+                    sub.value = sub.value / 100
+                elseif sub.stat == "critDmg" and sub.value > 5.0 then
+                    sub.value = sub.value / 100
+                end
             end
         end
     end
 
-    if item.forgeStat then
-        local threshold = PERCENT_STATS[item.forgeStat.stat]
-        if threshold and item.forgeStat.value > threshold then
+    if item.forgeStat and PERCENT_STATS[item.forgeStat.stat] and type(item.forgeStat.value) == "number" then
+        if item.forgeStat.stat == "critRate" and item.forgeStat.value > 2.0 then
+            item.forgeStat.value = item.forgeStat.value / 100
+        elseif item.forgeStat.stat == "critDmg" and item.forgeStat.value > 5.0 then
             item.forgeStat.value = item.forgeStat.value / 100
         end
     end
@@ -1560,6 +1596,31 @@ local MIGRATIONS = {
         end
         print("[SaveSystem] v33→v34 migration: qinglian body lotus fields initialized")
         data.version = 34
+        return data
+    end,
+
+    -- v34 → v35: 情人节相思红豆糕字段初始化（永久悟性丹药）
+    [35] = function(data)
+        if data.player then
+            local p = data.player
+            local counts = type(p.pillCounts) == "table" and p.pillCounts or {}
+
+            local zongEaten = math.max(0, math.min(10,
+                p.premiumZongEaten or counts.zong or p.pillFortune or 0))
+            p.premiumZongEaten = zongEaten
+            p.pillFortune = zongEaten
+            counts.zong = zongEaten
+
+            local redbeanEaten = math.max(0, math.min(10,
+                p.premiumRedbeanCakeEaten or counts.redbean_cake or p.pillWisdom or 0))
+            p.premiumRedbeanCakeEaten = redbeanEaten
+            p.pillWisdom = redbeanEaten
+            counts.redbean_cake = redbeanEaten
+
+            p.pillCounts = counts
+        end
+        print("[SaveSystem] v34→v35 migration: valentine redbean cake fields initialized")
+        data.version = 35
         return data
     end,
 }

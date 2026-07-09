@@ -24,7 +24,7 @@ M.Types.sand_scorpion_8 = {
     bodyColor = {180, 150, 80, 255},
     dropTable = {
         { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
-        { chance = 0.05, type = "consumable", consumableId = "beast_meat" },
+        { chance = 0.25, type = "consumable", consumableId = "spirit_meat" },
         { chance = 0.05, type = "consumable", consumableId = "sha_hai_ling" },
     },
 }
@@ -87,7 +87,7 @@ M.Types.sand_wolf_7 = {
     bodyColor = {160, 140, 90, 255},
     dropTable = {
         { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
-        { chance = 0.08, type = "consumable", consumableId = "beast_meat" },
+        { chance = 0.25, type = "consumable", consumableId = "spirit_meat" },
         { chance = 0.05, type = "consumable", consumableId = "sha_hai_ling" },
     },
 }
@@ -110,7 +110,7 @@ M.Types.yao_king_7 = {
     },
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
-        { chance = 1.0, type = "lingYun", amount = {2, 2} },
+        { chance = 1.0, type = "lingYun", amount = {2, 3} },
         { chance = 0.12, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.03, type = "consumable", consumableId = "demon_essence" },
@@ -144,8 +144,7 @@ M.Types.sand_elite_outer = {
     skills = { "sand_blade" },
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "orange" },
-        { chance = 0.10, type = "consumable", consumableId = "beast_meat" },
-        { chance = 0.03, type = "consumable", consumableId = "immortal_bone" },
+        { chance = 0.25, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.50, type = "consumable", consumableId = "sha_hai_ling" },
         -- 世界掉落
         { chance = 0.01, type = "world_drop", pool = "ch3" },  -- 1%
@@ -177,7 +176,7 @@ M.Types.liusha_son_outer = {
     },
     dropTable = {
         -- ①灵韵
-        { chance = 1.0, type = "lingYun", amount = {3, 5} },
+        { chance = 1.0, type = "lingYun", amount = {4, 5} },
         -- ②专属材料
         { chance = 0.01, type = "consumable", consumableId = "jindan_sand", amount = {1, 1} },
         -- ③装备掉落
@@ -318,7 +317,7 @@ M.Types.sand_demon_6 = {
     bodyColor = {170, 140, 60, 255},
     dropTable = {
         { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
-        { chance = 0.08, type = "consumable", consumableId = "beast_meat" },
+        { chance = 0.25, type = "consumable", consumableId = "spirit_meat" },
         { chance = 0.05, type = "consumable", consumableId = "sha_hai_ling" },
     },
 }
@@ -379,7 +378,7 @@ M.Types.sand_scorpion_5 = {
     bodyColor = {200, 100, 50, 255},
     dropTable = {
         { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
-        { chance = 0.08, type = "consumable", consumableId = "beast_meat" },
+        { chance = 0.25, type = "consumable", consumableId = "spirit_meat" },
         { chance = 0.05, type = "consumable", consumableId = "sha_hai_ling" },
     },
 }
@@ -402,7 +401,7 @@ M.Types.yao_king_5 = {
     },
     dropTable = {
         -- ①常规掉落
-        { chance = 1.0, type = "lingYun", amount = {3, 5} },
+        { chance = 1.0, type = "lingYun", amount = {3, 6} },
         -- ②专属材料
         { chance = 0.02, type = "consumable", consumableId = "jindan_sand", amount = {1, 1} },
         -- ③装备掉落
@@ -440,8 +439,7 @@ M.Types.sand_wolf_4 = {
     bodyColor = {130, 120, 100, 255},
     dropTable = {
         { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
-        { chance = 0.05, type = "consumable", consumableId = "beast_meat" },
-        { chance = 0.02, type = "consumable", consumableId = "immortal_bone" },
+        { chance = 0.25, type = "consumable", consumableId = "spirit_meat" },
         { chance = 0.05, type = "consumable", consumableId = "sha_hai_ling" },
     },
 }
@@ -503,8 +501,7 @@ M.Types.sand_elite_mid = {
     skills = { "sand_cross_strike" },
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "orange" },
-        { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.05, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.30, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.50, type = "consumable", consumableId = "sha_hai_ling" },
         -- 世界掉落
         { chance = 0.01, type = "world_drop", pool = "ch3" },  -- 1%
@@ -524,8 +521,7 @@ M.Types.sand_demon_3 = {
     bodyColor = {140, 100, 40, 255},
     dropTable = {
         { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
-        { chance = 0.06, type = "consumable", consumableId = "beast_meat" },
-        { chance = 0.03, type = "consumable", consumableId = "immortal_bone" },
+        { chance = 0.25, type = "consumable", consumableId = "spirit_meat" },
         { chance = 0.05, type = "consumable", consumableId = "sha_hai_ling" },
     },
 }
@@ -552,7 +548,7 @@ M.Types.yao_king_3 = {
     },
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
-        { chance = 1.0, type = "lingYun", amount = {4, 6} },
+        { chance = 1.0, type = "lingYun", amount = {4, 7} },
         { chance = 0.01, type = "consumable", consumableId = "yuanying_fruit" },
         -- 宠物食物
         { chance = 0.10, type = "consumable", consumableId = "immortal_bone" },
@@ -590,8 +586,7 @@ M.Types.sand_demon_2 = {
     bodyColor = {160, 110, 30, 255},
     dropTable = {
         { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
-        { chance = 0.05, type = "consumable", consumableId = "beast_meat" },
-        { chance = 0.03, type = "consumable", consumableId = "immortal_bone" },
+        { chance = 0.25, type = "consumable", consumableId = "spirit_meat" },
         { chance = 0.05, type = "consumable", consumableId = "sha_hai_ling" },
     },
 }
@@ -618,7 +613,7 @@ M.Types.yao_king_2 = {
     },
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
-        { chance = 1.0, type = "lingYun", amount = {4, 6} },
+        { chance = 1.0, type = "lingYun", amount = {4, 8} },
         { chance = 0.02, type = "consumable", consumableId = "yuanying_fruit" },
         -- 宠物食物
         { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
@@ -657,8 +652,7 @@ M.Types.sand_elite_inner = {
     skills = { "sand_fire_circle" },
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "orange" },
-        { chance = 0.06, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.06, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.35, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.50, type = "consumable", consumableId = "sha_hai_ling" },
         -- 世界掉落
         { chance = 0.01, type = "world_drop", pool = "ch3" },  -- 1%

@@ -46,6 +46,8 @@ function M.UseBatchConsumable(IS, consumableId, count)
         return M._UseBatchLingyunFruitSuperior(IS, count)
     elseif consumableId == "xianjie_premium_zong" then
         return M._UseBatchPremiumZong(IS, count)
+    elseif consumableId == "valentine_xiangsi_redbean_cake" then
+        return M._UseBatchPremiumRedbeanCake(IS, count)
     elseif consumableId == "gold_bar" or consumableId == "gold_brick"
         or (cfgData and cfgData.category == "event") then
         return M._SellBatchConsumable(IS, consumableId, count)
@@ -402,6 +404,7 @@ end
 -- ============================================================================
 
 local PREMIUM_ZONG_MAX = 10  -- 终身食用上限
+local PREMIUM_REDBEAN_CAKE_MAX = 10  -- 终身食用上限
 
 --- 批量使用仙界精品粽（每颗永久+1福缘，终身上限10颗）
 ---@param IS table InventorySystem facade
@@ -449,6 +452,52 @@ function M._UseBatchPremiumZong(IS, count)
     SavePersistence.Save()
 
     local msg = "食用 " .. actualCount .. " 颗仙界精品粽，福缘永久+" .. actualCount .. "！（已食用 " .. player.premiumZongEaten .. "/" .. PREMIUM_ZONG_MAX .. "）"
+    print("[InventorySystem] " .. msg)
+    return true, msg, actualCount
+end
+
+-- ============================================================================
+-- 相思红豆糕 — 情人节活动丹药（永久+悟性，上限10）
+-- ============================================================================
+
+--- 批量使用相思红豆糕（每份永久+1悟性，终身上限10份）
+---@param IS table InventorySystem facade
+---@param count number 期望使用数量
+---@return boolean success, string|nil message, number|nil actualCount
+function M._UseBatchPremiumRedbeanCake(IS, count)
+    local player = GameState.player
+    if not player then return false, "玩家不存在" end
+
+    local eaten = player.premiumRedbeanCakeEaten or 0
+    if eaten >= PREMIUM_REDBEAN_CAKE_MAX then
+        return false, "已达食用上限（" .. PREMIUM_REDBEAN_CAKE_MAX .. "份）"
+    end
+
+    local maxCanEat = PREMIUM_REDBEAN_CAKE_MAX - eaten
+    local actualCount = math.min(count, maxCanEat)
+
+    local itemId = "valentine_xiangsi_redbean_cake"
+    local unlocked = IS.CountUnlockedConsumable(itemId)
+    actualCount = math.min(actualCount, unlocked)
+    if actualCount <= 0 then return false, "物品不足" end
+
+    local ok = IS.ConsumeConsumable(itemId, actualCount)
+    if not ok then return false, "消耗失败" end
+
+    player.premiumRedbeanCakeEaten = eaten + actualCount
+    player.pillWisdom = player.premiumRedbeanCakeEaten
+    if not player.pillCounts then player.pillCounts = {} end
+    player.pillCounts.redbean_cake = player.premiumRedbeanCakeEaten
+
+    player:InvalidateStatsCache()
+
+    EventBus.Emit("premium_redbean_cake_used", actualCount)
+
+    local SavePersistence = require("systems.save.SavePersistence")
+    SavePersistence.Save()
+
+    local msg = "食用 " .. actualCount .. " 份相思红豆糕，悟性永久+" .. actualCount
+        .. "！（已食用 " .. player.premiumRedbeanCakeEaten .. "/" .. PREMIUM_REDBEAN_CAKE_MAX .. "）"
     print("[InventorySystem] " .. msg)
     return true, msg, actualCount
 end

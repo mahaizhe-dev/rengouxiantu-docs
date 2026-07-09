@@ -25,6 +25,18 @@ local opts_ = nil  -- { sendToServer, setStatus, rebuildContent, getState }
 -- 构建里程碑内容
 -- ============================================================================
 
+local function FormatRewardLabel(rewards)
+    local parts = {}
+    for _, rw in ipairs(rewards or {}) do
+        local itemDefs = GameConfig.EVENT_ITEMS or {}
+        local itemDef = itemDefs[rw.id]
+        local itemName = itemDef and itemDef.name or rw.id
+        parts[#parts + 1] = itemName .. " ×" .. (rw.count or 1)
+    end
+    if #parts == 0 then return "活动奖励" end
+    return table.concat(parts, " ")
+end
+
 ---@param parent UIElement
 ---@param buildOpts table { sendToServer, setStatus, rebuildContent, getState }
 function M.Build(parent, buildOpts)
@@ -41,6 +53,7 @@ function M.Build(parent, buildOpts)
 
     local milestones = ev.bossMilestones
     local children = {}
+    local firstRewardLabel = FormatRewardLabel(milestones[1] and milestones[1].reward)
 
     -- ── 顶部：击杀统计卡片 ──
     local claimedCount = 0
@@ -88,7 +101,7 @@ function M.Build(parent, buildOpts)
 
     -- ── 提示文本 ──
     table.insert(children, UI.Label {
-        text = "击败各章节BOSS累计计数，达标可领取辟邪香囊",
+        text = "击败各章节BOSS累计计数，达标可领取" .. firstRewardLabel,
         fontSize = T.fontSize.xs,
         fontColor = T.color.textMuted,
         textAlign = "center",
@@ -119,17 +132,7 @@ function M.Build(parent, buildOpts)
         end
 
         -- 奖励名
-        local rewardLabel = "辟邪香囊 ×1"
-        if ms.reward then
-            local parts = {}
-            for _, rw in ipairs(ms.reward) do
-                local itemDefs = GameConfig.EVENT_ITEMS or {}
-                local itemDef = itemDefs[rw.id]
-                local itemName = itemDef and itemDef.name or rw.id
-                parts[#parts + 1] = itemName .. " ×" .. (rw.count or 1)
-            end
-            if #parts > 0 then rewardLabel = table.concat(parts, " ") end
-        end
+        local rewardLabel = FormatRewardLabel(ms.reward)
 
         -- 状态徽章
         local statusBadge

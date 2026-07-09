@@ -96,7 +96,12 @@ function Player.New(x, y, opts)
     -- 仙界精品粽加成（端午活动丹药，上限10）
     self.pillFortune = init.pillFortune or 0
     self.premiumZongEaten = init.premiumZongEaten or 0
-    self.pillCounts = init.pillCounts or { zong = 0 }
+    -- 相思红豆糕加成（情人节活动丹药，上限10）
+    self.pillWisdom = init.pillWisdom or 0
+    self.premiumRedbeanCakeEaten = init.premiumRedbeanCakeEaten or 0
+    self.pillCounts = init.pillCounts or {}
+    if self.pillCounts.zong == nil then self.pillCounts.zong = self.premiumZongEaten end
+    if self.pillCounts.redbean_cake == nil then self.pillCounts.redbean_cake = self.premiumRedbeanCakeEaten end
 
     -- 技能列表（阶段4实现）
     self.skills = {}
@@ -372,7 +377,7 @@ function Player:_RecalcStatsCache()
     local petBonusWis = self.petOwnerBonuses and self.petOwnerBonuses.wisdom or 0
     local daoTreeWisdom = self.daoTreeWisdom or 0
     local buffWis = (cs and cs.GetBuffWisdomFlat) and cs.GetBuffWisdomFlat() or 0
-    self._cachedTotalWisdom = (self.equipWisdom or 0) + (self.artifactCh4Wisdom or 0) + petBonusWis + daoTreeWisdom + (self.wineWisdom or 0) + (self.medalWuxing or 0) + classWisdom + (self.collectionWisdom or 0) + buffWis + (self.daoWisdom or 0) + (skinBonuses.wisdom or 0) + (self.artifactCh5Wisdom or 0) + (self.minggeWisdom or 0)
+    self._cachedTotalWisdom = (self.equipWisdom or 0) + (self.artifactCh4Wisdom or 0) + petBonusWis + daoTreeWisdom + (self.pillWisdom or 0) + (self.wineWisdom or 0) + (self.medalWuxing or 0) + classWisdom + (self.collectionWisdom or 0) + buffWis + (self.daoWisdom or 0) + (skinBonuses.wisdom or 0) + (self.artifactCh5Wisdom or 0) + (self.minggeWisdom or 0)
 
     -- xianyuan_lowest_boost 特效（唯一）：最低仙缘属性+bonus，并列最低时全部获得加成
     local xianyuanApplied = false

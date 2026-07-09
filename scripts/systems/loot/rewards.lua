@@ -33,9 +33,10 @@ end
 
 --- 为已有的掉落结果追加活动道具掉落
 --- 在 GenerateDrops 之后调用，独立于常规掉落
---- 两段独立判定：
+--- 三段独立判定：
 ---   第一段：普通开启物（章节 + category），所有怪都走
 ---   第二段：稀有开启物，仅 BOSS 生效（monsterOverrides 优先 > realmDropRates）
+---   第三段：活动专属食品，仅 BOSS 生效，独立于前两段
 ---@param dropResult table GenerateDrops 的返回值
 ---@param monster table 怪物数据
 function M.RollEventDrops(dropResult, monster)
@@ -83,9 +84,16 @@ function M.RollEventDrops(dropResult, monster)
         end
     end
 
-    -- ═══ 第三段：仙界精品粽独立掉落（与第一、二段互不排斥）═══
-    -- 仅 BOSS + realm >= yuanying_1 参与；四仙剑走 typeId 覆盖
-    if event.premiumZongDropRates then
+    -- ═══ 第三段：活动专属食品独立掉落（与第一、二段互不排斥）═══
+    -- 新活动走 rareFoodDrop；保留 premiumZongDropRates 兼容旧端午配置快照。
+    local rareFood = event.rareFoodDrop
+    if rareFood and rareFood.itemId and rareFood.rates then
+        local rate = rareFood.rates[monster.typeId] or rareFood.rates[monster.realm]
+        if rate and Utils.Roll(rate) then
+            local itemId = rareFood.itemId
+            dropResult.consumables[itemId] = (dropResult.consumables[itemId] or 0) + 1
+        end
+    elseif event.premiumZongDropRates then
         local rate = event.premiumZongDropRates[monster.typeId]
             or event.premiumZongDropRates[monster.realm]
         if rate and Utils.Roll(rate) then

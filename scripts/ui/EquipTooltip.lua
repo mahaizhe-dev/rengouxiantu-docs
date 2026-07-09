@@ -61,6 +61,7 @@ local NO_SELL_CONSUMABLE_IDS = {
     gold_bar = true,
     gold_brick = true,
     xianjie_premium_zong = true,
+    valentine_xiangsi_redbean_cake = true,
     wubao_token_box = true,
     sha_hai_ling_box = true,
     taixu_token_box = true,
@@ -777,16 +778,18 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
             or item.consumableId == "lingyun_fruit_superior" or item.consumableId == "exp_pill_superior"
             or item.consumableId == "exp_pill_supreme"
             or item.consumableId == "gold_bar" or item.consumableId == "gold_brick"
-            or item.consumableId == "xianjie_premium_zong" then
+            or item.consumableId == "xianjie_premium_zong"
+            or item.consumableId == "valentine_xiangsi_redbean_cake" then
             -- 批量使用/出售 UI：×1 / ×10 / ×50 / 全部
             local cId = item.consumableId
             local totalCount = InventorySystem.CountConsumable(cId)
             local actionLabel = (cId == "gold_bar" or cId == "gold_brick") and "出售"
-                or (cId == "xianjie_premium_zong") and "食用"
+                or (cId == "xianjie_premium_zong" or cId == "valentine_xiangsi_redbean_cake") and "食用"
                 or "使用"
             local actionIcon = (cId == "lingyun_fruit" or cId == "lingyun_fruit_superior") and "🍇"
                 or (cId == "exp_pill" or cId == "exp_pill_superior" or cId == "exp_pill_supreme") and "💊"
                 or (cId == "xianjie_premium_zong") and "🥟"
+                or (cId == "valentine_xiangsi_redbean_cake") and "🍰"
                 or "💰"
             local batchAmounts = { 1, 10, 50, totalCount }
             local batchLabels = { "×1", "×10", "×50", "全部(" .. totalCount .. ")" }

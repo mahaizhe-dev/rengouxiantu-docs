@@ -15,7 +15,7 @@ GameConfig.DUNGEON_ENABLED = false
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
 GameConfig.CODE_VERSION = 7
-GameConfig.DISPLAY_VERSION = "v1.13.6"
+GameConfig.DISPLAY_VERSION = "v1.13.8"
 
 -- 地图设置
 GameConfig.TILE_SIZE = 128         -- 每个瓦片的逻辑像素大小（基准值，不要直接用于渲染）
@@ -830,27 +830,49 @@ GameConfig.EVENT_ITEMS = {
         desc = "活动已结束，可以出售换金币。",
         category = "event", eventId = "childrensday_2026",
     },
-    -- ── 端午活动物品 ──
+    -- ── 端午活动物品（活动已结束，旧库存/黑市展示保留）──
     dragonboat_colored_rope = {
         name = "端午彩绳", icon = "🧵",
         image = "Textures/event/dragonboat_colored_rope.png",
         sellPrice = 1000, quality = "purple",
-        desc = "五彩丝线编织的吉祥彩绳，蕴含驱邪纳福之力。\n用途：开启彩绳宝箱。",
+        desc = "端午活动旧开启物，当前活动不再掉落，也不再用于开启宝箱。\n用途：活动已结束，可作为纪念道具保留。",
         category = "event", eventId = "dragonboat_2026",
     },
     dragonboat_sachet = {
         name = "辟邪香囊", icon = "🎒",
         image = "Textures/event/dragonboat_sachet.png",
         sellPrice = 1000, quality = "orange",
-        desc = "以艾草、菖蒲等仙草填充的香囊，散发清幽灵气。\n用途：开启香囊宝箱 / BOSS击杀里程碑奖励。",
+        desc = "端午活动旧高级开启物，当前活动不再掉落，也不再用于开启宝箱。\n用途：活动已结束，可作为纪念道具保留。",
         category = "event", eventId = "dragonboat_2026",
     },
     xianjie_premium_zong = {
         name = "仙界精品粽", icon = "🍙",
         image = "Textures/event/xianjie_premium_zong.png",
         sellPrice = 1000, quality = "red",
-        desc = "以仙界灵米与九天玄粽叶包裹而成的极品粽子，食用后可永久提升福缘。\n用途：食用后永久+1福缘（单角色上限10个）。\n获取：彩绳/香囊宝箱稀有奖励。",
+        desc = "以仙界灵米与九天玄粽叶包裹而成的极品粽子，食用后可永久提升福缘。\n用途：食用后永久+1福缘（单角色上限10个）。\n获取：当前不再通过活动产出，黑市仍保留交易。",
         category = "usable_pill", eventId = "dragonboat_2026",
+    },
+    -- ── 情人节活动物品 ──
+    valentine_red_thread = {
+        name = "同心红线", icon = "🧶",
+        image = "Textures/event/valentine_red_thread.png",
+        sellPrice = 1000, quality = "purple",
+        desc = "月老仙使赐下的同心红线，缠绕着淡淡姻缘灵光。\n用途：开启红线宝箱。",
+        category = "event", eventId = "valentine_2027",
+    },
+    valentine_pair_jade = {
+        name = "鸳鸯玉佩", icon = "💞",
+        image = "Textures/event/valentine_pair_jade.png",
+        sellPrice = 1000, quality = "orange",
+        desc = "一对半合玉佩，以红绳相连，内蕴并蒂灵息。\n用途：开启玉佩宝箱 / BOSS击杀里程碑奖励。",
+        category = "event", eventId = "valentine_2027",
+    },
+    valentine_xiangsi_redbean_cake = {
+        name = "相思红豆糕", icon = "🍰",
+        image = "Textures/event/valentine_xiangsi_redbean_cake.png",
+        sellPrice = 1000, quality = "red",
+        desc = "以相思红豆与灵米蒸成的节日灵糕，入口清甜，心神澄明。\n用途：食用后永久+1悟性（单角色上限10份）。",
+        category = "usable_pill", eventId = "valentine_2027",
     },
 }
 

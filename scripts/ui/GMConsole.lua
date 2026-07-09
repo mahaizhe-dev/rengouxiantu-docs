@@ -1216,11 +1216,11 @@ local GM_CATEGORIES = {
         name = "活动",
         color = {255, 100, 100, 255},
         commands = {
-            { label = "彩绳+50", action = function()
+            { label = "红线+50", action = function()
                 local InventorySystem = require("systems.InventorySystem")
                 local SaveSystem = require("systems.SaveSystem")
-                InventorySystem.AddConsumable("dragonboat_colored_rope", 50)
-                ShowLog("端午彩绳+50, 正在同步...", {255, 200, 100, 255})
+                InventorySystem.AddConsumable("valentine_red_thread", 50)
+                ShowLog("同心红线+50, 正在同步...", {255, 200, 100, 255})
                 SaveSystem.Save(function(ok)
                     if ok then
                         ShowLog("同步完成！可以开箱了", {100, 255, 100, 255})
@@ -1229,11 +1229,11 @@ local GM_CATEGORIES = {
                     end
                 end)
             end },
-            { label = "香囊+20", action = function()
+            { label = "玉佩+20", action = function()
                 local InventorySystem = require("systems.InventorySystem")
                 local SaveSystem = require("systems.SaveSystem")
-                InventorySystem.AddConsumable("dragonboat_sachet", 20)
-                ShowLog("辟邪香囊+20, 正在同步...", {255, 200, 100, 255})
+                InventorySystem.AddConsumable("valentine_pair_jade", 20)
+                ShowLog("鸳鸯玉佩+20, 正在同步...", {255, 200, 100, 255})
                 SaveSystem.Save(function(ok)
                     if ok then
                         ShowLog("同步完成！可以开箱了", {100, 255, 100, 255})
@@ -1245,9 +1245,9 @@ local GM_CATEGORIES = {
             { label = "双箱各+99", action = function()
                 local InventorySystem = require("systems.InventorySystem")
                 local SaveSystem = require("systems.SaveSystem")
-                InventorySystem.AddConsumable("dragonboat_colored_rope", 99)
-                InventorySystem.AddConsumable("dragonboat_sachet", 99)
-                ShowLog("彩绳+香囊各99, 正在同步...", {255, 200, 100, 255})
+                InventorySystem.AddConsumable("valentine_red_thread", 99)
+                InventorySystem.AddConsumable("valentine_pair_jade", 99)
+                ShowLog("红线+玉佩各99, 正在同步...", {255, 200, 100, 255})
                 SaveSystem.Save(function(ok)
                     if ok then
                         ShowLog("同步完成！可以开箱了", {100, 255, 100, 255})

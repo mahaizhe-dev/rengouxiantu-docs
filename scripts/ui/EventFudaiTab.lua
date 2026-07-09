@@ -41,6 +41,26 @@ local function GetItemCount(consumableId)
     return InventorySystem.CountUnlockedConsumable(consumableId)
 end
 
+local function GetBoxItemName(ev, boxType)
+    local boxCfg = ev and ev.openBoxes and ev.openBoxes[boxType]
+    if not boxCfg then return boxType end
+    local itemDef = (GameConfig.EVENT_ITEMS or {})[boxCfg.itemId]
+    return itemDef and itemDef.name or boxCfg.itemId
+end
+
+local function GetPityTargetName(ev, boxType)
+    local pityCfg = ev and ev.pity and ev.pity[boxType]
+    local boxCfg = ev and ev.openBoxes and ev.openBoxes[boxType]
+    if not pityCfg or not pityCfg.targetId or not boxCfg then return "大奖" end
+    local pool = ev[boxCfg.poolKey] or {}
+    for _, entry in ipairs(pool) do
+        if entry.id == pityCfg.targetId then
+            return entry.name or pityCfg.targetId
+        end
+    end
+    return pityCfg.targetId
+end
+
 -- ============================================================================
 -- 单类型宝箱区域
 -- ============================================================================
@@ -223,7 +243,7 @@ local function BuildBoxSection(boxType)
     -- 保底进度
     local pityCurrent, pityThreshold = EventSystem.GetPityProgress(boxType)
     if pityThreshold > 0 then
-        local pityTargetName = isSmall and "仙界精品粽" or "悟性皮肤"
+        local pityTargetName = GetPityTargetName(ev, boxType)
         local remaining = pityThreshold - pityCurrent
         local pityText = string.format("保底进度: %d/%d（还差%d次必出%s）",
             pityCurrent, pityThreshold, remaining, pityTargetName)
@@ -332,6 +352,9 @@ function M.Build(parent, buildOpts)
     local pullRecords = state.pullRecords or {}
 
     -- 道具获取途径说明
+    local tips = ev.acquisitionTips or {}
+    local smallTip = tips.small or (GetBoxItemName(ev, "small") .. "：击败各章节BOSS掉落（章节越高概率越大）")
+    local bigTip = tips.big or (GetBoxItemName(ev, "big") .. "：击败元婴及以上BOSS掉落")
     parent:AddChild(UI.Panel {
         width = "100%",
         backgroundColor = T.color.evtDescBg,
@@ -347,12 +370,12 @@ function M.Build(parent, buildOpts)
                 fontColor = T.color.evtDescTitle,
             },
             UI.Label {
-                text = "端午彩绳：击败各章节BOSS掉落（章节越高概率越大）",
+                text = smallTip,
                 fontSize = T.fontSize.xs,
                 fontColor = T.color.evtDescSmall,
             },
             UI.Label {
-                text = "辟邪香囊：击败元婴及以上BOSS掉落（最高掉落四仙剑1%）",
+                text = bigTip,
                 fontSize = T.fontSize.xs,
                 fontColor = T.color.evtDescBig,
             },

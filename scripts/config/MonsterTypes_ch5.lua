@@ -50,7 +50,7 @@ M.Types.ch5_stone_guardian = {
     berserkBuff = { atkSpeedMult = 1.5, speedMult = 1.4, cdrMult = 0.6 },
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 8, maxTier = 9, minQuality = "green", maxQuality = "orange" },
-        { chance = 1.0, type = "lingYun", amount = {10, 15} },
+        { chance = 1.0, type = "lingYun", amount = {10, 14} },
         { chance = 0.20, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.005, type = "consumable", consumableId = "jiuzhuan_jindan" },
@@ -76,7 +76,7 @@ M.Types.ch5_sword_ghost = {
     bodyColor = {120, 140, 180, 255},
     dropTable = {
         { chance = 0.10, type = "equipment", minTier = 7, maxTier = 9, minQuality = "white", maxQuality = "purple" },
-        { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
+        { chance = 0.25, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.05, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -94,7 +94,7 @@ M.Types.ch5_sword_shadow = {
     skills = { "ch5_shadow_thrust" },
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 7, maxTier = 9, minQuality = "white", maxQuality = "orange" },
-        { chance = 0.12, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.25, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
         { chance = 0.50, type = "consumable", consumableId = "taixu_jianling" },
     },
@@ -125,7 +125,7 @@ M.Types.ch5_pei_qianyue = {
     },
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 8, maxTier = 9, minQuality = "green", maxQuality = "orange" },
-        { chance = 1.0, type = "lingYun", amount = {12, 20} },
+        { chance = 1.0, type = "lingYun", amount = {12, 16} },
         { chance = 0.20, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.01, type = "consumable", consumableId = "jiuzhuan_jindan" },
@@ -153,7 +153,7 @@ M.Types.ch5_cold_crane = {
     bodyColor = {180, 210, 240, 255},
     dropTable = {
         { chance = 0.10, type = "equipment", minTier = 7, maxTier = 9, minQuality = "white", maxQuality = "purple" },
-        { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
+        { chance = 0.25, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.05, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -171,7 +171,7 @@ M.Types.ch5_ice_turtle = {
     skills = { "ch5_frost_breath" },
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 7, maxTier = 9, minQuality = "white", maxQuality = "cyan" },
-        { chance = 0.16, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.30, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
         { chance = 0.50, type = "consumable", consumableId = "taixu_jianling" },
     },
@@ -202,7 +202,7 @@ M.Types.ch5_frost_luan = {
     },
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 8, maxTier = 9, minQuality = "green", maxQuality = "cyan" },
-        { chance = 1.0, type = "lingYun", amount = {14, 22} },
+        { chance = 1.0, type = "lingYun", amount = {12, 20} },
         { chance = 0.40, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.02, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹2%
@@ -230,7 +230,7 @@ M.Types.ch5_slag_puppet = {
     bodyColor = {220, 120, 40, 255},
     dropTable = {
         { chance = 0.10, type = "equipment", minTier = 8, maxTier = 10, minQuality = "white", maxQuality = "purple" },
-        { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
+        { chance = 0.25, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.05, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -248,7 +248,7 @@ M.Types.ch5_forge_soldier = {
     skills = { "ch5_molten_sweep" },
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 8, maxTier = 10, minQuality = "white", maxQuality = "cyan" },
-        { chance = 0.20, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.35, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
         { chance = 0.50, type = "consumable", consumableId = "taixu_jianling" },
     },
@@ -309,7 +309,7 @@ M.Types.ch5_stele_golem = {
     bodyColor = {160, 160, 170, 255},
     dropTable = {
         { chance = 0.10, type = "equipment", minTier = 8, maxTier = 10, minQuality = "white", maxQuality = "purple" },
-        { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
+        { chance = 0.25, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.05, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -327,7 +327,7 @@ M.Types.ch5_stele_phantom = {
     skills = { "ch5_stele_cross" },
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 8, maxTier = 10, minQuality = "white", maxQuality = "cyan" },
-        { chance = 0.24, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.40, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
         { chance = 0.50, type = "consumable", consumableId = "taixu_jianling" },
     },
@@ -388,7 +388,7 @@ M.Types.ch5_court_wraith = {
     bodyColor = {100, 80, 120, 255},
     dropTable = {
         { chance = 0.10, type = "equipment", minTier = 8, maxTier = 10, minQuality = "white", maxQuality = "purple" },
-        { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
+        { chance = 0.25, type = "consumable", consumableId = "beast_meat" },
         { chance = 0.05, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
@@ -406,7 +406,7 @@ M.Types.ch5_night_guard = {
     skills = { "ch5_moon_pierce" },
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 8, maxTier = 10, minQuality = "white", maxQuality = "cyan" },
-        { chance = 0.27, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.45, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
         { chance = 0.50, type = "consumable", consumableId = "taixu_jianling" },
     },
@@ -469,7 +469,7 @@ M.Types.ch5_book_demon = {
     skills = { "ch5_ink_poison" },
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 8, maxTier = 10, minQuality = "white", maxQuality = "cyan" },
-        { chance = 0.30, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.50, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
         { chance = 0.50, type = "consumable", consumableId = "taixu_jianling" },
     },
@@ -500,7 +500,7 @@ M.Types.ch5_wen_suzhang = {
     },
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 9, maxTier = 10, minQuality = "blue", maxQuality = "cyan" },
-        { chance = 1.0, type = "lingYun", amount = {20, 35} },
+        { chance = 1.0, type = "lingYun", amount = {20, 32} },
         { chance = 1.0, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.005, type = "equipment", equipId = "cangzhen_armor_ch5" },  -- 藏真玄衣0.5%（灵器）共享1%二选一
@@ -581,7 +581,7 @@ M.Types.ch5_abyss_marshal = {
     tierOnly = 10,
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
-        { chance = 1.0, type = "lingYun", amount = {25, 40} },
+        { chance = 1.0, type = "lingYun", amount = {25, 35} },
         { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = {1, 2} },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.01, type = "equipment", equipId = "shiyuan_cape_ch5" },  -- 噬渊魔氅1%（灵器）
@@ -831,7 +831,7 @@ M.Types.ch5_marshal_shugu = {
     tierOnly = 10,
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
-        { chance = 1.0, type = "lingYun", amount = {25, 40} },
+        { chance = 1.0, type = "lingYun", amount = {25, 35} },
         { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = {1, 2} },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.01, type = "equipment", equipId = "lingqi_cape_ch5" },  -- 天渊灵披1%（灵器）
@@ -874,7 +874,7 @@ M.Types.ch5_marshal_liesoul = {
     tierOnly = 10,
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
-        { chance = 1.0, type = "lingYun", amount = {25, 40} },
+        { chance = 1.0, type = "lingYun", amount = {25, 35} },
         { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = {1, 2} },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.01, type = "equipment", equipId = "lingqi_ring_ch5" },  -- 均灵环1%（灵器）

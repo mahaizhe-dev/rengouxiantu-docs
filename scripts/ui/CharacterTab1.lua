@@ -218,6 +218,10 @@ function CharacterTab1.Build(refreshFn)
     -- ── Card 4: 悟性 ──
     local wisdom = player:GetTotalWisdom()
     table.insert(sec, StatRow.Create("悟性", tostring(wisdom), {200, 150, 255, 255}))
+    local pillWisdom = player.pillWisdom or 0
+    if pillWisdom > 0 then
+        table.insert(sec, StatRow.Create("  相思红豆糕", "+" .. pillWisdom, {220, 150, 255, 180}))
+    end
     table.insert(sec, StatRow.Create("  击杀经验(每点+1)", "+" .. wisdom, subColor))
     table.insert(sec, StatRow.Create("  技能伤害(每5点+1%)", string.format("+%.0f%%", player:GetSkillDmgPercent() * 100), subColor))
     table.insert(sec, StatRow.Create("  技能连击(每50点+1%)", string.format("%.0f%%", player:GetSkillComboChance() * 100), subColor))

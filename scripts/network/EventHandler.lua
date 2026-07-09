@@ -14,6 +14,7 @@
 local Session = require("network.ServerSession")
 local SaveProtocol = require("network.SaveProtocol")
 local EventConfig = require("config.EventConfig")
+local GameConfig = require("config.GameConfig")
 local EventSystem = require("systems.EventSystem")
 local BackpackUtils = require("network.BackpackUtils")
 local MilestoneLogic = require("systems.MilestoneLogic")
@@ -360,7 +361,9 @@ function M.HandleOpenFudai(eventType, eventData)
 
             if heldCount <= 0 then
                 releaseLocks()
-                local itemName = (boxType == "big") and "辟邪香囊" or "端午彩绳"
+                local itemDefs = GameConfig.EVENT_ITEMS or {}
+                local itemDef = itemDefs[targetItemId]
+                local itemName = itemDef and itemDef.name or targetItemId
                 SendError(connection, SaveProtocol.S2C_EventOpenFudaiResult, "没有" .. itemName)
                 return
             end

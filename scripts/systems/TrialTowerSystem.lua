@@ -108,7 +108,7 @@ function TrialTowerSystem.Enter(floor, gameMap, camera)
     if realm then
         local playerRealmData = GameConfig.REALMS[player.realm]
         local playerOrder = playerRealmData and playerRealmData.order or 0
-        local requiredOrder = realmIndex  -- realmIndex 1~22 对应 GameConfig.REALMS order
+        local requiredOrder = TrialTowerConfig.GetRequiredOrderByFloor(floor)
         if playerOrder < requiredOrder then
             return false, "需要境界【" .. realm.name .. "】才能挑战"
         end
@@ -245,7 +245,7 @@ function TrialTowerSystem._spawnFloorMonsters(floor, gameMap)
         -- 统计BOSS总数
         local totalBosses = 0
         for _, g in ipairs(floorCfg.monsters) do totalBosses = totalBosses + g.count end
-        bossPositions = TrialTowerConfig.CalcBossPositions(innerSize)
+        bossPositions = TrialTowerConfig.CalcBossPositions(innerSize, totalBosses)
         -- 如果BOSS数超过预设位置数，扩展位置（安全保护）
         while #bossPositions < totalBosses do
             table.insert(bossPositions, bossPositions[#bossPositions])
@@ -283,9 +283,9 @@ function TrialTowerSystem._spawnFloorMonsters(floor, gameMap)
             m.isTrial = true
             m.isChallenge = true  -- 复用 ChallengeSystem 的标记，避免掉落
 
-            -- 覆盖等级，并赋予该等级能达到的最大境界
+            -- 覆盖等级，并优先使用楼层配置境界；第六章需使用 zhexian_* 仙阶执行 ID
             m.level = floorCfg.level
-            local trialRealm = GameConfig.GetMaxRealmByLevel(floorCfg.level)
+            local trialRealm = floorCfg.realm or GameConfig.GetMaxRealmByLevel(floorCfg.level)
             m.realm = trialRealm
             local stats = MonsterData.CalcFinalStats(floorCfg.level, monsterData.category, monsterData.race, trialRealm)
             m.hp = stats.hp
@@ -449,7 +449,8 @@ function TrialTowerSystem.ContinueNextFloor()
         local player = GameState.player
         local playerRealmData = player and GameConfig.REALMS[player.realm]
         local playerOrder = playerRealmData and playerRealmData.order or 0
-        if playerOrder < realmIndex then
+        local requiredOrder = TrialTowerConfig.GetRequiredOrderByFloor(nextFloor)
+        if playerOrder < requiredOrder then
             return false, "境界不足，需要【" .. realm.name .. "】"
         end
     end

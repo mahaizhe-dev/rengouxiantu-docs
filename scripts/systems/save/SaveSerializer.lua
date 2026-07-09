@@ -34,6 +34,15 @@ function SaveSerializer.SerializePlayer()
         end
     end
 
+    local pillCounts = {}
+    if type(player.pillCounts) == "table" then
+        for k, v in pairs(player.pillCounts) do
+            pillCounts[k] = v
+        end
+    end
+    pillCounts.zong = player.premiumZongEaten or pillCounts.zong or 0
+    pillCounts.redbean_cake = player.premiumRedbeanCakeEaten or pillCounts.redbean_cake or 0
+
     return {
         level = player.level,
         exp = player.exp,
@@ -49,7 +58,8 @@ function SaveSerializer.SerializePlayer()
         fruitFortune = player.fruitFortune or 0,
         pillFortune = player.pillFortune or 0,
         premiumZongEaten = player.premiumZongEaten or 0,
-        pillCounts = player.pillCounts or { zong = 0 },
+        pillWisdom = player.pillWisdom or 0,
+        premiumRedbeanCakeEaten = player.premiumRedbeanCakeEaten or 0,
         seaPillarDef = player.seaPillarDef or 0,
         seaPillarAtk = player.seaPillarAtk or 0,
         seaPillarMaxHp = player.seaPillarMaxHp or 0,
@@ -129,7 +139,7 @@ function SaveSerializer.SerializePlayer()
         daoMaxHp = player.daoMaxHp or 0,
         daoAnswers = player.daoAnswers or {},
         -- 丹药权威计数（运行时校正写入，持久化保存）
-        pillCounts = player.pillCounts or nil,
+        pillCounts = pillCounts,
         -- 镇岳：血气累计器（浮点→整数取整，旧存档默认 0）
         bloodAccumulator = math.floor(player._bloodAccumulator or 0),
         -- v16: 职业
@@ -154,12 +164,28 @@ function SaveSerializer.DeserializePlayer(data)
     player.pillConstitution = data.pillConstitution or 0
     player.gangguConstitution = data.gangguConstitution or 0
     player.fruitFortune = data.fruitFortune or 0
-    -- 仙界精品粽（端午丹药）三字段加载 + 一致性校验
+    -- 活动丹药三字段加载 + 一致性校验；保留 pillCounts 里的其他丹药 key
     do
-        local eaten = math.max(0, math.min(10, data.premiumZongEaten or 0))
-        player.premiumZongEaten = eaten
-        player.pillFortune = eaten  -- 强制以 premiumZongEaten 为权威
-        player.pillCounts = { zong = eaten }
+        local pillCounts = {}
+        if type(data.pillCounts) == "table" then
+            for k, v in pairs(data.pillCounts) do
+                pillCounts[k] = v
+            end
+        end
+
+        local zongEaten = math.max(0, math.min(10,
+            data.premiumZongEaten or pillCounts.zong or data.pillFortune or 0))
+        player.premiumZongEaten = zongEaten
+        player.pillFortune = zongEaten
+        pillCounts.zong = zongEaten
+
+        local redbeanEaten = math.max(0, math.min(10,
+            data.premiumRedbeanCakeEaten or pillCounts.redbean_cake or data.pillWisdom or 0))
+        player.premiumRedbeanCakeEaten = redbeanEaten
+        player.pillWisdom = redbeanEaten
+        pillCounts.redbean_cake = redbeanEaten
+
+        player.pillCounts = pillCounts
     end
     player.seaPillarDef = data.seaPillarDef or 0
     player.seaPillarAtk = data.seaPillarAtk or 0
@@ -241,7 +267,6 @@ function SaveSerializer.DeserializePlayer(data)
             end
         end
     end
-    player.pillCounts = data.pillCounts or nil
     -- 镇岳：血气累计器恢复（旧存档无此字段默认 0）
     player._bloodAccumulator = data.bloodAccumulator or 0
     -- v16: 职业

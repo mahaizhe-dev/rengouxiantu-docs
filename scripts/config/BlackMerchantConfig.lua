@@ -267,10 +267,11 @@ BMConfig.ITEMS = {
     taixu_jianling_box = ItemFromGame("taixu_jianling_box", { buy_price = 2, sell_price = 4, category = "consumable_mat", max_stock = 10, sort_order = 13 }),
     zhexian_ling_box   = ItemFromGame("zhexian_ling_box",   { buy_price = 3, sell_price = 6, category = "consumable_mat", max_stock = 10, sort_order = 14 }),
 
-    -- === 端午活动道具（挂到 consumable_mat 分类，黑市可见，置顶+金框） ===
-    dragonboat_colored_rope = ItemFromGame("dragonboat_colored_rope", { buy_price = 1,  sell_price = 2,  category = "consumable_mat", sort_order = -3, eventHighlight = true }),
-    dragonboat_sachet       = ItemFromGame("dragonboat_sachet",       { buy_price = 6,  sell_price = 12, category = "consumable_mat", sort_order = -2, eventHighlight = true }),
-    xianjie_premium_zong    = ItemFromGame("xianjie_premium_zong",    { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 50, sort_order = -1, eventHighlight = true }),
+    -- === 情人节活动道具（端午开启物下架，精品粽黑市保留） ===
+    valentine_red_thread             = ItemFromGame("valentine_red_thread",             { buy_price = 1,  sell_price = 2,  category = "consumable_mat", sort_order = -4, eventHighlight = true }),
+    valentine_pair_jade              = ItemFromGame("valentine_pair_jade",              { buy_price = 6,  sell_price = 12, category = "consumable_mat", sort_order = -3, eventHighlight = true }),
+    valentine_xiangsi_redbean_cake   = ItemFromGame("valentine_xiangsi_redbean_cake",   { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 50, sort_order = -2, eventHighlight = true }),
+    xianjie_premium_zong             = ItemFromGame("xianjie_premium_zong",             { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 50, sort_order = -1, eventHighlight = true }),
 
     -- === 五一活动信物（已下架） ===
 
