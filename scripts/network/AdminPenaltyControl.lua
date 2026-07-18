@@ -128,6 +128,15 @@ function AdminPenaltyControl._DoDeductAndClear(userId, doneKey, callbacks)
                 end
             end
 
+            for _, key in ipairs(Config.INFO_KEYS_TO_CLEAR or {}) do
+                commit:ScoreDelete(userId, key)
+            end
+            for _, prefix in ipairs(Config.INFO_KEYS_PER_SLOT or {}) do
+                for slot = 1, Config.MAX_SLOTS do
+                    commit:ScoreDelete(userId, prefix .. slot)
+                end
+            end
+
             -- 标记已执行
             commit:ScoreSetInt(userId, doneKey, 1)
 

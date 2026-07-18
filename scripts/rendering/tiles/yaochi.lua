@@ -3,6 +3,7 @@
 -- tiles/yaochi.lua - 瑶池与第五章特殊地形瓦片渲染
 -- 包含: Water, YaochiCliff, SteleIntact, SteleBroken, BloodPool, Furnace, LavaWall
 -- ============================================================================
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local ActiveZoneData = require("config.ActiveZoneData")
 local GameState      = require("core.GameState")
 local UITheme        = require("config.UITheme")

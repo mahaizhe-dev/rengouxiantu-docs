@@ -157,7 +157,6 @@ return function(M)
         isFieldSkill = true,
         safeZoneCount = 2,          -- 2个安全区
         safeZoneRadius = 0.5,       -- 安全区较小
-        safeZoneMoving = true,      -- 安全区缓慢移动
         castTime = 2.0,
         warningShape = "circle",
         warningRange = 8.0,

@@ -7,6 +7,7 @@
 --   DecorationRenderers.lua  - 装饰物渲染（27种装饰 + 城门 + 调度）
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local Widget = require("urhox-libs/UI/Core/Widget")
 local GameConfig = require("config.GameConfig")
 local GameState = require("core.GameState")

@@ -42,7 +42,7 @@ M.Types.kan_disciple = {
     dropTable = {
         { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.35, type = "consumable", consumableId = "spirit_meat" },
-        { chance = 0.10, type = "consumable", consumableId = "taixu_token" },
+        { chance = 0.05, type = "consumable", consumableId = "taixu_token" },
     },
 }
 
@@ -70,8 +70,7 @@ M.Types.kan_boss = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
         { chance = 0.02, type = "equipment", equipId = "chengyuan_helmet_ch4" },  -- 沉渊冥冠2%
         { chance = 1.0, type = "lingYun", amount = {4, 6} },
-        { chance = 0.12, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.06, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.10, type = "consumable", consumableId = "demon_essence" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
@@ -98,7 +97,7 @@ M.Types.gen_disciple = {
     dropTable = {
         { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.35, type = "consumable", consumableId = "spirit_meat" },
-        { chance = 0.10, type = "consumable", consumableId = "taixu_token" },
+        { chance = 0.05, type = "consumable", consumableId = "taixu_token" },
     },
 }
 
@@ -145,8 +144,7 @@ M.Types.gen_boss = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
         { chance = 0.03, type = "equipment", equipId = "zhiyan_boots_ch4" },      -- 止岩重靴3%
         { chance = 1.0, type = "lingYun", amount = {4, 8} },
-        { chance = 0.15, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.08, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.15, type = "consumable", consumableId = "demon_essence" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
@@ -173,7 +171,7 @@ M.Types.zhen_disciple = {
     dropTable = {
         { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.35, type = "consumable", consumableId = "spirit_meat" },
-        { chance = 0.10, type = "consumable", consumableId = "taixu_token" },
+        { chance = 0.05, type = "consumable", consumableId = "taixu_token" },
     },
 }
 
@@ -201,7 +199,7 @@ M.Types.zhen_boss = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
         { chance = 0.02, type = "equipment", equipId = "leiming_necklace_ch4" },  -- 雷鸣玉坠2%
         { chance = 1.0, type = "lingYun", amount = {5, 9} },
-        { chance = 0.10, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.20, type = "consumable", consumableId = "demon_essence" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
@@ -227,7 +225,7 @@ M.Types.xun_disciple = {
     dropTable = {
         { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.35, type = "consumable", consumableId = "spirit_meat" },
-        { chance = 0.10, type = "consumable", consumableId = "taixu_token" },
+        { chance = 0.05, type = "consumable", consumableId = "taixu_token" },
     },
 }
 
@@ -274,7 +272,7 @@ M.Types.xun_boss = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
         { chance = 0.02, type = "equipment", equipId = "fenghen_ring_ch4" },      -- 风痕指环2%
         { chance = 1.0, type = "lingYun", amount = {6, 10} },
-        { chance = 0.12, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.25, type = "consumable", consumableId = "demon_essence" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
@@ -301,7 +299,7 @@ M.Types.li_disciple = {
     dropTable = {
         { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.35, type = "consumable", consumableId = "spirit_meat" },
-        { chance = 0.10, type = "consumable", consumableId = "taixu_token" },
+        { chance = 0.05, type = "consumable", consumableId = "taixu_token" },
     },
 }
 
@@ -329,7 +327,7 @@ M.Types.li_boss = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
         { chance = 0.02, type = "equipment", equipId = "yanxin_belt_ch4" },       -- 焰心腰环2%
         { chance = 1.0, type = "lingYun", amount = {8, 12} },
-        { chance = 0.15, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.30, type = "consumable", consumableId = "demon_essence" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "consumable", consumableId = "book_atk_3" },    -- 高级攻击书3%
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
@@ -357,7 +355,7 @@ M.Types.kun_disciple = {
     dropTable = {
         { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.35, type = "consumable", consumableId = "spirit_meat" },
-        { chance = 0.10, type = "consumable", consumableId = "taixu_token" },
+        { chance = 0.05, type = "consumable", consumableId = "taixu_token" },
     },
 }
 
@@ -404,7 +402,7 @@ M.Types.kun_boss = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
         { chance = 0.02, type = "equipment", equipId = "houtu_shoulder_ch4" },    -- 厚土肩铠2%
         { chance = 1.0, type = "lingYun", amount = {10, 14} },
-        { chance = 0.18, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.35, type = "consumable", consumableId = "demon_essence" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "consumable", consumableId = "book_def_3" },    -- 高级防御书3%
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
@@ -432,7 +430,7 @@ M.Types.dui_disciple = {
     dropTable = {
         { chance = 0.10, type = "equipment", minQuality = "white", maxQuality = "purple" },
         { chance = 0.35, type = "consumable", consumableId = "spirit_meat" },
-        { chance = 0.10, type = "consumable", consumableId = "taixu_token" },
+        { chance = 0.05, type = "consumable", consumableId = "taixu_token" },
     },
 }
 
@@ -479,13 +477,13 @@ M.Types.dui_boss = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "cyan" },
         { chance = 0.01, type = "equipment", equipId = "zeyuan_armor_ch4" },      -- 泽渊仙铠1%
         { chance = 1.0, type = "lingYun", amount = {12, 16} },
-        { chance = 0.20, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.40, type = "consumable", consumableId = "demon_essence" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "consumable", consumableId = "book_hp_3" },     -- 高级生命书3%
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
         { chance = 0.01, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹1%（合体期王者BOSS）
-        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },  -- 太虚令盒0.5%
+        { chance = 0.015, type = "world_drop", pool = "ch4_high_boss" },  -- 高级BOSS池1.5%（金砖/太虚令盒/灵韵果）
         { chance = 0.001, type = "consumable", consumableId = "bagua_fragment_dui" },  -- 神器碎片·兑 0.1%
     },
 }
@@ -523,8 +521,7 @@ M.Types.qian_pillar_e = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {5, 8} },
-        { chance = 0.18, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.10, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.20, type = "consumable", consumableId = "demon_essence" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
@@ -557,8 +554,7 @@ M.Types.qian_pillar_s = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {5, 8} },
-        { chance = 0.18, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.10, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.20, type = "consumable", consumableId = "demon_essence" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
@@ -591,8 +587,7 @@ M.Types.qian_pillar_w = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {5, 8} },
-        { chance = 0.18, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.10, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.20, type = "consumable", consumableId = "demon_essence" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
@@ -625,8 +620,7 @@ M.Types.qian_pillar_n = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {5, 8} },
-        { chance = 0.18, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.10, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.20, type = "consumable", consumableId = "demon_essence" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
@@ -662,16 +656,14 @@ M.Types.qian_boss = {
         { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
         { chance = 0.01, type = "equipment", equipId = "tiangang_cape_ch4" },     -- 天罡圣披1%
         { chance = 1.0, type = "lingYun", amount = {12, 20} },
-        { chance = 0.50, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 1.0, type = "consumable", consumableId = "demon_essence" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "world_drop", pool = "sikong_new_books" },  -- 高级忽视+加伤书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
-        -- 太虚令盒（0.5%独立掉落）
-        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },
+        { chance = 0.015, type = "world_drop", pool = "ch4_high_boss" },  -- 高级BOSS池1.5%（金砖/太虚令盒/灵韵果）
         { chance = 0.02, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹2%（司空正阳）
         { chance = 0.001, type = "consumable", consumableId = "bagua_fragment_qian" },  -- 神器碎片·乾 0.1%
-        { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
     },
 }
 
@@ -719,13 +711,13 @@ M.Types.yin_spirit = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
         { chance = 1.0, type = "lingYun", amount = {8, 12} },
-        { chance = 0.15, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.30, type = "consumable", consumableId = "demon_essence" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "world_drop", pool = "yinyang_yunling_books" },  -- 蕴灵三书高级（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
         { chance = 0.01, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹1%（皇级BOSS）
-        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },  -- 太虚令盒0.5%
+        { chance = 0.015, type = "world_drop", pool = "ch4_high_boss" },  -- 高级BOSS池1.5%（金砖/太虚令盒/灵韵果）
         { chance = 0.02, type = "equipment", equipId = "xuanshu_cape_ch4" },  -- 玄枢灵披2%
         { chance = 0.01, type = "equipment", equipId = "yinyang_boots_ch4" },  -- 阴阳履1%
         { chance = 0.001, type = "consumable", consumablePool = {  -- 四阴阵神器碎片随机1个 0.1%
@@ -774,7 +766,7 @@ M.Types.yang_spirit = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {12, 20} },
-        { chance = 0.50, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 1.0, type = "consumable", consumableId = "demon_essence" },
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
         { chance = 0.03, type = "world_drop", pool = "yinyang_yunling_books" },  -- 蕴灵三书高级（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
@@ -784,9 +776,8 @@ M.Types.yang_spirit = {
             "bagua_fragment_li", "bagua_fragment_kun", "bagua_fragment_dui", "bagua_fragment_qian",
         } },
         { chance = 1.0, type = "consumable", consumableId = "taixu_token" },
-        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },  -- 太虚令盒0.5%
+        { chance = 0.015, type = "world_drop", pool = "ch4_high_boss" },  -- 高级BOSS池1.5%（金砖/太虚令盒/灵韵果）
         { chance = 0.02, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹2%（皇级BOSS）
-        { chance = 0.005, type = "consumable", consumableId = "gold_brick" },  -- 金砖0.5%
     },
 }
 
@@ -822,20 +813,20 @@ M.Types.dragon_ice = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {15, 25} },
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.50, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "dragon_ice_books" },  -- 高级技能书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
         { chance = 0.04, type = "consumable", consumableId = "dragon_scale_ice" },  -- 封霜龙鳞4%
-        { chance = 0.02, type = "consumable", consumablePool = {"dragon_blood_herb", "gold_brick"} },  -- 2%共享（龙血草/金砖）
+        { chance = 0.01, type = "consumable", consumableId = "dragon_blood_herb" },  -- 龙血草1%
         { chance = 0.01, type = "equipment_pool", pool = {  -- 1%共享池（极龙盔/帝尊肆戒 二选一）
             { equipId = "jilong_helmet_ch4" },
             { equipId = "silong_ring_ch4" },
         }},
-        -- 太虚令盒（0.5%独立掉落）
-        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },
+        { chance = 0.015, type = "world_drop", pool = "ch4_high_boss" },  -- 高级BOSS池1.5%（金砖/太虚令盒/灵韵果）
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
-        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
+        { chance = 0.03, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆3%
+        { chance = 0.005, type = "consumable", consumableId = "treasure_map" },
     },
 }
 
@@ -867,20 +858,20 @@ M.Types.dragon_abyss = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {15, 25} },
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.50, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "dragon_abyss_books" },  -- 高级技能书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
         { chance = 0.04, type = "consumable", consumableId = "dragon_scale_abyss" },  -- 渊蛟龙骨4%
-        { chance = 0.02, type = "consumable", consumablePool = {"dragon_blood_herb", "gold_brick"} },  -- 2%共享（龙血草/金砖）
+        { chance = 0.01, type = "consumable", consumableId = "dragon_blood_herb" },  -- 龙血草1%
         { chance = 0.01, type = "equipment_pool", pool = {  -- 1%共享池（极龙盔/帝尊肆戒 二选一）
             { equipId = "jilong_helmet_ch4" },
             { equipId = "silong_ring_ch4" },
         }},
-        -- 太虚令盒（0.5%独立掉落）
-        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },
+        { chance = 0.015, type = "world_drop", pool = "ch4_high_boss" },  -- 高级BOSS池1.5%（金砖/太虚令盒/灵韵果）
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
-        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
+        { chance = 0.03, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆3%
+        { chance = 0.005, type = "consumable", consumableId = "treasure_map" },
     },
 }
 
@@ -912,20 +903,20 @@ M.Types.dragon_fire = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {15, 25} },
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.50, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "dragon_fire_books" },  -- 高级技能书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
         { chance = 0.04, type = "consumable", consumableId = "dragon_scale_fire" },  -- 焚天龙焰4%
-        { chance = 0.02, type = "consumable", consumablePool = {"dragon_blood_herb", "gold_brick"} },  -- 2%共享（龙血草/金砖）
+        { chance = 0.01, type = "consumable", consumableId = "dragon_blood_herb" },  -- 龙血草1%
         { chance = 0.01, type = "equipment_pool", pool = {  -- 1%共享池（极龙盔/帝尊肆戒 二选一）
             { equipId = "jilong_helmet_ch4" },
             { equipId = "silong_ring_ch4" },
         }},
-        -- 太虚令盒（0.5%独立掉落）
-        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },
+        { chance = 0.015, type = "world_drop", pool = "ch4_high_boss" },  -- 高级BOSS池1.5%（金砖/太虚令盒/灵韵果）
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
-        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
+        { chance = 0.03, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆3%
+        { chance = 0.005, type = "consumable", consumableId = "treasure_map" },
     },
 }
 
@@ -957,20 +948,20 @@ M.Types.dragon_sand = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {15, 25} },
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.50, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "dragon_sand_books" },  -- 高级技能书（共享3%，随机掉1本）
         { chance = 0.03, type = "world_drop", pool = "ch4" },  -- 世界掉落（BOSS共享3%）
         { chance = 0.03, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹3%（四龙神）
         { chance = 0.04, type = "consumable", consumableId = "dragon_scale_sand" },  -- 蚀骨龙牙4%
-        { chance = 0.02, type = "consumable", consumablePool = {"dragon_blood_herb", "gold_brick"} },  -- 2%共享（龙血草/金砖）
+        { chance = 0.01, type = "consumable", consumableId = "dragon_blood_herb" },  -- 龙血草1%
         { chance = 0.01, type = "equipment_pool", pool = {  -- 1%共享池（极龙盔/帝尊肆戒 二选一）
             { equipId = "jilong_helmet_ch4" },
             { equipId = "silong_ring_ch4" },
         }},
-        -- 太虚令盒（0.5%独立掉落）
-        { chance = 0.005, type = "consumable", consumableId = "taixu_token_box" },
+        { chance = 0.015, type = "world_drop", pool = "ch4_high_boss" },  -- 高级BOSS池1.5%（金砖/太虚令盒/灵韵果）
         { chance = 0.004, type = "set_equipment", setIds = XIANJIE_SET_IDS },  -- 套装灵器 0.4%（四套随机一件）
-        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
+        { chance = 0.03, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆3%
+        { chance = 0.005, type = "consumable", consumableId = "treasure_map" },
     },
 }
 

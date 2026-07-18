@@ -1,4 +1,5 @@
 -- entities/pet.lua - 宠物渲染
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.entities.shared")
 local GameConfig = shared.GameConfig
 local GameState = shared.GameState

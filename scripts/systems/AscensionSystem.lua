@@ -193,6 +193,12 @@ function AscensionSystem.BreakthroughMinor()
     if not target then return false, "已达最高仙阶" end
     if target.isMajor then return false, "大仙阶需要渡劫" end
 
+    local player = GameState.player
+    local reqLevel = target.requiredLevel or 1
+    if not player or player.level < reqLevel then
+        return false, "等级不足 (需要 Lv." .. reqLevel .. ")"
+    end
+
     -- 溢出计算：在推进前获取当前需求（P1-4 修复）
     local req = AscensionSystem.GetRequiredProgress()
 
@@ -201,7 +207,6 @@ function AscensionSystem.BreakthroughMinor()
 
     -- 更新 player.realm 到新仙阶（P0-3 修复）
     local newRealmId = "asc_" .. target.totalIndex
-    local player = GameState.player
     if player then
         player.realm = newRealmId
         local realmCfg = GameConfig.REALMS[newRealmId]

@@ -389,7 +389,7 @@ return function(M)
         dropTable = {
             -- ①常规掉落
             { chance = 1.0, type = "lingYun", amount = {1, 2} },
-            { chance = 0.15, type = "consumable", consumableId = "immortal_bone" },
+            { chance = 0.25, type = "consumable", consumableId = "immortal_bone" },
             -- ②灵兽丹（必掉1个）
             { chance = 1.0, type = "consumable", consumableId = "spirit_pill" },
             { chance = 0.05, type = "world_drop", pool = "tiger_books" },  -- 中级技能书5%（随机1本）

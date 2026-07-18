@@ -613,6 +613,7 @@ function ArtifactSystem.TryPassiveStrike(player, monster)
         local targets = GameState.GetMonstersInRange(searchCX, searchCY, searchR)
         local hitCount = 0
         local CombatSystem = require("systems.CombatSystem")
+        local castId = CombatSystem.NextCombatCastId("artifact_tianpeng")
 
         for _, m in ipairs(targets) do
             if m.alive then
@@ -622,14 +623,21 @@ function ArtifactSystem.TryPassiveStrike(player, monster)
                 local forward = mx * cosA + my * sinA
                 local lateral = -mx * sinA + my * cosA
                 if forward >= fOff and forward <= (fOff + cfg.range) and math.abs(lateral) <= halfW then
-                    passiveDmg = HitResolver.Bypass(player, m, passiveDmg)
+                    local actualDmg = HitResolver.Bypass(player, m, passiveDmg)
                     hitCount = hitCount + 1
-                    CombatSystem.AddFloatingText(
-                        m.x, m.y - 0.9,
-                        "🔱遗威 " .. passiveDmg,
-                        {255, 215, 0, 255},
-                        1.5
-                    )
+                    CombatSystem.EmitDamageFeedback(player, m, actualDmg, {
+                        sourceType = "artifact",
+                        sourceId = "tianpeng_legacy",
+                        sourceName = ArtifactSystem.PASSIVE.name,
+                        damageTag = "artifact",
+                        castId = castId,
+                        color = {255, 215, 0, 255},
+                        y = m.y - 0.9,
+                    }, {
+                        x = m.x, y = m.y - 0.9,
+                        text = "🔱遗威 " .. actualDmg,
+                        color = {255, 215, 0, 255}, lifetime = 1.5,
+                    })
                     if hitCount >= (cfg.maxTargets or 5) then break end
                 end
             end

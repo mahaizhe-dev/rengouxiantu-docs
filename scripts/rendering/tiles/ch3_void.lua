@@ -2,6 +2,7 @@
 -- tiles/ch3_void.lua - 第三章虚空与魔化地形瓦片渲染
 -- 包含: RiftVoid, BattlefieldVoid, CorruptedGround
 -- ============================================================================
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local Shared = require("rendering.tiles.shared")
 
 local tileHash    = Shared.tileHash

@@ -789,7 +789,7 @@ function QuestRewardUI.ShowGrantedBundle(data, callback)
             flexDirection = "column",
             alignItems = "center",
             gap = T.spacing.xs,
-            width = 100,
+            width = 150,
             children = {
                 UI.Panel {
                     width = 58, height = 58,
@@ -809,7 +809,10 @@ function QuestRewardUI.ShowGrantedBundle(data, callback)
                     fontWeight = "bold",
                     fontColor = qColor,
                     textAlign = "center",
-                    width = 96,
+                    width = 146,
+                    minHeight = 38,
+                    whiteSpace = "normal",
+                    wordBreak = "break-word",
                 },
             },
         }
@@ -823,12 +826,14 @@ function QuestRewardUI.ShowGrantedBundle(data, callback)
         justifyContent = "center",
         alignItems = "center",
         backgroundColor = {0, 0, 0, 160},
-        zIndex = 200,
+        zIndex = (data and data.zIndex) or 200,
         children = {
             UI.Panel {
                 flexDirection = "column",
                 alignItems = "center",
                 gap = T.spacing.md,
+                width = "86%",
+                maxWidth = 410,
                 backgroundColor = {20, 22, 35, 245},
                 borderRadius = T.radius.lg,
                 borderWidth = 1,
@@ -841,10 +846,13 @@ function QuestRewardUI.ShowGrantedBundle(data, callback)
                 children = {
                     UI.Label {
                         text = (data and data.title) or "奖励已发放",
+                        width = "100%",
                         fontSize = T.fontSize.lg,
                         fontWeight = "bold",
                         fontColor = {255, 215, 0, 255},
                         textAlign = "center",
+                        whiteSpace = "normal",
+                        wordBreak = "break-word",
                     },
                     UI.Panel {
                         width = "80%", height = 1,
@@ -852,12 +860,18 @@ function QuestRewardUI.ShowGrantedBundle(data, callback)
                     },
                     UI.Label {
                         text = (data and data.subtitle) or "获得奖励",
+                        width = "100%",
+                        minHeight = 38,
                         fontSize = T.fontSize.sm,
                         fontColor = {180, 180, 200, 180},
                         textAlign = "center",
+                        whiteSpace = "normal",
+                        wordBreak = "break-word",
                     },
                     UI.Panel {
+                        width = "100%",
                         flexDirection = "row",
+                        flexWrap = "wrap",
                         justifyContent = "center",
                         alignItems = "flex-start",
                         gap = T.spacing.md,

@@ -27,6 +27,7 @@ local BODY_TEXTURES = {
     mortal                  = "image/body_mortal_20260627133129.png",
     immortal_body_1         = "image/body_immortal_1_20260627133119.png",
     immortal_body_qinglian  = "image/body_qinglian_changsheng_20260701120319.png",
+    immortal_body_wanbao_liuli = "image/body_wanbao_liuli_20260713055235.png",
 }
 
 -- ── 卡片常量 ──
@@ -56,7 +57,7 @@ function ImmortalBodyPanel.BuildInto(shell)
                 UI.Label { text = "首次渡劫成功后解锁「仙人之体」", fontSize = T.fontSize.sm, fontColor = T.color.warning, textAlign = "center" },
                 UI.Panel { width = "60%", height = 1, backgroundColor = T.color.border },
                 UI.Label {
-                    text = "仙体是修仙世界追求的至宝\n激活后所有角色均可使用，重复获得无效",
+                    text = "仙体是修仙世界追求的至宝\n激活后所有角色均可使用，特殊来源重复时按规则转化",
                     fontSize = T.fontSize.sm, fontColor = T.color.info, textAlign = "center",
                 },
                 UI.Label {
@@ -119,7 +120,7 @@ function ImmortalBodyPanel.BuildInto(shell)
         children = {
             UI.Label { text = "切换消耗 " .. cost .. " 灵韵，立即保存并退出", fontSize = T.fontSize.xs, fontColor = T.color.textMuted, textAlign = "center" },
             UI.Label { text = "仙体为账号共享，激活后所有角色均可使用", fontSize = T.fontSize.xs, fontColor = T.color.info, textAlign = "center" },
-            UI.Label { text = "重复获得无效", fontSize = T.fontSize.xs, fontColor = T.color.textMuted, textAlign = "center" },
+            UI.Label { text = "不同仙体来源可设独立重复补偿", fontSize = T.fontSize.xs, fontColor = T.color.textMuted, textAlign = "center" },
         },
     })
 end
@@ -161,6 +162,12 @@ function ImmortalBodyPanel._MakeCard(body, profile, activeId, cost, player)
             fontSize = 9, fontColor = T.color.textSecondary, textAlign = "center",
         },
     }
+    if profile.xianyuanGrowth and profile.xianyuanGrowth.fortune then
+        table.insert(bottomChildren, UI.Label {
+            text = "福源+" .. tostring(profile.xianyuanGrowth.fortune.perLevel or 0) .. "/级",
+            fontSize = 9, fontColor = T.color.gold, textAlign = "center",
+        })
+    end
 
     if isActive then
         table.insert(bottomChildren, UI.Label {
@@ -269,6 +276,7 @@ function ImmortalBodyPanel._ShowConfirm(targetBodyId, targetProfile, cost)
                             UI.Label { text = "攻击 " .. (preview.deltaAtk >= 0 and "+" or "") .. preview.deltaAtk, fontSize = T.fontSize.xs, fontColor = preview.deltaAtk >= 0 and T.color.success or T.color.error },
                             UI.Label { text = "防御 " .. (preview.deltaDef >= 0 and "+" or "") .. preview.deltaDef, fontSize = T.fontSize.xs, fontColor = preview.deltaDef >= 0 and T.color.success or T.color.error },
                             UI.Label { text = "回复 " .. (preview.deltaRegen >= 0 and "+" or "") .. string.format("%.1f", preview.deltaRegen), fontSize = T.fontSize.xs, fontColor = preview.deltaRegen >= 0 and T.color.success or T.color.error },
+                            UI.Label { text = "福源 " .. (preview.deltaFortune >= 0 and "+" or "") .. preview.deltaFortune, fontSize = T.fontSize.xs, fontColor = preview.deltaFortune >= 0 and T.color.success or T.color.error },
                         },
                     } or nil,
                     UI.Label { text = "确认后将立即保存并退出游戏", fontSize = T.fontSize.xs, fontColor = T.color.error, textAlign = "center" },

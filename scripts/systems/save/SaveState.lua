@@ -12,10 +12,14 @@ local SaveState = {}
 SaveState.MAX_SLOTS = 4                -- 最大角色槽位数
 SaveState.NEW_CHAR_MAX = 4             -- 允许创建新角色的最大槽位号（1-4 全部开放）
 SaveState.AUTO_SAVE_INTERVAL = 120     -- 每 2 分钟自动存档（P0优化：降低存档频率）
-SaveState.CURRENT_SAVE_VERSION = 35    -- 当前存档数据版本（v35: 情人节相思红豆糕字段）
+SaveState.CURRENT_SAVE_VERSION = 36    -- 当前存档数据版本（v36: 两界阵石等级档案）
 SaveState.DEFAULT_CHARACTER_NAME = "修仙者"  -- 旧存档迁移时的默认角色名
 SaveState.CHECKPOINT_INTERVAL = 5      -- 每 N 次存档写一次定期备份（~10 分钟）
 SaveState.SAVE_DEBOUNCE_INTERVAL = 3   -- 防抖间隔（秒）：3秒内多次请求合并为一次
+SaveState.CLOUD_CALLBACK_TIMEOUT = 30  -- 网络请求回调超时，由 CloudStorage 统一结算
+SaveState.SAVE_TIMEOUT_GRACE = 5       -- SaveSystem 兜底晚于 CloudStorage 一个 Tick 周期
+SaveState.SAVE_RESPONSE_TIMEOUT = SaveState.CLOUD_CALLBACK_TIMEOUT
+    + SaveState.SAVE_TIMEOUT_GRACE
 
 -- ============================================================================
 -- 运行时状态
@@ -33,6 +37,7 @@ SaveState._retryTimer = nil    -- 存档失败后的重试计时器
 SaveState._consecutiveFailures = 0  -- 连续存档失败次数
 SaveState._saveTimeoutElapsed = 0   -- 存档响应超时累计（dt 精度）
 SaveState._saveTimeoutActive = false -- 是否启动存档响应超时检测
+SaveState._activeSaveCallback = nil -- 当前保存业务回调；极端超时/限流时用于确定性失败通知
 SaveState._cachedSlotsIndex = nil   -- 缓存的 slots_index（由 CharacterSelectScreen 设置）
 SaveState._cachedCharName = nil     -- 缓存的角色名（由 CharacterSelectScreen/main 设置）
 SaveState._lastKnownCollectionCount = 0  -- 上次已知的图鉴收录数量（退化检测用）

@@ -170,6 +170,86 @@ TestRegistry.tests = {
     },
 
     {
+        id            = "ch3_ch6_boss_food_drop_contract",
+        group         = "config",
+        path          = "scripts/tests/test_ch3_ch6_boss_food_drop_contract.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "ch6_token_and_sea_pillar_contract",
+        group         = "ch6_token",
+        path          = "scripts/tests/test_ch6_token_and_sea_pillar_contract.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "liangjie_stone",
+        group         = "ch6_token",
+        path          = "scripts/tests/test_liangjie_stone.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "npc_world_loader",
+        group         = "map",
+        path          = "scripts/tests/test_npc_world_loader.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "player_collision",
+        group         = "movement",
+        path          = "scripts/tests/test_player_collision.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "monster_crowd",
+        group         = "movement",
+        path          = "scripts/tests/test_monster_crowd.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "ch6_gm_forge_kits",
+        group         = "config",
+        path          = "scripts/tests/test_ch6_gm_forge_kits.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "artifact_ch6",
+        group         = "artifact",
+        path          = "scripts/tests/test_artifact_ch6.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
         id            = "ch1_quest_contract",
         group         = "quest",
         path          = "scripts/tests/test_ch1_quest_contract.lua",
@@ -200,6 +280,26 @@ TestRegistry.tests = {
     },
 
     {
+        id            = "treasure_sea_map",
+        group         = "map",
+        path          = "scripts/tests/test_treasure_sea_map.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "xianyuan_unique_effect",
+        group         = "combat",
+        path          = "scripts/tests/test_xianyuan_unique_effect.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
         id            = "qinglian_body_system",
         group         = "qinglian_body",
         path          = "scripts/tests/test_qinglian_body_system.lua",
@@ -213,6 +313,36 @@ TestRegistry.tests = {
         id            = "combat_yuanying_skills",
         group         = "combat",
         path          = "scripts/tests/test_combat_yuanying_skills.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "combat_feedback",
+        group         = "combat_feedback",
+        path          = "scripts/tests/test_combat_feedback.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "combat_feedback_integration",
+        group         = "combat_feedback",
+        path          = "scripts/tests/test_combat_feedback_integration.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "combat_feedback_static",
+        group         = "combat_feedback",
+        path          = "scripts/tests/test_combat_feedback_static.lua",
         mode          = "run_file",
         enabled       = true,
         gate          = "blocking",
@@ -469,6 +599,116 @@ TestRegistry.tests = {
         skip_reason   = nil,
     },
 
+    {
+        id            = "account_cosmetics_service",
+        group         = "save",
+        path          = "scripts/tests/test_account_cosmetics_service.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "account_immortal_bodies_service",
+        group         = "save",
+        path          = "scripts/tests/test_account_immortal_bodies_service.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "treasure_map_config",
+        group         = "config",
+        path          = "scripts/tests/test_treasure_map_config.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "treasure_map_runtime_contract",
+        group         = "config",
+        path          = "scripts/tests/test_treasure_map_runtime_contract.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "treasure_map_client_patch",
+        group         = "system",
+        path          = "scripts/tests/test_treasure_map_client_patch.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "treasure_map_handler_flow",
+        group         = "save",
+        path          = "scripts/tests/test_treasure_map_handler_flow.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "treasure_map_black_market_flow",
+        group         = "save",
+        path          = "scripts/tests/test_treasure_map_black_market_flow.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "treasure_consumable_use",
+        group         = "system",
+        path          = "scripts/tests/test_treasure_consumable_use.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "immortal_body_wanbao",
+        group         = "system",
+        path          = "scripts/tests/test_immortal_body_wanbao.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "forge_ui_contract",
+        group         = "config",
+        path          = "scripts/tests/test_forge_ui_contract.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "ch6_forge_system",
+        group         = "config",
+        path          = "scripts/tests/test_ch6_forge_system.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
     ---------------------------------------------------------------------------
     -- CH1-FORGE-PIPELINE: 虎王试炼炉真实 Check/Execute 流水线
     ---------------------------------------------------------------------------
@@ -495,6 +735,30 @@ TestRegistry.tests = {
         enabled       = false,
         gate          = "non_blocking",
         skip_reason   = "lupa_only: uses InventorySystem.SetManager; forbidden in real engine TestRegistry by rules.md",
+    },
+
+    ---------------------------------------------------------------------------
+    -- CH3-HUANGSHA-FORGE-PIPELINE: 黄沙锻造台真实 Check/Execute 流水线
+    ---------------------------------------------------------------------------
+
+    {
+        id            = "ch3_huangsha_forge_pipeline",
+        group         = "config",
+        path          = "scripts/tests/test_ch3_huangsha_forge_pipeline.lua",
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "lupa_only: uses InventorySystem.SetManager; forbidden in real engine TestRegistry by rules.md",
+    },
+
+    {
+        id            = "all_forge_pipeline",
+        group         = "config",
+        path          = "scripts/tests/test_all_forge_pipeline.lua",
+        mode          = "skip",
+        enabled       = false,
+        gate          = "non_blocking",
+        skip_reason   = "lupa_only: executes all forge recipes with an isolated InventorySystem singleton",
     },
 
     ---------------------------------------------------------------------------
@@ -667,13 +931,23 @@ TestRegistry.tests = {
     },
 
     ---------------------------------------------------------------------------
-    -- R8 声望 + T10 法宝 + 额外掉落
+    -- R8/R9 声望、法宝掉落与四 BOSS 技能
     ---------------------------------------------------------------------------
 
     {
         id            = "challenge_r8_extradrop",
         group         = "system",
         path          = "scripts/tests/test_challenge_r8_extradrop.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "challenge_r9",
+        group         = "system",
+        path          = "scripts/tests/test_challenge_r9.lua",
         mode          = "run_file",
         enabled       = true,
         gate          = "blocking",
@@ -847,6 +1121,16 @@ TestRegistry.tests = {
         mode          = "run_file",
         enabled       = true,
         gate          = "non_blocking",
+        skip_reason   = nil,
+    },
+
+    {
+        id            = "xianren_leaderboard",
+        group         = "xianren_leaderboard",
+        path          = "scripts/tests/test_xianren_leaderboard.lua",
+        mode          = "run_file",
+        enabled       = true,
+        gate          = "blocking",
         skip_reason   = nil,
     },
 }

@@ -55,9 +55,7 @@ M.Types.yao_king_8 = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
         { chance = 1.0, type = "lingYun", amount = {2, 2} },
-        { chance = 0.15, type = "consumable", consumableId = "beast_meat" },
-        { chance = 0.05, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.02, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.20, type = "consumable", consumableId = "immortal_bone" },
         -- ⑤突破材料
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_3" },
         -- ⑥技能书
@@ -111,9 +109,7 @@ M.Types.yao_king_7 = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
         { chance = 1.0, type = "lingYun", amount = {2, 3} },
-        { chance = 0.12, type = "consumable", consumableId = "beast_meat" },
-        { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.03, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.25, type = "consumable", consumableId = "immortal_bone" },
         -- ⑤突破材料
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_3" },
         -- ⑥技能书
@@ -145,7 +141,7 @@ M.Types.sand_elite_outer = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "orange" },
         { chance = 0.25, type = "consumable", consumableId = "beast_meat" },
-        { chance = 0.50, type = "consumable", consumableId = "sha_hai_ling" },
+        { chance = 1.0, type = "consumable", consumableId = "sha_hai_ling" },
         -- 世界掉落
         { chance = 0.01, type = "world_drop", pool = "ch3" },  -- 1%
     },
@@ -230,7 +226,7 @@ M.Types.liusha_son_mid = {
         -- ④食物（100%必掉仙骨）
         { chance = 1.0, type = "consumable", consumableId = "immortal_bone" },
         -- ⑤突破材料
-        { chance = 0.03, type = "consumable", consumableId = "spirit_pill_3" },
+        { chance = 0.02, type = "consumable", consumableId = "spirit_pill_3" },
         -- ⑥T7紫色头盔（沙蚀额冠）
         { chance = 0.05, type = "equipment", equipId = "liusha_helmet_ch3" },
         -- ⑦神器碎片（第四五六寨共享0.1%）
@@ -283,7 +279,7 @@ M.Types.liusha_mother = {
         -- ④食物（100%必掉仙骨）
         { chance = 1.0, type = "consumable", consumableId = "immortal_bone" },
         -- ⑤突破材料
-        { chance = 0.05, type = "consumable", consumableId = "spirit_pill_3" },
+        { chance = 0.03, type = "consumable", consumableId = "spirit_pill_3" },
         -- ⑥灵器武器·噬魂（0.5%独立掉落）
         { chance = 0.005, type = "equipment", equipId = "huangsha_shihun" },
         -- ⑦专属腰带·流沙绶带（3%独立掉落）
@@ -346,9 +342,7 @@ M.Types.yao_king_6 = {
         -- ③装备掉落
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
         -- ④宠物食物
-        { chance = 0.10, type = "consumable", consumableId = "beast_meat" },
-        { chance = 0.10, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.03, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.30, type = "consumable", consumableId = "immortal_bone" },
         -- ⑤突破材料
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_3" },
         -- ⑥技能书
@@ -407,9 +401,7 @@ M.Types.yao_king_5 = {
         -- ③装备掉落
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
         -- ④宠物食物
-        { chance = 0.08, type = "consumable", consumableId = "beast_meat" },
-        { chance = 0.10, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.05, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.35, type = "consumable", consumableId = "immortal_bone" },
         -- ⑤突破材料
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_3" },
         -- ⑥技能书
@@ -468,9 +460,7 @@ M.Types.yao_king_4 = {
         -- ③装备掉落
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
         -- ④宠物食物
-        { chance = 0.05, type = "consumable", consumableId = "beast_meat" },
-        { chance = 0.12, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.05, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.40, type = "consumable", consumableId = "immortal_bone" },
         -- ⑤突破材料
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_3" },
         -- ⑥技能书
@@ -502,7 +492,7 @@ M.Types.sand_elite_mid = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "orange" },
         { chance = 0.30, type = "consumable", consumableId = "beast_meat" },
-        { chance = 0.50, type = "consumable", consumableId = "sha_hai_ling" },
+        { chance = 1.0, type = "consumable", consumableId = "sha_hai_ling" },
         -- 世界掉落
         { chance = 0.01, type = "world_drop", pool = "ch3" },  -- 1%
     },
@@ -551,8 +541,7 @@ M.Types.yao_king_3 = {
         { chance = 1.0, type = "lingYun", amount = {4, 7} },
         { chance = 0.01, type = "consumable", consumableId = "yuanying_fruit" },
         -- 宠物食物
-        { chance = 0.10, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.08, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.45, type = "consumable", consumableId = "immortal_bone" },
         -- 突破材料
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_3" },
         -- 技能书
@@ -616,8 +605,7 @@ M.Types.yao_king_2 = {
         { chance = 1.0, type = "lingYun", amount = {4, 8} },
         { chance = 0.02, type = "consumable", consumableId = "yuanying_fruit" },
         -- 宠物食物
-        { chance = 0.08, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.10, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.50, type = "consumable", consumableId = "immortal_bone" },
         -- 突破材料
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_3" },
         -- 技能书
@@ -653,7 +641,7 @@ M.Types.sand_elite_inner = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "white", maxQuality = "orange" },
         { chance = 0.35, type = "consumable", consumableId = "beast_meat" },
-        { chance = 0.50, type = "consumable", consumableId = "sha_hai_ling" },
+        { chance = 1.0, type = "consumable", consumableId = "sha_hai_ling" },
         -- 世界掉落
         { chance = 0.01, type = "world_drop", pool = "ch3" },  -- 1%
     },
@@ -688,8 +676,7 @@ M.Types.kumu_guard = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "green", maxQuality = "orange" },
         { chance = 1.0, type = "lingYun", amount = {3, 5} },
-        { chance = 0.10, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.08, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.31333333333333335, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.01, type = "consumable", consumableId = "yuanying_fruit" },
         -- 世界掉落
         { chance = 0.03, type = "world_drop", pool = "ch3" },  -- 3%
@@ -726,10 +713,9 @@ M.Types.yao_king_1 = {
         { chance = 1.0, type = "lingYun", amount = {5, 10} },
         { chance = 0.03, type = "consumable", consumableId = "yuanying_fruit" },
         -- 宠物食物
-        { chance = 0.05, type = "consumable", consumableId = "immortal_bone" },
-        { chance = 0.15, type = "consumable", consumableId = "demon_essence" },
+        { chance = 0.50, type = "consumable", consumableId = "demon_essence" },
         -- 突破材料
-        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_4" },  -- 灵兽丹·肆1%
+        { chance = 0.03, type = "consumable", consumableId = "spirit_pill_3" },  -- 灵兽丹·叁3%
 
         -- ⑧灵兽赐主T2技能书（5%共享池，随机1本）
         { chance = 0.05, type = "world_drop", pool = "shawanli_owner_books" },

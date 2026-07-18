@@ -7,6 +7,7 @@
 -- 性能要求 §8.1: 变体在构建时确定（此处用确定性 hash 等效），无逐帧随机
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local ActiveZoneData = require("config.ActiveZoneData")
 local RenderUtils = require("rendering.RenderUtils")
 

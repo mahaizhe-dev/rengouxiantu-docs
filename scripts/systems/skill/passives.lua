@@ -74,18 +74,26 @@ function M.SwordShieldPassive(skill, player, skillId, dt)
                 healAmt = ApplyIntegerHeal(self, maxHp * skill.breakHealPercent, maxHp)
             end
 
-            -- 浮字 + 特效
-            CombatSystem.AddFloatingText(
-                self.x, self.y - 1.0,
-                "🔰剑挡 -" .. blocked .. " (余" .. ss.swords .. ")",
-                skill.effectColor, 1.5
-            )
+            CombatSystem.EmitCombatFeedback({
+                kind = "absorb",
+                value = blocked,
+                source = self,
+                target = self,
+                targetKey = "player:self",
+                sourceType = "passive",
+                sourceId = skill.id,
+                sourceName = "剑挡",
+                color = skill.effectColor,
+            }, {
+                x = self.x, y = self.y - 1.0,
+                text = "🔰剑挡 -" .. blocked .. " (余" .. ss.swords .. ")",
+                color = skill.effectColor, lifetime = 1.5,
+            })
             if healAmt > 0 then
-                CombatSystem.AddFloatingText(
-                    self.x, self.y - 0.6,
-                    "+" .. healAmt,
-                    {80, 255, 120, 255}, 1.0
-                )
+                shared.EmitHealFeedback(self, self, healAmt, skill.name, {80, 255, 120, 255}, {
+                    x = self.x, y = self.y - 0.6,
+                    text = "+" .. healAmt, color = {80, 255, 120, 255}, lifetime = 1.0,
+                })
             end
             CombatSystem.AddSkillEffect(self, skill.id, 1.2,
                 skill.effectColor, "sword_shield_passive", {
@@ -198,6 +206,7 @@ function M.TriggerNthCastEffect(skill, player, SkillSystem)
         facingAngle  = targetAngle,
     })
     if hitCount == 0 then return end
+    local castId = CombatSystem.NextCombatCastId(skill.id)
 
     local triggerHeal = 0
     if (skill.triggerOnHitHealFromKillHealMultiplier or 0) > 0 then
@@ -214,7 +223,7 @@ function M.TriggerNthCastEffect(skill, player, SkillSystem)
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage, isCrit = HitResolver.Standard(player, m,
+            local damage, isCrit, isTianzhu = HitResolver.Standard(player, m,
                 math_floor(effectiveAtk * (skill.triggerDamageMultiplier or 3.0)))
 
             local dmgText = "⚡" .. damage
@@ -223,22 +232,24 @@ function M.TriggerNthCastEffect(skill, player, SkillSystem)
                 dmgText = "⚡暴击 " .. damage
                 dmgColor = {255, 220, 50, 255}
             end
-            CombatSystem.AddFloatingText(m.x, m.y - 0.3, dmgText, dmgColor, 1.2)
+            shared.EmitSkillDamage(player, m, skill, damage, isCrit, isTianzhu, castId, {
+                sourceType = "passive",
+                hitIndex = i,
+                legacyText = dmgText,
+                legacyColor = dmgColor,
+            })
         end
     end
 
-    CombatSystem.AddFloatingText(
-        player.x, player.y - 0.8,
-        skill.icon .. skill.name,
-        skill.effectColor, 2.0
-    )
+    CombatSystem.EmitLegacyOnlyFeedback({
+        x = player.x, y = player.y - 0.8,
+        text = skill.icon .. skill.name, color = skill.effectColor, lifetime = 2.0,
+    })
     if triggerHeal > 0 then
-        CombatSystem.AddFloatingText(
-            player.x, player.y - 0.35,
-            "+" .. triggerHeal,
-            {80, 255, 120, 255},
-            1.2
-        )
+        shared.EmitHealFeedback(player, player, triggerHeal, skill.name, {80, 255, 120, 255}, {
+            x = player.x, y = player.y - 0.35,
+            text = "+" .. triggerHeal, color = {80, 255, 120, 255}, lifetime = 1.2,
+        })
     end
 
     CombatSystem.AddSkillEffect(player, skill.id, skill.triggerRange or 1.5,
@@ -308,6 +319,9 @@ function M.CreateSwordFormationFromSkill(skill, player, cx, cy)
         currentTarget = nil,
         source = player,
         spawnTime = GameState.gameTime or 0,
+        sourceId = skill.id,
+        sourceName = skill.name,
+        castId = CombatSystem.NextCombatCastId(skill.id),
     })
 
     CombatSystem.AddFloatingText(
@@ -368,9 +382,9 @@ function M.UpdateSwordFormations(dt)
                         tickDmg = GameConfig.CalcDamage(sf.rawDmg, nearest.def)
                     end
                     tickDmg = math_max(1, tickDmg)
-                    local isCrit = false
+                    local isCrit, isTianzhu = false, false
                     if sf.source and sf.source.ApplyCrit then
-                        tickDmg, isCrit = sf.source:ApplyCrit(tickDmg)
+                        tickDmg, isCrit, isTianzhu = sf.source:ApplyCrit(tickDmg)
                     end
                     tickDmg = nearest:TakeDamage(tickDmg, sf.source)
                     local dmgText = tickDmg .. " ⚡"
@@ -379,11 +393,21 @@ function M.UpdateSwordFormations(dt)
                         dmgText = tickDmg .. " ⚡💥"
                         dmgColor = {255, 200, 50, 255}
                     end
-                    CombatSystem.AddFloatingText(
-                        nearest.x, nearest.y - 0.4,
-                        dmgText,
-                        dmgColor, 0.6
-                    )
+                    CombatSystem.EmitDamageFeedback(sf.source, nearest, tickDmg, {
+                        sourceType = "passive",
+                        sourceId = sf.sourceId,
+                        sourceName = sf.sourceName,
+                        effectId = tostring(sf.castId),
+                        damageTag = "dot",
+                        impact = "dot",
+                        criticality = shared.Criticality(isCrit, isTianzhu),
+                        castId = sf.castId,
+                        color = {150, 200, 255, 255},
+                        y = nearest.y - 0.4,
+                    }, {
+                        x = nearest.x, y = nearest.y - 0.4,
+                        text = dmgText, color = dmgColor, lifetime = 0.6,
+                    })
                 end
             end
 
@@ -423,8 +447,9 @@ function M.TriggerChargePassiveRelease(skill)
         heavyDmg = math_floor(heavyDmg * (1 + heavyDmgBonus))
     end
 
-    local isCrit
-    heavyDmg, isCrit = player:ApplyCrit(heavyDmg)
+    local isCrit, isTianzhu
+    heavyDmg, isCrit, isTianzhu = player:ApplyCrit(heavyDmg)
+    local castId = CombatSystem.NextCombatCastId(skill.id)
 
     local targets, hitCount = TargetSelector.SelectCircle(
         player.x, player.y, skill.aoeRange or 1.5, skill.maxTargets or 8
@@ -435,12 +460,23 @@ function M.TriggerChargePassiveRelease(skill)
         local m = targets[i]
         if m and m.alive then
             actualHeavyDmg = HitResolver.Hit(player, m, heavyDmg, { skipCalcDamage = true, skipCrit = true })
+            shared.EmitSkillDamage(player, m, skill, actualHeavyDmg, isCrit, isTianzhu, castId, {
+                sourceType = "passive",
+                hitIndex = i,
+                damageTag = "heavy",
+                impact = "heavy",
+                noLegacy = true,
+            })
         end
     end
 
-    local prefix = isCrit and "🐘震地暴击 " or "🐘震地 "
-    local color = isCrit and {255, 220, 50, 255} or skill.effectColor
-    CombatSystem.AddFloatingText(player.x, player.y - 0.8, prefix .. actualHeavyDmg, color, 2.0)
+    local prefix = isTianzhu and "天诛震地 " or (isCrit and "🐘震地暴击 " or "🐘震地 ")
+    local color = isTianzhu and {0, 220, 220, 255}
+        or (isCrit and {255, 220, 50, 255} or skill.effectColor)
+    CombatSystem.EmitLegacyOnlyFeedback({
+        x = player.x, y = player.y - 0.8,
+        text = prefix .. actualHeavyDmg, color = color, lifetime = 2.0,
+    })
 
     CombatSystem.AddSkillEffect(player, skill.id, skill.aoeRange or 1.5,
         skill.effectColor, "charge_passive", nil)
@@ -504,14 +540,28 @@ function M.TogglePassiveTick(skill, player, skillId, dt, SkillSystem)
             if aoeDmg > 0 then
                 for _, m in ipairs(targets) do
                     if m and m.alive then
-                        local finalDmg, isCrit = HitResolver.Hit(player, m, aoeDmg, {
+                        local finalDmg, isCrit, isTianzhu = HitResolver.Hit(player, m, aoeDmg, {
                             skipCalcDamage = true,
                             conditionalCrit = true, canCrit = skill.canCrit,
                             pcallTakeDamage = true, isDot = true,
                         })
                         local textScale = isCrit and 1.6 or 1.2
                         local critColor = isCrit and {255, 200, 0, 255} or skill.effectColor
-                        CombatSystem.AddFloatingText(m.x, m.y - 0.3, tostring(finalDmg), critColor, textScale)
+                        CombatSystem.EmitDamageFeedback(player, m, finalDmg, {
+                            sourceType = "passive",
+                            sourceId = skill.id,
+                            sourceName = skill.name,
+                            damageTag = "dot",
+                            impact = "dot",
+                            criticality = shared.Criticality(isCrit, isTianzhu),
+                            effectId = skill.id,
+                            color = skill.effectColor,
+                            y = m.y - 0.3,
+                        }, {
+                            x = m.x, y = m.y - 0.3,
+                            text = tostring(finalDmg), color = critColor,
+                            lifetime = 1.0, baseScale = textScale,
+                        })
                     end
                 end
             end
@@ -570,6 +620,7 @@ function M.AccumulateTriggerTick(skill, player, skillId, dt)
     player[field] = 0
 
     local baseDmg = math_floor(maxHp * (skill.damagePercent or 0.10))
+    local castId = CombatSystem.NextCombatCastId(skill.id)
 
     -- 血怒值加成
     if skill.useBloodRageValue then
@@ -580,19 +631,29 @@ function M.AccumulateTriggerTick(skill, player, skillId, dt)
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage, isCrit = HitResolver.Hit(player, m, baseDmg, {
+            local damage, isCrit, isTianzhu = HitResolver.Hit(player, m, baseDmg, {
                 skipCalcDamage = true, pcallTakeDamage = true,
             })
 
             local dmgText = isCrit and (skill.icon .. "血神暴击 " .. damage) or (skill.icon .. "血神 " .. damage)
             local dmgColor = isCrit and {255, 220, 50, 255} or (skill.effectColor or {180, 20, 20, 255})
-            CombatSystem.AddFloatingText(m.x, m.y - 0.3, dmgText, dmgColor, 1.8)
+            shared.EmitSkillDamage(player, m, skill, damage, isCrit, isTianzhu, castId, {
+                sourceType = "passive",
+                hitIndex = i,
+                legacyText = dmgText,
+                legacyColor = dmgColor,
+                legacyLifetime = 1.8,
+            })
         end
     end
 
     local shapeData = skill.effectDuration and { duration = skill.effectDuration } or nil
     CombatSystem.AddSkillEffect(player, skill.id, skill.aoeRange or 2, skill.effectColor, "melee_aoe", shapeData)
-    CombatSystem.AddFloatingText(player.x, player.y - 1.0, skill.icon .. skill.name .. "!", skill.effectColor or {180, 20, 20, 255}, 2.0)
+    CombatSystem.EmitLegacyOnlyFeedback({
+        x = player.x, y = player.y - 1.0,
+        text = skill.icon .. skill.name .. "!",
+        color = skill.effectColor or {180, 20, 20, 255}, lifetime = 2.0,
+    })
 
     print("[SkillSystem] " .. skill.name .. " triggered! baseDmg=" .. baseDmg .. " hit " .. hitCount .. " targets")
 end

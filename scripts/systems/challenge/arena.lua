@@ -20,7 +20,7 @@ local M = {}
 --- 解锁指定声望等级（新版）
 ---@param CS table ChallengeSystem ref
 ---@param factionKey string
----@param repLevel number 1-8
+---@param repLevel number 1-9
 ---@return boolean success
 ---@return string|nil message
 function M.UnlockReputation(CS, factionKey, repLevel)
@@ -124,7 +124,7 @@ end
 --- 进入新版声望挑战
 ---@param CS table
 ---@param factionKey string
----@param repLevel number 1-8
+---@param repLevel number 1-9
 ---@param gameMap table
 ---@param camera table|nil
 ---@return boolean success
@@ -372,10 +372,7 @@ function M.Exit(CS, gameMap, isVictory, camera)
     end
 
     CombatSystem.ClearEffects()
-    CombatSystem.ClearBloodMark()
-    CombatSystem.ClearBarrierZones()
-    CombatSystem.ClearJadeShield()
-    CombatSystem.ClearSealMark()
+    CombatSystem.ClearChallengeStatusEffects()
 
     EventBus.Emit("challenge_exited", {
         faction = CS.currentFaction,

@@ -1,5 +1,6 @@
 ---@diagnostic disable
 -- entities/player.lua - 玩家渲染
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.entities.shared")
 local GameConfig = shared.GameConfig
 local GameState = shared.GameState
@@ -12,8 +13,12 @@ local PetAppearanceConfig = shared.PetAppearanceConfig
 local getRealmColorGroup = shared.getRealmColorGroup
 local getHpColor = shared.getHpColor
 local PlayerAnimator = require("rendering.PlayerAnimator")
+local Ch6ForgeEffects = require("systems.Ch6ForgeEffects")
 
 local M = {}
+local TownReturnSystem_ = nil
+local TreasureMapSystem_ = nil
+
 function M.RenderPlayer(nvg, l, camera)
     local player = GameState.player
     if not player or not player.alive then return end
@@ -717,6 +722,55 @@ function M.RenderPlayer(nvg, l, camera)
         end
     end
 
+    -- ── 镇界天幕（独立于八卦护盾的双层六边护罩） ──
+    local zhenjieHp, zhenjieMax, zhenjieDuration = Ch6ForgeEffects.GetShieldStatus(player)
+    if zhenjieHp > 0 and zhenjieMax > 0 then
+        local time = GameState.gameTime or 0
+        local ratio = zhenjieHp / zhenjieMax
+        local pulse = math.sin(time * 4.0) * 0.12 + 0.88
+        local radius = halfSize * (1.42 + 0.04 * pulse)
+        local centerY = sy - halfSize * 0.1
+        local glow = nvgRadialGradient(
+            nvg, sx, centerY, radius * 0.35, radius,
+            nvgRGBA(70, 120, 255, math.floor(75 * ratio * pulse)),
+            nvgRGBA(40, 80, 255, 0))
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, sx, centerY, radius)
+        nvgFillPaint(nvg, glow)
+        nvgFill(nvg)
+
+        for ring = 1, 2 do
+            local ringRadius = radius * (1 - (ring - 1) * 0.16)
+            local rotation = time * (ring == 1 and 0.9 or -1.2)
+            nvgBeginPath(nvg)
+            for point = 0, 6 do
+                local angle = rotation + point * math.pi / 3
+                local px = sx + math.cos(angle) * ringRadius
+                local py = centerY + math.sin(angle) * ringRadius
+                if point == 0 then nvgMoveTo(nvg, px, py) else nvgLineTo(nvg, px, py) end
+            end
+            nvgStrokeColor(nvg, nvgRGBA(105, 165, 255,
+                math.floor((ring == 1 and 210 or 130) * ratio * pulse)))
+            nvgStrokeWidth(nvg, ring == 1 and 2.2 or 1.2)
+            nvgStroke(nvg)
+        end
+
+        local textY = sy + halfSize * 0.3
+        if player:IsPetBerserkActive() then textY = textY + T.worldFont.level + 2 end
+        if player.shieldHp and player.shieldHp > 0 then textY = textY + T.worldFont.level + 2 end
+        local okArtifact, ArtifactCh4 = pcall(require, "systems.ArtifactSystem_ch4")
+        if okArtifact and ArtifactCh4 and ArtifactCh4.passiveUnlocked then
+            local _, artifactMax = ArtifactCh4.GetShieldStatus()
+            if artifactMax > 0 then textY = textY + T.worldFont.level + 2 end
+        end
+        nvgFontFace(nvg, "sans")
+        nvgFontSize(nvg, T.worldFont.level)
+        nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_TOP)
+        nvgFillColor(nvg, nvgRGBA(135, 185, 255, math.floor(240 * pulse)))
+        nvgText(nvg, sx, textY,
+            "镇界 " .. math.floor(zhenjieHp) .. " " .. math.ceil(zhenjieDuration) .. "s", nil)
+    end
+
     -- ── 献祭光环视觉效果（橙红脉冲光环） ──
     if CombatSystem.sacrificeAuraActive then
         local auraRange = (CombatSystem.sacrificeAuraRange or 1.5) * ts
@@ -895,6 +949,52 @@ function M.RenderPlayer(nvg, l, camera)
         nvgEllipse(nvg, sx, fxFeetY, glowR, glowR * 0.3)
         nvgFillColor(nvg, nvgRGBA(100, 200, 255, glowAlpha))
         nvgFill(nvg)
+    end
+
+    -- 藏宝图同图传送：进入宝藏岛与归航使用青金双色光柱。
+    if not TreasureMapSystem_ then
+        TreasureMapSystem_ = require("systems.TreasureMapSystem")
+    end
+    local treasureFxTimer, treasureFxKind, treasureFxDuration = TreasureMapSystem_.GetTeleportFx()
+    if treasureFxTimer and treasureFxTimer > 0 then
+        local fxProgress = 1 - treasureFxTimer / math.max(treasureFxDuration, 0.01)
+        local feetY = sy + halfSize
+        local pillarH = ts * 3.4
+        local pillarW = ts * 0.7
+        local alpha = math.floor(235 * (1 - fxProgress))
+        local r1, g1, b1 = 65, 210, 220
+        local r2, g2, b2 = 255, 218, 105
+        if treasureFxKind == "return" then
+            r1, g1, b1 = 100, 175, 255
+        end
+
+        local pillar = nvgLinearGradient(nvg,
+            sx, feetY - pillarH, sx, feetY,
+            nvgRGBA(r2, g2, b2, 0),
+            nvgRGBA(r1, g1, b1, alpha)
+        )
+        nvgBeginPath(nvg)
+        nvgRect(nvg, sx - pillarW / 2, feetY - pillarH, pillarW, pillarH)
+        nvgFillPaint(nvg, pillar)
+        nvgFill(nvg)
+
+        local ringR = ts * (0.65 + fxProgress * 0.55)
+        nvgBeginPath(nvg)
+        nvgEllipse(nvg, sx, feetY, ringR, ringR * 0.34)
+        nvgStrokeColor(nvg, nvgRGBA(r2, g2, b2, alpha))
+        nvgStrokeWidth(nvg, 2)
+        nvgStroke(nvg)
+
+        for i = 1, 6 do
+            local angle = fxProgress * math.pi * 4 + i * math.pi / 3
+            local radius = ts * (0.22 + fxProgress * 0.72)
+            local px = sx + math.cos(angle) * radius
+            local py = feetY - ts * (0.3 + fxProgress * 1.8) + math.sin(angle) * radius * 0.25
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, px, py, 2.2)
+            nvgFillColor(nvg, nvgRGBA(r2, g2, b2, alpha))
+            nvgFill(nvg)
+        end
     end
 
 end

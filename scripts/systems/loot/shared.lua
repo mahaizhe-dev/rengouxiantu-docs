@@ -13,6 +13,7 @@ shared.EventBus       = require("core.EventBus")
 shared.Utils          = require("core.Utils")
 shared.IconUtils      = require("utils.IconUtils")
 shared.EquipmentUtils = require("utils.EquipmentUtils")
+shared.ForgeStatRules = require("systems.forge.ForgeStatRules")
 
 -- ── 普通装备基础售价查表 ──
 shared.BASE_SELL_PRICE = {10, 20, 35, 55, 80, 110, 140, 180, 220, 270, 320}
@@ -61,14 +62,7 @@ shared.TIER_QUALITY_GATE = {
 shared.TIER_POSITION_DECAY = { 1.0, 0.5, 0.2 }
 
 -- ── 特殊装备副属性波动区间 ──
-shared.SPECIAL_FLUCTUATION = {
-    purple  = { 1.0, 0.2 },
-    orange  = { 1.1, 0.2 },
-    cyan    = { 1.1, 0.3 },
-    red     = { 1.2, 0.3 },
-    gold    = { 1.2, 0.4 },
-    rainbow = { 1.3, 0.4 },
-}
+shared.SPECIAL_FLUCTUATION = shared.ForgeStatRules.SPECIAL_FLUCTUATION
 
 -- ── 副属性 baseValue 查找表 ──
 shared.SUB_BASE_MAP = {}

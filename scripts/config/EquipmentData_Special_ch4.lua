@@ -606,5 +606,26 @@ return {
         name = "封魔盘Lv.8", slot = "exclusive", quality = "cyan", tier = 10,
         isFabaoCollection = true, fabaoTemplateId = "fabao_fengmopan", fabaoTier = 10,
     },
+    -- 第六章·T11 圣器级法宝（Lv.9，必须精确匹配红色品质）
+    fabao_xuehaitu_t11 = {
+        name = "血海图Lv.9", slot = "exclusive", quality = "red", tier = 11,
+        isFabaoCollection = true, fabaoTemplateId = "fabao_xuehaitu", fabaoTier = 11,
+    },
+    fabao_haoqiyin_t11 = {
+        name = "浩气印Lv.9", slot = "exclusive", quality = "red", tier = 11,
+        isFabaoCollection = true, fabaoTemplateId = "fabao_haoqiyin", fabaoTier = 11,
+    },
+    fabao_qingyunta_t11 = {
+        name = "青云塔Lv.9", slot = "exclusive", quality = "red", tier = 11,
+        isFabaoCollection = true, fabaoTemplateId = "fabao_qingyunta", fabaoTier = 11,
+    },
+    fabao_fengmopan_t11 = {
+        name = "封魔盘Lv.9", slot = "exclusive", quality = "red", tier = 11,
+        isFabaoCollection = true, fabaoTemplateId = "fabao_fengmopan", fabaoTier = 11,
+    },
+    fabao_longwangling_t11 = {
+        name = "龙王令", slot = "exclusive", quality = "red", tier = 11,
+        isFabaoCollection = true, fabaoTemplateId = "fabao_longwangling", fabaoTier = 11,
+    },
 
 }

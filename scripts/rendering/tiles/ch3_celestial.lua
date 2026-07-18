@@ -1,4 +1,5 @@
 -- tiles/ch3_celestial.lua - 第三章仙府/封印瓦片
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.tiles.shared")
 local M = {}
 

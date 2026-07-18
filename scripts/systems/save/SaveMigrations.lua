@@ -1623,6 +1623,46 @@ local MIGRATIONS = {
         data.version = 35
         return data
     end,
+
+    -- v35 → v36: 两界阵石规范档案与派生属性字段初始化
+    [36] = function(data)
+        local stoneIds = { "xuanbi", "tianfeng", "houtu", "huiyuan" }
+        local rawSystem = type(data.liangjieStones) == "table"
+            and data.liangjieStones or {}
+        local rawStones = type(rawSystem.stones) == "table"
+            and rawSystem.stones or rawSystem
+        local stones = {}
+
+        for _, stoneId in ipairs(stoneIds) do
+            local raw = type(rawStones[stoneId]) == "table"
+                and rawStones[stoneId] or {}
+            local activated = raw.activated == true
+            local level = 0
+            if activated and type(raw.level) == "number" and raw.level == raw.level then
+                level = math.max(0, math.min(30, math.floor(raw.level)))
+            end
+            stones[stoneId] = {
+                activated = activated,
+                level = level,
+                -- 已激活旧档不补发一次性经验奖励。
+                activationRewardClaimed = activated,
+            }
+        end
+
+        data.liangjieStones = {
+            version = 1,
+            stones = stones,
+        }
+        if data.player then
+            data.player.liangjieStoneAtk = 0
+            data.player.liangjieStoneDef = 0
+            data.player.liangjieStoneMaxHp = 0
+            data.player.liangjieStoneHpRegen = 0
+        end
+        print("[SaveSystem] v35→v36 migration: liangjie stone archive initialized")
+        data.version = 36
+        return data
+    end,
 }
 
 -- ============================================================================

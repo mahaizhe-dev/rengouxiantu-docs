@@ -83,6 +83,8 @@ function AscensionPanel.BuildInto(shell)
     local required = AscensionSystem.GetRequiredProgress()
     local progress = math.min(ascState.progress, required)
     local isFull = AscensionSystem.IsProgressFull()
+    local targetRequiredLevel = target and target.requiredLevel or 0
+    local targetMaxLevel = target and target.maxLevel or 0
 
     local materialId = AscensionSystem.GetCurrentMaterial()
     local materialCount = InventorySystem.CountConsumable(materialId)
@@ -197,7 +199,16 @@ function AscensionPanel.BuildInto(shell)
             -- 按钮（居中）
             UI.Panel {
                 width = "100%", alignItems = "center",
-                children = { AscensionPanel._BuildActionButton(isFull, target, materialCount) },
+                gap = T.spacing.xs,
+                children = {
+                    target and UI.Label {
+                        text = "目标要求 Lv." .. targetRequiredLevel .. " / 等级上限 Lv." .. targetMaxLevel,
+                        fontSize = T.fontSize.xs,
+                        fontColor = player.level >= targetRequiredLevel and T.color.textMuted or T.color.warning,
+                        textAlign = "center",
+                    } or nil,
+                    AscensionPanel._BuildActionButton(isFull, target, materialCount),
+                },
             },
         },
     })
@@ -290,16 +301,19 @@ function AscensionPanel._BuildActionButton(isFull, target, materialCount)
     end
 
     -- 满 + 小境界：突破
+    local player = GameState.player
+    local reqLevel = target and target.requiredLevel or 1
+    local levelOk = player and player.level >= reqLevel
     return UI.Button {
-        text = "突破!",
+        text = levelOk and "突破!" or ("需要 Lv." .. reqLevel),
         fontSize = T.fontSize.md, fontWeight = "bold",
-        backgroundColor = T.color.btnSuccess,
-        fontColor = T.color.btnSuccessFg,
+        backgroundColor = levelOk and T.color.btnSuccess or T.color.btnDisabled,
+        fontColor = levelOk and T.color.btnSuccessFg or T.color.btnDisabledFg,
         borderRadius = T.radius.md,
-        borderWidth = 2,
-        borderColor = T.color.gold,
+        borderWidth = levelOk and 2 or 0,
+        borderColor = levelOk and T.color.gold or nil,
         width = "50%", height = 36,
-        onClick = function()
+        onClick = levelOk and function()
             local ok, oldRealmId, newRealmId = AscensionSystem.BreakthroughMinor()
             if ok then
                 local BreakthroughCelebration = require("ui.BreakthroughCelebration")
@@ -309,7 +323,7 @@ function AscensionPanel._BuildActionButton(isFull, target, materialCount)
             end
             local RealmPanel = require("ui.RealmPanel")
             RealmPanel.Refresh()
-        end,
+        end or nil,
     }
 end
 

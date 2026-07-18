@@ -1,36 +1,19 @@
+---@diagnostic disable: undefined-field, unnecessary-if, assign-type-mismatch
 -- ============================================================================
 -- test_challenge_r8_extradrop.lua — R8 声望 + T10 法宝 + 额外掉落 自测
 --
 -- 覆盖场景：
---   TEST 1:  MAX_REPUTATION_LEVEL == 8
---   TEST 2:  REPUTATION_TIER[8] == 10
---   TEST 3:  REPUTATION_TOKEN[8] == "taixu_jianling"
---   TEST 4:  REPUTATION_UNLOCK_COST[8] == 3000
---   TEST 5:  REPUTATION_FIRST_CLEAR_QUALITY[8] == "cyan"
---   TEST 6:  BuildExtraDropTable(8) 返回非空表
---   TEST 7:  R8 金条数量 = 8
---   TEST 8:  R8 食物 = dragon_marrow × 3
---   TEST 9:  R8 包含 ganggu_essence 条目
---   TEST 10: R8 修炼果 count = 5
---   TEST 11: R8 灵韵果 count = 3
---   TEST 12: R8 五系精华 chance = 0.003
---   TEST 13: 4 阵营 MonsterTypes 都有 R8 Boss 定义
---   TEST 14: R8 Boss 属性验证（level=120, realm=dujie_1, category=saint_boss）
---   TEST 15: EquipmentData 4 法宝模板 iconByTier[10] 非空
---   TEST 16: EquipmentData 4 法宝模板 sellPriceByTier[10] == 1200
---   TEST 17: LootSystem 品质上限 — T10 tier → maxQ == "red"
---   TEST 18: LootSystem 品质上限 — T9 tier → maxQ == "cyan"
---   TEST 19: ChallengeSystem Init 生成 8 级声望槽位
---   TEST 20: GetExtraTotalChance(8) > GetExtraTotalChance(7)
+--   1. R8 基础配置与额外掉落表
+--   2. R7/R8 非首通声望法宝：绿色起步，最高灵器
+--   3. 非声望默认法宝生成仍保留 T10 可红
+--   4. 显式红色法宝生成不受影响
+--   5. 四种声望法宝模板与 R7/R8 配置完整
+--   6. 章节入口 + 中洲入口 NPC 覆盖完整
 -- ============================================================================
 
 local passed = 0
 local failed = 0
 local totalTests = 0
-
--- ─────────────────────────────────────────────
--- 断言工具
--- ─────────────────────────────────────────────
 
 local function assert_eq(actual, expected, testName)
     totalTests = totalTests + 1
@@ -69,46 +52,32 @@ local function assert_gt(a, b, testName)
     end
 end
 
--- ─────────────────────────────────────────────
--- require 模块
--- ─────────────────────────────────────────────
-
 local ChallengeConfig = require("config.ChallengeConfig")
+local GameConfig = require("config.GameConfig")
+local EquipmentData = require("config.EquipmentData")
+local LootSystem = require("systems.LootSystem")
+local generation = require("systems.loot.generation")
 
 print("========================================")
 print("  TEST: R8 声望 + T10 法宝 + 额外掉落")
 print("========================================")
 
--- ─────────────────────────────────────────────
--- TEST 1-5: ChallengeConfig 基础查表
--- ─────────────────────────────────────────────
-
-assert_eq(ChallengeConfig.MAX_REPUTATION_LEVEL, 8,
-    "TEST 1: MAX_REPUTATION_LEVEL == 8")
-
+assert_eq(ChallengeConfig.MAX_REPUTATION_LEVEL, 9,
+    "MAX_REPUTATION_LEVEL == 9")
 assert_eq(ChallengeConfig.REPUTATION_TIER[8], 10,
-    "TEST 2: REPUTATION_TIER[8] == 10")
-
+    "REPUTATION_TIER[8] == 10")
 assert_eq(ChallengeConfig.REPUTATION_TOKEN[8], "taixu_jianling",
-    "TEST 3: REPUTATION_TOKEN[8] == taixu_jianling")
-
+    "REPUTATION_TOKEN[8] == taixu_jianling")
 assert_eq(ChallengeConfig.REPUTATION_UNLOCK_COST[8], 3000,
-    "TEST 4: REPUTATION_UNLOCK_COST[8] == 3000")
-
-assert_eq(ChallengeConfig.REPUTATION_FIRST_CLEAR_QUALITY[8], "cyan",
-    "TEST 5: REPUTATION_FIRST_CLEAR_QUALITY[8] == cyan")
-
--- ─────────────────────────────────────────────
--- TEST 6-12: BuildExtraDropTable(8) 内容验证
--- ─────────────────────────────────────────────
+    "REPUTATION_UNLOCK_COST[8] == 3000")
+assert_eq(ChallengeConfig.GetFirstClearQuality(8), "orange",
+    "R8 首通品质保持 orange")
 
 local entries = ChallengeConfig.BuildExtraDropTable(8)
-assert_true(#entries > 0, "TEST 6: BuildExtraDropTable(8) 非空")
+assert_true(#entries > 0, "BuildExtraDropTable(8) 非空")
 
--- 找各类条目
 local goldEntry, foodEntry, gangguEntry, fruitEntry, lingyunEntry
 local essenceEntries = {}
-
 for _, e in ipairs(entries) do
     if e.type == "gold_bar" then goldEntry = e
     elseif e.type == "food" then foodEntry = e
@@ -119,45 +88,31 @@ for _, e in ipairs(entries) do
     end
 end
 
-assert_not_nil(goldEntry, "TEST 7a: R8 金条条目存在")
-if goldEntry then
-    assert_eq(goldEntry.count, 8, "TEST 7b: R8 金条数量 = 8")
-end
+assert_not_nil(goldEntry, "R8 金条条目存在")
+if goldEntry then assert_eq(goldEntry.count, 16, "R8 金条数量 = 16") end
 
-assert_not_nil(foodEntry, "TEST 8a: R8 食物条目存在")
+assert_not_nil(foodEntry, "R8 食物条目存在")
 if foodEntry then
-    assert_eq(foodEntry.subId, "dragon_marrow", "TEST 8b: R8 食物 = dragon_marrow")
-    assert_eq(foodEntry.count, 3, "TEST 8c: R8 食物数量 = 3")
+    assert_eq(foodEntry.subId, "dragon_marrow", "R8 食物 = dragon_marrow")
+    assert_eq(foodEntry.count, 3, "R8 食物数量 = 3")
 end
 
-assert_not_nil(gangguEntry, "TEST 9: R8 包含 ganggu_essence")
+assert_not_nil(gangguEntry, "R8 包含 ganggu_essence")
+assert_not_nil(fruitEntry, "R8 修炼果存在")
+if fruitEntry then assert_eq(fruitEntry.count, 5, "R8 修炼果 count = 5") end
+assert_not_nil(lingyunEntry, "R8 灵韵果存在")
+if lingyunEntry then assert_eq(lingyunEntry.count, 3, "R8 灵韵果 count = 3") end
 
-assert_not_nil(fruitEntry, "TEST 10a: R8 修炼果存在")
-if fruitEntry then
-    assert_eq(fruitEntry.count, 5, "TEST 10b: R8 修炼果 count = 5")
-end
-
-assert_not_nil(lingyunEntry, "TEST 11a: R8 灵韵果存在")
-if lingyunEntry then
-    assert_eq(lingyunEntry.count, 3, "TEST 11b: R8 灵韵果 count = 3")
-end
-
--- 五系精华 chance
 if #essenceEntries >= 5 then
     assert_eq(essenceEntries[1].chance, 0.003,
-        "TEST 12: R8 五系精华 chance = 0.003")
+        "R8 五系精华 chance = 0.003")
 else
     totalTests = totalTests + 1
     failed = failed + 1
-    print("  FAIL: TEST 12: 五系精华条目数不足 (got " .. #essenceEntries .. ")")
+    print("  FAIL: 五系精华条目数不足 (got " .. #essenceEntries .. ")")
 end
 
--- ─────────────────────────────────────────────
--- TEST 13-14: MonsterTypes R8 Boss 验证
--- ─────────────────────────────────────────────
-
-local MonsterTypes = require("config.MonsterTypes_ch3")
-
+local MonsterTypes = require("config.MonsterData")
 local r8Bosses = {
     { id = "challenge_shenmo_r8",    name = "沈墨" },
     { id = "challenge_luqingyun_r8", name = "陆青云" },
@@ -167,110 +122,149 @@ local r8Bosses = {
 
 for _, boss in ipairs(r8Bosses) do
     local def = MonsterTypes.Types[boss.id]
-    assert_not_nil(def, "TEST 13: " .. boss.name .. " R8 Boss 定义存在")
+    assert_not_nil(def, boss.name .. " R8 Boss 定义存在")
     if def then
-        assert_eq(def.level, 120,
-            "TEST 14a: " .. boss.name .. " level=120")
-        assert_eq(def.realm, "dujie_1",
-            "TEST 14b: " .. boss.name .. " realm=dujie_1")
-        assert_eq(def.category, "saint_boss",
-            "TEST 14c: " .. boss.name .. " category=saint_boss")
+        assert_eq(def.level, 120, boss.name .. " level=120")
+        assert_eq(def.realm, "zhexian_1", boss.name .. " realm=zhexian_1")
+        assert_eq(def.category, "saint_boss", boss.name .. " category=saint_boss")
     end
 end
 
--- ─────────────────────────────────────────────
--- TEST 15-16: EquipmentData 法宝模板 T10
--- ─────────────────────────────────────────────
-
-local EquipmentData = require("config.EquipmentData")
-
-local fabaoTemplateKeys = {
-    "blood_sea_map",
-    "qingyun_pagoda",
-    "haoqi_seal",
-    "fengmo_plate",
+local factionContracts = {
+    xuesha = { tpl = "fabao_xuehaitu", oldNpc = "xuesha_spy", midNpc = "xuesha_master" },
+    haoqi = { tpl = "fabao_haoqiyin", oldNpc = "haoqi_envoy", midNpc = "haoqi_master" },
+    qingyun = { tpl = "fabao_qingyunta", chapterNpc = "qingyun_envoy_ch3", midNpc = "qingyun_master" },
+    fengmo = { tpl = "fabao_fengmopan", chapterNpc = "fengmodian_envoy_ch3", midNpc = "fengmo_master" },
 }
 
-for _, key in ipairs(fabaoTemplateKeys) do
-    local tpl = EquipmentData.FABAO_TEMPLATES and EquipmentData.FABAO_TEMPLATES[key]
+for factionKey, contract in pairs(factionContracts) do
+    local faction = ChallengeConfig.FACTIONS[factionKey]
+    assert_not_nil(faction, factionKey .. " faction 存在")
+    if faction then
+        assert_eq(faction.fabaoTplId, contract.tpl, factionKey .. " fabaoTplId")
+        assert_not_nil(faction.reputation[7], factionKey .. " R7 配置存在")
+        assert_not_nil(faction.reputation[8], factionKey .. " R8 配置存在")
+        assert_eq(faction.reputation[7].tier, 9, factionKey .. " R7 tier=9")
+        assert_eq(faction.reputation[8].tier, 10, factionKey .. " R8 tier=10")
+    end
+
+    local tpl = EquipmentData.FabaoTemplates and EquipmentData.FabaoTemplates[contract.tpl]
+    assert_not_nil(tpl, contract.tpl .. " 法宝模板存在")
     if tpl then
-        assert_not_nil(tpl.iconByTier and tpl.iconByTier[10],
-            "TEST 15: " .. key .. " iconByTier[10] 非空")
+        assert_not_nil(tpl.iconByTier and tpl.iconByTier[9], contract.tpl .. " iconByTier[9] 非空")
+        assert_not_nil(tpl.iconByTier and tpl.iconByTier[10], contract.tpl .. " iconByTier[10] 非空")
+        assert_eq(tpl.sellPriceByTier and tpl.sellPriceByTier[9], 900,
+            contract.tpl .. " sellPriceByTier[9] == 900")
         assert_eq(tpl.sellPriceByTier and tpl.sellPriceByTier[10], 1200,
-            "TEST 16: " .. key .. " sellPriceByTier[10] == 1200")
-    else
-        totalTests = totalTests + 2
-        failed = failed + 2
-        print("  FAIL: " .. key .. " 模板不存在")
+            contract.tpl .. " sellPriceByTier[10] == 1200")
+    end
+
+    assert_eq(ChallengeConfig.GetFactionByNpcId(contract.midNpc), factionKey,
+        contract.midNpc .. " fallback 映射")
+    if contract.oldNpc then
+        assert_eq(ChallengeConfig.GetFactionByNpcId(contract.oldNpc), factionKey,
+            contract.oldNpc .. " legacy fallback 映射")
     end
 end
 
--- ─────────────────────────────────────────────
--- TEST 17-18: LootSystem 品质上限逻辑
--- (模拟 LootSystem 内部逻辑，不需 require 整个系统)
--- ─────────────────────────────────────────────
+local chapter2 = require("config.zones.chapter2.camp_a")
+local chapter3 = require("config.zones.chapter3.fort_9")
+local midXuesha = require("config.zones.midland.xuesha")
+local midHaoqi = require("config.zones.midland.haoqi")
+local midQingyun = require("config.zones.midland.qingyun")
+local midFengmo = require("config.zones.midland.fengmo")
 
-local function calcMaxQ(tier)
-    local maxQ = "purple"
-    if tier >= 10 then
-        maxQ = "red"
-    elseif tier >= 9 then
-        maxQ = "cyan"
-    elseif tier >= 5 then
-        maxQ = "orange"
+local function findNpc(zone, npcId)
+    for _, npc in ipairs(zone.npcs or {}) do
+        if npc.id == npcId then return npc end
     end
+    return nil
+end
+
+local npcContracts = {
+    { zone = chapter2, id = "xuesha_spy", faction = "xuesha" },
+    { zone = chapter2, id = "haoqi_envoy", faction = "haoqi" },
+    { zone = chapter3, id = "qingyun_envoy_ch3", faction = "qingyun" },
+    { zone = chapter3, id = "fengmodian_envoy_ch3", faction = "fengmo" },
+    { zone = midXuesha, id = "xuesha_master", faction = "xuesha" },
+    { zone = midHaoqi, id = "haoqi_master", faction = "haoqi" },
+    { zone = midQingyun, id = "qingyun_master", faction = "qingyun" },
+    { zone = midFengmo, id = "fengmo_master", faction = "fengmo" },
+}
+
+for _, contract in ipairs(npcContracts) do
+    local npc = findNpc(contract.zone, contract.id)
+    assert_not_nil(npc, contract.id .. " NPC 存在")
+    if npc then
+        assert_eq(npc.interactType, "challenge_envoy", contract.id .. " interactType")
+        assert_eq(npc.challengeFaction, contract.faction, contract.id .. " challengeFaction")
+    end
+end
+
+assert_eq(ChallengeConfig.GetRandomMinQuality(7), "green", "R7 随机法宝绿色起步")
+assert_eq(ChallengeConfig.GetRandomMaxQuality(7), "cyan", "R7 随机法宝最高灵器")
+assert_eq(ChallengeConfig.GetRandomMinQuality(8), "green", "R8 随机法宝绿色起步")
+assert_eq(ChallengeConfig.GetRandomMaxQuality(8), "cyan", "R8 随机法宝最高灵器")
+
+local originalRollQuality = generation.RollQuality
+local captured = {}
+local function stubRollQuality(minQ, maxQ)
+    captured[#captured + 1] = { minQ = minQ, maxQ = maxQ }
     return maxQ
 end
 
-assert_eq(calcMaxQ(10), "red",  "TEST 17: T10 品质上限 = red")
-assert_eq(calcMaxQ(9),  "cyan", "TEST 18: T9 品质上限 = cyan")
+generation.RollQuality = stubRollQuality
+LootSystem.RollQuality = stubRollQuality
 
--- ─────────────────────────────────────────────
--- TEST 19: ChallengeSystem Init 生成 8 级声望槽位
--- ─────────────────────────────────────────────
-
--- 模拟 Init 逻辑
-local function simulateInitSlots()
-    local treasure_challenge = {}
-    for factionKey, faction in pairs(ChallengeConfig.FACTIONS) do
-        if faction.reputation then
-            treasure_challenge[factionKey] = {
-                [faction.treasureKey] = {},
-            }
-            for level = 1, ChallengeConfig.MAX_REPUTATION_LEVEL do
-                treasure_challenge[factionKey][faction.treasureKey][tostring(level)] = {
-                    unlocked = false,
-                    completed = false,
-                }
-            end
+for factionKey, contract in pairs(factionContracts) do
+    for _, repLevel in ipairs({7, 8}) do
+        local tier = ChallengeConfig.REPUTATION_TIER[repLevel]
+        captured = {}
+        local item = LootSystem.CreateFabaoEquipment(contract.tpl, tier, nil, {
+            minQuality = ChallengeConfig.GetRandomMinQuality(repLevel),
+            maxQuality = ChallengeConfig.GetRandomMaxQuality(repLevel),
+        })
+        assert_not_nil(item, factionKey .. " R" .. repLevel .. " 法宝生成")
+        assert_not_nil(captured[1], factionKey .. " R" .. repLevel .. " 捕获到 RollQuality")
+        if captured[1] then
+            assert_eq(captured[1].minQ, "green", factionKey .. " R" .. repLevel .. " minQ=green")
+            assert_eq(captured[1].maxQ, "cyan", factionKey .. " R" .. repLevel .. " maxQ=cyan")
+        end
+        if item then
+            assert_eq(item.quality, "cyan", factionKey .. " R" .. repLevel .. " 生成 cyan")
         end
     end
-    return treasure_challenge
 end
 
-local tc = simulateInitSlots()
-local anyFactionKey = next(tc)
-if anyFactionKey then
-    local fCfg = ChallengeConfig.FACTIONS[anyFactionKey]
-    local slots = tc[anyFactionKey][fCfg.treasureKey]
-    assert_not_nil(slots["8"], "TEST 19: Init 生成第 8 级声望槽位")
-else
-    totalTests = totalTests + 1
-    failed = failed + 1
-    print("  FAIL: TEST 19: 无阵营数据")
+captured = {}
+local defaultItem = LootSystem.CreateFabaoEquipment("fabao_xuehaitu", 10, nil)
+assert_not_nil(defaultItem, "默认 T10 法宝生成成功")
+assert_not_nil(captured[1], "默认 T10 法宝捕获到 RollQuality")
+if captured[1] then
+    assert_eq(captured[1].minQ, "white", "默认 T10 法宝 minQ=white")
+    assert_eq(captured[1].maxQ, "red", "默认 T10 法宝 maxQ=red")
+end
+if defaultItem then
+    assert_eq(defaultItem.quality, "red", "默认 T10 法宝可出 red")
 end
 
--- ─────────────────────────────────────────────
--- TEST 20: GetExtraTotalChance(8) > (7)
--- ─────────────────────────────────────────────
+local explicitRed = LootSystem.CreateFabaoEquipment("fabao_xuehaitu", 10, "red")
+assert_not_nil(explicitRed, "显式 red 法宝生成成功")
+if explicitRed then
+    assert_eq(explicitRed.quality, "red", "显式 red 法宝品质不被覆盖")
+end
 
-local total7 = ChallengeConfig.GetExtraTotalChance(7)
-local total8 = ChallengeConfig.GetExtraTotalChance(8)
-assert_gt(total8, total7, "TEST 20: R8 总概率 > R7 (" .. tostring(total8) .. " > " .. tostring(total7) .. ")")
+generation.RollQuality = originalRollQuality
+LootSystem.RollQuality = originalRollQuality
 
--- ─────────────────────────────────────────────
--- 结果汇总
--- ─────────────────────────────────────────────
+local total7 = ChallengeConfig.GetExtraDropChance(7)
+local total8 = ChallengeConfig.GetExtraDropChance(8)
+assert_true(math.abs(total8 - total7) < 0.0000001,
+    "R8 与 R7 额外掉落总概率均为 8.5%")
+assert_true(math.abs(total8 - 0.085) < 0.0000001,
+    "R8 额外掉落总概率 = 8.5%")
+assert_eq(ChallengeConfig.GetExtraTotalChance(8), total8,
+    "旧接口 GetExtraTotalChance 兼容")
 
 print("========================================")
 print(string.format("  RESULT: %d passed, %d failed, %d total",

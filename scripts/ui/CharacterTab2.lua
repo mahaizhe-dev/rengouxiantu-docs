@@ -413,6 +413,20 @@ function CharacterTab2.Build()
         }))
     end
 
+    local okCh6, ArtifactCh6 = pcall(require, "systems.ArtifactSystem_ch6")
+    if okCh6 and ArtifactCh6 and ArtifactCh6.passiveUnlocked then
+        hasAnyArtifact = true
+        table.insert(sec, ArtifactPassiveCardComp.Create({
+            icon = "◇",
+            name = ArtifactCh6.PASSIVE.name,
+            desc = ArtifactCh6.GetPassiveDisplayDesc(),
+            bgColor = {18, 42, 50, 230},
+            borderColor = {145, 235, 255, 255},
+            nameColor = {145, 235, 255, 255},
+            descColor = T.color.textSecondary,
+        }))
+    end
+
     if hasAnyArtifact then
         table.insert(children, SectionHeader.Create({ text = "神器被动", showDivider = false }))
         flushSection()

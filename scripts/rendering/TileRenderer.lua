@@ -5,6 +5,7 @@
 --         tiles/ch5_ground, tiles/ch5_structures
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local ActiveZoneData = require("config.ActiveZoneData")
 local shared = require("rendering.tiles.shared")
 

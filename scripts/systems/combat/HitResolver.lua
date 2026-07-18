@@ -49,6 +49,7 @@ local EMPTY_OPTS = {}
 ---   isDot           boolean?  标记为持续伤害（Event 第 4 参数，默认 false）
 ---   noEvent         boolean?  跳过 player_deal_damage 事件（默认 false）
 ---   pcallTakeDamage boolean?  用 pcall 包裹 TakeDamage（血神等容错场景）
+---   fixedDamage     boolean?  固定伤害：跳过攻防、暴击和双方最终增减伤
 ---
 --- @return number actualDamage  TakeDamage 返回的实际伤害
 --- @return boolean isCrit       是否暴击
@@ -60,12 +61,12 @@ function HitResolver.Hit(source, target, rawDmg, opts)
     local isTianzhu = false
 
     -- Step 1: 防御减算
-    if not opts.skipCalcDamage then
+    if not opts.fixedDamage and not opts.skipCalcDamage then
         damage = GameConfig.CalcDamage(damage, target.def)
     end
 
     -- Step 2: 暴击判定
-    if not opts.skipCrit then
+    if not opts.fixedDamage and not opts.skipCrit then
         if opts.conditionalCrit then
             -- 条件暴击：仅当 canCrit 为 true 且 source 有 ApplyCrit 时
             if opts.canCrit and source and source.ApplyCrit then
@@ -80,20 +81,20 @@ function HitResolver.Hit(source, target, rawDmg, opts)
     end
 
     -- Step 2.5: 犬魂狂暴全伤乘区（狂暴形态 bonusDmg）
-    if source and (source.petBerserkBonusDmg or 0) > 0 then
+    if not opts.fixedDamage and source and (source.petBerserkBonusDmg or 0) > 0 then
         damage = math.floor(damage * (1 + source.petBerserkBonusDmg))
     end
 
     -- Step 3: 扣血
     if opts.pcallTakeDamage then
-        local ok, result = pcall(target.TakeDamage, target, damage, source)
+        local ok, result = pcall(target.TakeDamage, target, damage, source, opts)
         if ok then
             damage = result or damage
         else
             print("[HitResolver] TakeDamage pcall error: " .. tostring(result))
         end
     else
-        damage = target:TakeDamage(damage, source)
+        damage = target:TakeDamage(damage, source, opts)
     end
 
     -- Step 4: 事件
@@ -163,6 +164,19 @@ function HitResolver.Bypass(source, target, rawDmg)
         skipCalcDamage = true,
         skipCrit       = true,
         noEvent        = true,
+    })
+end
+
+--- 固定伤害：不受攻击方增伤、目标易伤/减伤、防御与暴击影响。
+---@param source table
+---@param target table
+---@param damage number
+---@param noEvent boolean|nil
+---@return number actualDamage
+function HitResolver.FixedDamage(source, target, damage, noEvent)
+    return HitResolver.Hit(source, target, damage, {
+        fixedDamage = true,
+        noEvent = noEvent == true,
     })
 end
 

@@ -23,6 +23,10 @@ AtlasSystem.data = nil  -- 延迟初始化
 --- 是否已加载
 AtlasSystem.loaded = false
 
+-- 第六章界匙采用“账号字段存在后账号权威”的同步语义。
+-- false 仅表示旧账号尚未出现 artifact_jieshi，需要从角色镜像迁移一次。
+local artifactJieshiAccountLoaded_ = false
+
 --- server_race 名额缓存 { [leaderboard] = { full = bool, count = int } }
 AtlasSystem.raceSlotCache = {}
 
@@ -62,7 +66,7 @@ function AtlasSystem.CreateEmpty()
     end
 
     return {
-        version = 2,
+        version = 3,
         medals = medals,
         -- 神器（账号级副本，与 ArtifactSystem 同步）
         artifact = {
@@ -88,6 +92,14 @@ function AtlasSystem.CreateEmpty()
             bossDefeated = false,
             passiveUnlocked = false,
         },
+        -- 第六章神器「界匙」：账号权威进度 + 跨角色替命冷却
+        artifact_jieshi = {
+            version = 1,
+            activatedGrids = { false, false, false, false, false, false, false, false, false },
+            bossDefeated = false,
+            passiveUnlocked = false,
+            rescueReadyAt = 0,
+        },
     }
 end
 
@@ -97,6 +109,7 @@ function AtlasSystem.Init()
         AtlasSystem.data = AtlasSystem.CreateEmpty()
     end
     AtlasSystem.loaded = false
+    artifactJieshiAccountLoaded_ = false
     AtlasSystem.raceSlotCache = {}
 
     -- 监听装备入包，检测品质首获道印
@@ -907,6 +920,41 @@ function AtlasSystem.SyncArtifactCh5ToCharacter()
     print("[AtlasSystem] Artifact ch5 data synced to character")
 end
 
+--- 标记当前 account_atlas 已经拥有界匙字段。
+--- 激活事务会在内存中先写入该字段，再由主存档强保存落盘。
+function AtlasSystem.MarkArtifactJieshiAccountLoaded()
+    artifactJieshiAccountLoaded_ = true
+end
+
+function AtlasSystem.HasArtifactJieshiAccountData()
+    return artifactJieshiAccountLoaded_
+end
+
+--- 旧账号一次性迁移：仅当账号字段从未存在时，从当前角色镜像建立账号权威值。
+function AtlasSystem.MergeArtifactJieshiFromCharacter()
+    local data = AtlasSystem.data
+    if not data or artifactJieshiAccountLoaded_ then return false end
+
+    local ok, ArtifactCh6 = pcall(require, "systems.ArtifactSystem_ch6")
+    if not ok or not ArtifactCh6 then return false end
+    data.artifact_jieshi = ArtifactCh6.SerializeAccount()
+    data.version = math.max(3, tonumber(data.version) or 1)
+    artifactJieshiAccountLoaded_ = true
+    print("[AtlasSystem] Artifact jieshi migrated from character mirror")
+    return true
+end
+
+--- 账号档覆盖当前角色界匙状态，不采用永久 OR 并集，避免旧槽位复活已重置进度。
+function AtlasSystem.SyncArtifactJieshiToCharacter()
+    local data = AtlasSystem.data
+    if not data or not data.artifact_jieshi then return end
+
+    local ok, ArtifactCh6 = pcall(require, "systems.ArtifactSystem_ch6")
+    if not ok or not ArtifactCh6 then return end
+    ArtifactCh6.ApplyAccountState(data.artifact_jieshi)
+    print("[AtlasSystem] Artifact jieshi account state synced to character")
+end
+
 --- 将 atlas 神器数据同步回 ArtifactSystem
 function AtlasSystem.SyncArtifactToCharacter()
     local data = AtlasSystem.data
@@ -982,6 +1030,7 @@ function AtlasSystem.Serialize()
     AtlasSystem.MergeArtifactCh4FromCharacter()
     AtlasSystem.MergeArtifactTiandiFromCharacter()
     AtlasSystem.MergeArtifactCh5FromCharacter()
+    AtlasSystem.MergeArtifactJieshiFromCharacter()
 
     -- 道印字段由 MedalConfig 数据驱动序列化
     local medals = {}
@@ -1000,7 +1049,7 @@ function AtlasSystem.Serialize()
     for i = 1, 9 do a5Grids[i] = _src5.activatedGrids[i] == true end
 
     return {
-        version = data.version or 2,
+        version = math.max(3, tonumber(data.version) or 1),
         medals = medals,
         artifact = {
             activatedGrids = data.artifact.activatedGrids,
@@ -1022,6 +1071,13 @@ function AtlasSystem.Serialize()
             bossDefeated = _src5.bossDefeated == true,
             passiveUnlocked = _src5.passiveUnlocked == true,
         },
+        artifact_jieshi = {
+            version = 1,
+            activatedGrids = data.artifact_jieshi.activatedGrids,
+            bossDefeated = data.artifact_jieshi.bossDefeated == true,
+            passiveUnlocked = data.artifact_jieshi.passiveUnlocked == true,
+            rescueReadyAt = data.artifact_jieshi.rescueReadyAt or 0,
+        },
     }
 end
 
@@ -1029,6 +1085,7 @@ end
 ---@param rawData table|nil
 function AtlasSystem.Deserialize(rawData)
     local data = AtlasSystem.CreateEmpty()
+    artifactJieshiAccountLoaded_ = false
 
     if rawData and type(rawData) == "table" then
         data.version = rawData.version or 1
@@ -1108,7 +1165,32 @@ function AtlasSystem.Deserialize(rawData)
             data.artifact_ch5.passiveUnlocked = a5.passiveUnlocked == true
         end
 
-        data.version = 2
+        -- 第六章神器「界匙」：字段存在后由账号档权威覆盖角色镜像。
+        if rawData.artifact_jieshi and type(rawData.artifact_jieshi) == "table" then
+            local aj = rawData.artifact_jieshi
+            local allActive = true
+            for i = 1, 9 do
+                data.artifact_jieshi.activatedGrids[i] =
+                    type(aj.activatedGrids) == "table"
+                    and aj.activatedGrids[i] == true or false
+                if not data.artifact_jieshi.activatedGrids[i] then
+                    allActive = false
+                end
+            end
+            data.artifact_jieshi.bossDefeated =
+                allActive and aj.bossDefeated == true
+            data.artifact_jieshi.passiveUnlocked =
+                data.artifact_jieshi.bossDefeated
+                and aj.passiveUnlocked == true
+            local readyAt = tonumber(aj.rescueReadyAt) or 0
+            if readyAt ~= readyAt or readyAt == math.huge or readyAt == -math.huge then
+                readyAt = 0
+            end
+            data.artifact_jieshi.rescueReadyAt = math.max(0, math.floor(readyAt))
+            artifactJieshiAccountLoaded_ = true
+        end
+
+        data.version = 3
     end
 
     AtlasSystem.data = data
@@ -1126,6 +1208,9 @@ function AtlasSystem.Deserialize(rawData)
 
     -- 反序列化后立即同步第五章神器数据到 ArtifactSystem_ch5
     AtlasSystem.SyncArtifactCh5ToCharacter()
+    if artifactJieshiAccountLoaded_ then
+        AtlasSystem.SyncArtifactJieshiToCharacter()
+    end
 end
 
 --- 加载后同步：将 atlas 数据合并到当前角色系统，检查道印
@@ -1141,6 +1226,14 @@ function AtlasSystem.PostLoadSync()
 
     -- 1d. 将 atlas 第五章神器数据推送到 ArtifactSystem_ch5
     AtlasSystem.SyncArtifactCh5ToCharacter()
+
+    -- 1e. 界匙：账号字段存在则账号覆盖；旧账号缺字段则先迁移一次。
+    if artifactJieshiAccountLoaded_ then
+        AtlasSystem.SyncArtifactJieshiToCharacter()
+    else
+        AtlasSystem.MergeArtifactJieshiFromCharacter()
+        AtlasSystem.SyncArtifactJieshiToCharacter()
+    end
 
     -- 2. 从当前角色系统拉取最新神器数据
     AtlasSystem.MergeArtifactFromCharacter()
@@ -1192,6 +1285,7 @@ end
 function AtlasSystem.Reset()
     AtlasSystem.data = AtlasSystem.CreateEmpty()
     AtlasSystem.loaded = false
+    artifactJieshiAccountLoaded_ = false
     AtlasSystem.raceSlotCache = {}
     AtlasSystem._eventGrantRetryAt = nil
     AtlasSystem._eventGrantRetryCount = nil

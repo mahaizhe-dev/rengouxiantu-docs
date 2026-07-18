@@ -20,6 +20,7 @@ local beastEastData  = require("config.zones.chapter4.beast_east")
 local beastWestData  = require("config.zones.chapter4.beast_west")
 local beastSouthData = require("config.zones.chapter4.beast_south")
 local xianyuanRoomsCh4 = require("config.zones.xianyuan_rooms_ch4")
+local TreasureMapConfig = require("config.TreasureMapConfig")
 
 -- 所有区域模块列表
 local ALL_ZONES = {
@@ -126,6 +127,47 @@ for _, zoneModule in ipairs(ALL_ZONES) do
     end
 end
 
+-- 九座藏宝图岛直接存在于第四章主地图。平时可见但隔海不可达；
+-- 使用藏宝图后，服务端确定目标并将玩家传送到对应 spawn。
+for _, island in ipairs(TreasureMapConfig.ISLANDS) do
+    local visual = TreasureMapConfig.REWARD_VISUALS[island.rewardType] or {}
+    local isPremium = island.isPremium == true
+    table.insert(ZoneData_ch4.NPCs, {
+        id = island.chest.chestId,
+        name = visual.name or "海上宝藏",
+        subtitle = "需由藏宝图引路",
+        x = island.chest.x,
+        y = island.chest.y,
+        icon = visual.icon or "宝",
+        color = visual.color,
+        image = isPremium and TreasureMapConfig.PREMIUM_CHEST_IMAGE
+            or TreasureMapConfig.NORMAL_CHEST_IMAGE,
+        imageScale = isPremium and 1.8 or 1.5,
+        nameplateOffset = isPremium and 1.55 or 1.3,
+        interactType = "treasure_map_chest",
+        isObject = true,
+        showNameplate = true,
+        label = visual.name or "海上宝藏",
+        islandId = island.islandId,
+        rewardType = island.rewardType,
+    })
+    table.insert(ZoneData_ch4.NPCs, {
+        id = "treasure_island_exit_" .. island.islandId,
+        name = "归航法阵",
+        subtitle = "返回龟背岛",
+        x = island.exit.x,
+        y = island.exit.y,
+        icon = "归",
+        color = {80, 205, 220, 255},
+        interactType = "treasure_map_exit",
+        decorationType = "teleport_array",
+        isObject = true,
+        showNameplate = true,
+        label = "归航法阵",
+        islandId = island.islandId,
+    })
+end
+
 -- 第四章无传统主城围墙
 ZoneData_ch4.TOWN_GATES = {}
 
@@ -153,6 +195,7 @@ ZoneData_ch4.beastModules = {
     beast_west  = beastWestData,
     beast_south = beastSouthData,
 }
+ZoneData_ch4.TREASURE_ISLANDS = TreasureMapConfig.ISLANDS
 
 -- ============================================================================
 -- 岛屿布局配置（供 mapgen/Chapter4.lua 使用）

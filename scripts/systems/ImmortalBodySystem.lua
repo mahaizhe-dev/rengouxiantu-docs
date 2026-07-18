@@ -25,7 +25,8 @@ local accountState = {
     unlockedBodies = {
         mortal = { unlockedAt = 0, source = "default" },
     },
-    version = 1,
+    bodyRewardSources = {},
+    version = 2,
 }
 
 -- ============================================================================
@@ -81,6 +82,38 @@ function ImmortalBodySystem.GetActiveGrowth()
     }
 end
 
+--- 按等级计算指定仙体提供的仙缘属性。
+---@param bodyId string
+---@param level number|nil
+---@return table<string, number>
+function ImmortalBodySystem.GetXianyuanBonuses(bodyId, level)
+    local bonuses = {}
+    local profile = AscensionConfig.GROWTH_PROFILES[bodyId]
+    local growth = profile and profile.xianyuanGrowth
+    if type(growth) ~= "table" then return bonuses end
+
+    local playerLevel = math.max(1, math.floor(tonumber(level) or 1))
+    for stat, rule in pairs(growth) do
+        if type(rule) == "table" then
+            local startLevel = math.max(1, math.floor(tonumber(rule.startLevel) or 1))
+            local maxLevel = math.max(startLevel, math.floor(tonumber(rule.maxLevel) or playerLevel))
+            local effectiveLevel = math.min(playerLevel, maxLevel)
+            if effectiveLevel >= startLevel then
+                bonuses[stat] = (effectiveLevel - startLevel + 1)
+                    * (tonumber(rule.perLevel) or 0)
+            end
+        end
+    end
+    return bonuses
+end
+
+--- 获取当前装备仙体的派生仙缘属性。
+---@param level number|nil
+---@return table<string, number>
+function ImmortalBodySystem.GetActiveXianyuanBonuses(level)
+    return ImmortalBodySystem.GetXianyuanBonuses(charState.activeBodyId, level)
+end
+
 --- 获取已解锁仙体列表
 ---@return table[] { {id, name, unlocked, unlockedAt, source} }
 function ImmortalBodySystem.GetUnlockedList()
@@ -123,6 +156,7 @@ function ImmortalBodySystem.UnlockBody(bodyId, source)
         source = source or "unknown",
         firstUnlockSlot = GameState.currentSlot or 1,
     }
+    accountState.version = math.max(2, accountState.version or 1) + 1
 
     EventBus.Emit("immortal_body_unlocked", bodyId, source)
     print("[ImmortalBodySystem] Account unlocked: " .. bodyId .. " source=" .. (source or "?"))
@@ -145,12 +179,15 @@ function ImmortalBodySystem.PreviewSwitch(targetBodyId)
 
     local level = player.level or 1
     local mult = level - 1
+    local currentXianyuan = ImmortalBodySystem.GetXianyuanBonuses(charState.activeBodyId, level)
+    local targetXianyuan = ImmortalBodySystem.GetXianyuanBonuses(targetBodyId, level)
 
     return {
         deltaHp    = (target.maxHp - current.maxHp) * mult,
         deltaAtk   = (target.atk - current.atk) * mult,
         deltaDef   = (target.def - current.def) * mult,
         deltaRegen = (target.hpRegen - current.hpRegen) * mult,
+        deltaFortune = (targetXianyuan.fortune or 0) - (currentXianyuan.fortune or 0),
         level      = level,
         currentProfile = current,
         targetProfile  = target,
@@ -306,6 +343,7 @@ end
 function ImmortalBodySystem.SerializeAccount()
     return {
         unlockedBodies = accountState.unlockedBodies,
+        bodyRewardSources = accountState.bodyRewardSources,
         version = accountState.version,
     }
 end
@@ -316,7 +354,8 @@ function ImmortalBodySystem.DeserializeAccount(data)
         -- 首次调用且无数据时初始化
         if not accountState.unlockedBodies or not next(accountState.unlockedBodies) then
             accountState.unlockedBodies = { mortal = { unlockedAt = 0, source = "default" } }
-            accountState.version = 1
+            accountState.bodyRewardSources = {}
+            accountState.version = 2
         end
         return
     end
@@ -332,8 +371,18 @@ function ImmortalBodySystem.DeserializeAccount(data)
         end
     end
 
+    local incomingSources = data.bodyRewardSources or {}
+    if type(accountState.bodyRewardSources) ~= "table" then
+        accountState.bodyRewardSources = {}
+    end
+    for sourceRunId, info in pairs(incomingSources) do
+        if not accountState.bodyRewardSources[sourceRunId] then
+            accountState.bodyRewardSources[sourceRunId] = info
+        end
+    end
+
     -- 版本取较大值
-    accountState.version = math.max(accountState.version or 1, data.version or 1)
+    accountState.version = math.max(accountState.version or 2, data.version or 2)
 
     -- 确保 mortal 总是解锁
     if not accountState.unlockedBodies.mortal then

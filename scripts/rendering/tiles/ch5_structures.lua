@@ -1,4 +1,5 @@
 -- tiles/ch5_structures.lua - 第五章建筑/结构瓦片
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.tiles.shared")
 local M = {}
 

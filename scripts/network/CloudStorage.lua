@@ -17,6 +17,7 @@
 local SaveProtocol = require("network.SaveProtocol")
 local SavePayloadCodec = require("network.SavePayloadCodec")
 local FeatureFlags = require("config.FeatureFlags")
+local SaveState = require("systems.save.SaveState")
 
 ---@diagnostic disable-next-line: undefined-global
 local cjson = cjson
@@ -65,12 +66,17 @@ end
 
 --- 注册回调并返回 requestId
 ---@param events table
+---@param kind string|nil
 ---@return integer
-local function RegisterCallback(events)
+local function RegisterCallback(events, kind)
     local id = NextRequestId()
     local now = (time and time.elapsedTime) or os.clock()
     -- P1-SAVE-2: 记录注册时间，用于超时清理
-    _pendingCallbacks[id] = { events = events, registeredAt = now }
+    _pendingCallbacks[id] = {
+        events = events,
+        registeredAt = now,
+        kind = kind or "generic",
+    }
     return id
 end
 
@@ -92,7 +98,7 @@ local function PopCallback(requestId)
 end
 
 -- P1-SAVE-2: 回调超时清理
-local CALLBACK_TIMEOUT = 30  -- 秒
+local CALLBACK_TIMEOUT = SaveState.CLOUD_CALLBACK_TIMEOUT
 
 -- N1: 延迟任务队列（由 CloudStorage.Tick() 驱动）
 local _delayedTasks = {}  -- { { deadline = time.elapsedTime+delay, fn = function } }
@@ -104,6 +110,53 @@ local function ScheduleDelayedLocal(delaySec, fn)
     table.insert(_delayedTasks, { deadline = time.elapsedTime + delaySec, fn = fn })
 end
 
+local function ExpireCallback(id, entry, reason)
+    if not entry or _pendingCallbacks[id] ~= entry then return false end
+    _pendingCallbacks[id] = nil
+    -- P0: 标记已超时，防晚到回包重复触发
+    if _expiredIdsCount < EXPIRED_IDS_MAX then
+        _expiredIds[id] = true
+        _expiredIdsCount = _expiredIdsCount + 1
+    end
+    if entry.events and entry.events.error then
+        local ok, err = pcall(entry.events.error, -2, reason or "请求超时")
+        if not ok then
+            Logger.error("CloudStorage", "expired callback error: " .. tostring(err))
+        end
+    end
+    return true
+end
+
+--- 立即失败指定类型的 pending 回调。
+--- 保存超时、断线和服务端限流均走此入口，确保业务层收到一次失败回调。
+---@param kind string|nil nil 表示全部类型
+---@param reason string|nil
+---@return integer expiredCount
+function CloudStorage.ExpirePendingCallbacks(kind, reason)
+    local expiredCount = 0
+    for id, entry in pairs(_pendingCallbacks) do
+        if kind == nil or entry.kind == kind then
+            if ExpireCallback(id, entry, reason) then
+                expiredCount = expiredCount + 1
+            end
+        end
+    end
+    return expiredCount
+end
+
+--- 暴露给测试和诊断：返回 pending 的只读快照。
+---@return table
+function CloudStorage._getPendingSnapshot()
+    local snapshot = {}
+    for id, entry in pairs(_pendingCallbacks) do
+        snapshot[id] = {
+            kind = entry.kind,
+            registeredAt = entry.registeredAt,
+        }
+    end
+    return snapshot
+end
+
 --- 定期调用，清理超时的 pending 回调（防止内存泄漏）
 --- 由外部 Update 循环每隔一段时间调用
 function CloudStorage.Tick()
@@ -111,20 +164,11 @@ function CloudStorage.Tick()
     -- P1-SAVE-2: 回调超时清理
     for id, entry in pairs(_pendingCallbacks) do
         if now - entry.registeredAt > CALLBACK_TIMEOUT then
-            Logger.warn("CloudStorage", "TIMEOUT: callback id=" .. id .. " expired after " .. CALLBACK_TIMEOUT .. "s")
+            Logger.warn("CloudStorage", "TIMEOUT: callback id=" .. id
+                .. " kind=" .. tostring(entry.kind)
+                .. " expired after " .. CALLBACK_TIMEOUT .. "s")
             pcall(function() require("network.NetDiagClient").RecordCloudPendingTimeout() end)
-            _pendingCallbacks[id] = nil
-            -- P0: 标记已超时，防晚到回包重复触发
-            if _expiredIdsCount < EXPIRED_IDS_MAX then
-                _expiredIds[id] = true
-                _expiredIdsCount = _expiredIdsCount + 1
-            end
-            if entry.events and entry.events.error then
-                local ok, err = pcall(entry.events.error, -2, "请求超时")
-                if not ok then
-                    Logger.error("CloudStorage", "TIMEOUT callback error: " .. tostring(err))
-                end
-            end
+            ExpireCallback(id, entry, "请求超时")
         end
     end
     -- N1: 驱动延迟任务队列
@@ -403,7 +447,7 @@ function CloudStorage.BatchSet()
                 json_bulletin = ok_b and jb or ""
             end
 
-            local requestId = RegisterCallback(events)
+            local requestId = RegisterCallback(events, "save")
 
             local serverConn = network:GetServerConnection()
             if serverConn then
@@ -582,7 +626,7 @@ function CloudStorage.GetRankList(key, start, count, events, ...)
     EnsureSubscribed()
 
     local extraKeys = { ... }
-    local requestId = RegisterCallback(events)
+    local requestId = RegisterCallback(events, "rank")
 
     local eventData = VariantMap()
     eventData["rankKey"] = Variant(key)
@@ -637,14 +681,15 @@ function CloudStorage_HandleSaveResult(eventType, eventData)
     local requestId = nil
     pcall(function() requestId = eventData["requestId"]:GetInt() end)
 
+    local hasRequestId = requestId and requestId > 0
     local events = nil
-    if requestId and requestId > 0 then
+    if hasRequestId then
         events = PopCallback(requestId)
     end
 
     -- 兜底：如果服务端未回传 requestId（兼容旧版本），用 FIFO
     -- 由于存档是串行的（saving 锁），通常只有一个 pending
-    if not events then
+    if not events and not hasRequestId then
         for id, entry in pairs(_pendingCallbacks) do
             events = entry.events
             _pendingCallbacks[id] = nil
@@ -670,13 +715,14 @@ function CloudStorage_HandleRankListData(eventType, eventData)
     local requestId = nil
     pcall(function() requestId = eventData["requestId"]:GetInt() end)
 
+    local hasRequestId = requestId and requestId > 0
     local events = nil
-    if requestId and requestId > 0 then
+    if hasRequestId then
         events = PopCallback(requestId)
     end
 
     -- 兜底：如果服务端未回传 requestId（兼容旧版本），用 FIFO
-    if not events then
+    if not events and not hasRequestId then
         for id, entry in pairs(_pendingCallbacks) do
             events = entry.events
             _pendingCallbacks[id] = nil

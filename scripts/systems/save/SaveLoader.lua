@@ -433,6 +433,11 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
             ArtifactCh5.Deserialize(saveData.artifact_ch5)
         end
 
+        do
+            local ArtifactCh6 = require("systems.ArtifactSystem_ch6")
+            ArtifactCh6.Deserialize(saveData.artifact_ch6)
+        end
+
         if saveData.fortuneFruits then
             local FortuneFruitSystem = require("systems.FortuneFruitSystem")
             FortuneFruitSystem.Deserialize(saveData.fortuneFruits)
@@ -443,12 +448,17 @@ function SaveLoader.ProcessLoadedData(slot, saveData, recoverySource, callback)
             QinglianBodySystem.Deserialize(saveData.qinglianBody)
         end
 
-        if saveData.seaPillar then
+        do
             local SeaPillarSystem = require("systems.SeaPillarSystem")
             SeaPillarSystem.Deserialize(saveData.seaPillar)
         end
 
-        if saveData.swordPool then
+        do
+            local LiangjieStoneSystem = require("systems.LiangjieStoneSystem")
+            LiangjieStoneSystem.Deserialize(saveData.liangjieStones)
+        end
+
+        do
             local SwordPoolSystem = require("systems.SwordPoolSystem")
             SwordPoolSystem.Deserialize(saveData.swordPool)
         end

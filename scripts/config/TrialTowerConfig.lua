@@ -122,6 +122,66 @@ function TrialTowerConfig.CalcMonsterLevel(floor)
     return realm.reqLevel + math.floor((realm.maxLevel - realm.reqLevel) * progress / math.max(1, span))
 end
 
+--- 计算青云试炼 BOSS 专属目标等级。
+--- 规则：原 BOSS 等级 +10~15，取该区间内最高的 5 的倍数。
+---@param sourceLevel number 原 BOSS 等级
+---@return number targetLevel
+function TrialTowerConfig.CalcBossTargetLevel(sourceLevel)
+    local level = tonumber(sourceLevel) or 1
+    local targetLevel = math.floor((level + 15) / 5) * 5
+    local minLevel = level + 10
+    if targetLevel < minLevel then
+        targetLevel = math.ceil(minLevel / 5) * 5
+    end
+    return targetLevel
+end
+
+local function GetAscensionRealmByLevel(level)
+    local ok, AscensionConfig = pcall(require, "config.AscensionConfig")
+    if not ok or not AscensionConfig then return nil end
+    if AscensionConfig.EnsureRealmsRegistered then
+        AscensionConfig.EnsureRealmsRegistered()
+    end
+
+    local bestEntry = nil
+    for _, entry in ipairs(AscensionConfig.ASCENSION_REWARDS or {}) do
+        local requiredLevel = entry.requiredLevel or 0
+        if level >= requiredLevel and (not bestEntry or (entry.totalIndex or 0) > (bestEntry.totalIndex or 0)) then
+            bestEntry = entry
+        end
+    end
+    if not bestEntry then return nil end
+
+    local stage = AscensionConfig.MAJOR_STAGES and AscensionConfig.MAJOR_STAGES[bestEntry.stageIndex]
+    if not stage then return nil end
+    return stage.id .. "_" .. tostring(bestEntry.minorIndex)
+end
+
+--- 按目标等级反推 BOSS 预设境界。
+---@param level number 目标等级
+---@return string realmId
+function TrialTowerConfig.GetBossTargetRealmByLevel(level)
+    if level >= 120 then
+        local ascRealm = GetAscensionRealmByLevel(level)
+        if ascRealm then return ascRealm end
+    end
+
+    local GameConfig = require("config.GameConfig")
+    return GameConfig.GetMaxRealmByLevel(level)
+end
+
+--- 获取某个 BOSS 在青云试炼中的专属覆盖值。
+---@param monsterData table 原怪物配置
+---@return table|nil override { level:number, realm:string }
+function TrialTowerConfig.GetBossOverride(monsterData)
+    if not monsterData or not monsterData.level then return nil end
+    local targetLevel = TrialTowerConfig.CalcBossTargetLevel(monsterData.level)
+    return {
+        level = targetLevel,
+        realm = TrialTowerConfig.GetBossTargetRealmByLevel(targetLevel),
+    }
+end
+
 --- 层内位置（相对于境界起始层）
 ---@param floor number
 ---@return number localFloor

@@ -25,11 +25,13 @@ local ArtifactUI_ = nil
 local ArtifactUI_ch4_ = nil
 local ArtifactUI_tiandi_ = nil
 local ArtifactUI_ch5_ = nil
+local ArtifactUI_ch6_ = nil
 local AtlasUI_ = nil
 local DaoTreeUI_ = nil
 local TrialTowerUI_ = nil
 local TrialOfferingUI_ = nil
 local SeaPillarUI_ = nil
+local LiangjieStoneUI_ = nil
 local DragonForgeUI_ = nil
 local SwordForgeUI_ = nil
 local WarehouseUI_ = nil
@@ -108,6 +110,11 @@ local function GetArtifactUI_ch5()
     return ArtifactUI_ch5_
 end
 
+local function GetArtifactUI_ch6()
+    if not ArtifactUI_ch6_ then ArtifactUI_ch6_ = require("ui.ArtifactUI_ch6") end
+    return ArtifactUI_ch6_
+end
+
 local function GetAtlasUI()
     if not AtlasUI_ then AtlasUI_ = require("ui.AtlasUI") end
     return AtlasUI_
@@ -136,6 +143,13 @@ end
 local function GetSeaPillarUI()
     if not SeaPillarUI_ then SeaPillarUI_ = require("ui.SeaPillarUI") end
     return SeaPillarUI_
+end
+
+local function GetLiangjieStoneUI()
+    if not LiangjieStoneUI_ then
+        LiangjieStoneUI_ = require("ui.LiangjieStoneUI")
+    end
+    return LiangjieStoneUI_
 end
 
 local function GetDragonForgeUI()
@@ -318,12 +332,14 @@ function NPCDialog.Create(parentOverlay)
     GetArtifactUI_ch4().Create(parentOverlay)
     GetArtifactUI_tiandi().Create(parentOverlay)
     GetArtifactUI_ch5().Create(parentOverlay)
+    GetArtifactUI_ch6().Create(parentOverlay)
     GetAtlasUI().Create(parentOverlay)
     GetDaoTreeUI().Create(parentOverlay)
     GetTrialTowerUI().Create(parentOverlay)
     GetPrisonTowerUI().Create(parentOverlay)
     GetTrialOfferingUI().Create(parentOverlay)
     GetSeaPillarUI().Create(parentOverlay)
+    GetLiangjieStoneUI().Create(parentOverlay)
     GetDragonForgeUI().Create(parentOverlay)
     GetSwordForgeUI().Create(parentOverlay)
     GetWarehouseUI().Create(parentOverlay)
@@ -467,6 +483,39 @@ local INTERACT_HANDLERS = {
             "传送至" .. (npc.subtitle or ""), {100, 200, 255, 255}, 2.0)
         print("[BaguaTeleport] " .. (npc.name or "???") .. " → (" .. target.x .. ", " .. target.y .. ")")
     end,
+    treasure_map_chest = function(npc)
+        local TreasureMapSystem = require("systems.TreasureMapSystem")
+        local active = TreasureMapSystem.state.active
+        local CombatSystem = require("systems.CombatSystem")
+        local player = GameState.player
+        if not active then
+            if player then
+                CombatSystem.AddFloatingText(player.x, player.y - 1.0,
+                    "宝箱被海雾封锁，需由藏宝图引路",
+                    {255, 205, 100, 255}, 2.2)
+            end
+            return
+        end
+        if active.chestId ~= npc.id then
+            if player then
+                CombatSystem.AddFloatingText(player.x, player.y - 1.0,
+                    "这不是本次藏宝图指向的宝藏",
+                    {255, 130, 110, 255}, 2.2)
+            end
+            return
+        end
+        if TreasureMapSystem.IsChanneling() then
+            TreasureMapSystem.CancelOpen("已取消开启")
+            return
+        end
+        if not TreasureMapSystem.RequestStartOpen(npc.id) and player then
+            CombatSystem.AddFloatingText(player.x, player.y - 1.0,
+                "暂时无法开启宝箱", {255, 130, 110, 255}, 2.0)
+        end
+    end,
+    treasure_map_exit = function(_npc)
+        require("ui.TreasureMapUI").ShowExit()
+    end,
     dungeon_entrance  = function(npc)
         -- 多人副本入口：奖励领取 + 进入副本
         -- Kill Switch：副本功能关闭时提示玩家
@@ -589,6 +638,8 @@ local INTERACT_HANDLERS = {
     sword_forge       = function(npc)  GetSwordForgeUI().Show(npc) end,
     tiger_trial_forge = function(npc)  GetSwordForgeUI().Show(npc, "tiger_trial_forge") end,
     wubao_forge       = function(npc)  GetSwordForgeUI().Show(npc, "wubao_forge") end,
+    huangsha_forge    = function(npc)  GetSwordForgeUI().Show(npc, "huangsha_forge") end,
+    shadow_forge      = function(npc)  GetSwordForgeUI().Show(npc, "shadow_forge") end,
     warehouse         = function(npc)  GetWarehouseUI().Show(npc) end,
     dao_question      = function(npc)
         local player = GameState.player
@@ -846,12 +897,22 @@ local INTERACT_HANDLERS = {
         if not pillarId then return end
         GetSeaPillarUI().Show(pillarId)
     end,
+    liangjie_stone    = function(npc)
+        if not npc.stoneId then
+            print("[ERROR] NPCDialog: liangjie_stone missing stoneId, npc="
+                .. tostring(npc.id))
+            return
+        end
+        print("[NPCDialog] Open liangjie stone: " .. tostring(npc.stoneId))
+        GetLiangjieStoneUI().Show(npc.stoneId)
+    end,
     divine_rake       = function(_npc) GetArtifactUI().Show() end,
     divine_bagua      = function(_npc) GetArtifactUI_ch4().Show() end,
     event_exchange    = function(npc)  GetEventExchangeUI().Show(npc) end,
     xianshi_note      = function(_npc) GetXianshiRankUI().Show() end,
     divine_tiandi     = function(_npc) GetArtifactUI_tiandi().Show() end,
     divine_zhentu     = function(_npc) GetArtifactUI_ch5().Show() end,
+    divine_jieshi     = function(_npc) GetArtifactUI_ch6().Show() end,
     mysterious_merchant = function(npc)
         local ArtifactSystem = require("systems.ArtifactSystem")
         local hasFragment9 = ArtifactSystem.GetFragmentCount(9) > 0
@@ -891,6 +952,18 @@ local INTERACT_HANDLERS = {
 ---@param npc table NPC 数据
 function NPCDialog.Show(npc)
     if not npc then return end
+
+    local TreasureMapSystem = require("systems.TreasureMapSystem")
+    if TreasureMapSystem.IsActive() and npc.interactType ~= "treasure_map_chest"
+        and npc.interactType ~= "treasure_map_exit" then
+        local CombatSystem = require("systems.CombatSystem")
+        local player = GameState.player
+        if player then
+            CombatSystem.AddFloatingText(player.x, player.y - 1.0,
+                "藏宝海中无法进行此交互", {255, 200, 80, 255}, 2.0)
+        end
+        return
+    end
 
     -- 多人副本模式中：仅允许副本传送阵交互，其他 NPC 禁止
     local DungeonClient = require("network.DungeonClient")
@@ -933,9 +1006,11 @@ function NPCDialog.Hide()
     if ArtifactUI_ch4_ then ArtifactUI_ch4_.Hide() end
     if ArtifactUI_tiandi_ then ArtifactUI_tiandi_.Hide() end
     if ArtifactUI_ch5_ then ArtifactUI_ch5_.Hide() end
+    if ArtifactUI_ch6_ then ArtifactUI_ch6_.Hide() end
     if AtlasUI_ then AtlasUI_.Hide() end
     if DaoTreeUI_ then DaoTreeUI_.Hide() end
     if SeaPillarUI_ then SeaPillarUI_.Hide() end
+    if LiangjieStoneUI_ then LiangjieStoneUI_.Hide() end
     if TrialTowerUI_ then TrialTowerUI_.Hide() end
     if PrisonTowerUI_ then PrisonTowerUI_.Hide() end
     if TrialOfferingUI_ then TrialOfferingUI_.Hide() end
@@ -964,11 +1039,13 @@ function NPCDialog.Destroy()
     if ArtifactUI_ch4_ and ArtifactUI_ch4_.Destroy then ArtifactUI_ch4_.Destroy() end
     if ArtifactUI_tiandi_ and ArtifactUI_tiandi_.Destroy then ArtifactUI_tiandi_.Destroy() end
     if ArtifactUI_ch5_ and ArtifactUI_ch5_.Destroy then ArtifactUI_ch5_.Destroy() end
+    if ArtifactUI_ch6_ and ArtifactUI_ch6_.Destroy then ArtifactUI_ch6_.Destroy() end
     if AtlasUI_ and AtlasUI_.Destroy then AtlasUI_.Destroy() end
     if DaoTreeUI_ and DaoTreeUI_.Destroy then DaoTreeUI_.Destroy() end
     if TrialTowerUI_ and TrialTowerUI_.Destroy then TrialTowerUI_.Destroy() end
     if PrisonTowerUI_ and PrisonTowerUI_.Destroy then PrisonTowerUI_.Destroy() end
     if TrialOfferingUI_ and TrialOfferingUI_.Destroy then TrialOfferingUI_.Destroy() end
+    if LiangjieStoneUI_ and LiangjieStoneUI_.Destroy then LiangjieStoneUI_.Destroy() end
     if DragonForgeUI_ and DragonForgeUI_.Destroy then DragonForgeUI_.Destroy() end
     if SwordForgeUI_ and SwordForgeUI_.Destroy then SwordForgeUI_.Destroy() end
     if WarehouseUI_ and WarehouseUI_.Destroy then WarehouseUI_.Destroy() end
@@ -1019,9 +1096,11 @@ function NPCDialog.IsVisible()
     if ArtifactUI_ch4_ and ArtifactUI_ch4_.IsVisible() then return true end
     if ArtifactUI_tiandi_ and ArtifactUI_tiandi_.IsVisible() then return true end
     if ArtifactUI_ch5_ and ArtifactUI_ch5_.IsVisible() then return true end
+    if ArtifactUI_ch6_ and ArtifactUI_ch6_.IsVisible() then return true end
     if AtlasUI_ and AtlasUI_.IsVisible() then return true end
     if DaoTreeUI_ and DaoTreeUI_.IsVisible() then return true end
     if SeaPillarUI_ and SeaPillarUI_.IsVisible() then return true end
+    if LiangjieStoneUI_ and LiangjieStoneUI_.IsVisible() then return true end
     if DragonForgeUI_ and DragonForgeUI_.IsVisible() then return true end
     if SwordForgeUI_ and SwordForgeUI_.IsVisible() then return true end
     if WarehouseUI_ and WarehouseUI_.IsVisible() then return true end

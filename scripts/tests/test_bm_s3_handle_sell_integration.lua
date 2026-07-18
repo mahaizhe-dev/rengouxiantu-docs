@@ -435,6 +435,8 @@ test("I6: 多分类高风险商品均触发相同拒绝行为", function()
         BMConfig.CATEGORY_BAGUA,
         BMConfig.CATEGORY_TIANDI,
         BMConfig.CATEGORY_LINGYU,
+        BMConfig.CATEGORY_CONSUMABLE,
+        BMConfig.CATEGORY_MATERIAL,
         BMConfig.CATEGORY_HERB,
         BMConfig.CATEGORY_SKILL_BOOK,
         BMConfig.CATEGORY_SPECIAL_EQUIP,
@@ -444,11 +446,11 @@ test("I6: 多分类高风险商品均触发相同拒绝行为", function()
             representatives[#representatives + 1] = { cat = cat, id = ids[1] }
         end
     end
-    -- 加上 consumable_mat 的代表
-    representatives[#representatives + 1] = { cat = "consumable_mat", id = "dragon_scale_fire" }
-    representatives[#representatives + 1] = { cat = "consumable_mat", id = "taixu_token_box" }
-    representatives[#representatives + 1] = { cat = "consumable_mat", id = "zhexian_ling_box" }
-    representatives[#representatives + 1] = { cat = "consumable_mat", id = "gold_brick" }
+    -- 加上拆分类别中的代表商品
+    representatives[#representatives + 1] = { cat = "material", id = "dragon_scale_fire" }
+    representatives[#representatives + 1] = { cat = "consumable", id = "taixu_token_box" }
+    representatives[#representatives + 1] = { cat = "consumable", id = "zhexian_ling_box" }
+    representatives[#representatives + 1] = { cat = "consumable", id = "gold_brick" }
 
     for _, rep in ipairs(representatives) do
         resetSpyLog()

@@ -82,6 +82,7 @@ end
 -- 保存原始全局，测试结束后恢复
 local _origGlobals = {
     network = network,
+    time = time,
     cjson = cjson,
     Variant = Variant,
     VariantMap = VariantMap,
@@ -95,6 +96,10 @@ local _origGlobals = {
     SaveSystemNet_HandleMigrateResult = SaveSystemNet_HandleMigrateResult,
     SaveSystemNet_HandleDelayedUpdate = SaveSystemNet_HandleDelayedUpdate,
 }
+local _origSaveSystemModule = package.loaded["systems.SaveSystem"]
+
+---@diagnostic disable-next-line: lowercase-global
+time = { elapsedTime = 0 }
 
 -- cjson stub
 ---@diagnostic disable-next-line: lowercase-global
@@ -550,6 +555,7 @@ package.loaded["network.SaveSystemNet"] = nil
 
 -- 恢复全局变量
 network = _origGlobals.network
+time = _origGlobals.time
 cjson = _origGlobals.cjson
 Variant = _origGlobals.Variant
 VariantMap = _origGlobals.VariantMap
@@ -562,6 +568,7 @@ SaveSystemNet_HandleLoadResult = _origGlobals.SaveSystemNet_HandleLoadResult
 SaveSystemNet_HandleCharResult = _origGlobals.SaveSystemNet_HandleCharResult
 SaveSystemNet_HandleMigrateResult = _origGlobals.SaveSystemNet_HandleMigrateResult
 SaveSystemNet_HandleDelayedUpdate = _origGlobals.SaveSystemNet_HandleDelayedUpdate
+package.loaded["systems.SaveSystem"] = _origSaveSystemModule
 
 print("\n[test_save_system_net_state_machine] " .. passed .. "/" .. totalTests .. " passed, "
     .. failed .. " failed\n")

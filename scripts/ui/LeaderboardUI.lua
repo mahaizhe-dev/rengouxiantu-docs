@@ -1,5 +1,5 @@
 -- ============================================================================
--- LeaderboardUI.lua - 排行榜（修仙榜 + 试炼榜 双标签页）
+-- LeaderboardUI.lua - 主排行榜（修仙榜 / 仙人榜 / 试炼榜 / 镇狱榜）
 -- 显示在登录界面，按境界优先、等级其次排序
 -- ============================================================================
 
@@ -8,6 +8,7 @@ local GameConfig = require("config.GameConfig")
 local T = require("config.UITheme")
 local CloudStorage = require("network.CloudStorage")
 local Blacklist = require("config.Blacklist")
+local XianrenLeaderboard = require("ui.XianrenLeaderboard")
 
 local LeaderboardUI = {}
 
@@ -20,6 +21,7 @@ local listContainer_ = nil
 local statusLabel_ = nil
 local rulesPanel_ = nil
 local rulesVisible_ = false
+local xiuxianLoading_ = false
 
 -- ── 试炼榜状态 ──
 local trialListContainer_ = nil
@@ -31,7 +33,7 @@ local prisonListContainer_ = nil
 local prisonLoading_ = false
 
 -- ── Tab 状态（单容器 ClearChildren+rebuild 模式） ──
-local activeTab_ = "xiuxian"     -- "xiuxian" | "trial" | "prison"
+local activeTab_ = "xiuxian"     -- "xiuxian" | "xianren" | "trial" | "prison"
 local tabContent_ = nil          -- 单个内容容器，切换时清空重建
 
 -- ── 数据缓存（ClearChildren 会销毁容器，切换回来时需从缓存重新渲染） ──
@@ -39,6 +41,11 @@ local cachedXiuxianEntries_ = nil     -- 修仙榜排序后的条目列表
 local cachedXiuxianNickMap_ = nil     -- 修仙榜昵称映射
 local cachedTrialRankList_ = nil      -- 试炼榜排行数据
 local cachedPrisonRankList_ = nil     -- 镇狱榜排行数据
+local xiuxianCachedAt_ = 0
+local trialCachedAt_ = 0
+local prisonCachedAt_ = 0
+local leaderboardGeneration_ = 0
+local CACHE_TTL_SECONDS = 30
 
 -- ── 修仙榜职业子 Tab ──
 local xiuxianClassFilter_ = "all"    -- "all" | "monk" | "taixu" | "zhenyue"
@@ -51,6 +58,10 @@ local TRIAL_RANK_COUNT = 50
 -- ── 镇狱榜常量 ──
 local PRISON_TIME_BASE = 10000000000  -- 10^10，与 RankHandler 一致
 local PRISON_RANK_COUNT = 50
+
+local function IsCacheExpired(cachedAt)
+    return cachedAt <= 0 or os.time() - cachedAt > CACHE_TTL_SECONDS
+end
 
 -- ============================================================================
 -- 排行榜黑名单 — 统一引用 config.Blacklist
@@ -111,17 +122,45 @@ local TAB_ACTIVE_BG = T.color.tabActiveBg
 local TAB_INACTIVE_BG = T.color.tabInactiveBg
 local TAB_ACTIVE_COLOR = T.color.tabActiveText
 local TAB_INACTIVE_COLOR = T.color.tabInactiveText
+local XIANREN_TAB_ACTIVE_BG = { 48, 157, 170, 255 }
+local XIANREN_TAB_INACTIVE_BG = { 40, 118, 137, 245 }
+local XIANREN_TAB_ACTIVE_TEXT = { 248, 255, 255, 255 }
+local XIANREN_TAB_INACTIVE_TEXT = { 225, 248, 250, 255 }
+local XIANREN_TAB_ACTIVE_BORDER = { 174, 246, 239, 245 }
+local XIANREN_TAB_INACTIVE_BORDER = { 108, 205, 208, 210 }
 
-local TAB_NAMES = { "⚔ 修仙榜", "🏆 试炼榜", "🏯 镇狱榜" }
-local TAB_IDS   = { "xiuxian", "trial", "prison" }
+local TAB_NAMES = { "⚔ 修仙榜", "🔱 仙人榜", "🏆 试炼榜", "🏯 镇狱榜" }
+local TAB_IDS   = { "xiuxian", "xianren", "trial", "prison" }
 local tabBtns_  = {}  -- tab 按钮引用数组
+
+local function GetTabStyle(tabId, isActive)
+    if tabId == "xianren" then
+        return {
+            backgroundColor = isActive
+                and XIANREN_TAB_ACTIVE_BG or XIANREN_TAB_INACTIVE_BG,
+            fontColor = isActive
+                and XIANREN_TAB_ACTIVE_TEXT or XIANREN_TAB_INACTIVE_TEXT,
+            borderWidth = 1,
+            borderColor = isActive
+                and XIANREN_TAB_ACTIVE_BORDER or XIANREN_TAB_INACTIVE_BORDER,
+            shadowBlur = isActive and 10 or 4,
+            shadowColor = isActive
+                and { 105, 235, 225, 120 } or { 55, 175, 190, 65 },
+        }
+    end
+    return {
+        backgroundColor = isActive and TAB_ACTIVE_BG or TAB_INACTIVE_BG,
+        fontColor = isActive and TAB_ACTIVE_COLOR or TAB_INACTIVE_COLOR,
+        borderWidth = 0,
+        borderColor = T.color.transparent,
+        shadowBlur = 0,
+        shadowColor = T.color.transparent,
+    }
+end
 
 local function UpdateTabStyles()
     for i, btn in ipairs(tabBtns_) do
-        btn:SetStyle({
-            backgroundColor = (TAB_IDS[i] == activeTab_) and TAB_ACTIVE_BG or TAB_INACTIVE_BG,
-            fontColor = (TAB_IDS[i] == activeTab_) and TAB_ACTIVE_COLOR or TAB_INACTIVE_COLOR,
-        })
+        btn:SetStyle(GetTabStyle(TAB_IDS[i], TAB_IDS[i] == activeTab_))
     end
 end
 
@@ -133,7 +172,7 @@ end
 local RULES_DATA = {
     title = "📜 修仙榜规则",
     rules = {
-        "等级达到 5 级以上自动上榜",
+        "等级达到 6 级后自动上榜",
         "每个角色独立上榜，最多 4 个角色",
         "优先按境界排序，境界相同按等级排序",
         "每次存档自动更新排行数据",
@@ -589,16 +628,23 @@ local function RenderLeaderboard(merged, nicknameMap)
     end
 
     -- 筛选后无数据时显示提示
-    if displayRank == 0 and statusLabel_ then
-        local classData = GameConfig.CLASS_DATA[xiuxianClassFilter_]
-        local filterName = classData and classData.name or "该职业"
-        statusLabel_:SetText("暂无" .. filterName .. "修仙者上榜")
-        statusLabel_:Show()
+    if statusLabel_ then
+        if displayRank == 0 then
+            local classData = GameConfig.CLASS_DATA[xiuxianClassFilter_]
+            local filterName = classData and classData.name or "该职业"
+            statusLabel_:SetText("暂无" .. filterName .. "修仙者上榜")
+            statusLabel_:Show()
+        else
+            statusLabel_:Hide()
+        end
     end
 end
 
 local function LoadLeaderboard()
+    if xiuxianLoading_ then return end
     if not listContainer_ or not statusLabel_ then return end
+    xiuxianLoading_ = true
+    local generation = leaderboardGeneration_
 
     listContainer_:ClearChildren()
     statusLabel_:SetText("加载中...")
@@ -614,13 +660,15 @@ local function LoadLeaderboard()
     local QUERY_TIMEOUT = 15  -- 秒
 
     local function OnQueryComplete(entries)
+        if generation ~= leaderboardGeneration_ then return end
         if queryDone then return end  -- P1-UI-6: 超时后忽略后续回调
 
         -- P1-UI-6: 检查是否已超时（每次回调时检查）
         if os.clock() - queryStartTime > QUERY_TIMEOUT then
             queryDone = true
+            xiuxianLoading_ = false
             print("[LeaderboardUI] Query timeout: completed=" .. completed .. "/" .. totalQueries)
-            if statusLabel_ then
+            if activeTab_ == "xiuxian" and statusLabel_ then
                 statusLabel_:SetText("部分数据加载超时，请稍后重试")
             end
             return
@@ -636,10 +684,9 @@ local function LoadLeaderboard()
 
         -- P1-UI-6: 标记完成
         queryDone = true
+        xiuxianLoading_ = false
 
         -- 所有查询都完成，合并
-        if not listContainer_ then return end
-
         local allEntries = allSlotEntries
 
         -- 过滤黑名单玩家（账号级：角色名命中则封禁整个 userId）
@@ -666,9 +713,16 @@ local function LoadLeaderboard()
 
         if #allEntries == 0 then
             if hasError then
-                statusLabel_:SetText("加载失败，请稍后重试")
+                cachedXiuxianEntries_ = nil
             else
-                statusLabel_:SetText("暂无修仙者上榜\n等级达到 5 级即可上榜")
+                cachedXiuxianEntries_ = {}
+                cachedXiuxianNickMap_ = nil
+                xiuxianCachedAt_ = os.time()
+            end
+            if activeTab_ == "xiuxian" and statusLabel_ then
+                statusLabel_:SetText(hasError and "加载失败，请稍后重试"
+                    or "暂无修仙者上榜\n等级达到 5 级即可上榜")
+                statusLabel_:Show()
             end
             return
         end
@@ -681,14 +735,16 @@ local function LoadLeaderboard()
             return a.userId < b.userId
         end)
 
-        statusLabel_:Hide()
-
         -- 缓存数据（切换 tab 后回来时从缓存重新渲染）
         cachedXiuxianEntries_ = allEntries
         cachedXiuxianNickMap_ = nil
+        xiuxianCachedAt_ = os.time()
 
         -- 首次渲染：使用排行数据中存储的 taptapNick（入榜时服务端写入）
-        RenderLeaderboard(allEntries, nil)
+        if activeTab_ == "xiuxian" and listContainer_ and statusLabel_ then
+            statusLabel_:Hide()
+            RenderLeaderboard(allEntries, nil)
+        end
 
         -- 日志：输出排行榜前10名信息（含存储的昵称）
         for i, e in ipairs(allEntries) do
@@ -711,7 +767,7 @@ local function LoadLeaderboard()
         GetUserNickname({
             userIds = userIds,
             onSuccess = function(nicknames)
-                if not listContainer_ then return end
+                if generation ~= leaderboardGeneration_ then return end
                 print("[Leaderboard] GetUserNickname returned " .. #nicknames .. " results")
                 local nameMap = {}
                 local nicknameBlocked = {}
@@ -737,8 +793,11 @@ local function LoadLeaderboard()
                 -- 更新缓存
                 cachedXiuxianEntries_ = allEntries
                 cachedXiuxianNickMap_ = nameMap
+                xiuxianCachedAt_ = os.time()
                 -- 用最新昵称重新渲染（覆盖存储昵称）
-                RenderLeaderboard(allEntries, nameMap)
+                if activeTab_ == "xiuxian" and listContainer_ then
+                    RenderLeaderboard(allEntries, nameMap)
+                end
             end,
             onError = function(errorCode)
                 -- lobby 不可用时会失败，但已有存储昵称，不影响显示
@@ -803,11 +862,10 @@ end
 
 --- 填充试炼榜数据到 trialListContainer_
 local function PopulateTrialList(rankList)
-    if not trialListContainer_ then return end
-    trialListContainer_:ClearChildren()
-
     -- 缓存数据（切换 tab 后回来时从缓存重新渲染）
     cachedTrialRankList_ = rankList
+    if not trialListContainer_ then return end
+    trialListContainer_:ClearChildren()
 
     if not rankList or #rankList == 0 then
         trialListContainer_:AddChild(BuildTrialStatusRow("暂无试炼记录"))
@@ -861,6 +919,7 @@ end
 local function LoadTrialLeaderboard()
     if trialLoading_ then return end
     trialLoading_ = true
+    local generation = leaderboardGeneration_
 
     if trialListContainer_ then
         trialListContainer_:ClearChildren()
@@ -869,14 +928,21 @@ local function LoadTrialLeaderboard()
 
     CloudStorage.GetRankList("trial_floor", 0, TRIAL_RANK_COUNT, {
         ok = function(rankList)
+            if generation ~= leaderboardGeneration_ then return end
             trialLoading_ = false
             print("[LeaderboardUI] Trial: received " .. #rankList .. " entries")
-            PopulateTrialList(rankList)
+            cachedTrialRankList_ = rankList
+            trialCachedAt_ = os.time()
+            if activeTab_ == "trial" and trialListContainer_ then
+                PopulateTrialList(rankList)
+            end
         end,
         error = function(code, reason)
+            if generation ~= leaderboardGeneration_ then return end
             trialLoading_ = false
+            cachedTrialRankList_ = nil
             print("[LeaderboardUI] Trial: GetRankList error: " .. tostring(code) .. " " .. tostring(reason))
-            if trialListContainer_ then
+            if activeTab_ == "trial" and trialListContainer_ then
                 trialListContainer_:ClearChildren()
                 trialListContainer_:AddChild(BuildTrialStatusRow("加载失败，请稍后再试"))
             end
@@ -890,10 +956,9 @@ end
 
 --- 填充镇狱榜数据到 prisonListContainer_
 local function PopulatePrisonList(rankList)
+    cachedPrisonRankList_ = rankList
     if not prisonListContainer_ then return end
     prisonListContainer_:ClearChildren()
-
-    cachedPrisonRankList_ = rankList
 
     if not rankList or #rankList == 0 then
         prisonListContainer_:AddChild(BuildTrialStatusRow("暂无镇狱记录"))
@@ -942,6 +1007,7 @@ end
 local function LoadPrisonLeaderboard()
     if prisonLoading_ then return end
     prisonLoading_ = true
+    local generation = leaderboardGeneration_
 
     if prisonListContainer_ then
         prisonListContainer_:ClearChildren()
@@ -950,14 +1016,21 @@ local function LoadPrisonLeaderboard()
 
     CloudStorage.GetRankList("prison_floor", 0, PRISON_RANK_COUNT, {
         ok = function(rankList)
+            if generation ~= leaderboardGeneration_ then return end
             prisonLoading_ = false
             print("[LeaderboardUI] Prison: received " .. #rankList .. " entries")
-            PopulatePrisonList(rankList)
+            cachedPrisonRankList_ = rankList
+            prisonCachedAt_ = os.time()
+            if activeTab_ == "prison" and prisonListContainer_ then
+                PopulatePrisonList(rankList)
+            end
         end,
         error = function(code, reason)
+            if generation ~= leaderboardGeneration_ then return end
             prisonLoading_ = false
+            cachedPrisonRankList_ = nil
             print("[LeaderboardUI] Prison: GetRankList error: " .. tostring(code) .. " " .. tostring(reason))
-            if prisonListContainer_ then
+            if activeTab_ == "prison" and prisonListContainer_ then
                 prisonListContainer_:ClearChildren()
                 prisonListContainer_:AddChild(BuildTrialStatusRow("加载失败，请稍后再试"))
             end
@@ -968,10 +1041,6 @@ end
 -- ============================================================================
 -- Tab 内容构建（ClearChildren + rebuild 模式）
 -- ============================================================================
-
-local xiuxianLoaded_ = false
-local trialLoaded_ = false
-local prisonLoaded_ = false
 
 --- 更新职业子 Tab 按钮样式
 local function UpdateClassSubTabStyles()
@@ -1138,6 +1207,7 @@ end
 --- 刷新 Tab 内容（ClearChildren + rebuild）
 local function RefreshTabContent()
     if not tabContent_ then return end
+    XianrenLeaderboard.Detach()
     tabContent_:ClearChildren()
 
     -- 清空旧引用
@@ -1148,28 +1218,34 @@ local function RefreshTabContent()
 
     if activeTab_ == "xiuxian" then
         BuildXiuxianTabContent()
-        if not xiuxianLoaded_ then
-            xiuxianLoaded_ = true
-            LoadLeaderboard()
-        elseif cachedXiuxianEntries_ then
+        if cachedXiuxianEntries_ ~= nil then
             statusLabel_:Hide()
             RenderLeaderboard(cachedXiuxianEntries_, cachedXiuxianNickMap_)
+        elseif xiuxianLoading_ then
+            statusLabel_:SetText("加载中...")
+            statusLabel_:Show()
+        else
+            LoadLeaderboard()
         end
+    elseif activeTab_ == "xianren" then
+        XianrenLeaderboard.Build(tabContent_)
     elseif activeTab_ == "trial" then
         BuildTrialTabContent()
-        if not trialLoaded_ then
-            trialLoaded_ = true
-            LoadTrialLeaderboard()
-        elseif cachedTrialRankList_ then
+        if cachedTrialRankList_ ~= nil then
             PopulateTrialList(cachedTrialRankList_)
+        elseif trialLoading_ then
+            trialListContainer_:AddChild(BuildTrialStatusRow("加载中..."))
+        else
+            LoadTrialLeaderboard()
         end
     elseif activeTab_ == "prison" then
         BuildPrisonTabContent()
-        if not prisonLoaded_ then
-            prisonLoaded_ = true
-            LoadPrisonLeaderboard()
-        elseif cachedPrisonRankList_ then
+        if cachedPrisonRankList_ ~= nil then
             PopulatePrisonList(cachedPrisonRankList_)
+        elseif prisonLoading_ then
+            prisonListContainer_:AddChild(BuildTrialStatusRow("加载中..."))
+        else
+            LoadPrisonLeaderboard()
         end
     end
 
@@ -1190,6 +1266,19 @@ end
 --- 创建排行榜面板
 ---@param uiRoot table
 function LeaderboardUI.Create(uiRoot)
+    leaderboardGeneration_ = leaderboardGeneration_ + 1
+    xiuxianLoading_ = false
+    trialLoading_ = false
+    prisonLoading_ = false
+    cachedXiuxianEntries_ = nil
+    cachedXiuxianNickMap_ = nil
+    cachedTrialRankList_ = nil
+    cachedPrisonRankList_ = nil
+    xiuxianCachedAt_ = 0
+    trialCachedAt_ = 0
+    prisonCachedAt_ = 0
+    XianrenLeaderboard.Reset()
+
     -- 幂等：如果已创建过，先销毁旧面板
     if panel_ then
         panel_:Destroy()
@@ -1221,6 +1310,7 @@ function LeaderboardUI.Create(uiRoot)
     local tabChildren = {}
     for i, name in ipairs(TAB_NAMES) do
         local isActive = (TAB_IDS[i] == activeTab_)
+        local tabStyle = GetTabStyle(TAB_IDS[i], isActive)
         local btn = UI.Button {
             text = name,
             height = 34,
@@ -1228,8 +1318,14 @@ function LeaderboardUI.Create(uiRoot)
             fontSize = T.fontSize.sm,
             fontWeight = "bold",
             borderRadius = T.radius.sm,
-            backgroundColor = isActive and TAB_ACTIVE_BG or TAB_INACTIVE_BG,
-            fontColor = isActive and TAB_ACTIVE_COLOR or TAB_INACTIVE_COLOR,
+            backgroundColor = tabStyle.backgroundColor,
+            fontColor = tabStyle.fontColor,
+            borderWidth = tabStyle.borderWidth,
+            borderColor = tabStyle.borderColor,
+            shadowBlur = tabStyle.shadowBlur,
+            shadowColor = tabStyle.shadowColor,
+            shadowOffsetY = 1,
+            transition = "backgroundColor 0.2s easeOut, borderColor 0.2s easeOut, shadowBlur 0.2s easeOut",
             onClick = function()
                 if activeTab_ ~= TAB_IDS[i] then
                     SwitchTab(TAB_IDS[i])
@@ -1329,14 +1425,18 @@ function LeaderboardUI.Show(tabId)
     if not panel_ then return end
     local targetTab = tabId or "xiuxian"
 
-    -- 重置加载标记和缓存（每次 Show 都重新加载数据）
-    xiuxianLoaded_ = false
-    trialLoaded_ = false
-    prisonLoaded_ = false
-    cachedXiuxianEntries_ = nil
-    cachedXiuxianNickMap_ = nil
-    cachedTrialRankList_ = nil
-    cachedPrisonRankList_ = nil
+    -- 30 秒内缓存直接复用；未完成的请求继续服务重新打开后的面板。
+    if IsCacheExpired(xiuxianCachedAt_) then
+        cachedXiuxianEntries_ = nil
+        cachedXiuxianNickMap_ = nil
+    end
+    if IsCacheExpired(trialCachedAt_) then
+        cachedTrialRankList_ = nil
+    end
+    if IsCacheExpired(prisonCachedAt_) then
+        cachedPrisonRankList_ = nil
+    end
+    XianrenLeaderboard.BeginSession(CACHE_TTL_SECONDS)
     xiuxianClassFilter_ = "all"
     classSubTabBtns_ = {}
 

@@ -511,7 +511,8 @@ function M.GetExclusiveSkillTier(IS)
     local excl = manager_:GetEquipmentItem("exclusive")
     if not excl then return 3 end
     -- 新版法宝：技能暂不成长（§8.4）
-    if excl.id and type(excl.id) == "string" and excl.id:sub(1, 6) == "fabao_" then
+    if excl.isFabao == true
+        or (type(excl.equipId) == "string" and excl.equipId:sub(1, 6) == "fabao_") then
         return 3
     end
     return excl.tier or 3

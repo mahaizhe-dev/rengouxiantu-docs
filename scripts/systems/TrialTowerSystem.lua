@@ -283,11 +283,20 @@ function TrialTowerSystem._spawnFloorMonsters(floor, gameMap)
             m.isTrial = true
             m.isChallenge = true  -- 复用 ChallengeSystem 的标记，避免掉落
 
-            -- 覆盖等级，并优先使用楼层配置境界；第六章需使用 zhexian_* 仙阶执行 ID
-            m.level = floorCfg.level
+            -- 覆盖等级，并优先使用楼层配置境界；BOSS层额外按原BOSS等级应用专属预设
+            local monsterLevel = floorCfg.level
             local trialRealm = floorCfg.realm or GameConfig.GetMaxRealmByLevel(floorCfg.level)
+            if floorCfg.isBoss then
+                local bossOverride = TrialTowerConfig.GetBossOverride(monsterData)
+                if bossOverride then
+                    monsterLevel = bossOverride.level or monsterLevel
+                    trialRealm = bossOverride.realm or trialRealm
+                end
+            end
+
+            m.level = monsterLevel
             m.realm = trialRealm
-            local stats = MonsterData.CalcFinalStats(floorCfg.level, monsterData.category, monsterData.race, trialRealm)
+            local stats = MonsterData.CalcFinalStats(monsterLevel, monsterData.category, monsterData.race, trialRealm)
             m.hp = stats.hp
             m.maxHp = stats.hp
             m.atk = stats.atk
@@ -334,7 +343,7 @@ function TrialTowerSystem._applyTrialBuff(monster, category)
     -- 狂暴增幅（通用方法，实际应用攻速/移速/CDR）
     monster:ApplyBerserkBuff(buff.berserk)
 
-    -- 攻击力 +30%
+    -- 攻击力 +50%
     monster.atk = math.floor(monster.atk * buff.atkMult)
 
     -- 生命值 +100%

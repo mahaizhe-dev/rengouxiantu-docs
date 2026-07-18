@@ -4,6 +4,7 @@
 -- 子模块: effects/{shared,assets,basic_attacks,skills_a,skills_b,formations,zones,auras}
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local GameState = require("core.GameState")
 local CombatSystem = require("systems.CombatSystem")
 local DungeonHUD = require("rendering.DungeonHUD")
@@ -187,6 +188,7 @@ end
 function EffectRenderer.Render(nvg, l, camera)
     EffectRenderer.RenderZones(nvg, l, camera)
     EffectRenderer.RenderBarrierZones(nvg, l, camera)
+    EffectRenderer.RenderJadeShield(nvg, l, camera)
     EffectRenderer.RenderMonsterWarnings(nvg, l, camera)
     EffectRenderer.RenderTribulationWarnings(nvg, l, camera)
     EffectRenderer.RenderSkillEffects(nvg, l, camera)
@@ -196,6 +198,7 @@ function EffectRenderer.Render(nvg, l, camera)
     EffectRenderer.RenderClawEffects(nvg, l, camera)
     EffectRenderer.RenderRakeStrikeEffects(nvg, l, camera)
     EffectRenderer.RenderZhentuSwordEffects(nvg, l, camera)
+    EffectRenderer.RenderJieshiRescueEffects(nvg, l, camera)
     EffectRenderer.RenderSetAoeEffects(nvg, l, camera)
     EffectRenderer.RenderBaguaAura(nvg, l, camera)
     EffectRenderer.RenderBuffAuras(nvg, l, camera)

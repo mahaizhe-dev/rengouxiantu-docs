@@ -11,6 +11,18 @@ local LEGACY_PILL_CONFIG = shared.LEGACY_PILL_CONFIG
 
 local M = {}
 
+--- 击杀挑战 BOSS 后立即停止残留伤害，奖励选择期间不再发生胜负翻转
+function M.StopVictoryCombat()
+    local CombatSystem = require("systems.CombatSystem")
+    CombatSystem.ClearEffects()
+    CombatSystem.ClearChallengeStatusEffects()
+
+    local player = GameState.player
+    if player and player.SetMoveDirection then
+        player:SetMoveDirection(0, 0)
+    end
+end
+
 -- ============================================================================
 -- 怪物死亡处理
 -- ============================================================================
@@ -43,6 +55,7 @@ function M.OnMonsterDeath(CS, monster)
     if progress then
         progress.completed = true
     end
+    M.StopVictoryCombat()
 
     -- 挑战过程中不存档：completed 仅在内存中标记
     -- 入场时已存档（令牌扣除已持久化），奖励领取时再统一存档
@@ -74,10 +87,12 @@ end
 --- 新版声望怪物死亡处理
 ---@param CS table ChallengeSystem
 ---@param factionKey string
----@param repLevel number 1-8
+---@param repLevel number 1-9
 function M._onRepMonsterDeath(CS, factionKey, repLevel)
     local factionCfg = ChallengeConfig.FACTIONS[factionKey]
-    local repCfg = factionCfg and factionCfg.reputation[repLevel]
+    if not factionCfg or not factionCfg.reputation then return end
+
+    local repCfg = factionCfg.reputation[repLevel]
     if not repCfg then return end
 
     local ChallengeSystem = require("systems.ChallengeSystem")
@@ -87,6 +102,7 @@ function M._onRepMonsterDeath(CS, factionKey, repLevel)
     if progress then
         progress.completed = true
     end
+    M.StopVictoryCombat()
 
     -- 挑战过程中不存档：completed 仅在内存中标记
     -- 入场时已存档（令牌扣除已持久化），奖励领取时再统一存档
@@ -108,8 +124,12 @@ function M._onRepMonsterDeath(CS, factionKey, repLevel)
         print("[ChallengeSystem] FirstClear: generated 2 fabao T" .. tier .. " quality=" .. quality)
     else
         -- 非首通：固定2件随机法宝 + 额外掉落判定第3候选
-        local fabaoA = LootSystem.CreateFabaoEquipment(templateId, tier, nil)
-        local fabaoB = LootSystem.CreateFabaoEquipment(templateId, tier, nil)
+        local rollOpts = {
+            minQuality = ChallengeConfig.GetRandomMinQuality(repLevel),
+            maxQuality = ChallengeConfig.GetRandomMaxQuality(repLevel),
+        }
+        local fabaoA = LootSystem.CreateFabaoEquipment(templateId, tier, nil, rollOpts)
+        local fabaoB = LootSystem.CreateFabaoEquipment(templateId, tier, nil, rollOpts)
         choices = { fabaoA, fabaoB }
 
         -- 额外掉落判定：按显式概率表 roll

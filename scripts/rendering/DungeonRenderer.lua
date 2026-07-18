@@ -9,6 +9,7 @@
 -- 设计文档：docs/架构文档/multiplayer-dungeon-tech-plan.md §8 C1
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local GameConfig = require("config.GameConfig")
 local DungeonConfig = require("config.DungeonConfig")
 local GameState = require("core.GameState")

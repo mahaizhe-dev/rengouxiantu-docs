@@ -2,6 +2,7 @@
 -- effects/auras.lua - 光环与持续特效（钉耙横扫/八卦/套装AOE/Buff光环/阵图剑效果）
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.effects.shared")
 local assets = require("rendering.effects.assets")
 
@@ -767,6 +768,240 @@ function M.RenderZhentuSwordEffects(nvg, l, camera)
         end
 
         ::continue::
+    end
+end
+
+-- ============================================================================
+-- 界匙「两界替命」：钥孔符文、竖向裂隙、双影换位与3秒无敌环
+-- ============================================================================
+
+local _jieshiKeyRuneImage = nil
+local _jieshiRiftImage = nil
+local _jieshiImagesLoaded = false
+
+local function loadJieshiImages(nvg)
+    if _jieshiImagesLoaded then return end
+    _jieshiImagesLoaded = true
+    _jieshiKeyRuneImage = nvgCreateImage(
+        nvg, "image/ch6_jieshi_key_rune_20260711011456.png", 0)
+    _jieshiRiftImage = nvgCreateImage(
+        nvg, "image/ch6_jieshi_vertical_rift_20260711011456.png", 0)
+end
+
+function M.RenderJieshiRescueEffects(nvg, l, camera)
+    local effects = CombatSystem.jieshiRescueEffects
+    if not effects or #effects == 0 then return end
+    loadJieshiImages(nvg)
+
+    local tileSize = camera:GetTileSize()
+    for i = 1, #effects do
+        local e = effects[i]
+        local player = e.player
+        local wx = player and player.x or e.x
+        local wy = player and player.y or e.y
+        if camera:IsVisible(wx, wy, l.w, l.h, 3) then
+            local sx = (wx - camera.x) * tileSize + l.w / 2 + l.x
+            local sy = (wy - camera.y) * tileSize + l.h / 2 + l.y
+            local progress = math.max(0, math.min(1, e.elapsed / e.duration))
+            local intro = math.min(1, progress / 0.14)
+            local fade = progress > 0.78 and (1 - progress) / 0.22 or 1
+            fade = math.max(0, math.min(1, fade))
+            local pulse = 0.82 + math.sin(e.elapsed * 7.0) * 0.08
+
+            -- 双界冲击波：不依赖PNG，确保资源降级时仍有明确触发反馈。
+            if progress < 0.28 then
+                local impactT = progress / 0.28
+                local impactR = tileSize * (0.25 + impactT * 1.25)
+                local impactAlpha = math.floor(190 * (1 - impactT))
+                local impactGlow = nvgRadialGradient(
+                    nvg, sx, sy, tileSize * 0.08, impactR,
+                    nvgRGBA(230, 255, 255, impactAlpha),
+                    nvgRGBA(145, 90, 255, 0))
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, sx, sy, impactR)
+                nvgFillPaint(nvg, impactGlow)
+                nvgFill(nvg)
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, sx, sy, impactR * 0.82)
+                nvgStrokeColor(
+                    nvg, nvgRGBA(175, 245, 255, impactAlpha))
+                nvgStrokeWidth(nvg, math.max(1.5, tileSize * 0.04))
+                nvgStroke(nvg)
+            end
+
+            -- 背后钥匙符文：快速展开，随后作为无敌状态标记保留。
+            if _jieshiKeyRuneImage and _jieshiKeyRuneImage > 0 then
+                local runeSize = tileSize * (1.25 + intro * 0.65) * pulse
+                local runeAlpha = (0.25 + intro * 0.55) * fade
+                local paint = nvgImagePattern(
+                    nvg,
+                    sx - runeSize * 0.5,
+                    sy - runeSize * 0.62,
+                    runeSize,
+                    runeSize,
+                    0,
+                    _jieshiKeyRuneImage,
+                    runeAlpha)
+                nvgBeginPath(nvg)
+                nvgRect(nvg, sx - runeSize * 0.5, sy - runeSize * 0.62,
+                    runeSize, runeSize)
+                nvgFillPaint(nvg, paint)
+                nvgFill(nvg)
+            end
+
+            -- 触发前0.45秒打开竖向裂隙。
+            if progress < 0.24 then
+                local riftT = math.sin((progress / 0.24) * math.pi)
+                local riftW = tileSize * (0.36 + riftT * 0.42)
+                local riftH = tileSize * 2.4
+
+                -- 程序化辉光保证裂隙不依赖图片也可识别。
+                local riftGlow = nvgLinearGradient(
+                    nvg, sx - riftW * 0.5, sy, sx + riftW * 0.5, sy,
+                    nvgRGBA(150, 245, 255, 0),
+                    nvgRGBA(175, 90, 255, math.floor(185 * riftT)))
+                nvgBeginPath(nvg)
+                nvgRect(nvg, sx - riftW * 0.5, sy - riftH * 0.62,
+                    riftW, riftH)
+                nvgFillPaint(nvg, riftGlow)
+                nvgFill(nvg)
+
+                -- 素材只取中央干净核心，避免边缘底色进入游戏画面。
+                if _jieshiRiftImage and _jieshiRiftImage > 0 then
+                    nvgSave(nvg)
+                    nvgIntersectScissor(
+                        nvg,
+                        sx - riftW * 0.18,
+                        sy - riftH * 0.62,
+                        riftW * 0.36,
+                        riftH)
+                    local paint = nvgImagePattern(
+                        nvg,
+                        sx - riftW * 0.5,
+                        sy - riftH * 0.62,
+                        riftW,
+                        riftH,
+                        0,
+                        _jieshiRiftImage,
+                        math.min(1, riftT * 1.2))
+                    nvgBeginPath(nvg)
+                    nvgRect(nvg, sx - riftW * 0.5, sy - riftH * 0.62,
+                        riftW, riftH)
+                    nvgFillPaint(nvg, paint)
+                    nvgFill(nvg)
+                    nvgRestore(nvg)
+                end
+
+                -- 青紫三重裂缝描边，补足核心素材被裁窄后的宽度与爆发感。
+                local topY = sy - riftH * 0.58
+                local bottomY = sy + riftH * 0.36
+                local sway = math.sin(e.elapsed * 18) * riftW * 0.08
+                local function strokeRift(width, color)
+                    nvgBeginPath(nvg)
+                    nvgMoveTo(nvg, sx, topY)
+                    nvgBezierTo(
+                        nvg,
+                        sx - riftW * 0.20 + sway,
+                        sy - riftH * 0.28,
+                        sx + riftW * 0.16 - sway,
+                        sy + riftH * 0.05,
+                        sx,
+                        bottomY)
+                    nvgStrokeColor(nvg, color)
+                    nvgStrokeWidth(nvg, width)
+                    nvgLineCap(nvg, NVG_ROUND)
+                    nvgStroke(nvg)
+                end
+                strokeRift(
+                    math.max(4, riftW * 0.20),
+                    nvgRGBA(40, 10, 75, math.floor(220 * riftT)))
+                strokeRift(
+                    math.max(2, riftW * 0.10),
+                    nvgRGBA(175, 95, 255, math.floor(235 * riftT)))
+                strokeRift(
+                    math.max(1, riftW * 0.035),
+                    nvgRGBA(220, 255, 255, math.floor(255 * riftT)))
+            end
+
+            -- 双轮廓换位：青白本体与紫色影界残像交叉。
+            if progress < 0.22 then
+                local swapT = progress / 0.22
+                local offset = tileSize * 0.48 * (1 - swapT)
+                local alpha = math.floor(150 * (1 - swapT))
+                for side = -1, 1, 2 do
+                    local color = side < 0
+                        and {150, 245, 255, alpha}
+                        or {185, 105, 255, alpha}
+                    nvgBeginPath(nvg)
+                    nvgEllipse(nvg, sx + side * offset,
+                        sy - tileSize * 0.18, tileSize * 0.22, tileSize * 0.50)
+                    nvgFillColor(nvg, nvgRGBA(
+                        color[1], color[2], color[3], color[4]))
+                    nvgFill(nvg)
+                end
+            end
+
+            -- 钥孔核心：白青圆芯 + 紫色钥齿，强化神器识别。
+            local coreAlpha = math.floor(230 * fade)
+            local coreR = tileSize * (0.10 + 0.02 * math.sin(e.elapsed * 8))
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, sx, sy - tileSize * 0.10, coreR)
+            nvgFillColor(nvg, nvgRGBA(225, 255, 255, coreAlpha))
+            nvgFill(nvg)
+            nvgBeginPath(nvg)
+            nvgMoveTo(nvg, sx - coreR * 0.42, sy - tileSize * 0.04)
+            nvgLineTo(nvg, sx + coreR * 0.42, sy - tileSize * 0.04)
+            nvgLineTo(nvg, sx + coreR * 0.70, sy + tileSize * 0.22)
+            nvgLineTo(nvg, sx - coreR * 0.70, sy + tileSize * 0.22)
+            nvgClosePath(nvg)
+            nvgFillColor(nvg, nvgRGBA(175, 105, 255, coreAlpha))
+            nvgFill(nvg)
+
+            -- 青白与紫色光屑围绕角色反向旋转，持续覆盖无敌窗口。
+            for p = 0, 11 do
+                local direction = p % 2 == 0 and 1 or -1
+                local angle = direction * e.elapsed * 2.4 + p * math.pi / 6
+                local orbitR = tileSize * (0.48 + (p % 3) * 0.09)
+                local px = sx + math.cos(angle) * orbitR
+                local py = sy + math.sin(angle) * orbitR * 0.46
+                    - tileSize * 0.08
+                local particleAlpha = math.floor((150 + (p % 3) * 30) * fade)
+                local color = p % 2 == 0
+                    and {155, 245, 255}
+                    or {195, 120, 255}
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, px, py, tileSize * (0.025 + (p % 2) * 0.01))
+                nvgFillColor(nvg, nvgRGBA(
+                    color[1], color[2], color[3], particleAlpha))
+                nvgFill(nvg)
+            end
+
+            -- 2秒双界无敌环，结束时向中心收束。
+            local ringScale = progress > 0.82
+                and math.max(0.08, (1 - progress) / 0.18) or 1
+            local ringAlpha = math.floor(185 * fade)
+            nvgSave(nvg)
+            nvgTranslate(nvg, sx, sy + tileSize * 0.34)
+            nvgRotate(nvg, e.elapsed * 0.7)
+            nvgBeginPath(nvg)
+            nvgEllipse(nvg, 0, 0,
+                tileSize * 0.62 * ringScale, tileSize * 0.20 * ringScale)
+            nvgStrokeColor(nvg, nvgRGBA(145, 240, 255, ringAlpha))
+            nvgStrokeWidth(nvg, math.max(1.5, tileSize * 0.035))
+            nvgStroke(nvg)
+            nvgRestore(nvg)
+
+            nvgSave(nvg)
+            nvgTranslate(nvg, sx, sy + tileSize * 0.34)
+            nvgRotate(nvg, -e.elapsed * 0.9)
+            nvgBeginPath(nvg)
+            nvgEllipse(nvg, 0, 0,
+                tileSize * 0.48 * ringScale, tileSize * 0.14 * ringScale)
+            nvgStrokeColor(nvg, nvgRGBA(185, 105, 255, ringAlpha))
+            nvgStrokeWidth(nvg, math.max(1.0, tileSize * 0.025))
+            nvgStroke(nvg)
+            nvgRestore(nvg)
+        end
     end
 end
 

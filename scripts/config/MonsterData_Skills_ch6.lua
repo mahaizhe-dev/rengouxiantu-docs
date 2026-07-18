@@ -94,6 +94,61 @@ return function(M)
     }
 
     -- =====================================================================
+    -- Artifact Jieshi: immortalized Gua King control skills
+    -- =====================================================================
+
+    M.Skills.ch6_gua_immortal_lotus = {
+        id = "ch6_gua_immortal_lotus",
+        name = "玉莲镇界",
+        cooldown = 7,
+        damageMult = 1.55,
+        effect = "slow",
+        effectDuration = 2.2,
+        effectValue = 0.30,
+        castTime = 0.7,
+        burstCount = 3,
+        burstInterval = 0.5,
+        burstTrack = true,
+        warningShape = "circle",
+        warningRange = 1.7,
+        warningColor = {120, 225, 205, 135},
+    }
+
+    M.Skills.ch6_gua_immortal_cross = {
+        id = "ch6_gua_immortal_cross",
+        name = "仙阙分潮",
+        cooldown = 9,
+        damageMult = 1.8,
+        effect = "stun",
+        effectDuration = 0.65,
+        castTime = 0.9,
+        burstCount = 2,
+        burstInterval = 0.55,
+        burstRotation = 45,
+        warningShape = "cross",
+        warningRange = 4.2,
+        warningCrossWidth = 0.75,
+        warningColor = {155, 235, 215, 140},
+    }
+
+    M.Skills.ch6_gua_immortal_seal = {
+        id = "ch6_gua_immortal_seal",
+        name = "九霄莲印",
+        cooldown = 12,
+        damageMult = 2.15,
+        effect = "slow",
+        effectDuration = 3.0,
+        effectValue = 0.42,
+        castTime = 1.1,
+        burstCount = 4,
+        burstInterval = 0.45,
+        burstTrack = true,
+        warningShape = "circle",
+        warningRange = 2.0,
+        warningColor = {185, 245, 220, 150},
+    }
+
+    -- =====================================================================
     -- Demon Lord Shixuan: shadow lines, crossing rifts, and one field burst
     -- =====================================================================
 

@@ -519,7 +519,9 @@ local function BuildBestiaryContent(chapterIndex)
         for _, pool in ipairs(validPools) do
             -- 池说明文字
             local descText
-            if pool.eliteLabel and pool.bossLabel then
+            if pool.scopeLabel and pool.bossLabel then
+                descText = "仅" .. pool.scopeLabel .. "，整池 " .. pool.bossLabel .. "，命中后等权随机 1 项"
+            elseif pool.eliteLabel and pool.bossLabel then
                 descText = "以下物品由本章所有精英(" .. pool.eliteLabel .. ")和首领(" .. pool.bossLabel .. ")共享掉落"
             elseif pool.bossLabel then
                 descText = "以下物品由本章首领(" .. pool.bossLabel .. ")专属掉落"
@@ -557,7 +559,9 @@ local function BuildBestiaryContent(chapterIndex)
                 end
                 if itemName then
                     local chanceText
-                    if pool.bossLabel and not pool.eliteLabel then
+                    if pool.scopeShortLabel and pool.bossLabel then
+                        chanceText = pool.scopeShortLabel .. " " .. pool.bossLabel .. "共享池"
+                    elseif pool.bossLabel and not pool.eliteLabel then
                         chanceText = "首领" .. pool.bossLabel .. "专属"
                     elseif pool.eliteLabel and pool.bossLabel then
                         chanceText = "精英" .. pool.eliteLabel .. " / 首领" .. pool.bossLabel
@@ -1566,6 +1570,10 @@ function SystemMenu.DoSaveAndExit()
                 msg = "服务器连接未恢复，当前无法保存退出"
             elseif reason == "already_saving" then
                 msg = "正在保存中，请稍后再试"
+            elseif reason == "treasure_map_busy" then
+                msg = "宝箱交互正在结算，请稍候再保存退出"
+            elseif reason == "treasure_state_changed" then
+                msg = "寻宝状态刚刚更新，请稍候重新保存"
             elseif reason == "save_blocked" then
                 msg = "存档异常，请联系客服"
             end

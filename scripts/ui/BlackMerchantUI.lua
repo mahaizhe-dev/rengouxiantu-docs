@@ -51,13 +51,15 @@ local tradeRecords_ = {}    -- 交易记录数组
 local contentPanel_ = nil   -- 动态内容区（标签页切换时重建）
 local currencyLabel_ = nil  -- 仙石余额文字
 local statusLabel_ = nil    -- 状态提示文字
-local tabBtnConsumableMat_ = nil
+local tabBtnConsumable_ = nil
+local tabBtnMaterial_ = nil
 local tabBtnHerb_ = nil
 -- local tabBtnEvent_ = nil  -- 活动已下架
 local tabBtnRake_ = nil
 local tabBtnBagua_ = nil
 local tabBtnTiandi_ = nil
 local tabBtnZhentu_ = nil
+local tabBtnJieshi_ = nil
 local tabBtnLingyu_ = nil
 local tabBtnSpecialEquip_ = nil
 local tabBtnSkillBookMid_ = nil
@@ -65,7 +67,7 @@ local tabBtnSkillBookHigh_ = nil
 local tabBtnSkillBookSpecial_ = nil
 local tabBtnHistory_ = nil
 
-local activeTab_ = "consumable_mat"   -- "consumable_mat" | "herb" | "rake" | "bagua" | "tiandi" | "zhentu" | "lingyu" | "special_equip" | "skill_book_mid" | "skill_book_high" | "skill_book_special" | "history"
+local activeTab_ = BMConfig.CATEGORY_CONSUMABLE
 
 -- 轮询
 local POLL_INTERVAL = 30.0  -- P0: 降频，减少 SYSTEM_UID 热读压力
@@ -545,13 +547,15 @@ local function SetActiveTab(tab)
     HideConfirmDialog()  -- 切标签关闭确认弹窗
 
     -- 更新所有标签按钮样式
-    if tabBtnConsumableMat_ then tabBtnConsumableMat_:SetStyle({ backgroundColor = (tab == "consumable_mat") and C.tabActive or C.tabInactive }) end
+    if tabBtnConsumable_ then tabBtnConsumable_:SetStyle({ backgroundColor = (tab == BMConfig.CATEGORY_CONSUMABLE) and C.tabActive or C.tabInactive }) end
+    if tabBtnMaterial_ then tabBtnMaterial_:SetStyle({ backgroundColor = (tab == BMConfig.CATEGORY_MATERIAL) and C.tabActive or C.tabInactive }) end
     if tabBtnHerb_ then tabBtnHerb_:SetStyle({ backgroundColor = (tab == "herb") and C.tabActive or C.tabInactive }) end
     -- if tabBtnEvent_ then tabBtnEvent_:SetStyle({ backgroundColor = (tab == "event") and C.tabActive or C.tabInactive }) end  -- 活动已下架
     if tabBtnRake_ then tabBtnRake_:SetStyle({ backgroundColor = (tab == "rake") and C.tabActive or C.tabInactive }) end
     if tabBtnBagua_ then tabBtnBagua_:SetStyle({ backgroundColor = (tab == "bagua") and C.tabActive or C.tabInactive }) end
     if tabBtnTiandi_ then tabBtnTiandi_:SetStyle({ backgroundColor = (tab == "tiandi") and C.tabActive or C.tabInactive }) end
     if tabBtnZhentu_ then tabBtnZhentu_:SetStyle({ backgroundColor = (tab == "zhentu") and C.tabActive or C.tabInactive }) end
+    if tabBtnJieshi_ then tabBtnJieshi_:SetStyle({ backgroundColor = (tab == "jieshi") and C.tabActive or C.tabInactive }) end
     if tabBtnLingyu_ then tabBtnLingyu_:SetStyle({ backgroundColor = (tab == "lingyu") and C.tabActive or C.tabInactive }) end
     if tabBtnSpecialEquip_ then tabBtnSpecialEquip_:SetStyle({ backgroundColor = (tab == "special_equip") and C.tabActive or C.tabInactive }) end
     if tabBtnSkillBookMid_ then tabBtnSkillBookMid_:SetStyle({ backgroundColor = (tab == "skill_book_mid") and C.tabActive or C.tabInactive }) end
@@ -958,10 +962,14 @@ function BlackMerchantUI.RefreshContent()
         children = BuildShowcase(BMConfig.CATEGORY_TIANDI)
     elseif activeTab_ == "zhentu" then
         children = BuildShowcase(BMConfig.CATEGORY_ZHENTU)
+    elseif activeTab_ == "jieshi" then
+        children = BuildShowcase(BMConfig.CATEGORY_JIESHI)
     elseif activeTab_ == "lingyu" then
         children = BuildShowcase(BMConfig.CATEGORY_LINGYU)
-    elseif activeTab_ == "consumable_mat" then
-        children = BuildShowcase(BMConfig.CATEGORY_CONSUMABLE_MAT)
+    elseif activeTab_ == BMConfig.CATEGORY_CONSUMABLE then
+        children = BuildShowcase(BMConfig.CATEGORY_CONSUMABLE)
+    elseif activeTab_ == BMConfig.CATEGORY_MATERIAL then
+        children = BuildShowcase(BMConfig.CATEGORY_MATERIAL)
     elseif activeTab_ == "herb" then
         children = BuildShowcase(BMConfig.CATEGORY_HERB)
     -- elseif activeTab_ == "event" then  -- 活动已下架
@@ -1216,14 +1224,22 @@ function BlackMerchantUI.Create(parentOverlay)
         fontColor = C.xianshiColor,
     }
 
-    -- 第一行页签按钮
-    tabBtnConsumableMat_ = UI.Button {
-        text = BMConfig.CATEGORY_NAMES.consumable_mat,
+    -- 第一行商品分类页签
+    tabBtnConsumable_ = UI.Button {
+        text = BMConfig.CATEGORY_NAMES.consumable,
         flexGrow = 1, height = 28,
         fontSize = T.fontSize.xs, fontWeight = "bold",
         borderRadius = T.radius.xs,
         backgroundColor = C.tabActive,
-        onClick = function() SetActiveTab("consumable_mat") end,
+        onClick = function() SetActiveTab(BMConfig.CATEGORY_CONSUMABLE) end,
+    }
+    tabBtnMaterial_ = UI.Button {
+        text = BMConfig.CATEGORY_NAMES.material,
+        flexGrow = 1, height = 28,
+        fontSize = T.fontSize.xs, fontWeight = "bold",
+        borderRadius = T.radius.xs,
+        backgroundColor = C.tabInactive,
+        onClick = function() SetActiveTab(BMConfig.CATEGORY_MATERIAL) end,
     }
     tabBtnHerb_ = UI.Button {
         text = BMConfig.CATEGORY_NAMES.herb,
@@ -1276,9 +1292,9 @@ function BlackMerchantUI.Create(parentOverlay)
     }
     tabBtnHistory_ = UI.Button {
         text = "记录",
-        flexGrow = 1, height = 28,
+        width = 52, height = 28,
         fontSize = T.fontSize.xs, fontWeight = "bold",
-        borderRadius = T.radius.xs,
+        borderRadius = T.radius.sm,
         backgroundColor = C.tabInactive,
         onClick = function() SetActiveTab("history") end,
     }
@@ -1314,6 +1330,14 @@ function BlackMerchantUI.Create(parentOverlay)
         borderRadius = T.radius.xs,
         backgroundColor = C.tabInactive,
         onClick = function() SetActiveTab("zhentu") end,
+    }
+    tabBtnJieshi_ = UI.Button {
+        text = BMConfig.CATEGORY_NAMES.jieshi,
+        flexGrow = 1, height = 28,
+        fontSize = T.fontSize.xs, fontWeight = "bold",
+        borderRadius = T.radius.xs,
+        backgroundColor = C.tabInactive,
+        onClick = function() SetActiveTab("jieshi") end,
     }
 
     -- 动态内容区（双列网格）
@@ -1468,16 +1492,22 @@ function BlackMerchantUI.Create(parentOverlay)
                         paddingBottom = T.spacing.sm,
                         gap = T.spacing.sm,
                         children = {
-                            -- 仙石行：余额 + 兑换按钮
+                            -- 仙石行：余额 + 记录/皮肤 + 兑换按钮
                             UI.Panel {
                                 width = "100%", flexDirection = "row",
                                 alignItems = "center",
                                 justifyContent = "space-between",
+                                flexWrap = "wrap",
+                                gap = T.spacing.xs,
                                 children = {
                                     currencyLabel_,
                                     UI.Panel {
-                                        flexDirection = "row", gap = T.spacing.xs,
+                                        flexDirection = "row",
+                                        flexWrap = "wrap",
+                                        justifyContent = "flex-end",
+                                        gap = T.spacing.xs,
                                         children = {
+                                            tabBtnHistory_,
                                             UI.Button {
                                                 text = "皮肤",
                                                 width = 52, height = 28,
@@ -1527,17 +1557,17 @@ function BlackMerchantUI.Create(parentOverlay)
                             -- 分隔线
                             UI.Panel { width = "100%", height = 1, backgroundColor = C.separator },
                             -- 标签页栏（三行）
-                            -- 第一行：消耗品 · 草药 · 附灵玉 · 特殊装备 · 记录
+                            -- 第一行：消耗品 · 材料 · 草药 · 附灵玉 · 特殊装备
                             UI.Panel {
                                 width = "100%", flexDirection = "row",
                                 gap = T.spacing.xs,
                                 children = {
-                                    tabBtnConsumableMat_,
+                                    tabBtnConsumable_,
+                                    tabBtnMaterial_,
                                     tabBtnHerb_,
                                     -- tabBtnEvent_,  -- 活动已下架
                                     tabBtnLingyu_,
                                     tabBtnSpecialEquip_,
-                                    tabBtnHistory_,
                                 },
                             },
                             -- 第二行：技能书（中级 · 高级 · 特级）
@@ -1573,6 +1603,7 @@ function BlackMerchantUI.Create(parentOverlay)
                                     tabBtnBagua_,
                                     tabBtnTiandi_,
                                     tabBtnZhentu_,
+                                    tabBtnJieshi_,
                                 },
                             },
                             -- 状态提示
@@ -1612,13 +1643,14 @@ function BlackMerchantUI.Show()
     end)
 
     -- 重置状态
-    activeTab_ = "consumable_mat"
+    activeTab_ = BMConfig.CATEGORY_CONSUMABLE
     dataLoaded_ = false
     pendingRequest_ = false
     pollTimer_ = 0
 
     -- 更新标签按钮
-    if tabBtnConsumableMat_ then tabBtnConsumableMat_:SetStyle({ backgroundColor = C.tabActive }) end
+    if tabBtnConsumable_ then tabBtnConsumable_:SetStyle({ backgroundColor = C.tabActive }) end
+    if tabBtnMaterial_ then tabBtnMaterial_:SetStyle({ backgroundColor = C.tabInactive }) end
     if tabBtnHerb_ then tabBtnHerb_:SetStyle({ backgroundColor = C.tabInactive }) end
     -- if tabBtnEvent_ then tabBtnEvent_:SetStyle({ backgroundColor = C.tabInactive }) end  -- 活动已下架
     if tabBtnRake_ then tabBtnRake_:SetStyle({ backgroundColor = C.tabInactive }) end

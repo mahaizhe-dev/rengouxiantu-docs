@@ -263,6 +263,55 @@ local function EnsureRealmCached(connKey, userId, callback)
     end)
 end
 
+--- 解析当前槽位角色名：优先 slots_index，兼容旧存档 player.charName 为空的情况
+---@param userId integer
+---@param slot number|nil
+---@param saveData table|nil
+---@param callback fun(charName: string)
+local function ResolveCharacterName(userId, slot, saveData, callback)
+    local fallback = (saveData and saveData.player and saveData.player.charName)
+        or "修仙者"
+    if not slot then
+        callback(fallback)
+        return
+    end
+
+    serverCloud:BatchGet(userId)
+        :Key("slots_index")
+        :Fetch({
+            ok = function(scores)
+                local slotsIndex = scores["slots_index"]
+                if slotsIndex and type(slotsIndex) == "table" then
+                    Session.NormalizeSlotsIndex(slotsIndex)
+                    local slotMeta = slotsIndex.slots and slotsIndex.slots[slot]
+                    if slotMeta and slotMeta.name and slotMeta.name ~= "" then
+                        callback(slotMeta.name)
+                        return
+                    end
+                end
+                callback(fallback)
+            end,
+            error = function()
+                callback(fallback)
+            end,
+        })
+end
+
+--- 写公共交易记录时解析真实角色名
+---@param userId integer
+---@param slot number|nil
+---@param saveData table|nil
+---@param action string
+---@param itemId string
+---@param amount integer
+---@param price integer
+---@param newXianshi integer
+local function LogPublicWithCharacterName(userId, slot, saveData, action, itemId, amount, price, newXianshi)
+    ResolveCharacterName(userId, slot, saveData, function(charName)
+        TradeLogger.LogPublic(charName, action, itemId, amount, price, newXianshi)
+    end)
+end
+
 -- ============================================================================
 -- HandleQuery — 查询全部商品库存 + 玩家仙石 + 持有量
 -- ============================================================================
@@ -532,14 +581,11 @@ function M.HandleBuy(eventType, eventData)
 
                                 saveData.backpack = backpack
 
-                                local charName = (saveData.player and saveData.player.charName)
-                                    or "修仙者"
-
                                 --- 背包写入成功/失败的共用响应逻辑
                                 local function SendBuyOk(desc)
                                     buyActive_[connKey] = nil
                                     local newHeld = oldHeld + amount
-                                    TradeLogger.LogPublic(charName, "buy", consumableId,
+                                    LogPublicWithCharacterName(userId, slot, saveData, "buy", consumableId,
                                         amount, cfg.sell_price, newXianshi)
 
                                     local resp = VariantMap()
@@ -787,9 +833,6 @@ function M.HandleSell(eventType, eventData)
                     end
                     latestSaveData.backpack = latestBackpack
 
-                    local charName = (latestSaveData.player and latestSaveData.player.charName)
-                        or "修仙者"
-
                 WriteSaveBack(userId, slot, latestSaveData,
                     "黑商出售扣除背包: " .. consumableId .. " x" .. amount,
                     function() -- onOk: 存档已写，原子执行仙石+库存操作
@@ -808,7 +851,7 @@ function M.HandleSell(eventType, eventData)
                                         local newStock = stock + amount
                                         local newHeld = latestResellable - amount
 
-                                        TradeLogger.LogPublic(charName, "sell", consumableId,
+                                        LogPublicWithCharacterName(userId, slot, latestSaveData, "sell", consumableId,
                                             amount, cfg.buy_price, newXianshi)
 
                                         local resp = VariantMap()
@@ -834,7 +877,7 @@ function M.HandleSell(eventType, eventData)
                                         -- 存档已扣、仙石已加，但读余额失败，用估算值
                                         local newHeld = latestResellable - amount
 
-                                        TradeLogger.LogPublic(charName, "sell", consumableId,
+                                        LogPublicWithCharacterName(userId, slot, latestSaveData, "sell", consumableId,
                                             amount, cfg.buy_price, total)
 
                                         local resp = VariantMap()

@@ -5,23 +5,23 @@
 -- P0-3R: 语义收口 — 三层边界分离
 --
 -- 三层边界定义：
---   1. DTO_FIELDS      — P0-3A 合同 §4.1 定义的 22 个 DTO 主体字段
---   2. ENVELOPE_FIELDS  — DoSave 构建 coreData 时附加的 7 个信封/元数据字段
---   3. PASSTHROUGH_FIELDS — 透传字段（DTO 不解析，原样传递）
+--   1. DTO_FIELDS      — P0-3A 合同字段及后续系统追加字段，当前 32 个
+--   2. ENVELOPE_FIELDS  — DoSave 构建 coreData 时附加的信封/元数据字段
+--   3. PASSTHROUGH_FIELDS — 4 个透传字段（DTO 不解析，原样传递）
 --
 -- 后向兼容 (schema = DTO + envelope):
---   - GetSchemaFields()     → 返回 29 个字段（22 DTO + 7 envelope）
---   - GetSchemaFieldCount() → 29
---   - IsSchemaField()       → 检查 29 个字段
---   - ValidateBoundary()    → 检查所有 32 个已知字段
+--   - GetSchemaFields()     → 返回 40 个字段（32 DTO + 8 envelope）
+--   - GetSchemaFieldCount() → 40
+--   - IsSchemaField()       → 检查 40 个字段
+--   - ValidateBoundary()    → 检查所有 44 个已知字段
 --
 -- 新增显式 API:
---   - GetDTOFields()        → 返回 22 个 DTO 主体字段
---   - GetDTOFieldCount()    → 22
---   - IsDTOField()          → 检查 22 个 DTO 主体字段
---   - GetEnvelopeFields()   → 返回 7 个信封字段
---   - GetEnvelopeFieldCount() → 7
---   - IsEnvelopeField()     → 检查 7 个信封字段
+--   - GetDTOFields()        → 返回 32 个 DTO 主体字段
+--   - GetDTOFieldCount()    → 32
+--   - IsDTOField()          → 检查 32 个 DTO 主体字段
+--   - GetEnvelopeFields()   → 返回 8 个信封字段
+--   - GetEnvelopeFieldCount() → 8
+--   - IsEnvelopeField()     → 检查 8 个信封字段
 --
 -- 设计原则：
 --   1. 纯叶模块，零业务依赖（可纯 Lua 测试）
@@ -31,9 +31,9 @@
 --      schema 字段分离存储，DTO 不解析其内容
 --
 -- 字段来源：
---   - P0-3A 合同 §4.1 定义 22 个 DTO 主体字段域
---   - SavePersistence.DoSave() coreData 实际构建包含 7 个额外信封字段
---   - 总计 22 DTO + 7 envelope + 3 passthrough = 32 个已知字段
+--   - P0-3A 合同 §4.1 定义初始 DTO 主体字段域，后续系统按同一边界追加
+--   - SavePersistence.DoSave() coreData 实际构建包含 8 个额外信封字段
+--   - 当前总计 32 DTO + 8 envelope + 4 passthrough = 44 个已知字段
 -- ============================================================================
 
 local SaveDTO = {}
@@ -42,7 +42,7 @@ local SaveDTO = {}
 -- 字段域定义 — 三层分离
 -- ═══════════════════════════════════════════════════════════════════════════
 
---- P0-3A 合同 §4.1 定义的 22 个 DTO 主体字段
+--- P0-3A 合同字段及后续系统追加字段，当前 32 个 DTO 主体字段
 --- 这些是存档正文字段，承载角色/系统的序列化数据
 ---@type table<string, true>
 local DTO_FIELDS = {
@@ -63,6 +63,8 @@ local DTO_FIELDS = {
     fortuneFruits   = true,  -- 福果数据（FortuneFruitSystem.Serialize）
     qinglianBody    = true,  -- 青莲长生体白莲激活数据（QinglianBodySystem.Serialize）
     seaPillar       = true,  -- 海柱数据（SeaPillarSystem.Serialize）
+    liangjieStones  = true,  -- 两界阵石等级档案（LiangjieStoneSystem.Serialize）
+    swordPool       = true,  -- 祀剑池四剑数据（SwordPoolSystem.Serialize）
     prisonTower     = true,  -- 镇妖塔数据（PrisonTowerSystem.Serialize）
     warehouse       = true,  -- 仓库数据（SerializeWarehouse）
     yaochi_wash     = true,  -- 瑶池洗练数据（YaochiWashSystem.Serialize）
@@ -77,7 +79,7 @@ local DTO_FIELDS = {
     immortalBody    = true,  -- 角色级仙体数据（ImmortalBodySystem.SerializeChar）
 }
 
---- DoSave 构建 coreData 时附加的 7 个信封/元数据字段
+--- DoSave 构建 coreData 时附加的 8 个信封/元数据字段
 --- 这些字段在 coreData 中存在，但不属于 P0-3A 合同定义的 DTO 主体
 ---@type table<string, true>
 DTO_FIELDS.treasureRunner = true
@@ -90,6 +92,7 @@ local ENVELOPE_FIELDS = {
     bulletin           = true,  -- 公告数据（BulletinUI.Serialize）
     artifact_ch4       = true,  -- 第四章神器数据（ArtifactSystem_ch4.Serialize）
     artifact_ch5       = true,  -- 第五章神器数据（ArtifactSystem_ch5.Serialize）
+    artifact_ch6       = true,  -- 第六章界匙角色镜像（ArtifactSystem_ch6.Serialize）
 }
 
 --- 透传字段：DTO 不解析内容，原样传递
@@ -109,7 +112,7 @@ local PASSTHROUGH_FIELDS = {
 -- 派生集合（后向兼容：schema = DTO + envelope）
 -- ═══════════════════════════════════════════════════════════════════════════
 
---- SCHEMA_FIELDS = DTO_FIELDS ∪ ENVELOPE_FIELDS（后向兼容，29 个字段）
+--- SCHEMA_FIELDS = DTO_FIELDS ∪ ENVELOPE_FIELDS（后向兼容，40 个字段）
 ---@type table<string, true>
 local SCHEMA_FIELDS = {}
 for k in pairs(DTO_FIELDS) do SCHEMA_FIELDS[k] = true end
@@ -138,10 +141,10 @@ local function copyList(src)
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- 新增显式 API — DTO 主体（22 个字段）
+-- 新增显式 API — DTO 主体（32 个字段）
 -- ═══════════════════════════════════════════════════════════════════════════
 
---- 返回 P0-3A 合同定义的 22 个 DTO 主体字段名（有序数组）
+--- 返回当前 32 个 DTO 主体字段名（有序数组）
 ---@return string[]
 function SaveDTO.GetDTOFields()
     return copyList(_dtoList)
@@ -161,10 +164,10 @@ function SaveDTO.IsDTOField(name)
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- 新增显式 API — 信封字段（7 个字段）
+-- 新增显式 API — 信封字段（8 个字段）
 -- ═══════════════════════════════════════════════════════════════════════════
 
---- 返回 7 个信封/元数据字段名（有序数组）
+--- 返回 8 个信封/元数据字段名（有序数组）
 ---@return string[]
 function SaveDTO.GetEnvelopeFields()
     return copyList(_envelopeList)
@@ -184,11 +187,11 @@ function SaveDTO.IsEnvelopeField(name)
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- 后向兼容 API — schema = DTO ∪ envelope（29 个字段）
+-- 后向兼容 API — schema = DTO ∪ envelope（40 个字段）
 -- 注：SavePersistence.lua 直接调用这些 API，禁止修改其行为
 -- ═══════════════════════════════════════════════════════════════════════════
 
---- 返回所有 schema 字段名（有序数组，29 个 = 22 DTO + 7 envelope）
+--- 返回所有 schema 字段名（有序数组，40 个 = 32 DTO + 8 envelope）
 ---@return string[]
 function SaveDTO.GetSchemaFields()
     return copyList(_schemaList)
@@ -201,14 +204,14 @@ function SaveDTO.IsSchemaField(name)
     return SCHEMA_FIELDS[name] == true
 end
 
---- 返回 schema 字段总数（28 = 22 DTO + 6 envelope）
+--- 返回 schema 字段总数（40 = 32 DTO + 8 envelope）
 ---@return integer
 function SaveDTO.GetSchemaFieldCount()
     return #_schemaList
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- 透传 API（3 个字段，不变）
+-- 透传 API（4 个字段）
 -- ═══════════════════════════════════════════════════════════════════════════
 
 --- 返回所有透传字段名（有序数组）
@@ -238,9 +241,9 @@ end
 --- 未知字段收集到 unknowns 表中（用于诊断）
 ---
 ---@param coreData table DoSave 构建的原始 coreData
----@return table dto        只含 DTO_FIELDS 的表（22 个字段）
----@return table envelope   只含 ENVELOPE_FIELDS 的表（7 个字段）
----@return table passthrough 只含 PASSTHROUGH_FIELDS 的表（3 个字段）
+---@return table dto        只含 DTO_FIELDS 的表（32 个字段）
+---@return table envelope   只含 ENVELOPE_FIELDS 的表（8 个字段）
+---@return table passthrough 只含 PASSTHROUGH_FIELDS 的表（4 个字段）
 ---@return table unknowns   不在任何已知分类中的字段 { name = value }
 function SaveDTO.FromCoreData(coreData)
     if type(coreData) ~= "table" then

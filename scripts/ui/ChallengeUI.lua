@@ -774,6 +774,9 @@ function ChallengeUI._ShowReputation(factionKey, factionCfg, npc)
         -- 怪物信息（仅显示等级，不显示境界文本避免歧义）
         local monsterData = require("config.MonsterData").Types[repCfg.monsterId]
         local monsterLevel = monsterData and monsterData.level or "?"
+        local tierDisplay = repCfg.tier >= 11
+            and EquipmentData.GetTierDisplayName(repCfg.tier)
+            or ("T" .. repCfg.tier)
 
         -- 状态标签
         local statusText, statusColor
@@ -820,7 +823,7 @@ function ChallengeUI._ShowReputation(factionKey, factionCfg, npc)
             gap = 2,
             children = {
                 UI.Label {
-                    text = repCfg.name .. " (T" .. repCfg.tier .. ")  Lv." .. monsterLevel,
+                    text = repCfg.name .. " (" .. tierDisplay .. ")  Lv." .. monsterLevel,
                     fontSize = T.fontSize.md,
                     fontWeight = "bold",
                     fontColor = unlocked and {255, 255, 255, 255} or {150, 150, 150, 200},
@@ -885,12 +888,9 @@ function ChallengeUI._ShowReputation(factionKey, factionCfg, npc)
         else
             -- ====== 已解锁 → 挑战信息 ======
             -- 掉落信息行 + 右侧挑战方块按钮
-            local tier = repCfg.tier
-            local maxQKey = "purple"
-            if tier >= 9 then maxQKey = "cyan"
-            elseif tier >= 5 then maxQKey = "orange" end
+            local minQKey, maxQKey = ChallengeConfig.GetRepeatQualityRange(repLevel)
+            local minQName = GameConfig.QUALITY[minQKey] and GameConfig.QUALITY[minQKey].name or minQKey
             local maxQName = GameConfig.QUALITY[maxQKey] and GameConfig.QUALITY[maxQKey].name or maxQKey
-            local maxQColor = GameConfig.QUALITY[maxQKey] and GameConfig.QUALITY[maxQKey].color or {255, 255, 255, 255}
 
             local firstClearQuality = ChallengeConfig.GetFirstClearQuality(repLevel)
             local qualityCfg = GameConfig.QUALITY[firstClearQuality]
@@ -914,7 +914,7 @@ function ChallengeUI._ShowReputation(factionKey, factionCfg, npc)
             end
             -- 法宝品质范围
             table.insert(infoChildren, UI.Label {
-                text = "掉落 T" .. tier .. " 法宝（普通~" .. maxQName .. "）",
+                text = "掉落 " .. tierDisplay .. " 法宝（" .. minQName .. "~" .. maxQName .. "）",
                 fontSize = T.fontSize.xs,
                 fontColor = {180, 180, 200, 180},
             })
@@ -1079,7 +1079,7 @@ end
 -- ============================================================================
 
 --- 声望解锁/挑战按钮点击
----@param repLevel number 1-8
+---@param repLevel number 1-9
 function ChallengeUI.OnRepButtonClick(repLevel)
     if not currentFaction_ then return end
 

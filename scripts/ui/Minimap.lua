@@ -2,6 +2,7 @@
 -- Minimap.lua - 小地图 + 全局地图
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local Widget = require("urhox-libs/UI/Core/Widget")
 local UI = require("urhox-libs/UI")
 local GameConfig = require("config.GameConfig")

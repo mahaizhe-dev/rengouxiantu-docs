@@ -57,6 +57,9 @@ local NO_SELL_CONSUMABLE_IDS = {
     exp_pill_supreme = true,
     lingyun_fruit = true,
     lingyun_fruit_superior = true,
+    lingyun_fruit_supreme = true,
+    gold_box_10m = true,
+    treasure_map = true,
     item_guardian_token = true,
     gold_bar = true,
     gold_brick = true,
@@ -497,6 +500,13 @@ local function BuildItemInfoRows(item, tagLabel, tagColor)
         elseif eff.type == "yuanjia" then
             descText = string.format("受到伤害后，若当前生命低于50%%，获得%.0f%%减伤，持续%.0f秒（冷却%.0f秒）",
                 (eff.dmgReduce or 0) * 100, eff.duration or 4, eff.cooldown or 8)
+        elseif eff.type == "zhenjie_shield" then
+            descText = string.format("受到生命伤害后，若镇界护盾不存在，则有%.0f%%概率获得总防御×%.0f的独立护盾，持续%.0f秒（冷却%.0f秒）",
+                (eff.triggerChance or 0.20) * 100, eff.defMultiplier or 3,
+                eff.duration or 6, eff.cooldown or 15)
+        elseif eff.type == "hengha_fixed_burst" then
+            descText = string.format("普攻%.0f%%概率追加%d点固定伤害，不可暴击（冷却%.0f秒）",
+                (eff.procChance or 0.15) * 100, eff.fixedDamage or 50000, eff.cooldown or 1)
         else
             descText = eff.description or eff.desc or (eff.name or "特殊效果")
         end
@@ -776,7 +786,8 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
         local _isEventItem = _cfgItem and _cfgItem.category == "event"
         if item.consumableId == "lingyun_fruit" or item.consumableId == "exp_pill"
             or item.consumableId == "lingyun_fruit_superior" or item.consumableId == "exp_pill_superior"
-            or item.consumableId == "exp_pill_supreme"
+            or item.consumableId == "lingyun_fruit_supreme" or item.consumableId == "exp_pill_supreme"
+            or item.consumableId == "gold_box_10m"
             or item.consumableId == "gold_bar" or item.consumableId == "gold_brick"
             or item.consumableId == "xianjie_premium_zong"
             or item.consumableId == "valentine_xiangsi_redbean_cake" then
@@ -786,8 +797,10 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
             local actionLabel = (cId == "gold_bar" or cId == "gold_brick") and "出售"
                 or (cId == "xianjie_premium_zong" or cId == "valentine_xiangsi_redbean_cake") and "食用"
                 or "使用"
-            local actionIcon = (cId == "lingyun_fruit" or cId == "lingyun_fruit_superior") and "🍇"
+            local actionIcon = (cId == "lingyun_fruit" or cId == "lingyun_fruit_superior"
+                or cId == "lingyun_fruit_supreme") and "🍇"
                 or (cId == "exp_pill" or cId == "exp_pill_superior" or cId == "exp_pill_supreme") and "💊"
+                or (cId == "gold_box_10m") and "📦"
                 or (cId == "xianjie_premium_zong") and "🥟"
                 or (cId == "valentine_xiangsi_redbean_cake") and "🍰"
                 or "💰"
@@ -830,6 +843,19 @@ function EquipTooltip.Show(item, source, sourceSlotId, onDone)
             table.insert(btnChildren, UI.Panel {
                 flexGrow = 1, gap = T.spacing.xs,
                 children = batchBtns,
+            })
+        end
+        if item.consumableId == "treasure_map" then
+            table.insert(btnChildren, UI.Button {
+                text = "🧭 前往寻宝",
+                backgroundColor = T.color.btnSpend,
+                fontColor = T.color.btnSpendFg,
+                flexGrow = 1,
+                onClick = function()
+                    EquipTooltip.Hide()
+                    require("ui.TreasureMapUI").ShowEntry()
+                    if doneCallback then doneCallback() end
+                end,
             })
         end
         if item.consumableId == "wubao_token_box" or item.consumableId == "sha_hai_ling_box" or item.consumableId == "taixu_token_box" or item.consumableId == "taixu_jianling_box" or item.consumableId == "zhexian_ling_box" then

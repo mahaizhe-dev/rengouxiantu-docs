@@ -34,6 +34,21 @@ function SaveSerializer.SerializePlayer()
         end
     end
 
+    local treasureSessionId = nil
+    local treasureRunId = nil
+    local treasureRevision = math.max(0, math.floor(tonumber(player.treasureRevision) or 0))
+    local okTreasure, TreasureMapSystem = pcall(require, "systems.TreasureMapSystem")
+    if okTreasure and TreasureMapSystem and TreasureMapSystem.state then
+        local treasureState = TreasureMapSystem.state
+        treasureRevision = math.max(
+            treasureRevision,
+            math.max(0, math.floor(tonumber(treasureState.revision) or 0)))
+        if GameState.worldMode == "treasure_map" then
+            treasureSessionId = treasureState.session and treasureState.session.sessionId or nil
+            treasureRunId = treasureState.active and treasureState.active.runId or nil
+        end
+    end
+
     local pillCounts = {}
     if type(player.pillCounts) == "table" then
         for k, v in pairs(player.pillCounts) do
@@ -64,6 +79,10 @@ function SaveSerializer.SerializePlayer()
         seaPillarAtk = player.seaPillarAtk or 0,
         seaPillarMaxHp = player.seaPillarMaxHp or 0,
         seaPillarHpRegen = player.seaPillarHpRegen or 0,
+        liangjieStoneAtk = player.liangjieStoneAtk or 0,
+        liangjieStoneDef = player.liangjieStoneDef or 0,
+        liangjieStoneMaxHp = player.liangjieStoneMaxHp or 0,
+        liangjieStoneHpRegen = player.liangjieStoneHpRegen or 0,
         swordPoolAtk = player.swordPoolAtk or 0,
         swordPoolDef = player.swordPoolDef or 0,
         swordPoolMaxHp = player.swordPoolMaxHp or 0,
@@ -121,6 +140,9 @@ function SaveSerializer.SerializePlayer()
         x = math.floor(saveX * 10) / 10,
         y = math.floor(saveY * 10) / 10,
         chapter = GameState.currentChapter or 1,
+        treasureSessionId = treasureSessionId,
+        treasureRunId = treasureRunId,
+        treasureRevision = treasureRevision,
         pillPhysique = player.pillPhysique or 0,
         -- 美酒系统
         wineConstitution = player.wineConstitution or 0,
@@ -154,6 +176,8 @@ function SaveSerializer.DeserializePlayer(data)
     if not player or not data then return end
 
     player.level = data.level or 1
+    player.treasureRevision = math.max(
+        0, math.floor(tonumber(data.treasureRevision) or 0))
     player.exp = data.exp or 0
     player.maxHp = data.maxHp or 100
     player.atk = data.atk or 15
@@ -191,6 +215,10 @@ function SaveSerializer.DeserializePlayer(data)
     player.seaPillarAtk = data.seaPillarAtk or 0
     player.seaPillarMaxHp = data.seaPillarMaxHp or 0
     player.seaPillarHpRegen = data.seaPillarHpRegen or 0
+    player.liangjieStoneAtk = data.liangjieStoneAtk or 0
+    player.liangjieStoneDef = data.liangjieStoneDef or 0
+    player.liangjieStoneMaxHp = data.liangjieStoneMaxHp or 0
+    player.liangjieStoneHpRegen = data.liangjieStoneHpRegen or 0
     player.swordPoolAtk = data.swordPoolAtk or 0
     player.swordPoolDef = data.swordPoolDef or 0
     player.swordPoolMaxHp = data.swordPoolMaxHp or 0

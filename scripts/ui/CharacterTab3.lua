@@ -357,6 +357,42 @@ function CharacterTab3.Build(hideFn)
         }))
     end
 
+    -- ── 两界阵石 ──
+    table.insert(sec, UI.Label {
+        text = "两界阵石",
+        fontSize = T.fontSize.xs,
+        fontColor = T.color.textMuted,
+        marginTop = 6,
+        marginBottom = 2,
+    })
+    StatRow.Reset()
+    local LiangjieStoneConfig = require("config.LiangjieStoneConfig")
+    local LiangjieStoneSystem = require("systems.LiangjieStoneSystem")
+    for _, stoneId in ipairs(LiangjieStoneConfig.STONE_ORDER) do
+        local cfg = LiangjieStoneConfig.STONES[stoneId]
+        local state = LiangjieStoneSystem.GetStoneState(stoneId)
+        local level = state and state.level or 0
+        local activated = state and state.activated or false
+        local totalBonus = level * cfg.bonusPerLevel
+        local hasBonus = totalBonus > 0
+
+        local statusText
+        if not activated then statusText = "未激活"
+        elseif level >= LiangjieStoneConfig.MAX_LEVEL then statusText = "MAX"
+        else statusText = "Lv." .. level end
+
+        table.insert(sec, IconStatRow.Create({
+            icon = "◆",
+            name = cfg.name,
+            statusText = statusText,
+            statusColor = activated and T.color.infoLight or T.color.textMuted,
+            bonusText = hasBonus and (cfg.bonusLabel .. "+" .. totalBonus) or "-",
+            bonusColor = hasBonus
+                and { cfg.color[1], cfg.color[2], cfg.color[3], 255 }
+                or T.color.textMuted,
+        }))
+    end
+
     -- ── 剑封印 ──
     table.insert(sec, UI.Label {
         text = "剑封印",

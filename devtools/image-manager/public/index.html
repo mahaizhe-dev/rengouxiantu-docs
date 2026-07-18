@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>图片资源管理器</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <strong>图片资源管理器</strong>
+            <span>人狗仙途</span>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="资源视图">
+          <button class="nav-item is-active" data-view="all">
+            <span>全部资源</span>
+            <span class="nav-count" id="nav-all-count">0</span>
+          </button>
+          <button class="nav-item" data-view="standard-equipment">
+            <span>制式装备</span>
+            <span class="nav-count" id="nav-equipment-count">0</span>
+          </button>
+          <button class="nav-item" data-view="monsters">
+            <span>怪物</span>
+            <span class="nav-count" id="nav-monster-count">0</span>
+          </button>
+          <button class="nav-item" data-view="special-equipment">
+            <span>特殊装备</span>
+            <span class="nav-count" id="nav-special-equipment-count">0</span>
+          </button>
+          <button class="nav-item" data-view="pending">
+            <span>待确认</span>
+            <span class="nav-count" id="nav-pending-count">0</span>
+          </button>
+          <button class="nav-item" data-view="duplicates">
+            <span>重复内容</span>
+            <span class="nav-count" id="nav-duplicate-count">0</span>
+          </button>
+          <button class="nav-item" data-view="missing">
+            <span>缺失引用</span>
+            <span class="nav-count nav-count-alert" id="nav-missing-count">0</span>
+          </button>
+          <button class="nav-item" data-view="naming">
+            <span>命名问题</span>
+            <span class="nav-count" id="nav-naming-count">0</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-meta">
+          <div>
+            <span>扫描时间</span>
+            <strong id="scan-time">--</strong>
+          </div>
+          <div>
+            <span>扫描耗时</span>
+            <strong id="scan-duration">--</strong>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1 id="view-title">全部资源</h1>
+            <p id="project-path">正在读取项目...</p>
+          </div>
+          <button class="button button-primary" id="rescan-button" type="button">
+            重新扫描
+          </button>
+        </header>
+
+        <section class="summary-band" aria-label="资源统计">
+          <div class="summary-cell">
+            <span>图片</span>
+            <strong id="summary-assets">--</strong>
+          </div>
+          <div class="summary-cell">
+            <span>总大小</span>
+            <strong id="summary-size">--</strong>
+          </div>
+          <div class="summary-cell">
+            <span>直接引用</span>
+            <strong id="summary-direct">--</strong>
+          </div>
+          <div class="summary-cell">
+            <span>动态引用</span>
+            <strong id="summary-dynamic">--</strong>
+          </div>
+          <div class="summary-cell summary-cell-warning">
+            <span>待确认</span>
+            <strong id="summary-pending">--</strong>
+          </div>
+          <div class="summary-cell summary-cell-danger">
+            <span>缺失引用</span>
+            <strong id="summary-missing">--</strong>
+          </div>
+        </section>
+
+        <section class="toolbar" id="asset-toolbar">
+          <label class="search-field">
+            <span class="sr-only">搜索资源</span>
+            <input
+              id="search-input"
+              type="search"
+              placeholder="搜索文件名、路径、UUID"
+              autocomplete="off"
+            />
+          </label>
+
+          <label class="select-field">
+            <span>目录</span>
+            <select id="area-select">
+              <option value="all">全部目录</option>
+            </select>
+          </label>
+
+          <label class="select-field">
+            <span>引用</span>
+            <select id="status-select">
+              <option value="all">全部状态</option>
+              <option value="direct">直接引用</option>
+              <option value="dynamic">动态引用</option>
+              <option value="development">仅开发引用</option>
+              <option value="unreferenced">未发现引用</option>
+            </select>
+          </label>
+
+          <label class="select-field is-hidden" id="equipment-tier-field">
+            <span>阶位</span>
+            <select id="equipment-tier-select">
+              <option value="all">全部阶位</option>
+            </select>
+          </label>
+
+          <label class="select-field is-hidden" id="equipment-mapping-field">
+            <span>接入</span>
+            <select id="equipment-mapping-select">
+              <option value="all">全部</option>
+              <option value="active">已接入</option>
+              <option value="inactive">未接入</option>
+            </select>
+          </label>
+
+          <label class="select-field is-hidden" id="monster-chapter-field">
+            <span>章节</span>
+            <select id="monster-chapter-select">
+              <option value="all">全部章节</option>
+            </select>
+          </label>
+
+          <label class="select-field is-hidden" id="monster-category-field">
+            <span>类型</span>
+            <select id="monster-category-select">
+              <option value="all">全部类型</option>
+            </select>
+          </label>
+
+          <label class="select-field is-hidden" id="special-source-field">
+            <span>配置表</span>
+            <select id="special-source-select">
+              <option value="all">全部来源</option>
+            </select>
+          </label>
+
+          <label class="select-field is-hidden" id="special-slot-field">
+            <span>槽位</span>
+            <select id="special-slot-select">
+              <option value="all">全部槽位</option>
+            </select>
+          </label>
+
+          <label class="select-field">
+            <span>排序</span>
+            <select id="sort-select">
+              <option value="path">路径</option>
+              <option value="equipment">阶位 / 槽位</option>
+              <option value="monster">怪物名称</option>
+              <option value="special-equipment">特殊装备</option>
+              <option value="size-desc">文件大小</option>
+              <option value="refs-desc">引用数量</option>
+              <option value="modified-desc">最近修改</option>
+            </select>
+          </label>
+
+          <label class="range-field">
+            <span>缩略图</span>
+            <input id="tile-size-input" type="range" min="148" max="248" value="184" />
+          </label>
+        </section>
+
+        <section class="content">
+          <div class="result-header" id="result-header">
+            <strong id="result-count">0 项</strong>
+            <span id="result-note"></span>
+          </div>
+
+          <div class="asset-grid" id="asset-grid" aria-live="polite"></div>
+          <div class="issue-list is-hidden" id="issue-list" aria-live="polite"></div>
+          <div class="empty-state is-hidden" id="empty-state">
+            <strong>没有匹配的资源</strong>
+            <span>调整筛选条件后再查看。</span>
+          </div>
+        </section>
+      </main>
+
+      <aside class="detail-drawer" id="detail-drawer" aria-hidden="true">
+        <div class="drawer-header">
+          <div>
+            <span class="drawer-eyebrow" id="detail-status">资源详情</span>
+            <h2 id="detail-name">--</h2>
+          </div>
+          <button class="icon-button" id="detail-close" type="button" aria-label="关闭详情">
+            ×
+          </button>
+        </div>
+        <div class="drawer-content" id="detail-content"></div>
+      </aside>
+      <button class="drawer-scrim" id="drawer-scrim" type="button" aria-label="关闭详情"></button>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

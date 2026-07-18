@@ -68,6 +68,12 @@ local FLAG_REGISTRY = {
         desc    = "启用 CloudStorage 严格 BatchSet 模式（禁止散写）",
         task    = "P0-5",
     },
+    COMBAT_FEEDBACK_V2 = {
+        name    = "COMBAT_FEEDBACK_V2",
+        default = false,
+        desc    = "启用结构化主世界战斗跳字系统",
+        task    = "COMBAT-FEEDBACK-V2",
+    },
 }
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -117,6 +123,13 @@ function FeatureFlags.setOverride(flagName, value)
     end
     overrides[flagName] = value
     return true
+end
+
+--- Get the runtime override for a flag; returns nil when no override exists.
+---@param flagName string
+---@return boolean|nil
+function FeatureFlags.getOverride(flagName)
+    return overrides[flagName]
 end
 
 --- 清除某个开关的运行时覆盖，恢复默认值

@@ -13,6 +13,7 @@
 --   在 EffectRenderer.Render() 末尾调用 DungeonHUD.Render(nvg, w, h)
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local DungeonRenderer = require("rendering.DungeonRenderer")
 local DungeonConfig = require("config.DungeonConfig")
 

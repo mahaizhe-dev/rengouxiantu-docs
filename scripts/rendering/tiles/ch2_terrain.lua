@@ -2,6 +2,7 @@
 -- tiles/ch2_terrain.lua - 第二章特殊地形瓦片
 -- 包含：堡垒城墙 (FORTRESS_WALL)、沼泽地面 (SWAMP)、战场焦土 (BATTLEFIELD)
 -- ============================================================================
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.tiles.shared")
 local ActiveZoneData = require("config.ActiveZoneData")
 

@@ -321,11 +321,17 @@ function ArtifactCh4.RefreshShield()
     ArtifactCh4._shieldTimer = ArtifactCh4.PASSIVE.refreshInterval
 
     local CombatSystem = require("systems.CombatSystem")
-    CombatSystem.AddFloatingText(
-        player.x, player.y - 1.0,
-        "☯护盾恢复 " .. math.floor(ArtifactCh4._shieldMaxHp),
-        {100, 200, 255, 255}, 1.5
-    )
+    local shieldValue = math.floor(ArtifactCh4._shieldMaxHp)
+    CombatSystem.EmitCombatFeedback({
+        kind = "absorb", value = shieldValue,
+        source = player, target = player, targetKey = "player:self",
+        sourceType = "artifact", sourceId = "wenwang_shield",
+        sourceName = "文王护体", color = {100, 200, 255, 255},
+    }, {
+        x = player.x, y = player.y - 1.0,
+        text = "☯护盾恢复 " .. shieldValue,
+        color = {100, 200, 255, 255}, lifetime = 1.5,
+    })
 end
 
 --- 获取当前护盾状态

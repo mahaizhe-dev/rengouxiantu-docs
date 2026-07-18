@@ -340,6 +340,7 @@ function ArtifactCh5._FireZhentuSwords(player, tx, ty)
 
     local baseAtk = player:GetTotalAtk()
     local swordNames = { "诛仙", "陷仙", "戮仙", "绝仙" }
+    local castId = CombatSystem.NextCombatCastId("artifact_zhentu")
     -- 浮字颜色：与四仙剑颜色对应
     local floatColors = {
         { 255, 60, 60, 255 },    -- 诛仙：血红
@@ -367,8 +368,9 @@ function ArtifactCh5._FireZhentuSwords(player, tx, ty)
                 -- 暴击判定（与一剑开天/血爆一致，走 ApplyCrit）
                 local dmg = rawDmg
                 local isCrit = false
+                local isTianzhu = false
                 if player and player.ApplyCrit then
-                    dmg, isCrit = player:ApplyCrit(rawDmg)
+                    dmg, isCrit, isTianzhu = player:ApplyCrit(rawDmg)
                 end
 
                 -- 对范围内全部怪物造成伤害
@@ -378,7 +380,19 @@ function ArtifactCh5._FireZhentuSwords(player, tx, ty)
                         local dx = monster.x - px
                         local dy = monster.y - py
                         if dx * dx + dy * dy <= radius * radius then
-                            monster:TakeDamage(dmg, player)
+                            local actualDmg = monster:TakeDamage(dmg, player)
+                            CombatSystem.EmitDamageFeedback(player, monster, actualDmg, {
+                                sourceType = "artifact",
+                                sourceId = "zhentu_sword_" .. tostring(hitIndex),
+                                sourceName = swordName,
+                                damageTag = "artifact",
+                                criticality = isTianzhu and "tianzhu"
+                                    or (isCrit and "crit" or "normal"),
+                                castId = castId,
+                                hitIndex = hitIndex,
+                                color = floatColors[hitIndex],
+                                y = monster.y - 0.6,
+                            }, nil)
                             hitCount = hitCount + 1
                         end
                     end
@@ -386,20 +400,29 @@ function ArtifactCh5._FireZhentuSwords(player, tx, ty)
 
                 -- 浮动文字：显示实际伤害数字（与其他伤害源一致）
                 if hitCount > 0 then
-                    local prefix = isCrit and (swordName .. "暴击 ") or (swordName .. " ")
-                    local ftColor = isCrit and {255, 230, 80, 255} or floatColors[hitIndex]
-                    CombatSystem.AddFloatingText(
-                        px, py - 1.0 - (hitIndex - 1) * 0.35,
-                        prefix .. dmg,
-                        ftColor, isCrit and 1.6 or 1.4
-                    )
+                    local prefix = isTianzhu and (swordName .. "天诛 ")
+                        or (isCrit and (swordName .. "暴击 ") or (swordName .. " "))
+                    local ftColor = isTianzhu and {0, 220, 220, 255}
+                        or (isCrit and {255, 230, 80, 255} or floatColors[hitIndex])
+                    CombatSystem.EmitLegacyOnlyFeedback({
+                        x = px, y = py - 1.0 - (hitIndex - 1) * 0.35,
+                        text = prefix .. dmg,
+                        color = ftColor, lifetime = isCrit and 1.6 or 1.4,
+                    })
                 else
                     -- 未命中（怪物跑出范围）仍显示标签
-                    CombatSystem.AddFloatingText(
-                        px, py - 1.0 - (hitIndex - 1) * 0.35,
-                        swordName .. " MISS",
-                        {150, 150, 150, 200}, 1.0
-                    )
+                    CombatSystem.EmitCombatFeedback({
+                        kind = "status",
+                        text = swordName .. " MISS",
+                        x = px, y = py - 1.0 - (hitIndex - 1) * 0.35,
+                        sourceType = "artifact",
+                        sourceId = "zhentu_sword_" .. tostring(hitIndex),
+                        color = {150, 150, 150, 200},
+                    }, {
+                        x = px, y = py - 1.0 - (hitIndex - 1) * 0.35,
+                        text = swordName .. " MISS",
+                        color = {150, 150, 150, 200}, lifetime = 1.0,
+                    })
                 end
 
                 if hitIndex == 4 then

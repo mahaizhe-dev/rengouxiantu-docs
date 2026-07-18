@@ -21,6 +21,20 @@ return function(CS)
 -- ── 复用缓冲区（同帧 Buff/Zone/DOT 不重叠，可共享） ──
 local _expiredBuf = {}
 
+function CS.IsPointInZone(x, y, zone)
+    if not zone then return false end
+
+    local dx = x - (zone.x or 0)
+    local dy = y - (zone.y or 0)
+    if zone.shape == "square" then
+        local halfSize = zone.halfSize or zone.range or 0
+        return math.abs(dx) <= halfSize and math.abs(dy) <= halfSize
+    end
+
+    local radius = zone.range or 0
+    return dx * dx + dy * dy <= radius * radius
+end
+
 -- ============================================================================
 -- Buff 子系统
 -- ============================================================================
@@ -162,8 +176,20 @@ function CS.UpdateBuffs(dt)
                     local totalMaxHp = player:GetTotalMaxHp()
                     local healAmount = math.floor(totalMaxHp * buff.healPercent)
                     if healAmount > 0 and player.hp < totalMaxHp then
+                        local hpBefore = player.hp
                         player.hp = math.min(totalMaxHp, player.hp + healAmount)
-                        CS.AddFloatingText(player.x, player.y, "+" .. healAmount, buff.color, 0.8)
+                        local actualHeal = player.hp - hpBefore
+                        if actualHeal > 0 then
+                            CS.EmitCombatFeedback({
+                                kind = "heal", value = actualHeal,
+                                source = player, target = player, targetKey = "player:self",
+                                sourceType = "skill", sourceId = buffId,
+                                sourceName = buff.name, color = buff.color,
+                            }, {
+                                x = player.x, y = player.y,
+                                text = "+" .. actualHeal, color = buff.color, lifetime = 0.8,
+                            })
+                        end
                     end
                 end
             end
@@ -193,6 +219,8 @@ function CS.AddZone(data)
         x = data.x,
         y = data.y,
         range = data.range or 2.0,
+        shape = data.shape or "circle",
+        halfSize = data.halfSize or data.range or 2.0,
         remaining = data.duration or 6.0,
         duration = data.duration or 6.0,
         tickTimer = 0,
@@ -215,6 +243,8 @@ function CS.AddZone(data)
         showZoneLabel = data.showZoneLabel,
         tickFlashColor = data.tickFlashColor,
         healFlashColor = data.healFlashColor,
+        feedbackId = data.feedbackId or data.zoneVisualKey or data.name or "zone",
+        feedbackCastId = CS.NextCombatCastId(data.zoneVisualKey or data.name or "zone"),
     })
     print("[CombatSystem] Zone added: " .. (data.name or "领域") .. " (" .. (data.duration or 6) .. "s)")
 end
@@ -257,7 +287,7 @@ function CS.UpdateZones(dt)
                     local hitLimit = zone.maxTargets > 0 and zone.maxTargets or #monsters
                     for _, m in ipairs(monsters) do
                         if m.alive then
-                            local actualDmg, isCrit = HitResolver.Hit(zone.source or player, m, rawDmg, {
+                            local actualDmg, isCrit, isTianzhu = HitResolver.Hit(zone.source or player, m, rawDmg, {
                                 skipCalcDamage = not zone.usesCalcDamage,
                                 conditionalCrit = true,
                                 canCrit = zone.canCrit,
@@ -269,12 +299,20 @@ function CS.UpdateZones(dt)
                                 text = (zone.effectIcon or "") .. "暴击 " .. actualDmg
                                 color = {255, 220, 50, 255}
                             end
-                            CS.AddFloatingText(
-                                m.x, m.y - 0.2,
-                                text,
-                                color,
-                                0.8
-                            )
+                            CS.EmitDamageFeedback(zone.source or player, m, actualDmg, {
+                                sourceType = "skill",
+                                sourceId = zone.feedbackId,
+                                sourceName = zone.name,
+                                damageTag = zone.isDot and "dot" or "skill",
+                                impact = zone.isDot and "dot" or "normal",
+                                criticality = isTianzhu and "tianzhu" or (isCrit and "crit" or "normal"),
+                                castId = zone.feedbackCastId,
+                                color = zone.color,
+                                y = m.y - 0.2,
+                            }, {
+                                x = m.x, y = m.y - 0.2,
+                                text = text, color = color, lifetime = 0.8,
+                            })
                             hitCount = hitCount + 1
                             if hitCount >= hitLimit then break end
                         end
@@ -287,13 +325,25 @@ function CS.UpdateZones(dt)
                     for _, m in ipairs(monsters) do
                         if m.alive then
                             local actualDmg = GameConfig.CalcDamage(dmgPerTick, m.def)
-                            actualDmg = m:TakeDamage(actualDmg, player)
-                            CS.AddFloatingText(
-                                m.x, m.y - 0.2,
-                                tostring(actualDmg),
-                                zone.color,
-                                0.8
-                            )
+                            actualDmg = m:TakeDamage(actualDmg, player, {
+                                sourceType = "skill",
+                                sourceId = zone.feedbackId,
+                                sourceName = zone.name,
+                                damageTag = "dot",
+                            })
+                            CS.EmitDamageFeedback(player, m, actualDmg, {
+                                sourceType = "skill",
+                                sourceId = zone.feedbackId,
+                                sourceName = zone.name,
+                                damageTag = "dot",
+                                impact = "dot",
+                                castId = zone.feedbackCastId,
+                                color = zone.color,
+                                y = m.y - 0.2,
+                            }, {
+                                x = m.x, y = m.y - 0.2,
+                                text = tostring(actualDmg), color = zone.color, lifetime = 0.8,
+                            })
                             hitCount = hitCount + 1
                             if hitCount >= hitLimit then break end
                         end
@@ -307,13 +357,20 @@ function CS.UpdateZones(dt)
                         local maxHp = player:GetTotalMaxHp()
                         local healAmount = math.floor(maxHp * zone.healPercent)
                         if healAmount > 0 and player.hp < maxHp then
+                            local hpBefore = player.hp
                             player.hp = math.min(maxHp, player.hp + healAmount)
-                            CS.AddFloatingText(
-                                player.x, player.y - 0.2,
-                                "+" .. healAmount,
-                                FT_HEAL_ZONE,
-                                0.8
-                            )
+                            local actualHeal = player.hp - hpBefore
+                            if actualHeal > 0 then
+                                CS.EmitCombatFeedback({
+                                    kind = "heal", value = actualHeal,
+                                    source = player, target = player, targetKey = "player:self",
+                                    sourceType = "skill", sourceId = zone.feedbackId,
+                                    sourceName = zone.name, color = FT_HEAL_ZONE,
+                                }, {
+                                    x = player.x, y = player.y - 0.2,
+                                    text = "+" .. actualHeal, color = FT_HEAL_ZONE, lifetime = 0.8,
+                                })
+                            end
                         end
                     end
                 end
@@ -371,12 +428,26 @@ function CS.UpdateDots(dt)
             if dot.tickTimer >= 1.0 then
                 dot.tickTimer = dot.tickTimer - 1.0
                 local tickDmg = math.max(1, math.floor(dot.dmgPerTick))
-                tickDmg = monster:TakeDamage(tickDmg, dot.source)
-                CS.AddFloatingText(
-                    monster.x, monster.y - 0.4,
-                    tickDmg .. " " .. dot.effectName,
-                    FT_DOT_TICK, 0.6
-                )
+                tickDmg = monster:TakeDamage(tickDmg, dot.source, {
+                    sourceType = "passive",
+                    sourceId = dot.effectName or "dot",
+                    sourceName = dot.effectName or "持续伤害",
+                    damageTag = "dot",
+                })
+                CS.EmitDamageFeedback(dot.source, monster, tickDmg, {
+                    sourceType = "passive",
+                    sourceId = dot.effectName or "dot",
+                    sourceName = dot.effectName or "持续伤害",
+                    effectId = tostring(mId) .. ":" .. tostring(dot.effectName or "dot"),
+                    damageTag = "dot",
+                    impact = "dot",
+                    color = FT_DOT_TICK,
+                    y = monster.y - 0.4,
+                }, {
+                    x = monster.x, y = monster.y - 0.4,
+                    text = tickDmg .. " " .. dot.effectName,
+                    color = FT_DOT_TICK, lifetime = 0.6,
+                })
             end
             dot.remaining = dot.remaining - dt
             if dot.remaining <= 0 then

@@ -1,7 +1,7 @@
 -- ============================================================================
 -- DragonForgeUI.lua - 龙神圣器打造界面（第四章）
 -- Style: 仙侠暗金 (UITheme 规范化版)
--- 特点: S2.4固定高度 | 7页签(5圣器+龙极令+灵器) | 左右对比预览 | S10按钮语义
+-- 特点: S2.4固定高度 | 两排8页签(5武器+3背包打造) | 左右对比预览 | S10按钮语义
 -- ============================================================================
 ---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 
@@ -15,6 +15,8 @@ local IconUtils = require("utils.IconUtils")
 local StatNames = require("utils.StatNames")
 local FormatUtils = require("utils.FormatUtils")
 local ForgeSystem = require("systems.ForgeSystem")
+local ForgeStatRules = require("systems.forge.ForgeStatRules")
+local AdaptiveIcon = require("ui.components.AdaptiveIcon")
 
 local DragonForgeUI = {}
 
@@ -34,7 +36,7 @@ local parentOverlay_ = nil
 ---@type any
 local successPanel_ = nil
 
-local currentTab_ = 1  -- 当前页签索引（1~7）
+local currentTab_ = 1  -- 当前页签索引（1~8）
 
 local PORTRAIT_SIZE = 64
 local STAT_ROW_H    = 22
@@ -50,11 +52,74 @@ local function GetEquippedWeapon()
     return mgr:GetEquipmentItem("weapon")
 end
 
--- 额外页签定义（背包打造模式）— 使用渐变色系与前5个Tab做区分
+-- 第二排页签定义（背包打造模式）
 local EXTRA_TABS = {
-    [6] = { label = "🐲龙极令",  color = {255, 180, 30, 255},  inactiveColor = {80, 60, 20, 220}  },
-    [7] = { label = "⚒️灵器铸造", color = {50, 220, 180, 255},  inactiveColor = {20, 60, 55, 220}  },
+    [6] = { label = "真龙盔", color = {80, 210, 220, 255}, inactiveColor = {20, 55, 65, 220} },
+    [7] = { label = "龙极令", color = {255, 180, 30, 255}, inactiveColor = {80, 60, 20, 220} },
+    [8] = { label = "灵器打造", color = {50, 220, 180, 255}, inactiveColor = {20, 60, 55, 220} },
 }
+
+local function GetDragonRecipe(tabIndex)
+    local order = EquipmentData.FORGE_RECIPE_ORDER
+        and EquipmentData.FORGE_RECIPE_ORDER.dragon_forge
+    local recipeId = order and order[tabIndex]
+    local recipe = recipeId and EquipmentData.FORGE_RECIPES[recipeId]
+    return recipe, recipeId
+end
+
+local function HasBagEquipment(manager, equipId)
+    if not manager or not equipId then return false end
+    for index = 1, GameConfig.BACKPACK_SIZE do
+        local item = manager:GetInventoryItem(index)
+        if item and item.equipId == equipId then
+            return true
+        end
+    end
+    return false
+end
+
+local function BuildBagEquipmentRow(equipId, have)
+    local def = EquipmentData.SpecialEquipment[equipId]
+        or EquipmentData.FabaoTemplates[equipId]
+    local name = def and def.name or equipId
+    return UI.Panel {
+        flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
+        children = {
+            UI.Label { text = "背包消耗", fontSize = T.fontSize.xxs, fontColor = T.color.textMuted },
+            UI.Label {
+                text = name .. "  " .. (have and "1/1" or "0/1"),
+                fontSize = T.fontSize.xs,
+                fontColor = have and T.color.matEnough or T.color.matInsufficient,
+            },
+        },
+    }
+end
+
+local function BuildForgeModeHint(inputMode)
+    local isUpgrade = inputMode == "equip_weapon"
+    return UI.Panel {
+        width = "100%",
+        backgroundColor = isUpgrade and {70, 45, 25, 180} or {25, 55, 60, 180},
+        borderRadius = T.radius.sm,
+        padding = T.spacing.sm,
+        gap = T.spacing.xs,
+        children = {
+            UI.Label {
+                text = isUpgrade and "装备升级" or "背包打造",
+                fontSize = T.fontSize.sm,
+                fontWeight = "bold",
+                fontColor = isUpgrade and T.color.gold or T.color.statValueCyan,
+            },
+            UI.Label {
+                text = isUpgrade
+                    and "需先装备指定武器，打造后原位替换。"
+                    or "无需穿戴，材料从背包扣除，产物进入背包。",
+                fontSize = T.fontSize.xs,
+                fontColor = T.color.textSecondary,
+            },
+        },
+    }
+end
 
 -- ============================================================================
 -- 属性显示辅助（预览面板 & 成功面板共用）
@@ -131,6 +196,13 @@ local function GetSpecialEffectDesc(eff)
     elseif eff.type == "yuanjia" then
         return string.format("受到伤害后，若当前生命低于50%%，获得%.0f%%减伤，持续%.0f秒（冷却%.0f秒）",
             (eff.dmgReduce or 0) * 100, eff.duration or 4, eff.cooldown or 8)
+    elseif eff.type == "zhenjie_shield" then
+        return string.format("受到生命伤害后，若镇界护盾不存在，则有%.0f%%概率获得总防御×%.0f的独立护盾，持续%.0f秒（冷却%.0f秒）",
+            (eff.triggerChance or 0.20) * 100, eff.defMultiplier or 3,
+            eff.duration or 6, eff.cooldown or 15)
+    elseif eff.type == "hengha_fixed_burst" then
+        return string.format("普攻%.0f%%概率追加%d点固定伤害，不可暴击（冷却%.0f秒）",
+            (eff.procChance or 0.15) * 100, eff.fixedDamage or 50000, eff.cooldown or 1)
     else
         return eff.description or eff.desc or (eff.name or "特殊效果")
     end
@@ -152,26 +224,28 @@ local function FormatRange(stat, minVal, maxVal)
 end
 
 -- ============================================================================
--- 预览面板右侧：打造后圣器属性（含范围 + 灵性❓）
+-- 预览面板右侧：按产物模板展示品质、部位和属性规则
 -- ============================================================================
 
-local function BuildForgePreviewRows(targetDef)
+local function BuildForgePreviewRows(targetDef, recipe)
     local rows = {}
-    local qColor  = T.color.qualityRed
-    local randLo  = 1.1
-    local randHi  = 1.5
-    local numTM   = EquipmentData.SUB_STAT_TIER_MULT[9]
-    local pctTM   = EquipmentData.PCT_SUB_TIER_MULT[9]
-    local qMult   = GameConfig.QUALITY["red"].multiplier
+    local qualityKey = targetDef.quality or "red"
+    local qualityConfig = GameConfig.QUALITY[qualityKey] or GameConfig.QUALITY.red
+    local qColor = qualityConfig and qualityConfig.color or T.color.qualityRed
+    local qualityName = qualityConfig and qualityConfig.name or qualityKey
+    local tierLabel = EquipmentData.GetTierDisplayName(targetDef.tier or 9)
+    local slotLabel = EquipmentData.SLOT_NAMES[targetDef.slot] or targetDef.slot or "装备"
+    local qualityBg = T.decor.qualitySlotBg[qualityKey]
+        or { math.floor(qColor[1] * 0.15), math.floor(qColor[2] * 0.15), math.floor(qColor[3] * 0.15), 220 }
 
-    -- 武器名 + 品阶
+    -- 名称 + 品阶
     table.insert(rows, UI.Label {
         text      = targetDef.name,
         fontSize  = T.fontSize.lg, fontWeight = "bold",
         fontColor = qColor, textAlign = "center",
     })
     table.insert(rows, UI.Label {
-        text      = "9阶  [圣器] 武器",
+        text      = tierLabel .. "  [" .. qualityName .. "] " .. slotLabel,
         fontSize  = T.fontSize.sm,
         fontColor = { qColor[1], qColor[2], qColor[3], 180 },
         textAlign = "center",
@@ -206,7 +280,7 @@ local function BuildForgePreviewRows(targetDef)
         })
     end
     table.insert(rows, UI.Panel {
-        backgroundColor = T.decor.qualitySlotBg.red,
+        backgroundColor = qualityBg,
         borderRadius    = T.radius.sm,
         borderWidth     = 1,
         borderColor     = { qColor[1], qColor[2], qColor[3], 100 },
@@ -215,33 +289,33 @@ local function BuildForgePreviewRows(targetDef)
         children        = mainChildren,
     })
 
-    -- 副属性（随机范围）
+    -- 副属性
+    local subPreviews = {}
+    local hasRandomSubStats = false
+    for _, sub in ipairs(targetDef.subStats or {}) do
+        local preview = ForgeStatRules.GetForgeSubStatPreview(recipe, targetDef, sub)
+        if preview.mode == "range" then hasRandomSubStats = true end
+        table.insert(subPreviews, { sub = sub, preview = preview })
+    end
+
     local subChildren = {
         UI.Label {
-            text = "▸ 副属性（随机锻造）", fontSize = T.fontSize.xs,
+            text = hasRandomSubStats and "▸ 副属性（随机锻造）" or "▸ 固定副属性",
+            fontSize = T.fontSize.xs,
             fontColor   = T.color.equipTipStatLabel,
             paddingLeft = T.spacing.xs, marginBottom = T.spacing.xs,
         },
     }
-    for _, sub in ipairs(targetDef.subStats or {}) do
+    for _, entry in ipairs(subPreviews) do
+        local sub = entry.sub
+        local preview = entry.preview
         local icon = STAT_ICONS[sub.stat] or "📊"
         local name = sub.name or STAT_NAMES[sub.stat] or sub.stat
-        local subDef = nil
-        for _, s in ipairs(EquipmentData.SUB_STATS) do
-            if s.stat == sub.stat then subDef = s; break end
-        end
         local valStr
-        if subDef and subDef.linearGrowth then
-            local fixedVal = math.floor(9 * qMult)
-            valStr = "+" .. fixedVal
+        if preview.mode == "range" then
+            valStr = FormatRange(sub.stat, preview.minValue, preview.maxValue)
         else
-            local baseVal  = subDef and subDef.baseValue or 1
-            local tierMult = EquipmentData.PCT_STATS[sub.stat] and pctTM or numTM
-            local minV = baseVal * tierMult * randLo
-            local maxV = baseVal * tierMult * randHi
-            minV = math.floor(minV * 100 + 0.5) / 100
-            maxV = math.floor(maxV * 100 + 0.5) / 100
-            valStr = FormatRange(sub.stat, minV, maxV)
+            valStr = FormatStatVal(sub.stat, preview.value)
         end
         table.insert(subChildren, UI.Panel {
             flexDirection  = "row", justifyContent = "space-between",
@@ -262,31 +336,58 @@ local function BuildForgePreviewRows(targetDef)
         children        = subChildren,
     })
 
-    -- 灵性属性（随机，显示❓）
-    table.insert(rows, UI.Panel {
-        backgroundColor = T.color.equipTipSpiritBg,
-        borderRadius    = T.radius.sm,
-        borderWidth     = 1,
-        borderColor     = T.color.equipTipSpiritBorder,
-        padding         = T.spacing.sm,
-        gap             = T.spacing.xs,
-        children = {
-            UI.Label {
-                text        = "▸ 灵性属性",
-                fontSize    = T.fontSize.xs,
-                fontColor   = T.color.equipTipSpiritLabel,
-                paddingLeft = T.spacing.xs,
+    local extraStatMode = ForgeStatRules.GetForgeExtraStatMode(recipe, targetDef)
+    if extraStatMode == "spirit_fixed" then
+        local ss = targetDef.spiritStat
+        table.insert(rows, UI.Panel {
+            backgroundColor = T.color.equipTipSpiritBg,
+            borderRadius    = T.radius.sm,
+            borderWidth     = 1,
+            borderColor     = T.color.equipTipSpiritBorder,
+            padding         = T.spacing.sm,
+            gap             = T.spacing.xs,
+            children = {
+                UI.Label {
+                    text        = "▸ 灵性属性（固定）",
+                    fontSize    = T.fontSize.xs,
+                    fontColor   = T.color.equipTipSpiritLabel,
+                    paddingLeft = T.spacing.xs,
+                },
+                SuccessStatRow(
+                    STAT_ICONS[ss.stat] or "✨",
+                    ss.name or STAT_NAMES[ss.stat] or ss.stat,
+                    FormatStatVal(ss.stat, ss.value),
+                    T.color.equipTipSpiritName,
+                    T.color.statValueCyan
+                ),
             },
-            UI.Panel {
-                flexDirection  = "row", justifyContent = "center",
-                alignItems     = "center",
-                paddingTop     = T.spacing.xs, paddingBottom = T.spacing.xs,
-                children = {
-                    UI.Label { text = "❓ 随机属性", fontSize = T.fontSize.sm, fontColor = { T.color.statValueCyan[1], T.color.statValueCyan[2], T.color.statValueCyan[3], 150 } },
+        })
+    elseif extraStatMode == "spirit_random" then
+        table.insert(rows, UI.Panel {
+            backgroundColor = T.color.equipTipSpiritBg,
+            borderRadius    = T.radius.sm,
+            borderWidth     = 1,
+            borderColor     = T.color.equipTipSpiritBorder,
+            padding         = T.spacing.sm,
+            gap             = T.spacing.xs,
+            children = {
+                UI.Label {
+                    text        = "▸ 灵性属性",
+                    fontSize    = T.fontSize.xs,
+                    fontColor   = T.color.equipTipSpiritLabel,
+                    paddingLeft = T.spacing.xs,
+                },
+                UI.Panel {
+                    flexDirection  = "row", justifyContent = "center",
+                    alignItems     = "center",
+                    paddingTop     = T.spacing.xs, paddingBottom = T.spacing.xs,
+                    children = {
+                        UI.Label { text = "❓ 随机属性", fontSize = T.fontSize.sm, fontColor = { T.color.statValueCyan[1], T.color.statValueCyan[2], T.color.statValueCyan[3], 150 } },
+                    },
                 },
             },
-        },
-    })
+        })
+    end
 
     -- 特殊效果（固定）
     if targetDef.specialEffect then
@@ -328,16 +429,18 @@ end
 -- ============================================================================
 
 local function BuildTabBar()
-    local recipes = EquipmentData.DRAGON_FORGE_RECIPES
-    local tabs = {}
+    local weaponTabs = {}
+    local extraTabs = {}
 
-    for i, recipe in ipairs(recipes) do
+    for i = 1, 5 do
+        local recipe = GetDragonRecipe(i)
+        if not recipe then break end
         local isActive    = (i == currentTab_)
-        local targetDef   = EquipmentData.SpecialEquipment[recipe.target]
+        local targetDef   = EquipmentData.SpecialEquipment[recipe.generator.targetId]
         local qualityCfg  = targetDef and GameConfig.QUALITY[targetDef.quality]
         local activeColor = qualityCfg and qualityCfg.color or T.color.qualityRed
 
-        table.insert(tabs, UI.Button {
+        table.insert(weaponTabs, UI.Button {
             text            = recipe.label,
             width           = 52,
             height          = 30,
@@ -359,15 +462,15 @@ local function BuildTabBar()
         })
     end
 
-    -- 追加额外页签（龙极令、灵器铸造）
-    for tabIdx = 6, 7 do
+    -- 第二排：真龙盔、龙极令、灵器打造
+    for tabIdx = 6, 8 do
         local def      = EXTRA_TABS[tabIdx]
         local isActive = (tabIdx == currentTab_)
         local ic       = def.inactiveColor or T.color.tabInactiveBg
-        table.insert(tabs, UI.Button {
+        table.insert(extraTabs, UI.Button {
             text            = def.label,
+            width           = 86,
             height          = 30,
-            paddingLeft     = T.spacing.sm, paddingRight = T.spacing.sm,
             fontSize        = T.fontSize.sm,
             fontWeight      = isActive and "bold" or "normal",
             fontColor       = isActive
@@ -389,27 +492,42 @@ local function BuildTabBar()
     end
 
     return UI.Panel {
-        flexDirection  = "row",
-        width          = "100%",
-        gap            = T.spacing.xs,
-        justifyContent = "center",
-        flexWrap       = "wrap",
-        children       = tabs,
+        width = "100%",
+        gap = T.spacing.xxs,
+        children = {
+            UI.Panel {
+                flexDirection = "row",
+                width = "100%",
+                gap = T.spacing.xs,
+                justifyContent = "center",
+                children = weaponTabs,
+            },
+            UI.Panel {
+                flexDirection = "row",
+                width = "100%",
+                gap = T.spacing.xs,
+                justifyContent = "center",
+                children = extraTabs,
+            },
+        },
     }
 end
 
 -- ============================================================================
--- 背包打造模式内容构建（Tab 6 龙极令 / Tab 7 灵器铸造）
+-- 背包打造模式内容构建（Tab 6 真龙盔 / Tab 7 龙极令 / Tab 8 灵器打造）
 -- ============================================================================
 
---- 构建龙极令打造内容（Tab 6）
+--- 构建龙极令打造内容（Tab 7）
 local function BuildLongjiContent()
     local InventorySystem = require("systems.InventorySystem")
+    local manager  = InventorySystem.GetManager()
     local player   = GameState.player
     local children = {}
 
-    local cost      = EquipmentData.LONGJI_FORGE_COST
+    local cost      = EquipmentData.FORGE_RECIPES.dragon_longji
     local cyanColor = GameConfig.QUALITY["cyan"] and GameConfig.QUALITY["cyan"].color or T.color.statValueCyan
+
+    table.insert(children, BuildForgeModeHint(cost.inputMode))
 
     -- 产物说明区
     table.insert(children, UI.Panel {
@@ -452,6 +570,12 @@ local function BuildLongjiContent()
         },
     })
 
+    -- 帝尊肆戒
+    local ringId = cost.fromBag and cost.fromBag.equipId
+    local ringOk = HasBagEquipment(manager, ringId)
+    if not ringOk then materialsOk = false end
+    table.insert(materialRows, BuildBagEquipmentRow(ringId, ringOk))
+
     -- 四龙鳞材料
     for _, mat in ipairs(cost.materials) do
         local matDef  = GameConfig.PET_MATERIALS[mat.id]
@@ -463,7 +587,7 @@ local function BuildLongjiContent()
         table.insert(materialRows, UI.Panel {
             flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
             children = {
-                UI.Label { text = matIcon, fontSize = T.fontSize.sm },
+                AdaptiveIcon.Create(matIcon, { size = 18, fontSize = T.fontSize.sm }),
                 UI.Label {
                     text      = matName .. "  " .. have .. "/" .. mat.count,
                     fontSize  = T.fontSize.xs,
@@ -491,6 +615,8 @@ local function BuildLongjiContent()
         btnText = "背包已满"
     elseif not taixuOk then
         btnText = "太虚令不足"
+    elseif not ringOk then
+        btnText = "帝尊肆戒不足"
     elseif not materialsOk then
         btnText = "材料不足"
     else
@@ -520,14 +646,16 @@ local function BuildLongjiContent()
     return children
 end
 
---- 构建灵器铸造内容（Tab 7）
+--- 构建灵器打造内容（Tab 8）
 local function BuildLingqiContent()
     local InventorySystem = require("systems.InventorySystem")
     local player   = GameState.player
     local children = {}
 
-    local cost      = EquipmentData.LINGQI_FORGE_COST
+    local cost      = EquipmentData.FORGE_RECIPES.dragon_lingqi
     local cyanColor = GameConfig.QUALITY["cyan"] and GameConfig.QUALITY["cyan"].color or T.color.statValueCyan
+
+    table.insert(children, BuildForgeModeHint(cost.inputMode))
 
     -- 产物说明区
     table.insert(children, UI.Panel {
@@ -573,7 +701,7 @@ local function BuildLingqiContent()
         table.insert(materialRows, UI.Panel {
             flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
             children = {
-                UI.Label { text = matIcon, fontSize = T.fontSize.sm },
+                AdaptiveIcon.Create(matIcon, { size = 18, fontSize = T.fontSize.sm }),
                 UI.Label {
                     text      = matName .. "  " .. have .. "/" .. mat.count,
                     fontSize  = T.fontSize.xs,
@@ -630,6 +758,94 @@ local function BuildLingqiContent()
     return children
 end
 
+--- 构建真龙盔打造内容（Tab 6）
+local function BuildZhenlongContent()
+    local InventorySystem = require("systems.InventorySystem")
+    local manager = InventorySystem.GetManager()
+    local player = GameState.player
+    local children = {}
+    local recipe = EquipmentData.FORGE_RECIPES.zhenlong_helmet_ch4
+    local targetDef = EquipmentData.SpecialEquipment.zhenlong_helmet_ch4
+    if not recipe or not targetDef then return children end
+
+    table.insert(children, BuildForgeModeHint(recipe.inputMode))
+
+    local quality = GameConfig.QUALITY[targetDef.quality]
+    local color = quality and quality.color or T.color.statValueCyan
+    table.insert(children, UI.Panel {
+        width = "90%",
+        maxWidth = T.size.tooltipWidth,
+        backgroundColor = T.color.equipTipComparePanelBg,
+        borderRadius = T.radius.lg,
+        borderWidth = 1,
+        borderColor = {color[1], color[2], color[3], 180},
+        padding = T.spacing.sm,
+        gap = T.spacing.sm,
+        children = BuildForgePreviewRows(targetDef, recipe),
+    })
+
+    local materialRows = {}
+    local canForge = true
+    local freedSlots = 0
+    for _, source in ipairs(recipe.fromBagList or {}) do
+        local have = HasBagEquipment(manager, source.equipId)
+        if have then
+            freedSlots = freedSlots + 1
+        else
+            canForge = false
+        end
+        table.insert(materialRows, BuildBagEquipmentRow(source.equipId, have))
+    end
+
+    local canAfford = player.gold >= (recipe.gold or 0)
+    if not canAfford then canForge = false end
+    table.insert(materialRows, UI.Label {
+        text = "金币  " .. FormatGold(player.gold) .. "/" .. FormatGold(recipe.gold or 0),
+        fontSize = T.fontSize.xs,
+        fontColor = canAfford and T.color.matEnough or T.color.matInsufficient,
+    })
+
+    local freeSlots = InventorySystem.GetFreeSlots()
+    local hasSpace = freeSlots + freedSlots > 0
+    if not hasSpace then canForge = false end
+    table.insert(materialRows, UI.Label {
+        text = "背包空位：" .. freeSlots .. "（打造后释放：" .. freedSlots .. "）",
+        fontSize = T.fontSize.xs,
+        fontColor = hasSpace and T.color.matEnough or T.color.matInsufficient,
+    })
+
+    local btnText
+    if not hasSpace then
+        btnText = "背包已满"
+    elseif not canAfford then
+        btnText = "金币不足"
+    elseif not canForge then
+        btnText = "材料不足"
+    else
+        btnText = "打造真龙盔（" .. FormatGold(recipe.gold or 0) .. "）"
+    end
+    table.insert(materialRows, UI.Button {
+        text = btnText,
+        width = "100%",
+        height = T.size.dialogBtnH,
+        fontSize = T.fontSize.sm,
+        backgroundColor = canForge and T.color.btnSpend or T.color.btnDisabled,
+        fontColor = canForge and T.color.btnSpendFg or T.color.btnDisabledFg,
+        onClick = function(self)
+            if canForge then DragonForgeUI.DoForgeZhenlong() end
+        end,
+    })
+
+    table.insert(children, UI.Panel {
+        width = "100%",
+        gap = T.spacing.sm,
+        padding = T.spacing.sm,
+        alignItems = "center",
+        children = materialRows,
+    })
+    return children
+end
+
 -- ============================================================================
 -- 主内容区构建（动态，每次刷新重建）
 -- ============================================================================
@@ -640,20 +856,22 @@ local function BuildContent()
     local player          = GameState.player
     local children        = {}
 
-    -- Tab 6/7 走背包打造模式
-    if currentTab_ == 6 then return BuildLongjiContent() end
-    if currentTab_ == 7 then return BuildLingqiContent() end
+    -- 第二排全部走背包打造模式
+    if currentTab_ == 6 then return BuildZhenlongContent() end
+    if currentTab_ == 7 then return BuildLongjiContent() end
+    if currentTab_ == 8 then return BuildLingqiContent() end
 
-    local recipes  = EquipmentData.DRAGON_FORGE_RECIPES
-    local recipe   = recipes[currentTab_]
+    local recipe = GetDragonRecipe(currentTab_)
     if not recipe then return children end
 
-    local sourceDef = EquipmentData.SpecialEquipment[recipe.source]
-    local targetDef = EquipmentData.SpecialEquipment[recipe.target]
+    local sourceDef = EquipmentData.SpecialEquipment[recipe.equipSource]
+    local targetDef = EquipmentData.SpecialEquipment[recipe.generator.targetId]
     if not sourceDef or not targetDef then return children end
 
     local weapon    = GetEquippedWeapon()
-    local hasSource = weapon and weapon.equipId == recipe.source
+    local hasSource = weapon and weapon.equipId == recipe.equipSource
+
+    table.insert(children, BuildForgeModeHint(recipe.inputMode))
 
     -- 左侧面板：当前装备 / 需装备提示
     local curRows
@@ -664,7 +882,7 @@ local function BuildContent()
     end
 
     -- 右侧面板：圣器打造后预览
-    local nextRows = BuildForgePreviewRows(targetDef)
+    local nextRows = BuildForgePreviewRows(targetDef, recipe)
 
     local curPanel = UI.Panel {
         flexGrow        = 1, flexShrink = 1, flexBasis = 0,
@@ -705,10 +923,11 @@ local function BuildContent()
     })
 
     -- 打造条件区
-    local cost       = EquipmentData.DRAGON_FORGE_COST
+    local cost       = recipe
     local canAfford  = player.gold >= cost.gold
     local materialsOk = true
     local materialRows = {}
+    local manager = InventorySystem.GetManager()
 
     -- 装备状态警告
     if not hasSource then
@@ -739,7 +958,7 @@ local function BuildContent()
         table.insert(materialRows, UI.Panel {
             flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
             children = {
-                UI.Label { text = matIcon, fontSize = T.fontSize.sm },
+                AdaptiveIcon.Create(matIcon, { size = 18, fontSize = T.fontSize.sm }),
                 UI.Label {
                     text      = matName .. "  " .. have .. "/" .. mat.count,
                     fontSize  = T.fontSize.xs,
@@ -747,6 +966,12 @@ local function BuildContent()
                 },
             },
         })
+    end
+
+    if cost.fromBag2 then
+        local ringOk = HasBagEquipment(manager, cost.fromBag2.equipId)
+        if not ringOk then materialsOk = false end
+        table.insert(materialRows, BuildBagEquipmentRow(cost.fromBag2.equipId, ringOk))
     end
 
     local canForge = hasSource and canAfford and materialsOk
@@ -964,20 +1189,28 @@ local function ShowForgeSuccess(weapon, targetDef)
     if successPanel_ then HideForgeSuccess() end
     if not parentOverlay_ then return end
 
-    local qColor    = T.color.qualityRed
+    local displayDef = weapon or targetDef
+    local qualityKey = displayDef.quality or targetDef.quality or "red"
+    local qualityConfig = GameConfig.QUALITY[qualityKey] or GameConfig.QUALITY.red
+    local qColor = qualityConfig and qualityConfig.color or T.color.qualityRed
+    local qualityName = qualityConfig and qualityConfig.name or qualityKey
+    local tierLabel = EquipmentData.GetTierDisplayName(displayDef.tier or targetDef.tier or 9)
+    local slotLabel = EquipmentData.SLOT_NAMES[displayDef.slot or targetDef.slot]
+        or displayDef.slot or targetDef.slot or "装备"
+    local qualityBg = T.decor.qualitySlotBg[qualityKey]
+        or { math.floor(qColor[1] * 0.15), math.floor(qColor[2] * 0.15), math.floor(qColor[3] * 0.15), 220 }
     local goldColor = T.color.statValueGold
 
-    -- 武器图标
     local iconChild
-    if IconUtils.IsImagePath(targetDef.icon) then
-        iconChild = UI.Panel { width = 60, height = 60, backgroundImage = targetDef.icon, backgroundFit = "contain" }
+    if IconUtils.IsImagePath(displayDef.icon) then
+        iconChild = UI.Panel { width = 60, height = 60, backgroundImage = displayDef.icon, backgroundFit = "contain" }
     else
-        iconChild = UI.Label { text = targetDef.icon or "⚔️", fontSize = 40, textAlign = "center" }
+        iconChild = UI.Label { text = displayDef.icon or "⚔️", fontSize = 40, textAlign = "center" }
     end
     local iconWidget = UI.Panel {
         width           = 80, height = 80,
         justifyContent  = "center", alignItems = "center",
-        backgroundColor = T.decor.qualitySlotBg.red,
+        backgroundColor = qualityBg,
         borderRadius    = T.radius.lg,
         borderWidth     = 2,
         borderColor     = { qColor[1], qColor[2], qColor[3], 180 },
@@ -1046,7 +1279,7 @@ local function ShowForgeSuccess(weapon, targetDef)
     local contentChildren = {
         UI.Panel {
             width           = "100%",
-            backgroundColor = T.decor.qualitySlotBg.red,
+            backgroundColor = qualityBg,
             borderRadius    = T.radius.sm,
             borderWidth     = 1, borderColor = { qColor[1], qColor[2], qColor[3], 100 },
             padding         = T.spacing.sm, gap = T.spacing.xs,
@@ -1061,7 +1294,7 @@ local function ShowForgeSuccess(weapon, targetDef)
             borderRadius    = T.radius.sm,
             padding         = T.spacing.sm, gap = T.spacing.xs,
             children = {
-                UI.Label { text = "▸ 副属性（随机锻造）", fontSize = T.fontSize.xs, fontColor = T.color.equipTipStatLabel, paddingLeft = T.spacing.xs },
+                UI.Label { text = "▸ 副属性", fontSize = T.fontSize.xs, fontColor = T.color.equipTipStatLabel, paddingLeft = T.spacing.xs },
                 table.unpack(subChildren),
             },
         },
@@ -1101,8 +1334,8 @@ local function ShowForgeSuccess(weapon, targetDef)
                     UI.Label { text = "灵器蜕变，龙威降世", fontSize = T.fontSize.sm,                          fontColor = { T.color.gold[1], T.color.gold[2], T.color.gold[3], 160 }, textAlign = "center" },
                     UI.Panel { width = "80%", height = T.decor.dividerHeight, backgroundColor = T.color.forgeBorderRed },
                     iconWidget,
-                    UI.Label { text = targetDef.name, fontSize = T.fontSize.lg, fontWeight = "bold", fontColor = qColor, textAlign = "center" },
-                    UI.Label { text = "9阶 [圣器] 武器",   fontSize = T.fontSize.sm,                          fontColor = { qColor[1], qColor[2], qColor[3], 180 }, textAlign = "center" },
+                    UI.Label { text = displayDef.name, fontSize = T.fontSize.lg, fontWeight = "bold", fontColor = qColor, textAlign = "center" },
+                    UI.Label { text = tierLabel .. " [" .. qualityName .. "] " .. slotLabel, fontSize = T.fontSize.sm, fontColor = { qColor[1], qColor[2], qColor[3], 180 }, textAlign = "center" },
                     UI.Panel { width = "80%", height = T.decor.dividerHeight, backgroundColor = { qColor[1], qColor[2], qColor[3], 40 } },
                     UI.Panel { width = "100%", gap = T.spacing.sm, children = contentChildren },
                     UI.Panel { width = "80%", height = T.decor.dividerHeight, backgroundColor = { qColor[1], qColor[2], qColor[3], 40 } },
@@ -1148,7 +1381,7 @@ function DragonForgeUI.DoForge()
 end
 
 -- ============================================================================
--- 背包打造通用成功弹窗（Tab 6/7 共用，法宝/灵器）
+-- 背包打造通用成功弹窗（第二排 Tab 6/7/8 共用）
 -- ============================================================================
 
 local function ShowBagForgeSuccess(item, title, subtitle)
@@ -1344,7 +1577,7 @@ local function ShowBagForgeSuccess(item, title, subtitle)
 end
 
 -- ============================================================================
--- 龙极令打造（Tab 6，背包模式，委托 ForgeSystem）
+-- 龙极令打造（Tab 7，背包模式，委托 ForgeSystem）
 -- ============================================================================
 
 function DragonForgeUI.DoForgeLongji()
@@ -1369,7 +1602,7 @@ function DragonForgeUI.DoForgeLongji()
 end
 
 -- ============================================================================
--- 灵器铸造（Tab 7，背包模式，委托 ForgeSystem）
+-- 灵器打造（Tab 8，背包模式，委托 ForgeSystem）
 -- ============================================================================
 
 function DragonForgeUI.DoForgeLingqi()
@@ -1393,6 +1626,27 @@ function DragonForgeUI.DoForgeLingqi()
     if not popupOk then
         print("[DragonForgeUI] ERROR: ShowBagForgeSuccess failed: " .. tostring(popupErr))
         resultLabel_:SetText("铸造成功！（灵器已放入背包）")
+        resultLabel_:SetStyle({ fontColor = T.color.success })
+    end
+end
+
+function DragonForgeUI.DoForgeZhenlong()
+    local result = ForgeSystem.Execute("zhenlong_helmet_ch4")
+    if not result.success then
+        resultLabel_:SetText(result.error or "打造失败")
+        resultLabel_:SetStyle({ fontColor = T.color.error })
+        return
+    end
+
+    local refreshOk, refreshErr = pcall(RefreshUI)
+    if not refreshOk then
+        print("[DragonForgeUI] WARNING: RefreshUI error after zhenlong forge: " .. tostring(refreshErr))
+    end
+
+    local popupOk, popupErr = pcall(ShowBagForgeSuccess, result.item, "真龙盔铸成！", "真龙威势凝于战盔")
+    if not popupOk then
+        print("[DragonForgeUI] ERROR: ShowBagForgeSuccess failed: " .. tostring(popupErr))
+        resultLabel_:SetText("打造成功！（真龙盔已放入背包）")
         resultLabel_:SetStyle({ fontColor = T.color.success })
     end
 end

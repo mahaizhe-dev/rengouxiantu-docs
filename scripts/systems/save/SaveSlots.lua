@@ -196,6 +196,15 @@ function SaveSlots.CreateCharacter(slot, charName, slotsIndex, callback, classId
         pet = {},
         quests = {},
         triggeredBattles = {},
+        liangjieStones = {
+            version = 1,
+            stones = {
+                xuanbi = { activated = false, level = 0, activationRewardClaimed = false },
+                tianfeng = { activated = false, level = 0, activationRewardClaimed = false },
+                houtu = { activated = false, level = 0, activationRewardClaimed = false },
+                huiyuan = { activated = false, level = 0, activationRewardClaimed = false },
+            },
+        },
     }
 
     local updatedIndex = slotsIndex or { version = 1, slots = {} }

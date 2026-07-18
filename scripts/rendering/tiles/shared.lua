@@ -1,5 +1,6 @@
 -- tiles/shared.lua - 共享工具函数与图片缓存
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local ActiveZoneData = require("config.ActiveZoneData")
 local GameConfig = require("config.GameConfig")
 local GameState = require("core.GameState")

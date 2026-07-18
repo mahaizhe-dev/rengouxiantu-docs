@@ -3,6 +3,7 @@
 -- 仅绘制在 WorldRenderer 的世界裁剪区域内，不影响 UI 层。
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local ActiveZoneData = require("config.ActiveZoneData")
 
 local ChapterAmbientRenderer = {}

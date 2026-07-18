@@ -4,6 +4,7 @@
 -- 小境界突破：简洁版弹框
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local UI = require("urhox-libs/UI")
 local GameConfig = require("config.GameConfig")
 local GameState = require("core.GameState")

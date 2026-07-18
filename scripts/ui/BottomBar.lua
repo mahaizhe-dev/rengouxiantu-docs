@@ -12,6 +12,7 @@ local SkillSystem = require("systems.SkillSystem")
 local ProgressionSystem = require("systems.ProgressionSystem")
 local SaveSystem = require("systems.SaveSystem")
 local CombatSystem = require("systems.CombatSystem")
+local PlayerShieldStatus = require("systems.PlayerShieldStatus")
 local Utils = require("core.Utils")
 local PetPanelForms = require("ui.PetPanelForms")
 local ActiveZoneData = require("config.ActiveZoneData")
@@ -98,6 +99,38 @@ end
 ---@param callbacks table { onBagClick, onPetClick, onBreakthroughClick, onSystemClick }
 function BottomBar.Create(parentOverlay, callbacks)
     callbacks = callbacks or {}
+
+    local hpBarChildren = {
+        UI.Panel {
+            id = "bb_hp_fill",
+            width = "100%",
+            height = "100%",
+            backgroundColor = {200, 50, 50, 255},
+            borderRadius = T.size.hpBarHeight / 2,
+        },
+        UI.Panel {
+            id = "bb_shield_fill",
+            position = "absolute",
+            top = 0, left = 0,
+            width = "0%",
+            height = "100%",
+            backgroundColor = {80, 200, 255, 150},
+            borderRadius = T.size.hpBarHeight / 2,
+            visible = false,
+        },
+        UI.Label {
+            id = "bb_hp_text",
+            text = "100/100",
+            fontSize = T.fontSize.xs,
+            fontColor = {255, 255, 255, 255},
+            position = "absolute",
+            top = 0, left = 5, right = 0,
+            height = T.size.hpBarHeight,
+            textAlign = "center",
+            verticalAlign = "middle",
+            lineHeight = 1.0,
+        },
+    }
 
     -- ── 技能按钮组 ──
     local skillGroup = UI.Panel {
@@ -379,40 +412,7 @@ function BottomBar.Create(parentOverlay, callbacks)
                                 backgroundColor = {50, 15, 15, 220},
                                 borderRadius = T.size.hpBarHeight / 2,
                                 overflow = "hidden",
-                                children = {
-                                    -- 血量填充
-                                    UI.Panel {
-                                        id = "bb_hp_fill",
-                                        width = "100%",
-                                        height = "100%",
-                                        backgroundColor = {200, 50, 50, 255},
-                                        borderRadius = T.size.hpBarHeight / 2,
-                                    },
-                                    -- 护盾填充（覆盖在血条上方，从左侧开始，青色半透明）
-                                    UI.Panel {
-                                        id = "bb_shield_fill",
-                                        position = "absolute",
-                                        top = 0, left = 0,
-                                        width = "0%",
-                                        height = "100%",
-                                        backgroundColor = {80, 200, 255, 120},
-                                        borderRadius = T.size.hpBarHeight / 2,
-                                        visible = false,
-                                    },
-                                    -- 血量文字（含护盾信息）
-                                    UI.Label {
-                                        id = "bb_hp_text",
-                                        text = "100/100",
-                                        fontSize = T.fontSize.xs,
-                                        fontColor = {255, 255, 255, 255},
-                                        position = "absolute",
-                                        top = 0, left = 5, right = 0,
-                                        height = T.size.hpBarHeight,
-                                        textAlign = "center",
-                                        verticalAlign = "middle",
-                                        lineHeight = 1.0,
-                                    },
-                                },
+                                children = hpBarChildren,
                             },
                         },
                     },
@@ -553,38 +553,30 @@ function BottomBar.Update(root)
     if hpFill then
         hpFill:SetStyle({ width = tostring(math.floor(hpRatio * 100)) .. "%" })
     end
-    -- 护盾信息（合并到 HP 文字中）
+    -- 镇界、金钟罩、八卦统一汇总为一种护盾，只保留来源差异。
     local hpStr = math.floor(player.hp) .. "/" .. math.floor(totalMaxHp)
+    local shields = PlayerShieldStatus.Collect(player, totalMaxHp)
+    local totalShieldHp = PlayerShieldStatus.GetTotalAbsorbHp(shields)
     local shieldFill = bar_:FindById("bb_shield_fill")
-    local okCh4, ArtifactCh4 = pcall(require, "systems.ArtifactSystem_ch4")
-    local showShield = false
-    if okCh4 and ArtifactCh4 and ArtifactCh4.passiveUnlocked then
-        local sHp, sMax = ArtifactCh4.GetShieldStatus()
-        if sMax > 0 then
-            showShield = true
-            if sHp > 0 then
-                hpStr = hpStr .. " (☯" .. math.floor(sHp) .. ")"
-            else
-                local timer = ArtifactCh4._shieldTimer or 0
-                hpStr = hpStr .. " (☯恢复" .. math.ceil(timer) .. "s)"
-            end
-            if shieldFill then
-                local shieldRatio = totalMaxHp > 0 and (sHp / totalMaxHp) or 0
-                shieldRatio = math.min(shieldRatio, 1.0)
-                shieldFill:SetStyle({
-                    width = tostring(math.floor(shieldRatio * 100)) .. "%",
-                    visible = true,
-                })
-            end
+    if totalShieldHp > 0 then
+        hpStr = hpStr .. "  盾+" .. math.floor(totalShieldHp)
+        if shieldFill then
+            local shieldRatio = PlayerShieldStatus.GetUnifiedBarRatio(shields, totalMaxHp)
+            shieldFill:SetStyle({
+                width = tostring(math.floor(shieldRatio * 100)) .. "%",
+                visible = true,
+            })
         end
-    end
-    if not showShield and shieldFill then
+    elseif shieldFill then
         shieldFill:SetStyle({ visible = false })
     end
 
     local hpText = bar_:FindById("bb_hp_text")
     if hpText then
         hpText:SetText(hpStr)
+        hpText:SetStyle({
+            fontSize = #hpStr > 32 and T.fontSize.xxs or T.fontSize.xs,
+        })
     end
 
     -- EXP 条

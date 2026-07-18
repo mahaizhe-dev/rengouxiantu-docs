@@ -37,6 +37,14 @@ M.WORLD_DROP_POOLS = {
             { type = "consumable", consumableId = "lingyun_fruit", bossOnly = true }, -- 灵韵果（BOSS专属）
         },
     },
+    ch4_high_boss = {
+        bossLabel = "1.5%",
+        items = {
+            { type = "consumable", consumableId = "gold_brick" },        -- 金砖
+            { type = "consumable", consumableId = "taixu_token_box" },   -- 太虚令盒
+            { type = "consumable", consumableId = "lingyun_fruit" },     -- 灵韵果
+        },
+    },
     ch5 = {
         eliteLabel = "3%",
         items = {
@@ -67,13 +75,16 @@ M.WORLD_DROP_POOLS = {
         },
     },
     ch6_emperor_rare = {
-        bossLabel = "5%",
+        bossLabel = "6%",
+        scopeLabel = "皇级及以上 BOSS",
+        scopeShortLabel = "皇级+",
         items = {
             { type = "consumable", consumableId = "gold_brick" },
             { type = "consumable", consumableId = "lingyun_fruit_superior" },
             { type = "consumable", consumableId = "exp_pill_supreme" },
             { type = "consumable", consumableId = "spirit_pill_6" },
             { type = "consumable", consumableId = "night_shadow_grass" },
+            { type = "consumable", consumableId = "zhexian_ling_box" },
         },
     },
     -- 万仇/万海专用：筑基丹与修炼果共享掉落池

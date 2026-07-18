@@ -1005,7 +1005,10 @@ function Pet:CalcPetDamage(atkValue, target, source)
 
     -- 5) 造成伤害
     damage = math.max(1, damage)
-    target:TakeDamage(damage, self)
+    local actualDamage = target:TakeDamage(damage, self)
+    if type(actualDamage) == "number" then
+        damage = math.max(0, actualDamage)
+    end
 
     -- 6) 吸血回复
     if self.lifeStealPct and self.lifeStealPct > 0 and self.alive then

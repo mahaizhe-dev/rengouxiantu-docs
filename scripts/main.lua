@@ -59,6 +59,7 @@ local T = require("config.UITheme")
 local GMConsole = require("ui.GMConsole")
 local ChapterConfig = require("config.ChapterConfig")
 local ActiveZoneData = require("config.ActiveZoneData")
+local NPCWorldLoader = require("world.NPCWorldLoader")
 local TileRenderer = require("rendering.TileRenderer")
 local ChallengeSystem = require("systems.ChallengeSystem")
 local TriggerBattleSystem = require("systems.TriggerBattleSystem")
@@ -87,6 +88,10 @@ local _ok5, ArtifactSystem_ch5 = pcall(require, "systems.ArtifactSystem_ch5")
 if not _ok5 then print("[WARN] ArtifactSystem_ch5 load failed: " .. tostring(ArtifactSystem_ch5)); ArtifactSystem_ch5 = nil end
 local _ok6, ArtifactSystem_tiandi = pcall(require, "systems.ArtifactSystem_tiandi")
 if not _ok6 then print("[WARN] ArtifactSystem_tiandi load failed: " .. tostring(ArtifactSystem_tiandi)); ArtifactSystem_tiandi = nil end
+local _ok7, ArtifactUI_ch6 = pcall(require, "ui.ArtifactUI_ch6")
+if not _ok7 then print("[WARN] ArtifactUI_ch6 load failed: " .. tostring(ArtifactUI_ch6)); ArtifactUI_ch6 = nil end
+local _ok8, ArtifactSystem_ch6 = pcall(require, "systems.ArtifactSystem_ch6")
+if not _ok8 then print("[WARN] ArtifactSystem_ch6 load failed: " .. tostring(ArtifactSystem_ch6)); ArtifactSystem_ch6 = nil end
 local AtlasUI = require("ui.AtlasUI")
 local FortuneFruitSystem = require("systems.FortuneFruitSystem")
 local QinglianBodySystem = require("systems.QinglianBodySystem")
@@ -94,6 +99,8 @@ local XianyuanChestSystem = require("systems.XianyuanChestSystem")
 local XianyuanChestUI = require("ui.XianyuanChestUI")
 local WubaoTreasureSystem = require("systems.WubaoTreasureSystem")
 local WubaoTreasureUI = require("ui.WubaoTreasureUI")
+local TreasureMapSystem = require("systems.TreasureMapSystem")
+local TreasureMapUI = require("ui.TreasureMapUI")
 local _whOk, WarehouseUI = pcall(require, "ui.WarehouseUI")
 if not _whOk then WarehouseUI = nil end
 local WineSystem = require("systems.WineSystem")
@@ -103,6 +110,7 @@ local BulletinFloatingIcon = require("ui.BulletinFloatingIcon")
 local TownReturnSystem = require("systems.TownReturnSystem")
 local DPSTracker = require("ui.DPSTracker")
 local PerfMonitor = require("systems.PerfMonitor")
+local MonsterCrowdSystem = require("systems.MonsterCrowdSystem")
 local AudioSystem = require("systems.AudioSystem")
 local MinggeSystem = require("systems.MinggeSystem")
 local _dcOk, DungeonClient = pcall(require, "network.DungeonClient")
@@ -131,43 +139,6 @@ local daoQuestionPending_ = false  -- 新角色创角后等待首帧触发天道
 local FAR_MONSTER_RANGE = GameConfig.DEAGGRO_RANGE * 2
 local FAR_MONSTER_DIST_SQ = FAR_MONSTER_RANGE * FAR_MONSTER_RANGE
 local FAR_MONSTER_UPDATE_INTERVAL = 0.5  -- 远处怪物更新间隔（秒）
-
---- NPC 数据浅拷贝（RebuildWorld / InitGame 共用）
----@param npcData table ZoneData 中的 NPC 定义
----@return table 可插入 GameState.npcs 的副本
-local function CopyNPC(npcData)
-    return {
-        id = npcData.id,
-        name = npcData.name,
-        subtitle = npcData.subtitle,
-        icon = npcData.icon,
-        portrait = npcData.portrait,
-        x = npcData.x,
-        y = npcData.y,
-        zone = npcData.zone,
-        dialog = npcData.dialog,
-        interactType = npcData.interactType,
-        isObject = npcData.isObject,
-        decorationType = npcData.decorationType,
-        image = npcData.image,
-        imageScale = npcData.imageScale,
-        color = npcData.color,
-        scale = npcData.scale,
-        w = npcData.w,
-        h = npcData.h,
-        interactable = npcData.interactable,
-        label = npcData.label,
-        challengeFaction = npcData.challengeFaction,
-        teleportTarget = npcData.teleportTarget,
-        buttons = npcData.buttons,
-        chapter = npcData.chapter,
-        pillarId = npcData.pillarId,
-        hideName = npcData.hideName,
-        showNameplate = npcData.showNameplate,
-        iconScale = npcData.iconScale,
-        triggerBattleId = npcData.triggerBattleId,
-    }
-end
 
 --- 播放指定章节的背景音乐（委托 AudioSystem）
 ---@param chapterId number
@@ -567,6 +538,7 @@ function ReturnToLogin()
     if DungeonClient and DungeonClient.Reset then
         DungeonClient.Reset()
     end
+    TreasureMapSystem.Reset()
 
     -- 重置其他 UI 模块状态（防止跨角色残留）
     QuestRewardUI.Destroy()
@@ -587,6 +559,7 @@ function ReturnToLogin()
     -- 重置游戏状态
     GameState.Init()
     TreasureRunnerSystem.ResetRuntime()
+    MonsterCrowdSystem.Reset()
     GameState.paused = true
 
     -- 🔴 重置存档系统（清除 loaded 标记和 saveTimer，防止残留状态触发 auto-save）
@@ -635,6 +608,7 @@ function RebuildWorld(chapterId, spawnOverride)
     CombatSystem.ClearEffects()
 
     -- 4. 清除世界实体（保留玩家/宠物/背包等）
+    MonsterCrowdSystem.Reset()
     GameState.monsters = {}
     GameState.npcs = {}
     GameState.lootDrops = {}
@@ -672,12 +646,13 @@ function RebuildWorld(chapterId, spawnOverride)
     end
     camera_.x = spawn.x
     camera_.y = spawn.y
-    -- 8. 加载 NPC（eventBound NPC 仅在活动开启时显示）
-    for _, npcData in ipairs(newZoneData.NPCs or {}) do
-        if not npcData.eventBound or EventConfig.IsActive() then
-            table.insert(GameState.npcs, CopyNPC(npcData))
-        end
-    end
+    -- 8. 加载 NPC（正式世界和测试共用同一构建入口）
+    NPCWorldLoader.Install(
+        GameState,
+        newZoneData,
+        EventConfig.IsActive(),
+        gameMap_,
+        GameConfig.GM_ENABLED == true)
     -- 9. 重建刷怪器
     spawner_ = Spawner.New()
     spawner_:Init(gameMap_)
@@ -692,6 +667,7 @@ function RebuildWorld(chapterId, spawnOverride)
         worldWidget_:SetGameRefs(gameMap_, camera_)
     end
     if DungeonClient then DungeonClient.SetGameRefs(gameMap_, camera_) end
+    TreasureMapSystem.SetGameRefs(gameMap_, camera_)
     GameEvents.Register({ camera = camera_, gameMap = gameMap_ })
     TreasureRunnerSystem.OnWorldReady(gameMap_)
     print("[Main] RebuildWorld complete: " .. chapterCfg.name)
@@ -701,6 +677,22 @@ end
 ---@param targetChapterId number 目标章节 ID
 function SwitchChapter(targetChapterId)
     if not gameStarted_ then return end
+    if TreasureMapSystem.IsUsePending and TreasureMapSystem.IsUsePending() then
+        local p = GameState.player
+        if p then
+            CombatSystem.AddFloatingText(p.x, p.y - 1.0,
+                "正在确认藏宝图，暂时无法切换章节", {255, 190, 90, 255}, 2.0)
+        end
+        return
+    end
+    if GameState.worldMode == "treasure_map" then
+        local p = GameState.player
+        if p then
+            CombatSystem.AddFloatingText(p.x, p.y - 1.0,
+                "藏宝海中请先使用归航法阵", {255, 180, 90, 255}, 2.0)
+        end
+        return
+    end
     if GameState.currentChapter == targetChapterId then return end
 
     -- 挑战/试炼/镇狱/多人副本中禁止切换章节
@@ -805,6 +797,7 @@ function InitGame(classId)
     -- 初始化游戏状态
     GameState.Init()
     TreasureRunnerSystem.ResetRuntime()
+    MonsterCrowdSystem.Reset()
 
     -- 根据当前章节获取对应的区域数据
     local chapterId = GameState.currentChapter or 1
@@ -842,12 +835,13 @@ function InitGame(classId)
     camera_.x = spawn.x
     camera_.y = spawn.y
 
-    -- 加载 NPC（eventBound NPC 仅在活动开启时显示）
-    for _, npcData in ipairs(currentZoneData.NPCs) do
-        if not npcData.eventBound or EventConfig.IsActive() then
-            table.insert(GameState.npcs, CopyNPC(npcData))
-        end
-    end
+    -- 加载 NPC（正式世界和测试共用同一构建入口）
+    NPCWorldLoader.Install(
+        GameState,
+        currentZoneData,
+        EventConfig.IsActive(),
+        gameMap_,
+        GameConfig.GM_ENABLED == true)
 
     -- 创建怪物刷新管理器（传入地图实例，自动修正墙内刷怪点）
     spawner_ = Spawner.New()
@@ -884,6 +878,7 @@ function InitGame(classId)
 
     -- 注册游戏事件（委托给 GameEvents 模块）
     if DungeonClient then DungeonClient.SetGameRefs(gameMap_, camera_) end
+    TreasureMapSystem.SetGameRefs(gameMap_, camera_)
     GameEvents.Register({ camera = camera_, gameMap = gameMap_ })
 
     -- 初始化任务系统并应用封印
@@ -1270,6 +1265,12 @@ function CreateUI()
     XianyuanChestUI.Create(overlay)
     WubaoTreasureSystem.Init()
     WubaoTreasureUI.Create(overlay)
+    TreasureMapSystem.Init()
+    TreasureMapSystem.SetGameRefs(gameMap_, camera_)
+    TreasureMapUI.Create(overlay)
+    if SaveSystem.loaded and SaveSystem.activeSlot then
+        TreasureMapSystem.QueryState()
+    end
 
     -- 创建小地图
     Minimap.Create(overlay)
@@ -1383,6 +1384,7 @@ function HandleUpdate(eventType, eventData)
         if not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive() and not PrisonTowerSystem.IsActive()
             and not TriggerBattleSystem.IsActive()
             and not TribulationScene.IsActive()
+            and not TreasureMapSystem.IsActive()
             and not (DungeonClient and DungeonClient.IsDungeonMode()) then
             ZoneManager.CheckZoneChange(gameMap_, player, uiRoot_)
         end
@@ -1433,11 +1435,15 @@ function HandleUpdate(eventType, eventData)
     end
     PerfMonitor.EndSegment("monsters")
 
+    -- 仅缓解近身交战普通/精英怪的完全同点；失败或超预算时允许继续重叠。
+    MonsterCrowdSystem.Update(dt, GameState.monsters, player, gameMap_)
+
     -- 更新怪物刷新（挑战/试炼/镇狱/多人副本中暂停刷怪）
     local SwordWallSystem = require("systems.SwordWallSystem")
     if spawner_ and not ChallengeSystem.IsActive() and not TrialTowerSystem.IsActive()
         and not PrisonTowerSystem.IsActive() and not TriggerBattleSystem.IsActive()
         and not TribulationScene.IsActive() and not SwordWallSystem.IsActive()
+        and not TreasureMapSystem.IsActive()
         and not (DungeonClient and DungeonClient.IsDungeonMode()) then
         spawner_:Update(dt)
         TreasureRunnerSystem.Update(dt, gameMap_)
@@ -1484,6 +1490,16 @@ function HandleUpdate(eventType, eventData)
     ArtifactSystem_tiandi.UpdateBossArena(dt, gameMap_, camera_)
     ArtifactUI_tiandi.Update(dt)
 
+    -- 第六章界匙：账号冷却、双王竞技场与觉醒面板
+    if ArtifactUI_ch6 then
+        ArtifactUI_ch6.TryStartPendingBossFight(gameMap_, camera_)
+        ArtifactUI_ch6.Update(dt)
+    end
+    if ArtifactSystem_ch6 then
+        ArtifactSystem_ch6.Update(dt)
+        ArtifactSystem_ch6.UpdateBossArena(dt, gameMap_, camera_)
+    end
+
     -- 福源果弹窗计时
     FortuneFruitSystem.Update(dt)
     QinglianBodySystem.Update(dt)
@@ -1497,6 +1513,7 @@ function HandleUpdate(eventType, eventData)
     XianyuanChestUI.Update(dt)
     WubaoTreasureSystem.Update(dt)
     WubaoTreasureUI.Update(dt)
+    TreasureMapSystem.Update(dt)
     if WarehouseUI then WarehouseUI.Update(dt) end
 
     -- 封魔任务状态更新（超时/距离检测等）

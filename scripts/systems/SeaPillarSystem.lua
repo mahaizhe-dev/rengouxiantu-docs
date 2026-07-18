@@ -15,6 +15,11 @@ local SeaPillarSystem = {}
 SeaPillarSystem.pillars = {}
 SeaPillarSystem._initialized = false
 
+local function NormalizeLevel(value)
+    if type(value) ~= "number" or value ~= value then return 0 end
+    return math.max(0, math.min(SeaPillarConfig.MAX_LEVEL, math.floor(value)))
+end
+
 --- 初始化（幂等，可重复调用）
 function SeaPillarSystem.Init()
     if SeaPillarSystem._initialized then return end
@@ -176,6 +181,7 @@ end
 --- 计算所有海神柱提供的属性加成总和
 ---@return table { def=N, atk=N, maxHp=N, hpRegen=N }
 function SeaPillarSystem.GetAllBonuses()
+    SeaPillarSystem.EnsureInit()
     local bonuses = { def = 0, atk = 0, maxHp = 0, hpRegen = 0 }
     for _, id in ipairs(SeaPillarConfig.PILLAR_ORDER) do
         local state = SeaPillarSystem.pillars[id]
@@ -208,6 +214,7 @@ end
 --- 序列化
 ---@return table
 function SeaPillarSystem.Serialize()
+    SeaPillarSystem.EnsureInit()
     local data = {}
     for _, id in ipairs(SeaPillarConfig.PILLAR_ORDER) do
         local state = SeaPillarSystem.pillars[id]
@@ -227,16 +234,19 @@ function SeaPillarSystem.Deserialize(data)
     -- 先重置再初始化默认状态
     SeaPillarSystem._initialized = false
     SeaPillarSystem.Init()
-    if not data then return end
 
-    for _, id in ipairs(SeaPillarConfig.PILLAR_ORDER) do
-        if data[id] then
-            SeaPillarSystem.pillars[id].repaired = data[id].repaired or false
-            SeaPillarSystem.pillars[id].level = data[id].level or 0
+    if type(data) == "table" then
+        for _, id in ipairs(SeaPillarConfig.PILLAR_ORDER) do
+            local saved = data[id]
+            if type(saved) == "table" then
+                local repaired = saved.repaired == true
+                SeaPillarSystem.pillars[id].repaired = repaired
+                SeaPillarSystem.pillars[id].level = repaired and NormalizeLevel(saved.level) or 0
+            end
         end
     end
 
-    -- 加载后立即应用属性
+    -- 等级档案是唯一真值；即使旧档缺字段，也要覆盖角色上的历史派生值。
     SeaPillarSystem.ApplyAllBonuses()
 end
 

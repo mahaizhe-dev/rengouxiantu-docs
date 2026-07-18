@@ -148,7 +148,7 @@ function TrialTowerUI.Show(npc)
                     width = "100%",
                 },
                 UI.Label {
-                    text = "攻击×1.5 | 生命×2 | 攻速+30%\n请确保装备充足再挑战",
+                    text = "攻击+50% | 生命+100% | 攻速/移速+30% | 冷却-30%\nBOSS层按原BOSS等级额外抬升，请确保装备充足再挑战",
                     fontSize = T.fontSize.xs,
                     fontColor = {255, 180, 160, 200},
                     textAlign = "center",

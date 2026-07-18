@@ -41,6 +41,26 @@ local function assertFalse(v, msg)
     if v then error(msg or "expected false") end
 end
 
+local function readFile(path)
+    local f = io.open(path, "rb")
+    if not f then error("cannot read file: " .. path) end
+    local content = f:read("*a") or ""
+    f:close()
+    return content
+end
+
+local function assertContains(text, needle, msg)
+    if not text:find(needle, 1, true) then
+        error((msg or "expected text") .. ": " .. needle)
+    end
+end
+
+local function assertNotContains(text, needle, msg)
+    if text:find(needle, 1, true) then
+        error((msg or "unexpected text") .. ": " .. needle)
+    end
+end
+
 print("\n[test_bm_s3_sell_guard] === BM-S3R 黑市卖出服务端权威校验测试 ===\n")
 
 -- ============================================================================
@@ -54,6 +74,8 @@ local _stubModules = {
     "config.EquipmentData",
     "config.PetSkillData",
     "network.BlackMarketSellGuard",
+    "systems.AudioSystem",
+    "cjson",
 }
 local _origPackageLoaded = {}
 for _, k in ipairs(_stubModules) do
@@ -65,9 +87,15 @@ for _, k in ipairs(_stubModules) do
     package.loaded[k] = nil
 end
 
+package.loaded["cjson"] = {
+    encode = function() return "{}" end,
+    decode = function() return {} end,
+}
+
 local BMConfig = require("config.BlackMerchantConfig")
 local PillRecipes = require("config.PillRecipes")
 local SellGuard = require("network.BlackMarketSellGuard")
+local AudioSystem = require("systems.AudioSystem")
 
 -- ============================================================================
 -- A. 分类层测试 — BM-S3R: 所有商品均应被拒卖
@@ -143,13 +171,20 @@ test("T8: herb → 拒卖", function()
     end
 end)
 
-test("T9: skill_book → 拒卖", function()
-    local ids = BMConfig.GetItemsByCategory(BMConfig.CATEGORY_SKILL_BOOK)
-    assertTrue(#ids > 0, "should have skill_book items")
-    for _, id in ipairs(ids) do
-        local allowed, reason = SellGuard.CheckSellAllowed(id)
-        assertFalse(allowed, "skill_book should be blocked: " .. id)
-        assertEqual(reason, "high_risk_blocked", "reason for " .. id)
+test("T9: 三档 skill_book → 拒卖", function()
+    local categories = {
+        BMConfig.CATEGORY_SKILL_BOOK_MID,
+        BMConfig.CATEGORY_SKILL_BOOK_HIGH,
+        BMConfig.CATEGORY_SKILL_BOOK_SPECIAL,
+    }
+    for _, category in ipairs(categories) do
+        local ids = BMConfig.GetItemsByCategory(category)
+        assertTrue(#ids > 0, "should have " .. category .. " items")
+        for _, id in ipairs(ids) do
+            local allowed, reason = SellGuard.CheckSellAllowed(id)
+            assertFalse(allowed, "skill_book should be blocked: " .. id)
+            assertEqual(reason, "high_risk_blocked", "reason for " .. id)
+        end
     end
 end)
 
@@ -248,7 +283,7 @@ test("T20: 第六章黑市新增材料配置正确", function()
 
     local crystal = BMConfig.ITEMS.shadow_crystal
     assertTrue(crystal ~= nil, "shadow_crystal should be in black market")
-    assertEqual(crystal.category, BMConfig.CATEGORY_CONSUMABLE_MAT, "shadow_crystal category")
+    assertEqual(crystal.category, BMConfig.CATEGORY_MATERIAL, "shadow_crystal category")
     assertEqual(crystal.buy_price, 20, "shadow_crystal buy_price")
     assertEqual(crystal.sell_price, 40, "shadow_crystal sell_price")
     assertEqual(crystal.max_stock, 5, "shadow_crystal max_stock")
@@ -265,22 +300,173 @@ end)
 
 test("T20.1: 令牌盒黑市配置一致且仅第六章提价", function()
     local expected = {
-        { id = "wubao_token_box",    name = "乌堡令盒",   buy = 2, sell = 4, sort = 9  },
-        { id = "sha_hai_ling_box",   name = "沙海令盒",   buy = 2, sell = 4, sort = 10 },
-        { id = "taixu_token_box",    name = "太虚令盒",   buy = 2, sell = 4, sort = 11 },
-        { id = "taixu_jianling_box", name = "太虚剑令盒", buy = 2, sell = 4, sort = 12 },
-        { id = "zhexian_ling_box",   name = "谪仙令盒",   buy = 3, sell = 6, sort = 13 },
+        { id = "wubao_token_box",    name = "乌堡令盒",   buy = 2, sell = 4, sort = 4 },
+        { id = "sha_hai_ling_box",   name = "沙海令盒",   buy = 2, sell = 4, sort = 5 },
+        { id = "taixu_token_box",    name = "太虚令盒",   buy = 2, sell = 4, sort = 6 },
+        { id = "taixu_jianling_box", name = "太虚剑令盒", buy = 2, sell = 4, sort = 7 },
+        { id = "zhexian_ling_box",   name = "谪仙令盒",   buy = 3, sell = 6, sort = 8 },
     }
     for _, e in ipairs(expected) do
         local item = BMConfig.ITEMS[e.id]
         assertTrue(item ~= nil, e.id .. " should be in black market")
         assertEqual(item.name, e.name, e.id .. " name")
-        assertEqual(item.category, BMConfig.CATEGORY_CONSUMABLE_MAT, e.id .. " category")
+        assertEqual(item.category, BMConfig.CATEGORY_CONSUMABLE, e.id .. " category")
         assertEqual(item.buy_price, e.buy, e.id .. " buy_price")
         assertEqual(item.sell_price, e.sell, e.id .. " sell_price")
         assertEqual(item.max_stock, 10, e.id .. " max_stock")
         assertEqual(item.sort_order, e.sort, e.id .. " sort_order")
     end
+end)
+
+test("T20.3: 消耗品与材料页签商品拆分精确", function()
+    local expectedConsumables = {
+        "valentine_red_thread",
+        "valentine_pair_jade",
+        "valentine_xiangsi_redbean_cake",
+        "xianjie_premium_zong",
+        "treasure_map",
+        "wubao_treasure_key",
+        "gold_brick",
+        "wubao_token_box",
+        "sha_hai_ling_box",
+        "taixu_token_box",
+        "taixu_jianling_box",
+        "zhexian_ling_box",
+    }
+    local expectedMaterials = {
+        "dragon_scale_ice",
+        "dragon_scale_abyss",
+        "dragon_scale_fire",
+        "dragon_scale_sand",
+        "immortal_essence_blood",
+        "shadow_crystal",
+        "lotus_pool_dew",
+    }
+
+    local consumables = BMConfig.GetItemsByCategory(BMConfig.CATEGORY_CONSUMABLE)
+    local materials = BMConfig.GetItemsByCategory(BMConfig.CATEGORY_MATERIAL)
+    assertEqual(#consumables, #expectedConsumables, "consumable count")
+    assertEqual(#materials, #expectedMaterials, "material count")
+    for i, id in ipairs(expectedConsumables) do
+        assertEqual(consumables[i], id, "consumable order " .. i)
+    end
+    for i, id in ipairs(expectedMaterials) do
+        assertEqual(materials[i], id, "material order " .. i)
+    end
+end)
+
+test("T20.4: 记录与皮肤同级，记录不再占商品分类页签", function()
+    local src = readFile("scripts/ui/BlackMerchantUI.lua")
+    local toolbarStart = src:find("-- 仙石行：余额 + 记录/皮肤 + 兑换按钮", 1, true)
+    local tabRowsStart = src:find("-- 标签页栏（三行）", toolbarStart or 1, true)
+    assertTrue(toolbarStart ~= nil and tabRowsStart ~= nil, "toolbar markers should exist")
+
+    local toolbar = src:sub(toolbarStart, tabRowsStart - 1)
+    assertContains(toolbar, "tabBtnHistory_,", "history should be in toolbar")
+    assertContains(toolbar, 'text = "皮肤"', "skin should be in toolbar")
+
+    local firstRowStart = src:find("-- 第一行：消耗品 · 材料 · 草药 · 附灵玉 · 特殊装备", tabRowsStart, true)
+    local secondRowStart = src:find("-- 第二行：技能书", firstRowStart or tabRowsStart, true)
+    assertTrue(firstRowStart ~= nil and secondRowStart ~= nil, "category row markers should exist")
+
+    local firstRow = src:sub(firstRowStart, secondRowStart - 1)
+    assertContains(firstRow, "tabBtnConsumable_", "consumable tab should be first-row category")
+    assertContains(firstRow, "tabBtnMaterial_", "material tab should be first-row category")
+    assertNotContains(firstRow, "tabBtnHistory_", "history should not remain in category row")
+end)
+
+test("T20.5: 消耗品与材料掉落提示音映射正确", function()
+    local consumables = BMConfig.GetItemsByCategory(BMConfig.CATEGORY_CONSUMABLE)
+    local materials = BMConfig.GetItemsByCategory(BMConfig.CATEGORY_MATERIAL)
+
+    for _, id in ipairs(consumables) do
+        local cue = AudioSystem.ResolveConsumableDropCue(id)
+        if not cue then error("consumable cue missing: " .. id) end
+        assertEqual(cue.path, "audio/ggS.ogg", "consumable cue path: " .. id)
+        assertEqual(cue.priority, 3, "consumable cue priority: " .. id)
+    end
+
+    for _, id in ipairs(materials) do
+        local cue = AudioSystem.ResolveConsumableDropCue(id)
+        if not cue then error("material cue missing: " .. id) end
+        assertEqual(cue.path, "audio/财源滚滚.ogg", "material cue path: " .. id)
+        assertEqual(cue.priority, 2, "material cue priority: " .. id)
+    end
+end)
+
+test("T20.6: 单批取最高优先级，跨批后触发音效覆盖前一批", function()
+    local consumableCue = AudioSystem.ResolveConsumableDropCue("treasure_map")
+    local materialCue = AudioSystem.ResolveConsumableDropCue("dragon_scale_ice")
+
+    assertEqual(
+        AudioSystem.SelectHigherPriorityDropCue(materialCue, consumableCue),
+        consumableCue,
+        "consumable should win within one drop"
+    )
+    assertEqual(
+        AudioSystem.SelectHigherPriorityDropCue(consumableCue, materialCue),
+        consumableCue,
+        "iteration order should not change the winning cue"
+    )
+
+    local originalScene = Scene
+    local originalCache = cache
+    local originalFileSystem = fileSystem
+    local playedPaths = {}
+
+    Scene = function()
+        return {
+            CreateChild = function(_, nodeName)
+                return {
+                    CreateComponent = function()
+                        local source = {
+                            playing = false,
+                            SetSoundType = function() end,
+                            IsPlaying = function(self) return self.playing end,
+                            Stop = function(self) self.playing = false end,
+                            Play = function(self, sound)
+                                self.playing = true
+                                if nodeName == "DropCue" then
+                                    playedPaths[#playedPaths + 1] = sound.path
+                                end
+                            end,
+                        }
+                        return source
+                    end,
+                }
+            end,
+        }
+    end
+    cache = {
+        GetResource = function(_, resourceType, path)
+            assertEqual(resourceType, "Sound", "resource type")
+            return { path = path, looped = false }
+        end,
+    }
+    fileSystem = nil
+
+    local ok, err = pcall(function()
+        AudioSystem.Init()
+        AudioSystem.PlayResolvedDropCue(consumableCue)
+        AudioSystem.PlayResolvedDropCue(materialCue)
+    end)
+
+    Scene = originalScene
+    cache = originalCache
+    fileSystem = originalFileSystem
+    if not ok then error(err) end
+
+    assertEqual(#playedPaths, 2, "both pickup batches should reach SoundSource:Play")
+    assertEqual(playedPaths[1], "audio/ggS.ogg", "first batch should play 恭喜发财")
+    assertEqual(playedPaths[2], "audio/财源滚滚.ogg", "second batch should override with 财源滚滚")
+end)
+
+test("T20.7: 玩家与宠物拾取都按批汇总后只播放一次", function()
+    local src = readFile("scripts/systems/loot/pickup.lua")
+    local _, playCount = src:gsub("AudioSystem.PlayResolvedDropCue%(dropCue%)", "")
+    assertEqual(playCount, 2, "player and pet pickup should each have one settled playback point")
+    assertNotContains(src, "AudioSystem.CheckAndPlayForConsumable(cId)", "pickup should not play per consumable")
+    assertNotContains(src, "AudioSystem.CheckAndPlayForItem(item)", "pickup should not play per equipment")
 end)
 
 test("T20.2: 令牌盒打包费用仅第六章提高到200", function()

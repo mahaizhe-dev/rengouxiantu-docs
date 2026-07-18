@@ -1,7 +1,7 @@
 -- ============================================================================
--- RankHandler.lua — 排行榜 + 竞速道印 服务端 Handler
+-- RankHandler.lua — 修仙榜/仙人榜/塔榜 + 竞速道印 服务端 Handler
 --
--- 职责：ComputeRankFromSaveData / RebuildRankOnLogin / HandleGetRankList
+-- 职责：榜单分类与分数计算 / 登录重建 / 查询代理 / 竞速占位
 --       HandleTryUnlockRace / RACE_MEDAL_CONFIG
 --
 -- 来源：从 server_main.lua 提取（§4.5 模块化拆分 B3）
@@ -10,7 +10,12 @@
 local Session      = require("network.ServerSession")
 local SaveProtocol = require("network.SaveProtocol")
 local GameConfig   = require("config.GameConfig")
+local AscensionConfig = require("config.AscensionConfig")
+local TrialTowerConfig = require("config.TrialTowerConfig")
+local PrisonTowerConfig = require("config.PrisonTowerConfig")
 local AdminPenaltyControl = require("network.AdminPenaltyControl")
+
+AscensionConfig.EnsureRealmsRegistered()
 
 ---@diagnostic disable-next-line: undefined-global
 local cjson = cjson
@@ -26,6 +31,294 @@ local M = {}
 -- 同分时，先达成者的 (TIME_BASE - 1 - t) 更大 → 服务端降序排列即为先到先前
 local RANK2_TIME_BASE = 10000000000
 M.RANK2_TIME_BASE = RANK2_TIME_BASE
+M.XIANREN_TIME_BASE = RANK2_TIME_BASE
+M.XIANREN_FIRST_REALM_ORDER = 23
+
+M.XIANREN_SCORE_PREFIX = "xianren_score_"
+M.XIANREN_KILLS_PREFIX = "xianren_kills_"
+M.XIANREN_TIME_PREFIX = "xianren_time_"
+M.XIANREN_INFO_PREFIX = "xianren_info_"
+
+local function ToInteger(value)
+    local number = tonumber(value)
+    if not number or number ~= number
+        or number == math.huge or number == -math.huge then
+        return nil
+    end
+    return math.floor(number)
+end
+
+local function IsImmortalRealm(realm, realmCfg)
+    local order = realmCfg and tonumber(realmCfg.order) or 0
+    return order >= M.XIANREN_FIRST_REALM_ORDER
+end
+
+M.IsImmortalRealm = IsImmortalRealm
+
+local function GetRoleUid(userId, slot)
+    return tostring(userId) .. ":" .. tostring(slot)
+end
+
+M.GetRoleUid = GetRoleUid
+
+local function IsBodyUnlocked(accountBodies, bodyId)
+    if bodyId == "mortal" then return true end
+    local unlocked = type(accountBodies) == "table" and accountBodies.unlockedBodies or nil
+    return type(unlocked) == "table" and type(unlocked[bodyId]) == "table"
+end
+
+local function GetImmortalBodyInfo(coreData, accountBodies)
+    local bodyData = coreData and coreData.immortalBody
+    local bodyId = type(bodyData) == "table" and bodyData.activeBodyId or nil
+    bodyId = (type(bodyId) == "string" and bodyId ~= "") and bodyId or "mortal"
+
+    local profile = AscensionConfig.GROWTH_PROFILES[bodyId]
+    if not profile or not IsBodyUnlocked(accountBodies, bodyId) then
+        bodyId = "mortal"
+        profile = AscensionConfig.GROWTH_PROFILES[bodyId]
+    end
+
+    return {
+        bodyId = bodyId,
+        bodyName = profile and profile.name or "凡人之躯",
+    }
+end
+
+M.GetImmortalBodyInfo = GetImmortalBodyInfo
+
+function M.BuildImmortalInfo(rankInfo, coreData, userId, slot, taptapNick, accountBodies)
+    local body = GetImmortalBodyInfo(coreData, accountBodies)
+    return {
+        name = rankInfo.charName,
+        realm = rankInfo.realm,
+        level = rankInfo.level,
+        bossKills = rankInfo.bossKills,
+        taptapNick = taptapNick,
+        classId = rankInfo.classId,
+        roleUid = GetRoleUid(userId, slot),
+        currentBodyId = body.bodyId,
+        currentBodyName = body.bodyName,
+    }
+end
+
+function M.BuildCompositeScore(rankInfo, achieveTime)
+    local timestamp = ToInteger(achieveTime) or os.time()
+    return rankInfo.rankScore * RANK2_TIME_BASE
+        + (RANK2_TIME_BASE - 1 - timestamp)
+end
+
+function M.DecodeCompositeScore(composite)
+    local value = ToInteger(composite) or 0
+    if value <= 0 then return 0, 0 end
+    if value < RANK2_TIME_BASE then return value, 0 end
+
+    local rawScore = math.floor(value / RANK2_TIME_BASE)
+    local timePart = value - rawScore * RANK2_TIME_BASE
+    local achieveTime = RANK2_TIME_BASE - 1 - timePart
+    local now = os.time()
+    if achieveTime < 1 or achieveTime > now + 300 then
+        achieveTime = 0
+    end
+    return rawScore, achieveTime
+end
+
+local function CultivationKeys(slot, immortal)
+    if immortal then
+        return {
+            score = M.XIANREN_SCORE_PREFIX .. slot,
+            kills = M.XIANREN_KILLS_PREFIX .. slot,
+            time = M.XIANREN_TIME_PREFIX .. slot,
+            info = M.XIANREN_INFO_PREFIX .. slot,
+        }
+    end
+    return {
+        score = "rank2_score_" .. slot,
+        kills = "rank2_kills_" .. slot,
+        time = "rank2_time_" .. slot,
+        info = "rank2_info_" .. slot,
+    }
+end
+
+local function DeleteCultivationKeys(commit, userId, keys)
+    commit:ScoreDeleteInt(userId, keys.score)
+    commit:ScoreDeleteInt(userId, keys.kills)
+    commit:ScoreDeleteInt(userId, keys.time)
+    commit:ScoreDelete(userId, keys.info)
+end
+
+local function CommitCallbacks(callbacks, label, okResult)
+    callbacks = callbacks or {}
+    return {
+        ok = function()
+            if callbacks.ok then callbacks.ok(okResult) end
+        end,
+        error = function(code, reason)
+            print("[Server][" .. label .. "] FAILED: "
+                .. tostring(code) .. " " .. tostring(reason))
+            if callbacks.error then callbacks.error(code, reason) end
+        end,
+    }
+end
+
+function M.ClearCultivationRanks(userId, slot, callbacks)
+    local commit = serverCloud:BatchCommit(
+        "clear-cultivation-ranks-" .. tostring(userId) .. "-" .. tostring(slot))
+    DeleteCultivationKeys(commit, userId, CultivationKeys(slot, false))
+    DeleteCultivationKeys(commit, userId, CultivationKeys(slot, true))
+    commit:Commit(CommitCallbacks(callbacks, "RankClear"))
+end
+
+function M.RemoveXiuxianRank(userId, slot, callbacks)
+    local commit = serverCloud:BatchCommit(
+        "clear-xiuxian-rank-" .. tostring(userId) .. "-" .. tostring(slot))
+    DeleteCultivationKeys(commit, userId, CultivationKeys(slot, false))
+    commit:Commit(CommitCallbacks(callbacks, "RankV2"))
+end
+
+function M.RemoveXianrenRank(userId, slot, callbacks)
+    local commit = serverCloud:BatchCommit(
+        "clear-xianren-rank-" .. tostring(userId) .. "-" .. tostring(slot))
+    DeleteCultivationKeys(commit, userId, CultivationKeys(slot, true))
+    commit:Commit(CommitCallbacks(callbacks, "XianrenRank"))
+end
+
+local function BuildXiuxianInfo(rankInfo, taptapNick)
+    return {
+        name = rankInfo.charName,
+        realm = rankInfo.realm,
+        level = rankInfo.level,
+        bossKills = rankInfo.bossKills,
+        taptapNick = taptapNick,
+        classId = rankInfo.classId,
+    }
+end
+
+function M.UpsertCultivationRank(userId, slot, rankInfo, coreData, taptapNick, callbacks)
+    callbacks = callbacks or {}
+    if not rankInfo then
+        M.ClearCultivationRanks(userId, slot, callbacks)
+        return
+    end
+
+    local targetKeys = CultivationKeys(slot, rankInfo.isImmortal)
+    local otherKeys = CultivationKeys(slot, not rankInfo.isImmortal)
+    local read = serverCloud:BatchGet(userId)
+        :Key(targetKeys.score)
+        :Key(targetKeys.time)
+        :Key(targetKeys.info)
+        :Key(otherKeys.score)
+    if rankInfo.isImmortal then
+        read:Key("account_immortal_bodies")
+    end
+
+    read:Fetch({
+        ok = function(scores, iscores)
+            scores = scores or {}
+            iscores = iscores or {}
+            local existingRaw, encodedTime = M.DecodeCompositeScore(
+                iscores[targetKeys.score])
+            local otherRaw = M.DecodeCompositeScore(iscores[otherKeys.score])
+            local newRaw = ToInteger(rankInfo.rankScore) or 0
+            if newRaw <= 0 then
+                if callbacks.error then callbacks.error("INVALID_SCORE", "rank score <= 0") end
+                return
+            end
+            local bestExistingRaw = math.max(existingRaw, otherRaw)
+            if bestExistingRaw > newRaw then
+                local staleKeys = existingRaw >= otherRaw and otherKeys or targetKeys
+                print("[Server][Rank] ignored regression: userId=" .. tostring(userId)
+                    .. " slot=" .. tostring(slot)
+                    .. " existingRaw=" .. tostring(bestExistingRaw)
+                    .. " incomingRaw=" .. tostring(newRaw))
+                local repair = serverCloud:BatchCommit(
+                    "repair-cultivation-regression-" .. tostring(userId)
+                    .. "-" .. tostring(slot))
+                DeleteCultivationKeys(repair, userId, staleKeys)
+                repair:Commit(CommitCallbacks(
+                    callbacks, "RankRegressionRepair", "regression_skipped"))
+                return
+            end
+
+            local storedTime = ToInteger(iscores[targetKeys.time]) or encodedTime
+            local achieveTime = existingRaw == newRaw and storedTime > 0
+                and storedTime or os.time()
+            local composite = M.BuildCompositeScore(rankInfo, achieveTime)
+            local bossKills = math.max(0, ToInteger(rankInfo.bossKills) or 0)
+            local accountBodies = scores.account_immortal_bodies
+            local info = rankInfo.isImmortal
+                and M.BuildImmortalInfo(
+                    rankInfo, coreData, userId, slot, taptapNick, accountBodies)
+                or BuildXiuxianInfo(rankInfo, taptapNick)
+
+            local commit = serverCloud:BatchCommit(
+                "upsert-cultivation-rank-" .. tostring(userId) .. "-" .. tostring(slot))
+            DeleteCultivationKeys(commit, userId, otherKeys)
+            commit:ScoreSetInt(userId, targetKeys.score, composite)
+            commit:ScoreSetInt(userId, targetKeys.kills, bossKills)
+            commit:ScoreSetInt(userId, targetKeys.time, achieveTime)
+            commit:ScoreSet(userId, targetKeys.info, info)
+            commit:Commit(CommitCallbacks(callbacks, "RankUpsert"))
+        end,
+        error = function(code, reason)
+            print("[Server][RankUpsert] read FAILED: " .. tostring(code)
+                .. " " .. tostring(reason))
+            if callbacks.error then callbacks.error(code, reason) end
+        end,
+    })
+end
+
+function M.UpsertFloorRank(userId, options)
+    local callbacks = options.callbacks or {}
+    local floor = ToInteger(options.floor) or 0
+    local maxFloor = ToInteger(options.maxFloor) or 0
+    if floor < 0 or (maxFloor > 0 and floor > maxFloor) then
+        print("[Server][" .. options.label .. "] rejected floor=" .. tostring(floor)
+            .. " max=" .. tostring(maxFloor) .. " userId=" .. tostring(userId))
+        if callbacks.error then callbacks.error("INVALID_FLOOR", tostring(floor)) end
+        return
+    end
+
+    if floor == 0 then
+        if not options.allowDecrease then
+            if callbacks.ok then callbacks.ok("empty_skipped") end
+            return
+        end
+        local clear = serverCloud:BatchCommit(
+            "clear-" .. options.rankKey .. "-" .. tostring(userId))
+        clear:ScoreDeleteInt(userId, options.rankKey)
+        clear:ScoreDelete(userId, options.infoKey)
+        clear:Commit(CommitCallbacks(callbacks, options.label))
+        return
+    end
+
+    serverCloud:BatchGet(userId)
+        :Key(options.rankKey)
+        :Fetch({
+            ok = function(_, iscores)
+                local existingRaw, existingTime = M.DecodeCompositeScore(
+                    iscores and iscores[options.rankKey])
+                if existingRaw > floor and not options.allowDecrease then
+                    if callbacks.ok then callbacks.ok("lower_floor_skipped") end
+                    return
+                end
+
+                local achieveTime = existingRaw == floor and existingTime > 0
+                    and existingTime or os.time()
+                local composite = floor * RANK2_TIME_BASE
+                    + (RANK2_TIME_BASE - 1 - achieveTime)
+                local commit = serverCloud:BatchCommit(
+                    "upsert-" .. options.rankKey .. "-" .. tostring(userId))
+                commit:ScoreSetInt(userId, options.rankKey, composite)
+                commit:ScoreSet(userId, options.infoKey, options.info)
+                commit:Commit(CommitCallbacks(callbacks, options.label))
+            end,
+            error = function(code, reason)
+                print("[Server][" .. options.label .. "] read FAILED: "
+                    .. tostring(code) .. " " .. tostring(reason))
+                if callbacks.error then callbacks.error(code, reason) end
+            end,
+        })
+end
 
 -- ============================================================================
 -- ComputeRankFromSaveData — 存档→排行分数（服务端权威计算）
@@ -75,9 +368,15 @@ local function ComputeRankFromSaveData(coreData)
     -- P1: 等级不得低于当前境界的 requiredLevel（如果有）
     local requiredLevel = realmCfg.requiredLevel or 0
     if level < requiredLevel then
-        print("[Server][AntiCheat] Level " .. level .. " below requiredLevel "
-            .. requiredLevel .. " for realm " .. realm)
-        return nil, "level_below_required"
+        local isAscRealm = type(realm) == "string" and realm:sub(1, 4) == "asc_"
+        if isAscRealm then
+            print("[Server][Rank][LegacyAscension] Level " .. level .. " below requiredLevel "
+                .. requiredLevel .. " for realm " .. realm .. ", allowing existing ascension rank")
+        else
+            print("[Server][AntiCheat] Level " .. level .. " below requiredLevel "
+                .. requiredLevel .. " for realm " .. realm)
+            return nil, "level_below_required"
+        end
     end
 
     local realmOrder = realmCfg.order or 0
@@ -93,6 +392,7 @@ local function ComputeRankFromSaveData(coreData)
         bossKills = bossKills,
         charName = player.charName or "修仙者",
         classId = player.classId or "monk",
+        isImmortal = IsImmortalRealm(realm, realmCfg),
     }
 end
 M.ComputeRankFromSaveData = ComputeRankFromSaveData
@@ -107,176 +407,40 @@ M.ComputeRankFromSaveData = ComputeRankFromSaveData
 ---@param getSlotData function
 ---@param taptapNick string
 local function RebuildRankOnLogin(userId, slotsIndex, getSlotData, taptapNick)
-    local rankRepairBatch = nil
     for slot = 1, 4 do
         local saveData = getSlotData(slot)
-
-        -- 有有效存档就无条件入榜（不检查是否已存在）
         if saveData and saveData.player then
             local rankInfo = ComputeRankFromSaveData(saveData)
             if rankInfo then
-                -- 角色名优先从 slotsIndex 取（save_data.player.charName 大多数存档为 nil）
                 local slotMeta = slotsIndex.slots and slotsIndex.slots[slot]
                 if slotMeta and slotMeta.name and slotMeta.name ~= "" then
                     rankInfo.charName = slotMeta.name
                 end
-
-                -- 顶层 SetInt 写排行复合分数（rawScore * TIME_BASE + 时间倒序）
-                -- 同分时先达成者的时间分量更大 → 服务端降序排序自然实现"先到先前"
-                local rank2Composite = rankInfo.rankScore * RANK2_TIME_BASE
-                    + (RANK2_TIME_BASE - 1 - os.time())
-                serverCloud:SetInt(userId, "rank2_score_" .. slot, rank2Composite, {
-                    error = function(code, reason)
-                        print("[Server] RankV2 login SetInt rank2_score FAILED: userId=" .. tostring(userId)
-                            .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
-                    end,
-                })
-                serverCloud:SetInt(userId, "rank2_kills_" .. slot, rankInfo.bossKills, {
-                    error = function(code, reason)
-                        print("[Server] RankV2 login SetInt rank2_kills FAILED: userId=" .. tostring(userId)
-                            .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
-                    end,
-                })
-
-                -- batch 写附加 scores 信息（含 TapTap 昵称）
-                if not rankRepairBatch then
-                    rankRepairBatch = serverCloud:BatchSet(userId)
-                end
-                rankRepairBatch:Set("rank2_info_" .. slot, {
-                    name = rankInfo.charName,
-                    realm = rankInfo.realm,
-                    level = rankInfo.level,
-                    bossKills = rankInfo.bossKills,
-                    taptapNick = taptapNick,
-                    classId = rankInfo.classId,
-                })
-                print("[Server] RankV2: enrolled userId="
-                    .. tostring(userId) .. " slot=" .. slot
-                    .. " score=" .. rankInfo.rankScore
-                    .. " name=" .. rankInfo.charName
-                    .. " taptapNick=" .. tostring(taptapNick))
             end
-        end
-    end
-
-    -- ═══ 青云试炼排行榜修复（per-user，取全部角色中最高层）═══
-    local bestTrialFloor = 0
-    local bestTrialSlotData = nil
-    local bestTrialSlot = 0
-    for rSlot = 1, 4 do
-        local rSaveData = getSlotData(rSlot)
-        if rSaveData
-            and rSaveData.trialTower and type(rSaveData.trialTower) == "table" then
-            local hf = rSaveData.trialTower.highestFloor
-            if hf and type(hf) == "number" and hf > bestTrialFloor then
-                bestTrialFloor = hf
-                bestTrialSlot = rSlot
-                bestTrialSlotData = rSaveData
-            end
-        end
-    end
-    if bestTrialFloor > 0 then
-        local TRIAL_TIME_BASE = 10000000000
-        local trialComposite = bestTrialFloor * TRIAL_TIME_BASE
-            + (TRIAL_TIME_BASE - 1 - os.time())
-        serverCloud:SetInt(userId, "trial_floor", trialComposite, {
-            error = function(code, reason)
-                print("[Server] Trial login SetInt FAILED: userId=" .. tostring(userId)
-                    .. " err=" .. tostring(code) .. " " .. tostring(reason))
-            end,
-        })
-        local trialCharName = "修仙者"
-        local trialSlotMeta = slotsIndex.slots and slotsIndex.slots[bestTrialSlot]
-        if trialSlotMeta and trialSlotMeta.name and trialSlotMeta.name ~= "" then
-            trialCharName = trialSlotMeta.name
-        elseif bestTrialSlotData.player and bestTrialSlotData.player.charName then
-            trialCharName = bestTrialSlotData.player.charName
-        end
-        if not rankRepairBatch then
-            rankRepairBatch = serverCloud:BatchSet(userId)
-        end
-        rankRepairBatch:Set("trial_info", {
-            floor = bestTrialFloor,
-            name = trialCharName,
-            realm = bestTrialSlotData.player and bestTrialSlotData.player.realm or "mortal",
-            level = bestTrialSlotData.player and bestTrialSlotData.player.level or 1,
-            taptapNick = taptapNick,
-            classId = bestTrialSlotData.player and bestTrialSlotData.player.classId or "monk",
-        })
-        print("[Server] Trial: login repair userId=" .. tostring(userId)
-            .. " bestFloor=" .. bestTrialFloor .. " slot=" .. bestTrialSlot)
-    end
-
-    -- ═══ 青云镇狱塔排行榜修复（per-user，取全部角色中最高层）═══
-    local bestPrisonFloor = 0
-    local bestPrisonSlotData = nil
-    local bestPrisonSlot = 0
-    for rSlot = 1, 4 do
-        local rSaveData = getSlotData(rSlot)
-        if rSaveData
-            and rSaveData.prisonTower and type(rSaveData.prisonTower) == "table" then
-            local hf = rSaveData.prisonTower.highestFloor
-            if hf and type(hf) == "number" and hf > bestPrisonFloor then
-                bestPrisonFloor = hf
-                bestPrisonSlot = rSlot
-                bestPrisonSlotData = rSaveData
-            end
-        end
-    end
-    if bestPrisonFloor > 0 then
-        -- 反作弊验证
-        local prisonValid = true
-        if bestPrisonFloor > 150 then
-            print("[Server][AntiCheat] prison floor exceeds max: " .. bestPrisonFloor)
-            prisonValid = false
-        end
-        if prisonValid and bestPrisonSlotData and bestPrisonSlotData.player then
-            local pRealm = bestPrisonSlotData.player.realm or "mortal"
-            local pRealmCfg = GameConfig.REALMS[pRealm]
-            local pOrder = pRealmCfg and pRealmCfg.order or 0
-            if pOrder < 7 then
-                print("[Server][AntiCheat] prison requires jindan_1, got " .. pRealm)
-                prisonValid = false
-            end
-            local pLevel = bestPrisonSlotData.player.level or 0
-            if pLevel < 40 then
-                print("[Server][AntiCheat] prison requires level 40, got " .. pLevel)
-                prisonValid = false
-            end
-        end
-
-        if prisonValid then
-            local PRISON_TIME_BASE = 10000000000
-            local prisonComposite = bestPrisonFloor * PRISON_TIME_BASE
-                + (PRISON_TIME_BASE - 1 - os.time())
-            serverCloud:SetInt(userId, "prison_floor", prisonComposite, {
+            M.UpsertCultivationRank(userId, slot, rankInfo, saveData, taptapNick, {
                 error = function(code, reason)
-                    print("[Server] Prison login SetInt FAILED: userId=" .. tostring(userId)
+                    print("[Server] Rank login repair FAILED: userId=" .. tostring(userId)
+                        .. " slot=" .. tostring(slot)
                         .. " err=" .. tostring(code) .. " " .. tostring(reason))
                 end,
             })
-            local prisonCharName = "修仙者"
-            local prisonSlotMeta = slotsIndex.slots and slotsIndex.slots[bestPrisonSlot]
-            if prisonSlotMeta and prisonSlotMeta.name and prisonSlotMeta.name ~= "" then
-                prisonCharName = prisonSlotMeta.name
-            elseif bestPrisonSlotData.player and bestPrisonSlotData.player.charName then
-                prisonCharName = bestPrisonSlotData.player.charName
-            end
-            if not rankRepairBatch then
-                rankRepairBatch = serverCloud:BatchSet(userId)
-            end
-            rankRepairBatch:Set("prison_info", {
-                floor = bestPrisonFloor,
-                name = prisonCharName,
-                realm = bestPrisonSlotData.player and bestPrisonSlotData.player.realm or "mortal",
-                level = bestPrisonSlotData.player and bestPrisonSlotData.player.level or 1,
-                taptapNick = taptapNick,
-                classId = bestPrisonSlotData.player and bestPrisonSlotData.player.classId or "monk",
+        else
+            M.ClearCultivationRanks(userId, slot, {
+                error = function(code, reason)
+                    print("[Server] Rank empty-slot clear FAILED: userId=" .. tostring(userId)
+                        .. " slot=" .. tostring(slot)
+                        .. " err=" .. tostring(code) .. " " .. tostring(reason))
+                end,
             })
-            print("[Server] Prison: login repair userId=" .. tostring(userId)
-                .. " bestFloor=" .. bestPrisonFloor .. " slot=" .. bestPrisonSlot)
         end
     end
+
+    M.RebuildAccountTowerRanks(userId, slotsIndex, getSlotData, taptapNick, {
+        error = function(code, reason)
+            print("[Server] Tower login repair FAILED: userId=" .. tostring(userId)
+                .. " err=" .. tostring(code) .. " " .. tostring(reason))
+        end,
+    })
 
     -- ═══ 仙石榜（xianshi_rank）: 仙石>0 的账号永久入榜 ═══
     -- 单向操作：一旦入榜不删除，即使仙石后续变为 0
@@ -290,7 +454,6 @@ local function RebuildRankOnLogin(userId, slotsIndex, getSlotData, taptapNick)
                             .. " err=" .. tostring(code) .. " " .. tostring(reason))
                     end,
                 })
-                -- 附加信息（TapTap 昵称用于 UI 显示）
                 local xsBatch = serverCloud:BatchSet(userId)
                 xsBatch:Set("xianshi_info", {
                     xianshi = xianshi,
@@ -313,21 +476,212 @@ local function RebuildRankOnLogin(userId, slotsIndex, getSlotData, taptapNick)
                 .. " err=" .. tostring(code) .. " " .. tostring(reason))
         end,
     })
-
-    -- 附加信息写回（fire-and-forget，不阻塞登录流程）
-    if rankRepairBatch then
-        rankRepairBatch:Save("v2排行榜入榜", {
-            ok = function()
-                print("[Server] RankV2 info saved for userId=" .. tostring(userId))
-            end,
-            error = function(code, reason)
-                print("[Server] RankV2 info save FAILED: " .. tostring(code)
-                    .. " " .. tostring(reason))
-            end,
-        })
-    end
 end
 M.RebuildRankOnLogin = RebuildRankOnLogin
+
+local function SlotCharacterName(slotsIndex, slot, saveData)
+    local slotMeta = slotsIndex and slotsIndex.slots and slotsIndex.slots[slot]
+    if slotMeta and slotMeta.name and slotMeta.name ~= "" then
+        return slotMeta.name
+    end
+    local player = saveData and saveData.player
+    return player and player.charName or "修仙者"
+end
+
+local function BuildTowerInfo(slotsIndex, slot, saveData, floor, taptapNick)
+    local player = saveData and saveData.player or {}
+    return {
+        floor = floor,
+        name = SlotCharacterName(slotsIndex, slot, saveData),
+        realm = player.realm or "mortal",
+        level = player.level or 1,
+        taptapNick = taptapNick,
+        classId = player.classId or "monk",
+    }
+end
+
+local function IsTrialFloorValid(saveData, floor)
+    if floor < 1 or floor > TrialTowerConfig.MAX_FLOOR then return false end
+    local player = saveData and saveData.player
+    if not player then return false end
+    local realmCfg = GameConfig.REALMS[player.realm or "mortal"]
+    local order = realmCfg and realmCfg.order or 0
+    local required = TrialTowerConfig.GetRealmByFloor(floor)
+    local requiredOrder = TrialTowerConfig.GetRequiredOrderByFloor(floor)
+    if order >= M.XIANREN_FIRST_REALM_ORDER then
+        return required ~= nil and order >= requiredOrder
+    end
+    return required ~= nil
+        and order >= requiredOrder
+        and (tonumber(player.level) or 0) >= (required.reqLevel or 1)
+end
+
+local function IsPrisonFloorValid(saveData, floor)
+    if floor < 1 or floor > PrisonTowerConfig.MAX_FLOOR then return false end
+    local player = saveData and saveData.player
+    if not player then return false end
+    local realmCfg = GameConfig.REALMS[player.realm or "mortal"]
+    local order = realmCfg and realmCfg.order or 0
+    local required = PrisonTowerConfig.GetRealmByFloor(floor)
+    local requiredCfg = required and GameConfig.REALMS[required.id]
+    local requiredOrder = requiredCfg and requiredCfg.order
+        or PrisonTowerConfig.REQUIRED_REALM_ORDER
+    return required ~= nil
+        and order >= requiredOrder
+        and (tonumber(player.level) or 0) >= (required.reqLevel or PrisonTowerConfig.REQUIRED_LEVEL)
+end
+
+function M.RebuildAccountTowerRanks(userId, slotsIndex, getSlotData, taptapNick, callbacks)
+    callbacks = callbacks or {}
+    local bestTrialFloor = 0
+    local bestTrialSlotData = nil
+    local bestTrialSlot = 0
+    local invalidTrialCandidate = false
+    local bestPrisonFloor = 0
+    local bestPrisonSlotData = nil
+    local bestPrisonSlot = 0
+    local invalidPrisonCandidate = false
+
+    for rSlot = 1, 4 do
+        local rSaveData = getSlotData(rSlot)
+        if rSaveData
+            and rSaveData.trialTower and type(rSaveData.trialTower) == "table" then
+            local hf = ToInteger(rSaveData.trialTower.highestFloor) or 0
+            if hf > bestTrialFloor and IsTrialFloorValid(rSaveData, hf) then
+                bestTrialFloor = hf
+                bestTrialSlot = rSlot
+                bestTrialSlotData = rSaveData
+            elseif hf > 0 and not IsTrialFloorValid(rSaveData, hf) then
+                invalidTrialCandidate = true
+                print("[Server][AntiCheat] invalid trial floor=" .. tostring(hf)
+                    .. " userId=" .. tostring(userId) .. " slot=" .. tostring(rSlot))
+            end
+        end
+        if rSaveData
+            and rSaveData.prisonTower and type(rSaveData.prisonTower) == "table" then
+            local hf = ToInteger(rSaveData.prisonTower.highestFloor) or 0
+            if hf > bestPrisonFloor and IsPrisonFloorValid(rSaveData, hf) then
+                bestPrisonFloor = hf
+                bestPrisonSlot = rSlot
+                bestPrisonSlotData = rSaveData
+            elseif hf > 0 and not IsPrisonFloorValid(rSaveData, hf) then
+                invalidPrisonCandidate = true
+                print("[Server][AntiCheat] invalid prison floor=" .. tostring(hf)
+                    .. " userId=" .. tostring(userId) .. " slot=" .. tostring(rSlot))
+            end
+        end
+    end
+
+    local pending = 2
+    local failed = false
+    local firstCode = nil
+    local firstReason = nil
+    local function Done(code, reason)
+        if code ~= nil then
+            failed = true
+            firstCode = firstCode or code
+            firstReason = firstReason or reason
+        end
+        pending = pending - 1
+        if pending == 0 then
+            if failed then
+                if callbacks.error then callbacks.error(firstCode, firstReason) end
+            elseif callbacks.ok then
+                callbacks.ok()
+            end
+        end
+    end
+
+    M.UpsertFloorRank(userId, {
+        label = "TrialRank",
+        rankKey = "trial_floor",
+        infoKey = "trial_info",
+        floor = bestTrialFloor,
+        maxFloor = TrialTowerConfig.MAX_FLOOR,
+        allowDecrease = not (bestTrialFloor == 0 and invalidTrialCandidate),
+        info = BuildTowerInfo(
+            slotsIndex, bestTrialSlot, bestTrialSlotData, bestTrialFloor, taptapNick),
+        callbacks = {
+            ok = function() Done() end,
+            error = Done,
+        },
+    })
+    M.UpsertFloorRank(userId, {
+        label = "PrisonRank",
+        rankKey = "prison_floor",
+        infoKey = "prison_info",
+        floor = bestPrisonFloor,
+        maxFloor = PrisonTowerConfig.MAX_FLOOR,
+        allowDecrease = not (bestPrisonFloor == 0 and invalidPrisonCandidate),
+        info = BuildTowerInfo(
+            slotsIndex, bestPrisonSlot, bestPrisonSlotData, bestPrisonFloor, taptapNick),
+        callbacks = {
+            ok = function() Done() end,
+            error = Done,
+        },
+    })
+end
+
+function M.UpdateTowerRanksFromSave(userId, slot, slotsIndex, coreData, taptapNick, callbacks)
+    callbacks = callbacks or {}
+    local pending = 2
+    local failed = false
+    local firstCode = nil
+    local firstReason = nil
+    local function Done(code, reason)
+        if code ~= nil then
+            failed = true
+            firstCode = firstCode or code
+            firstReason = firstReason or reason
+        end
+        pending = pending - 1
+        if pending == 0 then
+            if failed then
+                if callbacks.error then callbacks.error(firstCode, firstReason) end
+            elseif callbacks.ok then
+                callbacks.ok()
+            end
+        end
+    end
+
+    local trialFloor = coreData.trialTower
+        and ToInteger(coreData.trialTower.highestFloor) or 0
+    if trialFloor > 0 and not IsTrialFloorValid(coreData, trialFloor) then
+        trialFloor = TrialTowerConfig.MAX_FLOOR + 1
+    end
+    M.UpsertFloorRank(userId, {
+        label = "TrialRank",
+        rankKey = "trial_floor",
+        infoKey = "trial_info",
+        floor = trialFloor,
+        maxFloor = TrialTowerConfig.MAX_FLOOR,
+        allowDecrease = false,
+        info = BuildTowerInfo(slotsIndex, slot, coreData, trialFloor, taptapNick),
+        callbacks = {
+            ok = function() Done() end,
+            error = Done,
+        },
+    })
+
+    local prisonFloor = coreData.prisonTower
+        and ToInteger(coreData.prisonTower.highestFloor) or 0
+    if prisonFloor > 0 and not IsPrisonFloorValid(coreData, prisonFloor) then
+        prisonFloor = PrisonTowerConfig.MAX_FLOOR + 1
+    end
+    M.UpsertFloorRank(userId, {
+        label = "PrisonRank",
+        rankKey = "prison_floor",
+        infoKey = "prison_info",
+        floor = prisonFloor,
+        maxFloor = PrisonTowerConfig.MAX_FLOOR,
+        allowDecrease = false,
+        info = BuildTowerInfo(slotsIndex, slot, coreData, prisonFloor, taptapNick),
+        callbacks = {
+            ok = function() Done() end,
+            error = Done,
+        },
+    })
+end
 
 -- ============================================================================
 -- HandleGetRankList — 排行榜查询
@@ -397,6 +751,7 @@ function M.HandleGetRankList(eventType, eventData)
             local extraMap = {}
             local fetchDone = 0
             local fetchTotal = #uniqueUserIds
+            local fetchFailures = 0
 
             local function onAllFetched()
                 -- 合并附加字段到 rankList
@@ -429,7 +784,8 @@ function M.HandleGetRankList(eventType, eventData)
                 resultData["requestId"] = Variant(requestId)
                 SafeSend(connection, SaveProtocol.S2C_RankListData, resultData)
                 print("[Server] RankList sent (with extras): key=" .. rankKey
-                    .. " entries=" .. #rankList .. " extraKeys=" .. #extraKeys)
+                    .. " entries=" .. #rankList .. " extraKeys=" .. #extraKeys
+                    .. " fetchFailures=" .. fetchFailures)
             end
 
             for _, uid in ipairs(uniqueUserIds) do
@@ -440,13 +796,11 @@ function M.HandleGetRankList(eventType, eventData)
                 bg:Fetch({
                     ok = function(scores, iscores)
                         extraMap[tostring(uid)] = { score = scores, iscore = iscores }
-                        print("[Server] BatchGet(single) uid=" .. tostring(uid)
-                            .. " scores=" .. (scores and cjson.encode(scores) or "nil")
-                            .. " iscores=" .. (iscores and cjson.encode(iscores) or "nil"))
                         fetchDone = fetchDone + 1
                         if fetchDone >= fetchTotal then onAllFetched() end
                     end,
                     error = function(code, reason)
+                        fetchFailures = fetchFailures + 1
                         print("[Server] BatchGet(single) FAILED uid=" .. tostring(uid)
                             .. " code=" .. tostring(code) .. " reason=" .. tostring(reason))
                         fetchDone = fetchDone + 1

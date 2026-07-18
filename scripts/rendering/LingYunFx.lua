@@ -7,6 +7,7 @@
 --   3. 每颗到达时：放射碎光爆发 + BottomBar 弹跳闪光
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local GameConfig = require("config.GameConfig")
 local GameState  = require("core.GameState")
 

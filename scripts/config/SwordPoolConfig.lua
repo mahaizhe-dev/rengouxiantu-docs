@@ -55,7 +55,7 @@ SwordPoolConfig.SWORDS = {
         bossId = "ch5_sword_xian",
         bonusStat = "def",
         bonusLabel = "防御",
-        bonusPerLevel = 5,
+        bonusPerLevel = 4,
     },
     lu = {
         id = "lu",

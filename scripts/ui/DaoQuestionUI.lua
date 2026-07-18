@@ -4,6 +4,7 @@
 -- 极简写意的天人问答表现层，全程NanoVG渲染，无UI框架
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local DaoQuestionSystem = require("systems.DaoQuestionSystem")
 local GameState = require("core.GameState")
 

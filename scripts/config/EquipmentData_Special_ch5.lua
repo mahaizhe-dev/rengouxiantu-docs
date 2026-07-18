@@ -320,7 +320,7 @@ return {
         specialEffect = {
             type = "xianyuan_lowest_boost",
             name = "仙缘均衡",
-            desc = "当前总值最低的仙缘属性额外获得100点加成（唯一）",
+            desc = "当前总值最低的仙缘属性额外获得100点加成（唯一，同类取最高值）",
             bonus = 100,
         },
     },
@@ -484,10 +484,11 @@ return {
         -- 随机灵性属性（锻造时生成）
         hasSpiritStat = true,
         specialEffect = {
-            type = "hp_regen_full",
+            type = "hp_regen_percent",
             name = "泽渊生息",
             desc = "每秒恢复2%最大生命值，生命满时停止恢复",
             regenPercent = 0.02,
+            stopWhenFull = true,
         },
     },
 
@@ -513,7 +514,7 @@ return {
         -- 灵性属性：打造时随机生成1条
         hasSpiritStat = true,
         specialEffect = {
-            type = "abyss_guard",
+            type = "yuanjia",
             name = "渊甲护身",
             desc = "受到伤害后，若当前生命低于50%，获得12%减伤，持续4秒，冷却8秒",
             lowHpThreshold = 0.50,
@@ -725,5 +726,26 @@ return {
         },
         spiritStat = { stat = "critDmg", name = "暴击伤害", value = 0.15 }, -- 0.05 × 6.0(PCT_SUB_T9) × 0.5 = 0.15
         desc = "四方龙神之力凝聚而成的战盔，龙威加身，百邪不侵。",
+    },
+
+    -- 真龙盔（龙神熔炉打造）：T10 青/灵器 头盔
+    -- 属性类型沿用极龙盔，数值按 T10 青色标准提升。
+    zhenlong_helmet_ch4 = {
+        name = "真龙盔",
+        slot = "helmet",
+        icon = "icon_jilong_helmet_ch4.png",
+        quality = "cyan",
+        tier = 10,
+        sellPrice = 5,
+        sellCurrency = "lingYun",
+        mainStat = { maxHp = 756 },
+        subStats = {
+            { stat = "atk", name = "攻击力", value = 19.5 },
+            { stat = "critRate", name = "暴击率", value = 0.075 },
+            { stat = "def", name = "防御力", value = 15.6 },
+        },
+        spiritStat = { stat = "critDmg", name = "暴击伤害", value = 0.1875 },
+        fixedSubStats = true,
+        desc = "极龙盔经龙极令与帝尊肆戒再度淬炼，龙威凝实，化为真龙之冠。",
     },
 }

@@ -9,6 +9,7 @@ local EquipmentData  = require("config.EquipmentData")
 local LootSystem     = require("systems.LootSystem")
 local EventBus       = require("core.EventBus")
 local GameState      = require("core.GameState")
+local ForgeStatRules = require("systems.forge.ForgeStatRules")
 
 local ForgeSystem = {}
 
@@ -23,6 +24,91 @@ local function GetEquippedWeapon()
     local mgr = InventorySystem.GetManager()
     if not mgr then return nil end
     return mgr:GetEquipmentItem("weapon")
+end
+
+--- 判断 equipId 是否在白名单中
+---@param list string[]|nil
+---@param equipId string|nil
+---@return boolean
+local function ContainsEquipId(list, equipId)
+    if not list or not equipId then return false end
+    for _, id in ipairs(list) do
+        if id == equipId then return true end
+    end
+    return false
+end
+
+--- 归一化装备运行时字段（绕过 InventorySystem.AddItem 的原地替换也必须补齐）
+---@param item table|nil
+local function NormalizeEquipmentRuntimeFields(item)
+    if not item then return end
+    if item.slot == "ring1" or item.slot == "ring2" then
+        item.type = "ring"
+    else
+        item.type = item.slot or item.type
+    end
+end
+
+--- 将当前装备栏武器替换为指定特殊装备模板，不保留洗练属性
+---@param weapon table 当前装备栏武器引用
+---@param targetId string 目标 SpecialEquipment key
+---@return boolean success
+---@return string|nil error
+local function ReplaceWeaponWithSpecialEquipmentNoForgeStat(weapon, targetId)
+    local newItem = LootSystem.CreateSpecialEquipment(targetId)
+    if not newItem then
+        return false, "CreateSpecialEquipment 返回 nil: " .. tostring(targetId)
+    end
+
+    local oldId = weapon.id
+    local keys = {}
+    for k, _ in pairs(weapon) do
+        table.insert(keys, k)
+    end
+    for _, k in ipairs(keys) do
+        weapon[k] = nil
+    end
+    for k, v in pairs(newItem) do
+        weapon[k] = v
+    end
+    if oldId then
+        weapon.id = oldId
+    end
+    NormalizeEquipmentRuntimeFields(weapon)
+    weapon.forgeStat = nil
+    return true, nil
+end
+
+--- 将当前武器替换为二次解封仙剑：清除洗练/旧灵性/旧圣性并重生成圣性。
+---@param weapon table 当前装备栏武器引用
+---@param outputId string 目标 SpecialEquipment key
+---@return boolean success
+---@return string|nil error
+local function GenerateTrueSword(weapon, outputId)
+    local newItem = LootSystem.CreateSaintEquipment(outputId)
+    if not newItem then
+        return false, "CreateSaintEquipment 返回 nil: " .. tostring(outputId)
+    end
+
+    local oldId = weapon.id
+    local keys = {}
+    for k, _ in pairs(weapon) do
+        table.insert(keys, k)
+    end
+    for _, k in ipairs(keys) do
+        weapon[k] = nil
+    end
+    for k, v in pairs(newItem) do
+        weapon[k] = v
+    end
+    if oldId then
+        weapon.id = oldId
+    end
+
+    NormalizeEquipmentRuntimeFields(weapon)
+    weapon.forgeStat = nil
+    weapon.spiritStat = nil
+    return true, nil
 end
 
 --- 从背包中查找指定 equipId 的物品（排除 usedSlots 中已占用的槽位）
@@ -77,30 +163,13 @@ local function GenerateSpecialEquipment(weapon, targetId)
 
     -- 副属性：条目类型固定（来自模板），数值随机浮动
     weapon.subStats = {}
-    local qualityOrder = GameConfig.QUALITY_ORDER["red"]       -- 7
-    local shift = math.max(0, qualityOrder - 4) * 0.1          -- 0.3
-    local randBase = 0.8 + shift                                -- 1.1
-    local numTierMult = EquipmentData.SUB_STAT_TIER_MULT[9]    -- 11.0
-    local pctTierMult = EquipmentData.PCT_SUB_TIER_MULT[9]     -- 6.0
-    local qualityMult = GameConfig.QUALITY["red"].multiplier    -- 2.1
-
     for _, templateSub in ipairs(targetDef.subStats) do
-        local subDef = nil
-        for _, s in ipairs(EquipmentData.SUB_STATS) do
-            if s.stat == templateSub.stat then subDef = s; break end
-        end
-
-        local value
-        if subDef and subDef.linearGrowth then
-            value = math.floor(9 * qualityMult)
-            if value <= 0 then value = 1 end
-        else
-            local baseVal = subDef and subDef.baseValue or 1
-            local tierMult = EquipmentData.PCT_STATS[templateSub.stat] and pctTierMult or numTierMult
-            value = baseVal * tierMult * (randBase + math.random() * 0.4)
-            value = math.floor(value * 100 + 0.5) / 100
-            if value <= 0 then value = 0.01 end
-        end
+        local value = ForgeStatRules.RollSpecialSubStat(
+            templateSub.stat,
+            targetDef.tier or 9,
+            targetDef.quality or "red",
+            ForgeStatRules.DRAGON_FORGE_FLUCTUATION
+        ) or templateSub.value
 
         table.insert(weapon.subStats, {
             stat  = templateSub.stat,
@@ -194,6 +263,11 @@ local function DispatchGenerator(recipe, weapon, fromBagItem)
         if not ok then return nil, err end
         return nil, nil
 
+    elseif genType == "true_sword" then
+        local ok, err = GenerateTrueSword(weapon, gen.outputId)
+        if not ok then return nil, err end
+        return nil, nil
+
     elseif genType == "fabao" then
         local item = LootSystem.CreateFabaoEquipment(gen.templateId, gen.tier, gen.quality)
         if not item then return nil, "CreateFabaoEquipment 返回 nil" end
@@ -220,6 +294,28 @@ local function DispatchGenerator(recipe, weapon, fromBagItem)
         end
         if not item then return nil, "随机灵器生成返回 nil" end
         return item, nil
+
+    elseif genType == "random_huangsha_weapon_except_equipped" then
+        if not weapon then return nil, "黄沙换兵需要当前装备武器" end
+        local pool = gen.pool or recipe.equipSourcePool
+        if not ContainsEquipId(pool, weapon.equipId) then
+            return nil, "当前装备不是黄沙武器"
+        end
+
+        local candidates = {}
+        for _, equipId in ipairs(pool or {}) do
+            if equipId ~= weapon.equipId then
+                table.insert(candidates, equipId)
+            end
+        end
+        if #candidates == 0 then
+            return nil, "黄沙武器候选池为空"
+        end
+
+        local targetId = candidates[math.random(1, #candidates)]
+        local ok, err = ReplaceWeaponWithSpecialEquipmentNoForgeStat(weapon, targetId)
+        if not ok then return nil, err end
+        return nil, nil
 
     else
         return nil, "未知生成器类型: " .. tostring(genType)
@@ -266,7 +362,11 @@ function ForgeSystem.Check(recipeId)
     -- 武器装备检查（equip_weapon 模式）
     if recipe.inputMode == "equip_weapon" then
         local weapon = GetEquippedWeapon()
-        if not weapon or weapon.equipId ~= recipe.equipSource then
+        if recipe.equipSourcePool then
+            if not weapon or not ContainsEquipId(recipe.equipSourcePool, weapon.equipId) then
+                return { canForge = false, error = "请先装备黄沙武器" }
+            end
+        elseif not weapon or weapon.equipId ~= recipe.equipSource then
             local def = EquipmentData.SpecialEquipment[recipe.equipSource]
             return { canForge = false, error = "请先装备「" .. (def and def.name or recipe.equipSource) .. "」" }
         end
@@ -317,7 +417,8 @@ function ForgeSystem.Check(recipeId)
     -- 普通材料检查
     for _, mat in ipairs(recipe.materials or {}) do
         if InventorySystem.CountUnlockedConsumable(mat.id) < mat.count then
-            local matDef = GameConfig.PET_MATERIALS[mat.id]
+            local matDef = (GameConfig.PET_MATERIALS and GameConfig.PET_MATERIALS[mat.id])
+                or (GameConfig.CONSUMABLES and GameConfig.CONSUMABLES[mat.id])
             return { canForge = false, error = "材料不足：" .. (matDef and matDef.name or mat.id) }
         end
     end

@@ -2,6 +2,7 @@
 -- effects/skills_b.lua - 技能特效渲染器 B（御剑护体/剑阵/浩然正气/青云镇压/山拳/地涌/血爆/龙息/魂爆）
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.effects.shared")
 local assets = require("rendering.effects.assets")
 
@@ -72,6 +73,44 @@ local function renderSwordShield(nvg, se, sx, sy, progress, c, alpha, expand, ba
         nvgCircle(nvg, sx, sy, healR)
         nvgFillPaint(nvg, healPaint)
         nvgFill(nvg)
+    end
+end
+
+local function renderHenghaBurst(nvg, se, sx, sy, progress, c, alpha, expand, baseAngle, tileSize)
+    local radius = tileSize * (0.35 + (se.range or 1.7) * 0.55 * expand)
+    local flashAlpha = math.floor(190 * alpha)
+    local glow = nvgRadialGradient(
+        nvg, sx, sy, radius * 0.05, radius,
+        nvgRGBA(255, 235, 150, flashAlpha),
+        nvgRGBA(c[1], c[2], c[3], 0))
+    nvgBeginPath(nvg)
+    nvgCircle(nvg, sx, sy, radius)
+    nvgFillPaint(nvg, glow)
+    nvgFill(nvg)
+
+    nvgBeginPath(nvg)
+    nvgCircle(nvg, sx, sy, radius * (0.55 + progress * 0.45))
+    nvgStrokeColor(nvg, nvgRGBA(255, 145, 55, math.floor(230 * alpha)))
+    nvgStrokeWidth(nvg, 3.0)
+    nvgStroke(nvg)
+
+    local bladeLength = radius * 1.45
+    for _, angle in ipairs({-math.pi / 4, math.pi / 4}) do
+        local dx = math.cos(angle) * bladeLength
+        local dy = math.sin(angle) * bladeLength
+        nvgBeginPath(nvg)
+        nvgMoveTo(nvg, sx - dx, sy - dy)
+        nvgLineTo(nvg, sx + dx, sy + dy)
+        nvgStrokeColor(nvg, nvgRGBA(255, 70, 35, math.floor(210 * alpha)))
+        nvgStrokeWidth(nvg, 8.0 * (1.0 - progress * 0.45))
+        nvgLineCap(nvg, NVG_ROUND)
+        nvgStroke(nvg)
+        nvgBeginPath(nvg)
+        nvgMoveTo(nvg, sx - dx, sy - dy)
+        nvgLineTo(nvg, sx + dx, sy + dy)
+        nvgStrokeColor(nvg, nvgRGBA(255, 245, 190, math.floor(255 * alpha)))
+        nvgStrokeWidth(nvg, 2.2)
+        nvgStroke(nvg)
     end
 end
 
@@ -976,6 +1015,7 @@ end
 -- 导出部分注册表
 M.registry = {
     ["sword_shield"] = renderSwordShield,
+    ["hengha_burst"] = renderHenghaBurst,
     ["sword_formation"] = renderSwordFormation,
     ["haoran_zhengqi"] = renderHaoranZhengqi,
     ["qingyun_suppress"] = renderQingyunSuppress,

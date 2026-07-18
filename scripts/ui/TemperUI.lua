@@ -567,12 +567,16 @@ function TemperUI.ShowObtainPopup(outputId)
     if not obtainPopup_ then return end
     local mat = GameConfig.PET_MATERIALS[outputId]
     local name = (mat and mat.name) or outputId
-    if mat and mat.image and obtainIconPanel_ then
-        obtainIconPanel_:SetStyle({ backgroundImage = mat.image })
+    local rawIcon = mat and (mat.image or mat.icon)
+    if IconUtils.IsImagePath(rawIcon) and obtainIconPanel_ then
+        obtainIconPanel_:SetStyle({ backgroundImage = rawIcon })
         if obtainIconEmojiLabel_ then obtainIconEmojiLabel_:Hide() end
     else
         if obtainIconPanel_ then obtainIconPanel_:SetStyle({ backgroundImage = "" }) end
-        if obtainIconEmojiLabel_ then obtainIconEmojiLabel_:SetText((mat and mat.icon) or "💎"); obtainIconEmojiLabel_:Show() end
+        if obtainIconEmojiLabel_ then
+            obtainIconEmojiLabel_:SetText(IconUtils.GetTextIcon(rawIcon, "💎"))
+            obtainIconEmojiLabel_:Show()
+        end
     end
     if obtainNameLabel_ then obtainNameLabel_:SetText(name) end
     obtainPopup_:Show()

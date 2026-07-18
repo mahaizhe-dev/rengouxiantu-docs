@@ -54,8 +54,18 @@ function ComboRunner.Schedule(player, skill, targetAngle, comboHitFn)
     if comboChance <= 0 then return end
     if math.random() >= comboChance then return end
 
-    -- 预告浮字
-    CombatSystem.AddFloatingText(player.x, player.y - 1.0, "连击!", COMBO_PREVIEW_COLOR, 0.8)
+    CombatSystem.EmitCombatFeedback({
+        kind = "status",
+        text = "连击!",
+        target = player,
+        targetKey = "player:self",
+        sourceType = "skill",
+        sourceId = skill.id,
+        color = COMBO_PREVIEW_COLOR,
+    }, {
+        x = player.x, y = player.y - 1.0,
+        text = "连击!", color = COMBO_PREVIEW_COLOR, lifetime = 0.8,
+    })
 
     -- 加入延迟队列
     table.insert(pendingCombos, {
@@ -117,25 +127,35 @@ end
 --- @param targets  table   目标列表（快照，第一轮命中的目标数组）
 --- @param hitCount number  有效目标数
 --- @param rawDmg   number  原始伤害（传给 HitResolver.Standard）
---- @param onHit    function|nil 可选的 per-target 回调: function(monster, damage, isCrit)
+--- @param onHit    function|nil 可选的 per-target 回调: function(monster, damage, isCrit, isTianzhu)
+--- @param castId string|number|nil 原始施法 ID
 --- @return number totalDamage 所有目标的实际伤害总和
-function ComboRunner.ReplayHits(player, skill, targets, hitCount, rawDmg, onHit)
+function ComboRunner.ReplayHits(player, skill, targets, hitCount, rawDmg, onHit, castId)
     local totalDamage = 0
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage, isCrit = HitResolver.Standard(player, m, rawDmg)
+            local damage, isCrit, isTianzhu = HitResolver.Standard(player, m, rawDmg)
             totalDamage = totalDamage + damage
 
-            CombatSystem.AddFloatingText(
-                m.x, m.y - 0.3,
-                skill.icon .. "连击 " .. damage,
-                COMBO_HIT_COLOR,
-                1.2
-            )
+            CombatSystem.EmitDamageFeedback(player, m, damage, {
+                sourceType = "skill",
+                sourceId = skill.id,
+                sourceName = skill.name,
+                damageTag = "skill",
+                criticality = isTianzhu and "tianzhu" or (isCrit and "crit" or "normal"),
+                castId = castId,
+                hitIndex = i,
+                color = skill.effectColor,
+                y = m.y - 0.3,
+            }, {
+                x = m.x, y = m.y - 0.3,
+                text = (skill.icon or "") .. "连击 " .. damage,
+                color = COMBO_HIT_COLOR, lifetime = 1.2,
+            })
 
             if onHit then
-                onHit(m, damage, isCrit)
+                onHit(m, damage, isCrit, isTianzhu)
             end
         end
     end

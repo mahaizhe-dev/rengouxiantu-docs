@@ -46,18 +46,26 @@ AdminPenaltyConfig.RANK_KEYS_PER_SLOT = {
     "rank2_score_",
     "rank2_kills_",
     "rank2_time_",
+    "xianren_score_",
+    "xianren_kills_",
+    "xianren_time_",
     "rank_score_",
     "rank_time_",
     "boss_kills_",
 }
 
---- 带 slot 后缀的 info key（BatchSet 清空）
-AdminPenaltyConfig.INFO_KEYS_PER_SLOT = {
-    "rank2_info_",
-    "rank_info_",
+--- 不带 slot 后缀的 info key
+AdminPenaltyConfig.INFO_KEYS_TO_CLEAR = {
     "trial_info",
     "prison_info",
     "xianshi_info",
+}
+
+--- 带 slot 后缀的 info key
+AdminPenaltyConfig.INFO_KEYS_PER_SLOT = {
+    "rank2_info_",
+    "xianren_info_",
+    "rank_info_",
 }
 
 --- 最大 slot 数

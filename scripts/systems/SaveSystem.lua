@@ -40,6 +40,7 @@ function SaveSystem.Init()
     SaveSystem._consecutiveFailures = 0
     SaveSystem._saveTimeoutElapsed = 0
     SaveSystem._saveTimeoutActive = false
+    SaveSystem._activeSaveCallback = nil
     SaveSystem._connCheckTimer = 0
     SaveSystem._lastConnState = true
     SaveSystem._disconnected = false
@@ -67,6 +68,10 @@ function SaveSystem.Init()
     SaveSystem._onConnLost = function()
         SaveSystem._disconnected = true
         print("[SaveSystem] Connection lost — auto-save paused")
+        -- 保存回调归 CloudStorage requestId 管理；断线时立即失败，释放玩法事务锁。
+        pcall(function()
+            CloudStorage.ExpirePendingCallbacks("save", "connection_lost")
+        end)
         -- P0-fix: 断线时清除所有加载 pending，解除 single-flight 死锁
         pcall(function() require("network.SaveSystemNet").ClearAllPending() end)
     end
@@ -85,6 +90,38 @@ function SaveSystem.Init()
     EventBus.On("connection_restored", SaveSystem._onConnRestored)
 
     print("[SaveSystem] Initialized (epoch=" .. SaveSystem._saveEpoch .. ")")
+end
+
+--- 在网络层没有可结算 pending 的极端情况下，确定性结束当前保存。
+--- 递增 attemptId 可阻止晚到回包再次修改保存状态或重复调用业务回调。
+---@param reason string
+---@return boolean failed
+function SaveSystem.FailActiveSave(reason)
+    if not SaveSystem.saving and not SaveSystem._activeSaveCallback then
+        return false
+    end
+
+    SaveSystem._saveAttemptId = (SaveSystem._saveAttemptId or 0) + 1
+    SaveSystem.saving = false
+    SaveSystem._saveTimeoutActive = false
+    SaveSystem._consecutiveFailures = SaveSystem._consecutiveFailures + 1
+    local retryDelay = math.min(10 * SaveSystem._consecutiveFailures, 60)
+    SaveSystem._retryTimer = retryDelay
+
+    local callback = SaveSystem._activeSaveCallback
+    SaveSystem._activeSaveCallback = nil
+    print("[SaveSystem] Save aborted: " .. tostring(reason)
+        .. ", retry in " .. retryDelay .. "s")
+    if SaveSystem._consecutiveFailures >= 2 then
+        EventBus.Emit("save_warning", {
+            failures = SaveSystem._consecutiveFailures,
+            reason = reason,
+        })
+    end
+    if callback then
+        callback(false, reason)
+    end
+    return true
 end
 
 -- ============================================================================
@@ -122,22 +159,20 @@ function SaveSystem.UpdateCritical(dt)
         end
     end
 
-    -- 存档响应超时检测（15s 无响应视为失败）
+    -- 存档响应超时兜底。正常超时由 CloudStorage 先按 requestId 结算并调用业务回调；
+    -- 此处晚一个 Tick 周期，只处理网络层 pending 异常丢失的极端情况。
     if SaveSystem._saveTimeoutActive and SaveSystem.saving then
         SaveSystem._saveTimeoutElapsed = SaveSystem._saveTimeoutElapsed + dt
-        if SaveSystem._saveTimeoutElapsed >= 15 then
-            SaveSystem._saveTimeoutActive = false
-            SaveSystem.saving = false
-            -- WP-02: 超时不清 _dirty（保存意图保留）
-            SaveSystem._consecutiveFailures = SaveSystem._consecutiveFailures + 1
-            local retryDelay = math.min(10 * SaveSystem._consecutiveFailures, 60)
-            SaveSystem._retryTimer = retryDelay
-            print("[SaveSystem] Save TIMEOUT (no response in 15s), "
-                .. SaveSystem._consecutiveFailures .. " consecutive failures, retry in " .. retryDelay .. "s")
-            pcall(function() require("network.NetDiagClient").RecordSaveTimeout() end)
-            if SaveSystem._consecutiveFailures >= 2 then
-                EventBus.Emit("save_warning", { failures = SaveSystem._consecutiveFailures })
+        if SaveSystem._saveTimeoutElapsed >= SaveSystem.SAVE_RESPONSE_TIMEOUT then
+            local expired = CloudStorage.ExpirePendingCallbacks(
+                "save",
+                "save_response_timeout")
+            if expired == 0 and SaveSystem.saving then
+                SaveSystem.FailActiveSave("save_response_timeout")
             end
+            print("[SaveSystem] Save TIMEOUT fallback after "
+                .. SaveSystem.SAVE_RESPONSE_TIMEOUT .. "s, expired callbacks=" .. expired)
+            pcall(function() require("network.NetDiagClient").RecordSaveTimeout() end)
         end
     end
 
@@ -244,7 +279,9 @@ SaveSystem.CreateCharacter  = SaveSlots.CreateCharacter
 SaveSystem.DeleteCharacter  = SaveSlots.DeleteCharacter
 
 -- SavePersistence
+---@diagnostic disable-next-line: assign-type-mismatch
 SaveSystem.Save             = SavePersistence.Save
+---@diagnostic disable-next-line: assign-type-mismatch
 SaveSystem.DoSave           = SavePersistence.DoSave
 SaveSystem.ExportToLocalFile = SavePersistence.ExportToLocalFile
 

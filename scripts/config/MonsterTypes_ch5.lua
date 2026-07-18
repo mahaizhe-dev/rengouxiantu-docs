@@ -51,7 +51,7 @@ M.Types.ch5_stone_guardian = {
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 8, maxTier = 9, minQuality = "green", maxQuality = "orange" },
         { chance = 1.0, type = "lingYun", amount = {10, 14} },
-        { chance = 0.20, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.10, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.005, type = "consumable", consumableId = "jiuzhuan_jindan" },
         { chance = 0.03, type = "equipment", equipId = "zhenpai_boots_ch5" },  -- 镇派行靴3%（橙）
@@ -96,7 +96,7 @@ M.Types.ch5_sword_shadow = {
         { chance = 1.0, type = "equipment", minTier = 7, maxTier = 9, minQuality = "white", maxQuality = "orange" },
         { chance = 0.25, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.50, type = "consumable", consumableId = "taixu_jianling" },
+        { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
 
@@ -126,7 +126,7 @@ M.Types.ch5_pei_qianyue = {
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 8, maxTier = 9, minQuality = "green", maxQuality = "orange" },
         { chance = 1.0, type = "lingYun", amount = {12, 16} },
-        { chance = 0.20, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.15, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.01, type = "consumable", consumableId = "jiuzhuan_jindan" },
         { chance = 0.02, type = "equipment", equipId = "wenfeng_necklace_ch5" },  -- 闻风玉坠2%（灵器）
@@ -173,7 +173,7 @@ M.Types.ch5_ice_turtle = {
         { chance = 1.0, type = "equipment", minTier = 7, maxTier = 9, minQuality = "white", maxQuality = "cyan" },
         { chance = 0.30, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.50, type = "consumable", consumableId = "taixu_jianling" },
+        { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
 
@@ -203,7 +203,7 @@ M.Types.ch5_frost_luan = {
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 8, maxTier = 9, minQuality = "green", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {12, 20} },
-        { chance = 0.40, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.20, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.02, type = "consumable", consumableId = "jiuzhuan_jindan" },  -- 九转金丹2%
         { chance = 0.02, type = "equipment", equipId = "hanchi_ring_ch5" },  -- 寒池灵戒2%（灵器）
@@ -250,7 +250,7 @@ M.Types.ch5_forge_soldier = {
         { chance = 1.0, type = "equipment", minTier = 8, maxTier = 10, minQuality = "white", maxQuality = "cyan" },
         { chance = 0.35, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.50, type = "consumable", consumableId = "taixu_jianling" },
+        { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
 
@@ -280,7 +280,7 @@ M.Types.ch5_han_bailian = {
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 9, maxTier = 10, minQuality = "green", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {15, 25} },
-        { chance = 0.60, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.25, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.01, type = "equipment", equipId = "bailian_belt_ch5" },  -- 百炼熔带1%（橙）
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
@@ -329,7 +329,7 @@ M.Types.ch5_stele_phantom = {
         { chance = 1.0, type = "equipment", minTier = 8, maxTier = 10, minQuality = "white", maxQuality = "cyan" },
         { chance = 0.40, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.50, type = "consumable", consumableId = "taixu_jianling" },
+        { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
 
@@ -359,7 +359,7 @@ M.Types.ch5_shi_guanlan = {
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 9, maxTier = 10, minQuality = "green", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {16, 28} },
-        { chance = 0.80, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.30, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.01, type = "equipment", equipId = "guanlan_necklace_ch5" },  -- 观澜碑坠1%（橙）
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
@@ -408,7 +408,7 @@ M.Types.ch5_night_guard = {
         { chance = 1.0, type = "equipment", minTier = 8, maxTier = 10, minQuality = "white", maxQuality = "cyan" },
         { chance = 0.45, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.50, type = "consumable", consumableId = "taixu_jianling" },
+        { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
 
@@ -438,10 +438,12 @@ M.Types.ch5_ning_qiwu = {
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 9, maxTier = 10, minQuality = "blue", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {18, 30} },
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.35, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
-        { chance = 0.005, type = "equipment", equipId = "qijian_boots_ch5" },  -- 栖剑行靴0.5%（灵器）共享1%二选一
-        { chance = 0.005, type = "equipment", equipId = "suxin_ring_ch5" },  -- 宿心残戒0.5%（橙）共享1%二选一
+        { chance = 0.01, type = "equipment_pool", pool = {  -- 特殊装备1%共享池，命中后二选一
+            { equipId = "qijian_boots_ch5" },  -- 栖剑行靴（灵器）
+            { equipId = "suxin_ring_ch5" },  -- 宿心残戒（橙）
+        }},
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.01, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹1%（皇级）
         { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
@@ -471,7 +473,7 @@ M.Types.ch5_book_demon = {
         { chance = 1.0, type = "equipment", minTier = 8, maxTier = 10, minQuality = "white", maxQuality = "cyan" },
         { chance = 0.50, type = "consumable", consumableId = "immortal_bone" },
         { chance = 0.03, type = "world_drop", pool = "ch5" },
-        { chance = 0.50, type = "consumable", consumableId = "taixu_jianling" },
+        { chance = 1.0, type = "consumable", consumableId = "taixu_jianling" },
     },
 }
 
@@ -501,10 +503,12 @@ M.Types.ch5_wen_suzhang = {
     dropTable = {
         { chance = 1.0, type = "equipment", minTier = 9, maxTier = 10, minQuality = "blue", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {20, 32} },
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.40, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
-        { chance = 0.005, type = "equipment", equipId = "cangzhen_armor_ch5" },  -- 藏真玄衣0.5%（灵器）共享1%二选一
-        { chance = 0.005, type = "equipment", equipId = "cangzhen_helmet_ch5" },  -- 藏真玄冠0.5%（灵器）共享1%二选一
+        { chance = 0.01, type = "equipment_pool", pool = {  -- 特殊装备1%共享池，命中后二选一
+            { equipId = "cangzhen_armor_ch5" },  -- 藏真玄衣（灵器）
+            { equipId = "cangzhen_helmet_ch5" },  -- 藏真玄冠（灵器）
+        }},
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.01, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹1%（皇级）
         { chance = 0.01, type = "consumable", consumableId = "sword_intent_crystal" },  -- 剑星草1%
@@ -545,8 +549,10 @@ M.Types.ch5_blood_general = {
         { chance = 1.0, type = "lingYun", amount = {10, 10} },
         { chance = 0.50, type = "consumable", consumableId = "dragon_marrow" },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
-        { chance = 0.0025, type = "equipment", equipId = "tuxue_belt_ch5" },  -- 屠血命绶0.25%（灵器）共享0.5%二选一
-        { chance = 0.0025, type = "equipment", equipId = "tuxue_shoulder_ch5" },  -- 屠血魔肩0.25%（灵器）共享0.5%二选一
+        { chance = 0.005, type = "equipment_pool", pool = {  -- 特殊装备0.5%共享池，命中后二选一
+            { equipId = "tuxue_belt_ch5" },  -- 屠血命绶（灵器）
+            { equipId = "tuxue_shoulder_ch5" },  -- 屠血魔肩（灵器）
+        }},
         { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
         { chance = 0.005, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹0.5%（血屠将）
         { chance = 0.002, type = "consumable", consumableId = "immortal_essence_blood" },  -- 仙人精血0.2%
@@ -582,7 +588,7 @@ M.Types.ch5_abyss_marshal = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {25, 35} },
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = {1, 2} },
+        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", amount = {1, 1} },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.01, type = "equipment", equipId = "shiyuan_cape_ch5" },  -- 噬渊魔氅1%（灵器）
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },  -- 帝尊伍戒0.5%
@@ -637,11 +643,11 @@ M.Types.ch5_sword_zhu = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "purple", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {30, 50} },
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = 3 },
+        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", amount = {1, 2} },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },       -- 帝尊伍戒0.5%
         { chance = 0.005, type = "equipment", equipId = "fengyin_zhuxian_ch5" },   -- 封印·诛仙0.5%
-        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
+        { chance = 0.03, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍3%
         { chance = 0.03, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹3%（四剑）
         { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
         { chance = 0.03, type = "consumable", consumableId = "immortal_essence_blood" },  -- 仙人精血3%
@@ -649,6 +655,7 @@ M.Types.ch5_sword_zhu = {
         -- 宠物书：通慧+忽视特级共享1%（每本0.5%）
         { chance = 0.01, type = "world_drop", pool = "sword_zhu_books" },
         { chance = 0.004, type = "set_equipment", tier = 10, setIds = {"xuesha","qingyun","fengmo","haoqi"} },  -- T10制式套装0.4%
+        { chance = 0.0075, type = "consumable", consumableId = "treasure_map" },
     },
 }
 
@@ -686,11 +693,11 @@ M.Types.ch5_sword_xian = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "purple", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {30, 50} },
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = 3 },
+        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", amount = {1, 2} },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },       -- 帝尊伍戒0.5%
         { chance = 0.005, type = "equipment", equipId = "fengyin_xianxian_ch5" }, -- 封印·陷仙0.5%
-        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
+        { chance = 0.03, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍3%
         { chance = 0.03, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹3%（四剑）
         { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
         { chance = 0.03, type = "consumable", consumableId = "immortal_essence_blood" },  -- 仙人精血3%
@@ -698,6 +705,7 @@ M.Types.ch5_sword_xian = {
         -- 宠物书：铸骨+连击特级共享1%（每本0.5%）
         { chance = 0.01, type = "world_drop", pool = "sword_xian_books" },
         { chance = 0.004, type = "set_equipment", tier = 10, setIds = {"xuesha","qingyun","fengmo","haoqi"} },  -- T10制式套装0.4%
+        { chance = 0.0075, type = "consumable", consumableId = "treasure_map" },
     },
 }
 
@@ -735,11 +743,11 @@ M.Types.ch5_sword_lu = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "purple", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {30, 50} },
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = 3 },
+        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", amount = {1, 2} },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },       -- 帝尊伍戒0.5%
         { chance = 0.005, type = "equipment", equipId = "fengyin_luxian_ch5" },   -- 封印·戮仙0.5%
-        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
+        { chance = 0.03, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍3%
         { chance = 0.03, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹3%（四剑）
         { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
         { chance = 0.03, type = "consumable", consumableId = "immortal_essence_blood" },  -- 仙人精血3%
@@ -747,6 +755,7 @@ M.Types.ch5_sword_lu = {
         -- 宠物书：淬体+攻速特级共享1%（每本0.5%）
         { chance = 0.01, type = "world_drop", pool = "sword_lu_books" },
         { chance = 0.004, type = "set_equipment", tier = 10, setIds = {"xuesha","qingyun","fengmo","haoqi"} },  -- T10制式套装0.4%
+        { chance = 0.0075, type = "consumable", consumableId = "treasure_map" },
     },
 }
 
@@ -784,11 +793,11 @@ M.Types.ch5_sword_jue = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "purple", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {30, 50} },
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = 3 },
+        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", amount = {1, 2} },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },       -- 帝尊伍戒0.5%
         { chance = 0.005, type = "equipment", equipId = "fengyin_juexian_ch5" },  -- 封印·绝仙0.5%
-        { chance = 0.01, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍1%
+        { chance = 0.03, type = "consumable", consumableId = "spirit_pill_5" },  -- 灵兽丹·伍3%
         { chance = 0.03, type = "consumable", consumableId = "dujie_dan" },  -- 渡劫丹3%（四剑）
         { chance = 0.01, type = "consumable", consumableId = "abyss_seal_shard" },  -- 地狱灵芝1%
         { chance = 0.03, type = "consumable", consumableId = "immortal_essence_blood" },  -- 仙人精血3%
@@ -796,6 +805,7 @@ M.Types.ch5_sword_jue = {
         -- 宠物书：赐福+吸血特级共享1%（每本0.5%）
         { chance = 0.01, type = "world_drop", pool = "sword_jue_books" },
         { chance = 0.004, type = "set_equipment", tier = 10, setIds = {"xuesha","qingyun","fengmo","haoqi"} },  -- T10制式套装0.4%
+        { chance = 0.0075, type = "consumable", consumableId = "treasure_map" },
     },
 }
 
@@ -832,7 +842,7 @@ M.Types.ch5_marshal_shugu = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {25, 35} },
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = {1, 2} },
+        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", amount = {1, 1} },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.01, type = "equipment", equipId = "lingqi_cape_ch5" },  -- 天渊灵披1%（灵器）
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },
@@ -875,7 +885,7 @@ M.Types.ch5_marshal_liesoul = {
     dropTable = {
         { chance = 1.0, type = "equipment", minQuality = "blue", maxQuality = "cyan" },
         { chance = 1.0, type = "lingYun", amount = {25, 35} },
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", count = {1, 2} },
+        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", amount = {1, 1} },
         { chance = 0.03, type = "world_drop", pool = "ch5_boss" },
         { chance = 0.01, type = "equipment", equipId = "lingqi_ring_ch5" },  -- 均灵环1%（灵器）
         { chance = 0.005, type = "equipment", equipId = "dizun_ring_ch5" },

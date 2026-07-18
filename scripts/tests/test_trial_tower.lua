@@ -15,6 +15,7 @@
 --   TEST 11: 251-260 三BOSS关卡验证
 --   TEST 12: CalcBossPositions 2/3 BOSS 出生点数量验证
 --   TEST 13: 第六章 261-300 怪物主题验证
+--   TEST 14: BOSS 专属等级/境界覆盖规则验证
 --   PERF 1:  300 层完整遍历基准（时间 < 50ms）
 -- ============================================================================
 
@@ -444,6 +445,44 @@ do
     local cfg291 = TrialTowerConfig.FLOOR_MONSTERS[291]
     assert_eq(cfg291.monsters[1].id, "ch6_toad_immortal", "floor 291 第一普通怪 蛤蟆仙人")
     assert_eq(cfg291.monsters[2].id, "ch6_east_celestial_soldier", "floor 291 第二普通怪 东营天兵")
+end
+
+print("=== TEST 14: BOSS 专属等级/境界覆盖规则验证 ===")
+do
+    local bossLevelCases = {
+        { source = 8,   target = 20,  realm = "lianqi_3" },
+        { source = 10,  target = 25,  realm = "zhuji_1" },
+        { source = 12,  target = 25,  realm = "zhuji_1" },
+        { source = 15,  target = 30,  realm = "zhuji_2" },
+        { source = 31,  target = 45,  realm = "jindan_2" },
+        { source = 65,  target = 80,  realm = "huashen_3" },
+        { source = 105, target = 120, realm = "zhexian_1" },
+        { source = 115, target = 130, realm = "zhexian_6" },
+        { source = 132, target = 145, realm = "renxian_3" },
+        { source = 137, target = 150, realm = "renxian_6" },
+        { source = 140, target = 155, realm = "renxian_8" },
+    }
+
+    for _, case in ipairs(bossLevelCases) do
+        local target = TrialTowerConfig.CalcBossTargetLevel(case.source)
+        assert_eq(target, case.target, "BOSS Lv." .. case.source .. " targetLevel == " .. case.target)
+        local realm = TrialTowerConfig.GetBossTargetRealmByLevel(target)
+        assert_eq(realm, case.realm, "BOSS Lv." .. case.source .. " targetRealm == " .. case.realm)
+    end
+
+    local monsterCases = {
+        { level = 16,  target = 30,  realm = "zhuji_2" },
+        { level = 119, target = 130, realm = "zhexian_6" },
+        { level = 128, target = 140, realm = "renxian_1" },
+    }
+    for _, case in ipairs(monsterCases) do
+        local override = TrialTowerConfig.GetBossOverride({ level = case.level })
+        assert_not_nil(override, "GetBossOverride Lv." .. case.level .. " 非空")
+        if override then
+            assert_eq(override.level, case.target, "GetBossOverride Lv." .. case.level .. " level")
+            assert_eq(override.realm, case.realm, "GetBossOverride Lv." .. case.level .. " realm")
+        end
+    end
 end
 
 print("=== PERF 1: 300 层完整遍历基准 ===")

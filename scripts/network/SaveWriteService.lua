@@ -17,11 +17,15 @@ local SaveWriteService = {}
 
 local GameConfig       = require("config.GameConfig")
 local SealDemonConfig  = require("config.SealDemonConfig")
+local SeaPillarConfig  = require("config.SeaPillarConfig")
+local LiangjieStoneConfig = require("config.LiangjieStoneConfig")
+local SwordPoolConfig  = require("config.SwordPoolConfig")
 local PetSkillData     = require("config.PetSkillData")
 local SaveProtocol     = require("network.SaveProtocol")
 local SavePayloadCodec = require("network.SavePayloadCodec")
 local SaveBackupService = require("network.SaveBackupService")
 local Session          = require("network.ServerSession")
+local AccountImmortalBodiesService = require("network.AccountImmortalBodiesService")
 local RankHandler      = require("network.RankHandler")
 local AdminPenaltyControl = require("network.AdminPenaltyControl")
 local Logger           = require("utils.Logger")
@@ -57,13 +61,64 @@ local function SendResult(connection, eventName, success, message, requestId)
     SafeSend(connection, eventName, data)
 end
 
+local function TreasureSessionId(saveData)
+    return saveData and saveData.player
+        and tostring(saveData.player.treasureSessionId or "") or ""
+end
+
+local function TreasureRevision(saveData)
+    return saveData and saveData.player
+        and math.max(0, math.floor(tonumber(saveData.player.treasureRevision) or 0)) or 0
+end
+
+function SaveWriteService._ValidateTreasureSession(oldSave, incomingSave)
+    local oldSession = TreasureSessionId(oldSave)
+    local incomingSession = TreasureSessionId(incomingSave)
+    local oldRevision = TreasureRevision(oldSave)
+    local incomingRevision = TreasureRevision(incomingSave)
+    return oldSession == incomingSession and oldRevision == incomingRevision,
+        oldSession, incomingSession, oldRevision, incomingRevision
+end
+
+local function NormalizeJieshiProgress(raw, includeCooldown)
+    raw = type(raw) == "table" and raw or {}
+    local rawGrids = type(raw.activatedGrids) == "table"
+        and raw.activatedGrids or {}
+    local grids = {}
+    local allActive = true
+    for i = 1, 9 do
+        grids[i] = rawGrids[i] == true
+        if not grids[i] then allActive = false end
+    end
+
+    -- 第六章神器永久状态只接受“九格全满 → Boss首胜 → 被动解锁”的单向关系。
+    local bossDefeated = allActive and raw.bossDefeated == true
+    local normalized = {
+        version = 1,
+        activatedGrids = grids,
+        bossDefeated = bossDefeated,
+        passiveUnlocked = bossDefeated and raw.passiveUnlocked == true,
+    }
+    if includeCooldown then
+        local readyAt = tonumber(raw.rescueReadyAt) or 0
+        if readyAt ~= readyAt or readyAt == math.huge or readyAt == -math.huge then
+            readyAt = 0
+        end
+        readyAt = math.max(0, math.floor(readyAt))
+        local now = os.time()
+        normalized.rescueReadyAt = math.min(readyAt, now + 185)
+    end
+    return normalized
+end
+
 -- ============================================================================
 -- SaveGame 主入口
 --
 -- 分区说明（R3 §8.3）：
 --   [主存档正文]     save_{slot} / slots_index 写入 + 旧格式清理
 --   [账号级旁路]     account_bulletin / account_atlas / account_cosmetics
---   [排行旁路]       rank2_score/kills/time (SetInt) + rank2_info (batch Set)
+--   [修仙榜旁路]     rank2_score/kills/time (SetInt) + rank2_info (batch Set)
+--   [仙人榜旁路]     xianren_score/kills/time (SetInt) + xianren_info (batch Set)
 --   [试炼旁路]       trial_floor (SetInt) + trial_info (batch Set)
 --   [镇狱塔旁路]     prison_floor (SetInt) + prison_info (batch Set)
 --   [版本守卫]       player_level / _code_ver (SetInt)
@@ -94,7 +149,6 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
 
     local coreDataJson = eventData["coreData"]:GetString()
     local slotsIndexJson = eventData["slotsIndex"]:GetString()
-    local rankDataJson = eventData["rankData"]:GetString()
 
     Logger.info("SaveGame", "userId=" .. tostring(userId) .. " slot=" .. slot)
 
@@ -104,8 +158,6 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
     if slotsIndexJson and slotsIndexJson ~= "" then
         ok4, slotsIndex = pcall(cjson.decode, slotsIndexJson)
     end
-    local ok5, rankData = pcall(cjson.decode, rankDataJson)
-
     if not ok1 or not coreData then
         Logger.error("SaveGame", "coreData decode failed")
         SendResult(connection, SaveProtocol.S2C_SaveResult, false, "数据格式错误", requestId)
@@ -155,16 +207,16 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
         Logger.info("SaveGame", "account_atlas written for userId=" .. tostring(userId))
     end
 
-    -- ── [账号级旁路] account_cosmetics ──
+    -- account_cosmetics is server-owned. Never persist a client snapshot here:
+    -- it may be stale and erase skins granted by server-side reward handlers.
     if coreData.accountCosmetics then
-        batch:Set("account_cosmetics", coreData.accountCosmetics)
-        Logger.info("SaveGame", "account_cosmetics written for userId=" .. tostring(userId))
+        Logger.info("SaveGame", "ignored client account_cosmetics for userId=" .. tostring(userId))
     end
 
-    -- ── [账号级旁路] account_immortal_bodies ──
+    -- account_immortal_bodies is server-owned. Treasure rewards and other
+    -- authoritative grant handlers write it through AccountImmortalBodiesService.
     if coreData.accountImmortalBodies then
-        batch:Set("account_immortal_bodies", coreData.accountImmortalBodies)
-        Logger.info("SaveGame", "account_immortal_bodies written for userId=" .. tostring(userId))
+        Logger.info("SaveGame", "ignored client account_immortal_bodies for userId=" .. tostring(userId))
     end
 
     -- ── [版本守卫] player_level ──
@@ -184,11 +236,11 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
     -- ════════════════════════════════════════════════════════════════
     local rankInfo, rankRejectReason
     if not _skipRank then
-        rankInfo, rankRejectReason = RankHandler.ComputeRankFromSaveData(coreData)
+        rankInfo, rankRejectReason = RankHandler.ComputeRankFromSaveData(coreData) ---@diagnostic disable-line: param-type-mismatch
     end
 
     -- TapTap 昵称
-    local taptapNick = nil
+    local taptapNick = ""
     GetUserNickname({
         userIds = { userId },
         onSuccess = function(nicknames)
@@ -206,16 +258,9 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
                 rankInfo.charName = slotMeta.name
             end
         end
+    end
 
-        batch:Set("rank2_info_" .. slot, {
-            name = rankInfo.charName,
-            realm = rankInfo.realm,
-            level = rankInfo.level,
-            bossKills = rankInfo.bossKills,
-            taptapNick = taptapNick,
-            classId = rankInfo.classId,
-        })
-    elseif rankRejectReason and rankRejectReason ~= "level_too_low"
+    if rankRejectReason and rankRejectReason ~= "level_too_low"
         and rankRejectReason ~= "no_player_data" then
         Logger.warn("SaveGame", "[AntiCheat] Rank write rejected for userId="
             .. tostring(userId) .. " slot=" .. slot
@@ -228,119 +273,106 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
         batch:SetInt("_code_ver", codeVersion)
     end
 
-    -- ── [排行旁路] SetInt（独立写，不依赖 batch:Save） ──
-    -- 复合分数 = rawScore * TIME_BASE + (TIME_BASE - 1 - achieveTime)
-    -- 同分时先达成者排前（与试炼榜/镇狱榜一致的方案）
-    if rankInfo then
-        local RANK2_TIME_BASE = 10000000000
-        local achieveTime = (ok5 and rankData and rankData.achieveTime) or os.time()
-        local rank2Composite = rankInfo.rankScore * RANK2_TIME_BASE
-            + (RANK2_TIME_BASE - 1 - achieveTime)
-        serverCloud:SetInt(userId, "rank2_score_" .. slot, rank2Composite, {
-            error = function(code, reason)
-                Logger.error("SaveGame", "RankV2 SetInt rank2_score FAILED: userId=" .. tostring(userId)
-                    .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
-            end,
-        })
-        serverCloud:SetInt(userId, "rank2_kills_" .. slot, rankInfo.bossKills, {
-            error = function(code, reason)
-                Logger.error("SaveGame", "RankV2 SetInt rank2_kills FAILED: userId=" .. tostring(userId)
-                    .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
-            end,
-        })
-    end
-
-    -- ════════════════════════════════════════════════════════════════
-    -- [试炼旁路] trial_floor + trial_info
-    -- ════════════════════════════════════════════════════════════════
-    local trialTower = not _skipRank and coreData.trialTower or nil
-    if trialTower and type(trialTower) == "table" then
-        local highestFloor = trialTower.highestFloor
-        if highestFloor and type(highestFloor) == "number" and highestFloor > 0 then
-            local TRIAL_TIME_BASE = 10000000000
-            local trialComposite = highestFloor * TRIAL_TIME_BASE
-                + (TRIAL_TIME_BASE - 1 - os.time())
-            serverCloud:SetInt(userId, "trial_floor", trialComposite, {
-                error = function(code, reason)
-                    Logger.error("SaveGame", "Trial SetInt trial_floor FAILED: userId=" .. tostring(userId)
-                        .. " err=" .. tostring(code) .. " " .. tostring(reason))
-                end,
-            })
-            local trialCharName = "修仙者"
-            if ok4 and slotsIndex and slotsIndex.slots then
-                local slotMeta = slotsIndex.slots[slot]
-                if slotMeta and slotMeta.name and slotMeta.name ~= "" then
-                    trialCharName = slotMeta.name
-                end
-            elseif coreData.player and coreData.player.charName then
-                trialCharName = coreData.player.charName
-            end
-            batch:Set("trial_info", {
-                floor = highestFloor,
-                name = trialCharName,
-                realm = coreData.player and coreData.player.realm or "mortal",
-                level = coreData.player and coreData.player.level or 1,
-                taptapNick = taptapNick,
-                classId = coreData.player and coreData.player.classId or "monk",
-            })
-            Logger.info("SaveGame", "Trial: enrolled userId=" .. tostring(userId)
-                .. " floor=" .. highestFloor .. " composite=" .. trialComposite)
-        end
-    end
-
-    -- ════════════════════════════════════════════════════════════════
-    -- [镇狱塔旁路] prison_floor + prison_info
-    -- ════════════════════════════════════════════════════════════════
-    local prisonTower = not _skipRank and coreData.prisonTower or nil
-    if prisonTower and type(prisonTower) == "table" then
-        local prisonHighest = prisonTower.highestFloor
-        if prisonHighest and type(prisonHighest) == "number" and prisonHighest > 0 then
-            local PRISON_TIME_BASE = 10000000000
-            local prisonComposite = prisonHighest * PRISON_TIME_BASE
-                + (PRISON_TIME_BASE - 1 - os.time())
-            serverCloud:SetInt(userId, "prison_floor", prisonComposite, {
-                error = function(code, reason)
-                    Logger.error("SaveGame", "Prison SetInt prison_floor FAILED: userId=" .. tostring(userId)
-                        .. " err=" .. tostring(code) .. " " .. tostring(reason))
-                end,
-            })
-            local prisonCharName = "修仙者"
-            if ok4 and slotsIndex and slotsIndex.slots then
-                local slotMeta = slotsIndex.slots[slot]
-                if slotMeta and slotMeta.name and slotMeta.name ~= "" then
-                    prisonCharName = slotMeta.name
-                end
-            elseif coreData.player and coreData.player.charName then
-                prisonCharName = coreData.player.charName
-            end
-            batch:Set("prison_info", {
-                floor = prisonHighest,
-                name = prisonCharName,
-                realm = coreData.player and coreData.player.realm or "mortal",
-                level = coreData.player and coreData.player.level or 1,
-                taptapNick = taptapNick,
-                classId = coreData.player and coreData.player.classId or "monk",
-            })
-            Logger.info("SaveGame", "Prison: enrolled userId=" .. tostring(userId)
-                .. " floor=" .. prisonHighest .. " composite=" .. prisonComposite)
-        end
-    end
-
     -- ════════════════════════════════════════════════════════════════
     -- [主存档正文] 提交 batch
     -- ※ BM-01A 依赖链关键节点：batch:Save("存档") → ok 回调 → S2C_SaveResult ok=true
     --   拆壳后此语义不变。
     -- ════════════════════════════════════════════════════════════════
+    local function RunPostSaveRankUpdates(done)
+        if _skipRank then
+            done()
+            return
+        end
+
+        local pending = 2
+        local function NewCompletion(label)
+            local completed = false
+            local function Complete(code, reason)
+                if completed then return end
+                completed = true
+                if code ~= nil then
+                    Logger.error("SaveGame", label .. " FAILED: userId="
+                        .. tostring(userId) .. " slot=" .. tostring(slot)
+                        .. " err=" .. tostring(code) .. " " .. tostring(reason))
+                end
+                pending = pending - 1
+                if pending == 0 then done() end
+            end
+            return {
+                ok = function() Complete() end,
+                error = Complete,
+            }
+        end
+
+        RankHandler.UpsertCultivationRank(
+            userId, slot, rankInfo, coreData, taptapNick,
+            NewCompletion("cultivation rank update"))
+        RankHandler.UpdateTowerRanksFromSave(
+            userId, slot, slotsIndex, coreData, taptapNick,
+            NewCompletion("tower rank update"))
+    end
+
     local function CommitSave(releaseSlot)
         batch:Save("存档", {
         ok = function()
-            if releaseSlot then releaseSlot() end  -- T1: 写档成功释放 slot 锁
-            Logger.info("SaveGame", "OK: userId=" .. tostring(userId) .. " slot=" .. slot)
+            local function FinishSuccess()
+                if releaseSlot then releaseSlot() end  -- T1: 写档成功释放 slot 锁
+                Logger.info("SaveGame", "OK: userId=" .. tostring(userId) .. " slot=" .. slot)
 
-            local resultData = VariantMap()
-            resultData["ok"] = Variant(true)
-            resultData["requestId"] = Variant(requestId)
-            SafeSend(connection, SaveProtocol.S2C_SaveResult, resultData)
+                local resultData = VariantMap()
+                resultData["ok"] = Variant(true)
+                resultData["requestId"] = Variant(requestId)
+                SafeSend(connection, SaveProtocol.S2C_SaveResult, resultData)
+            end
+
+            local function FinishRanks()
+                RunPostSaveRankUpdates(FinishSuccess)
+            end
+
+            -- The account snapshot is never trusted. The base immortal body is
+            -- granted from the persisted ascension milestone through the same
+            -- server-owned read/modify/write service used by treasure rewards.
+            local ascension = type(coreData.ascension) == "table" and coreData.ascension or nil
+            local shouldGrantBaseBody = ascension
+                and ascension.firstTribulationCompleted == true
+                and (tonumber(ascension.totalIndex) or 0) >= 1
+            if not shouldGrantBaseBody then
+                FinishRanks()
+                return
+            end
+
+            AccountImmortalBodiesService.Begin(userId, {
+                ok = function(transaction)
+                    local updated, result = AccountImmortalBodiesService.PrepareBodyGrant(
+                        transaction.immortalBodies,
+                        "immortal_body_1",
+                        "first_tribulation",
+                        "first_tribulation",
+                        slot)
+                    if result.idempotent then
+                        transaction:Release()
+                        FinishRanks()
+                        return
+                    end
+                    transaction:Save(updated, "first_tribulation_body_unlock", {
+                        ok = FinishRanks,
+                        error = function(code, reason)
+                            Logger.error("SaveGame", "base body grant failed: "
+                                .. tostring(code) .. " " .. tostring(reason))
+                            FinishRanks()
+                        end,
+                    })
+                end,
+                busy = function()
+                    Logger.warn("SaveGame", "base body grant deferred: account lock busy")
+                    FinishRanks()
+                end,
+                error = function(code, reason)
+                    Logger.error("SaveGame", "base body read failed: "
+                        .. tostring(code) .. " " .. tostring(reason))
+                    FinishRanks()
+                end,
+            })
         end,
         error = function(code, reason)
             if releaseSlot then releaseSlot() end  -- T1: 写档失败释放 slot 锁
@@ -366,6 +398,22 @@ function SaveWriteService.Execute(connection, connKey, userId, slot, eventData)
     end
 
     SaveBackupService.BeforeOverwrite(userId, slot, "SaveGame", function(oldSave)
+        local treasureSessionOk, oldTreasureSession, newTreasureSession,
+            oldTreasureRevision, newTreasureRevision =
+            SaveWriteService._ValidateTreasureSession(oldSave, coreData)
+        if not treasureSessionOk then
+            releaseSlot()
+            Logger.warn("SaveGame", "REJECTED stale treasure session: userId="
+                .. tostring(userId) .. " slot=" .. tostring(slot)
+                .. " old=" .. tostring(oldTreasureSession)
+                .. " incoming=" .. tostring(newTreasureSession)
+                .. " oldRevision=" .. tostring(oldTreasureRevision)
+                .. " incomingRevision=" .. tostring(newTreasureRevision))
+            SendResult(connection, SaveProtocol.S2C_SaveResult, false,
+                "treasure_state_changed", requestId)
+            return
+        end
+
         -- [T5 ROLLBACK-WRITE] 对账日志（log-only，绝不阻断写入）
         if oldSave and type(oldSave) == "table"
             and type(oldSave.timestamp) == "number"
@@ -658,6 +706,10 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
             { field = "seaPillarAtk",     max = 30, name = "海神柱攻击" },
             { field = "seaPillarMaxHp",   max = 300, name = "海神柱生命" },
             { field = "seaPillarHpRegen", max = 30, name = "海神柱恢复" },
+            { field = "liangjieStoneAtk", max = 150, name = "两界阵石攻击" },
+            { field = "liangjieStoneDef", max = 120, name = "两界阵石防御" },
+            { field = "liangjieStoneMaxHp", max = 1500, name = "两界阵石生命" },
+            { field = "liangjieStoneHpRegen", max = 150, name = "两界阵石恢复" },
             { field = "premiumZongEaten", max = 10, name = "仙界精品粽" },
             { field = "pillFortune",      max = 10, name = "福缘(精品粽)" },
             { field = "premiumRedbeanCakeEaten", max = 10, name = "相思红豆糕" },
@@ -703,21 +755,162 @@ function SaveWriteService._ValidateCoreData(coreData, userId)
         end
     end
 
-    -- V5b: 海神柱等级校验
-    if coreData.seaPillar then
-        local pillarIds = { "xuanbing", "youyuan", "lieyan", "liusha" }
-        for _, pid in ipairs(pillarIds) do
-            local p = coreData.seaPillar[pid]
-            if p and type(p) == "table" then
-                if p.level and type(p.level) == "number" then
-                    if p.level < 0 then p.level = 0 end
-                    if p.level > 10 then
-                        Logger.warn("SaveGame", "[V5b] SeaPillar " .. pid .. " level clamped: "
-                            .. p.level .. " -> 10 userId=" .. tostring(userId))
-                        p.level = 10
-                    end
+    -- V5b: 海神柱等级是规范档案；角色聚合字段只能由服务端重算。
+    do
+        local rawPillars = type(coreData.seaPillar) == "table" and coreData.seaPillar or {}
+        local normalized = {}
+        local bonuses = { def = 0, atk = 0, maxHp = 0, hpRegen = 0 }
+
+        for _, pid in ipairs(SeaPillarConfig.PILLAR_ORDER) do
+            local raw = type(rawPillars[pid]) == "table" and rawPillars[pid] or {}
+            local repaired = raw.repaired == true
+            local level = 0
+            if repaired and type(raw.level) == "number" and raw.level == raw.level then
+                level = math.floor(raw.level)
+                if level < 0 then level = 0 end
+                if level > SeaPillarConfig.MAX_LEVEL then
+                    Logger.warn("SaveGame", "[V5b] SeaPillar " .. pid .. " level clamped: "
+                        .. level .. " -> " .. SeaPillarConfig.MAX_LEVEL
+                        .. " userId=" .. tostring(userId))
+                    level = SeaPillarConfig.MAX_LEVEL
                 end
             end
+
+            normalized[pid] = {
+                repaired = repaired,
+                level = level,
+            }
+
+            local cfg = SeaPillarConfig.PILLARS[pid]
+            if cfg and level > 0 then
+                bonuses[cfg.bonusStat] = bonuses[cfg.bonusStat] + cfg.bonusPerLevel * level
+            end
+        end
+
+        coreData.seaPillar = normalized
+        if coreData.player then
+            local cp = coreData.player
+            cp.seaPillarDef = bonuses.def
+            cp.seaPillarAtk = bonuses.atk
+            cp.seaPillarMaxHp = bonuses.maxHp
+            cp.seaPillarHpRegen = bonuses.hpRegen
+        end
+    end
+
+    -- V5f: 两界阵石等级档案是唯一真值；服务端规范化后覆盖角色派生字段。
+    do
+        local rawSystem = type(coreData.liangjieStones) == "table"
+            and coreData.liangjieStones or {}
+        local rawStones = type(rawSystem.stones) == "table"
+            and rawSystem.stones or rawSystem
+        local normalizedStones = {}
+        local bonuses = { atk = 0, def = 0, maxHp = 0, hpRegen = 0 }
+
+        for _, stoneId in ipairs(LiangjieStoneConfig.STONE_ORDER) do
+            local raw = type(rawStones[stoneId]) == "table"
+                and rawStones[stoneId] or {}
+            local activated = raw.activated == true
+            local level = 0
+            if activated and type(raw.level) == "number" and raw.level == raw.level then
+                level = math.floor(raw.level)
+                if level < 0 then level = 0 end
+                if level > LiangjieStoneConfig.MAX_LEVEL then
+                    Logger.warn("SaveGame", "[V5f] LiangjieStone " .. stoneId
+                        .. " level clamped: " .. level .. " -> "
+                        .. LiangjieStoneConfig.MAX_LEVEL
+                        .. " userId=" .. tostring(userId))
+                    level = LiangjieStoneConfig.MAX_LEVEL
+                end
+            end
+
+            normalizedStones[stoneId] = {
+                activated = activated,
+                level = level,
+                -- 激活状态本身证明奖励事务已提交，禁止伪造未领奖状态补发经验。
+                activationRewardClaimed = activated,
+            }
+
+            local cfg = LiangjieStoneConfig.STONES[stoneId]
+            if cfg and activated and level > 0 then
+                bonuses[cfg.bonusStat] = bonuses[cfg.bonusStat]
+                    + cfg.bonusPerLevel * level
+            end
+        end
+
+        coreData.liangjieStones = {
+            version = 1,
+            stones = normalizedStones,
+        }
+        if coreData.player then
+            local cp = coreData.player
+            cp.liangjieStoneAtk = bonuses.atk
+            cp.liangjieStoneDef = bonuses.def
+            cp.liangjieStoneMaxHp = bonuses.maxHp
+            cp.liangjieStoneHpRegen = bonuses.hpRegen
+        end
+    end
+
+    -- V5c: 祀剑池等级是规范档案；角色聚合字段只能由服务端重算。
+    do
+        local rawSwords = type(coreData.swordPool) == "table" and coreData.swordPool or {}
+        local normalized = {}
+        local bonuses = { atk = 0, def = 0, maxHp = 0, hpRegen = 0 }
+
+        for _, swordId in ipairs(SwordPoolConfig.SWORD_ORDER) do
+            local raw = type(rawSwords[swordId]) == "table" and rawSwords[swordId] or {}
+            local unlocked = raw.unlocked == true
+            local level = 0
+            if unlocked and type(raw.level) == "number" and raw.level == raw.level then
+                level = math.floor(raw.level)
+                if level < 0 then level = 0 end
+                if level > SwordPoolConfig.MAX_LEVEL then
+                    Logger.warn("SaveGame", "[V5c] SwordPool " .. swordId .. " level clamped: "
+                        .. level .. " -> " .. SwordPoolConfig.MAX_LEVEL
+                        .. " userId=" .. tostring(userId))
+                    level = SwordPoolConfig.MAX_LEVEL
+                end
+            end
+
+            normalized[swordId] = {
+                unlocked = unlocked,
+                level = level,
+            }
+
+            local cfg = SwordPoolConfig.SWORDS[swordId]
+            if cfg and level > 0 then
+                bonuses[cfg.bonusStat] = bonuses[cfg.bonusStat] + cfg.bonusPerLevel * level
+            end
+        end
+
+        coreData.swordPool = normalized
+        if coreData.player then
+            local cp = coreData.player
+            cp.swordPoolAtk = bonuses.atk
+            cp.swordPoolDef = bonuses.def
+            cp.swordPoolMaxHp = bonuses.maxHp
+            cp.swordPoolHpRegen = bonuses.hpRegen
+        end
+    end
+
+    -- V5g: 第六章界匙以账号档为权威；固定九格并校验解锁关系和替命冷却。
+    do
+        local rawAccount = type(coreData.atlas) == "table"
+            and coreData.atlas.artifact_jieshi or nil
+        local rawMirror = type(coreData.artifact_ch6) == "table"
+            and coreData.artifact_ch6 or nil
+        local source = type(rawAccount) == "table" and rawAccount or rawMirror
+        local normalizedAccount = NormalizeJieshiProgress(source, true)
+
+        coreData.artifact_ch6 = {
+            version = 1,
+            activatedGrids = normalizedAccount.activatedGrids,
+            bossDefeated = normalizedAccount.bossDefeated,
+            passiveUnlocked = normalizedAccount.passiveUnlocked,
+        }
+        if type(coreData.atlas) == "table" then
+            coreData.atlas.version = math.max(
+                3, tonumber(coreData.atlas.version) or 1)
+            coreData.atlas.artifact_jieshi = normalizedAccount
         end
     end
 

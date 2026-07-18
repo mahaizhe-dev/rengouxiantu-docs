@@ -10,6 +10,8 @@
 --   T5. 源码断言：所有早退路径都有 callback 调用
 --   T6. save_warning 节流：10s 内不重复（源码断言）
 --   T7. CloudStorage pending 在 no serverConn 时释放（源码断言）
+--   T8. 极端保存失败兜底只回调一次并作废旧 attempt
+--   T9. SaveSystem 兜底超时晚于 CloudStorage requestId 超时
 --
 -- 纯状态+源码测试，无网络副作用。
 -- ============================================================================
@@ -108,14 +110,14 @@ test("T5. SavePersistence 所有早退含 callback 调用", function()
     assertTrue(callbackCount >= 6, "至少 6 处早退有 callback, got " .. callbackCount)
 end)
 
--- T6: save_warning 节流源码断言
-test("T6. save_warning 有 10s 节流", function()
+-- T6: save_warning 状态式节流源码断言
+test("T6. save_warning 按状态使用 30s/60s 节流", function()
     if not (io and io.open) then print("    (skip) 无 io"); return end
     local f = io.open("scripts/main.lua", "r")
     if not f then print("    (skip) 源码不可读"); return end
     local src = f:read("*a"); f:close()
     assertTrue(src:find("_lastSaveWarningTime") ~= nil, "应有节流变量")
-    assertTrue(src:find("10%.0") ~= nil or src:find("10.0") ~= nil, "应有 10s 阈值")
+    assertTrue(src:find("60 or 30", 1, true) ~= nil, "应有断线60s/重试30s阈值")
 end)
 
 -- T7: CloudStorage no serverConn 释放 pending（源码断言）
@@ -124,11 +126,61 @@ test("T7. CloudStorage no serverConn 时释放 pending", function()
     local f = io.open("scripts/network/CloudStorage.lua", "r")
     if not f then print("    (skip) 源码不可读"); return end
     local src = f:read("*a"); f:close()
-    -- 检查 "No server connection for Save" 附近有 _pendingCallbacks[requestId] = nil
-    local saveBlock = src:match('No server connection for Save(.-)end')
-    assertTrue(saveBlock ~= nil, "应找到 Save no conn 块")
+    -- 检查 "No server connection for Save" 后的局部代码包含 pending 释放。
+    local startPos = src:find("No server connection for Save", 1, true)
+    assertTrue(startPos ~= nil, "应找到 Save no conn 块")
+    local saveBlock = src:sub(startPos, startPos + 500)
     assertTrue(saveBlock:find("_pendingCallbacks%[requestId%] = nil") ~= nil,
         "Save no conn 应释放 pending")
+end)
+
+test("T8. FailActiveSave 只回调一次并作废旧 attempt", function()
+    local orig = {
+        saving = SaveSystem.saving,
+        callback = SaveSystem._activeSaveCallback,
+        attemptId = SaveSystem._saveAttemptId,
+        timeoutActive = SaveSystem._saveTimeoutActive,
+        failures = SaveSystem._consecutiveFailures,
+        retryTimer = SaveSystem._retryTimer,
+    }
+    local callbackCount, callbackOk, callbackReason = 0, nil, nil
+    SaveSystem.saving = true
+    SaveSystem._activeSaveCallback = function(ok, reason)
+        callbackCount = callbackCount + 1
+        callbackOk = ok
+        callbackReason = reason
+    end
+    SaveSystem._saveAttemptId = 10
+    SaveSystem._saveTimeoutActive = true
+    SaveSystem._consecutiveFailures = 0
+    SaveSystem._retryTimer = nil
+
+    assertTrue(SaveSystem.FailActiveSave("forced_timeout"))
+    assertEqual(callbackCount, 1, "T8 callback count")
+    assertEqual(callbackOk, false, "T8 callback ok")
+    assertEqual(callbackReason, "forced_timeout", "T8 callback reason")
+    assertEqual(SaveSystem.saving, false, "T8 saving")
+    assertEqual(SaveSystem._saveAttemptId, 11, "T8 attempt invalidated")
+    assertEqual(SaveSystem._retryTimer, 10, "T8 retry")
+    assertTrue(not SaveSystem.FailActiveSave("duplicate"), "T8 duplicate fail is ignored")
+    assertEqual(callbackCount, 1, "T8 callback remains once")
+
+    SaveSystem.saving = orig.saving
+    SaveSystem._activeSaveCallback = orig.callback
+    SaveSystem._saveAttemptId = orig.attemptId
+    SaveSystem._saveTimeoutActive = orig.timeoutActive
+    SaveSystem._consecutiveFailures = orig.failures
+    SaveSystem._retryTimer = orig.retryTimer
+end)
+
+test("T9. requestId 超时先于 SaveSystem 兜底", function()
+    assertTrue(SaveSystem.SAVE_RESPONSE_TIMEOUT > SaveSystem.CLOUD_CALLBACK_TIMEOUT,
+        "SaveSystem 兜底必须晚于 CloudStorage 回调超时")
+    local f = assert(io.open("scripts/systems/SaveSystem.lua", "r"))
+    local src = f:read("*a")
+    f:close()
+    assertTrue(src:find('ExpirePendingCallbacks%(%s*"save"') ~= nil,
+        "SaveSystem 超时必须先结算 CloudStorage 保存回调")
 end)
 
 print("\n[test_save_exit_callback_reasons] " .. passed .. "/" .. total .. " passed, " .. failed .. " failed\n")

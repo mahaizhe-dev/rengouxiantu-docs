@@ -97,7 +97,7 @@ SwordWallConfig.SHOP = {
     -- 消耗品
     { id = "spirit_pill_5",          name = "灵兽丹·伍",   itemType = "consumable", consumableId = "spirit_pill_5",          price = 500 },
     { id = "lingyun_fruit_superior", name = "上品灵韵果",  itemType = "consumable", consumableId = "lingyun_fruit_superior", price = 200 },
-    { id = "exp_pill_superior",      name = "上品修炼果",  itemType = "consumable", consumableId = "exp_pill_superior",      price = 150 },
+    { id = "exp_pill_superior",      name = "上品修炼果",  itemType = "consumable", consumableId = "exp_pill_superior",      price = 100 },
     { id = "gold_brick",             name = "金砖",        itemType = "consumable", consumableId = "gold_brick",             price = 100 },
 }
 

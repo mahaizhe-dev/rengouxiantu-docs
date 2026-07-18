@@ -2,6 +2,7 @@
 -- DecoSea.lua  —— 海域装饰物渲染
 -- 从 DecorationRenderers.lua 纯剥离，零逻辑修改
 -- ============================================================================
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local RenderUtils = require("rendering.RenderUtils")
 
 local M = {}

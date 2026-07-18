@@ -2,6 +2,7 @@
 -- tiles/ch3_desert.lua - 第三章沙漠瓦片渲染
 -- 包含: SandWall, Desert, SandDark, SandLight, DriedGrass, CrackedEarth
 -- ============================================================================
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local ActiveZoneData = require("config.ActiveZoneData")
 local Shared = require("rendering.tiles.shared")
 

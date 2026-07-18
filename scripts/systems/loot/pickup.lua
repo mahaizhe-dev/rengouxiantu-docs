@@ -31,6 +31,7 @@ local PET_PICKUP_RANGE_SQ = GameConfig.PET_PICKUP_RANGE * GameConfig.PET_PICKUP_
 function M.AutoPickup(player, dt)
     dt = dt or 0.016
     local InventorySystem = require("systems.InventorySystem")
+    local AudioSystem = require("systems.AudioSystem")
 
     local freeSlots = InventorySystem.GetFreeSlots()
 
@@ -108,6 +109,7 @@ function M.AutoPickup(player, dt)
         end
 
         if distSq <= PICKUP_ARRIVE_DIST_SQ or (not drop.magnetized and distSq <= LOOT_PICKUP_RANGE_SQ) then
+            local dropCue = nil
             -- 经验
             if drop.expReward and drop.expReward > 0 then
                 local expBonus = player:GetKillExpBonus()
@@ -166,9 +168,11 @@ function M.AutoPickup(player, dt)
                         if string.find(cId, "_fragment_") then
                             hasFragmentPickup = true
                         end
-                        -- 掉落音判定（A~E类消耗品：碎片/丹药/灵韵果/黑市等）
-                        local AudioSystem = require("systems.AudioSystem")
-                        AudioSystem.CheckAndPlayForConsumable(cId)
+                        -- 单批内汇总最高优先级提示音，结算末尾只播放一次
+                        dropCue = AudioSystem.SelectHigherPriorityDropCue(
+                            dropCue,
+                            AudioSystem.ResolveConsumableDropCue(cId)
+                        )
 
                         local remaining = cAmount - added
                         if remaining <= 0 then
@@ -214,9 +218,10 @@ function M.AutoPickup(player, dt)
                             qColor and qColor.color or {255, 255, 255, 255},
                             2.0
                         )
-                        -- 掉落音判定（B类灵器+/E类专属/黑市装备）
-                        local AudioSystem = require("systems.AudioSystem")
-                        AudioSystem.CheckAndPlayForItem(item)
+                        dropCue = AudioSystem.SelectHigherPriorityDropCue(
+                            dropCue,
+                            AudioSystem.ResolveItemDropCue(item)
+                        )
                         if item.isSpecial then
                             print("[Pickup] Special equipment acquired, requesting save: " .. item.name)
                             EventBus.Emit("save_request")
@@ -238,13 +243,13 @@ function M.AutoPickup(player, dt)
                         qColor,
                         2.0
                     )
-                    -- 命格掉落音效（紫E/橙D/青B，优先级自动处理）
-                    local okAudio, AudioSys = pcall(require, "systems.AudioSystem")
-                    if okAudio and AudioSys then
-                        AudioSys.PlayMinggeCue(mItem.quality)
-                    end
+                    dropCue = AudioSystem.SelectHigherPriorityDropCue(
+                        dropCue,
+                        AudioSystem.ResolveMinggeDropCue(mItem.quality)
+                    )
                 end
             end
+            AudioSystem.PlayResolvedDropCue(dropCue)
             -- 移除或标记
             if hasConsumableFailure then
                 drop.partialLooted = true
@@ -298,6 +303,7 @@ end
 function M.PetPickup(player, drop)
     local InventorySystem = require("systems.InventorySystem")
     local CombatSystem = require("systems.CombatSystem")
+    local AudioSystem = require("systems.AudioSystem")
 
     if drop.items and #drop.items > 0 then return false end
     if drop.mingges and #drop.mingges > 0 then return false end
@@ -345,6 +351,7 @@ function M.PetPickup(player, drop)
     -- 消耗品
     local hasConsumableFailure = false
     local hasFragmentPickup = false
+    local dropCue = nil
     if drop.consumables then
         for cId, cAmount in pairs(drop.consumables) do
             local ok, added = InventorySystem.AddConsumable(cId, cAmount)
@@ -365,9 +372,10 @@ function M.PetPickup(player, drop)
                 if string.find(cId, "_fragment_") then
                     hasFragmentPickup = true
                 end
-                -- 掉落音判定（A~E类消耗品：碎片/丹药/灵韵果/黑市等）
-                local AudioSystem = require("systems.AudioSystem")
-                AudioSystem.CheckAndPlayForConsumable(cId)
+                dropCue = AudioSystem.SelectHigherPriorityDropCue(
+                    dropCue,
+                    AudioSystem.ResolveConsumableDropCue(cId)
+                )
                 local remaining = cAmount - added
                 if remaining <= 0 then
                     drop.consumables[cId] = nil
@@ -391,6 +399,7 @@ function M.PetPickup(player, drop)
             drop.consumables = nil
         end
     end
+    AudioSystem.PlayResolvedDropCue(dropCue)
     -- 神器碎片存档
     if hasFragmentPickup then
         print("[PetPickup] Artifact fragment acquired, requesting save")

@@ -9,7 +9,24 @@ fort_1.regions = {
     ch3_fort_1 = { x1 = 54, y1 = 54, x2 = 76, y2 = 76, zone = "ch3_fort_1" },
 }
 
-fort_1.npcs = {}
+fort_1.npcs = {
+    {
+        id = "ch3_huangsha_forge",
+        name = "黄沙锻造台",
+        subtitle = "黄沙换兵",
+        x = 65,
+        y = 59,
+        image = "image/tiger_trial_forge_table_20260703120928.png",
+        portrait = "image/tiger_trial_forge_table_20260703120928.png",
+        interactType = "huangsha_forge",
+        isObject = true,
+        hideName = false,
+        showNameplate = true,
+        zone = "ch3_fort_1",
+        label = "黄沙锻造台",
+        dialog = "沙万里殿前旧台仍有黄沙灵火。\n装备任意黄沙武器，投入帝尊叁戒与百万金币，可重铸为另一把黄沙武器。",
+    },
+}
 
 -- 黄天大圣·沙万里 ×1 (emperor_boss Lv65) + 枯木守卫 ×3
 -- 区域 (54,54)→(76,76)，内部可用约 (56,56)→(74,74)，均匀散布
@@ -32,7 +49,6 @@ fort_1.decorations = {
     { type = "banner",       x = 72, y = 65, color = {200, 180, 50, 255} },
     { type = "campfire",     x = 63, y = 65 },
     { type = "campfire",     x = 67, y = 65 },
-    { type = "stone_tablet", x = 65, y = 59 },
     { type = "stone_tablet", x = 65, y = 71 },
 }
 

@@ -2,6 +2,7 @@
 -- DecoGeneric.lua  —— 通用装饰物渲染（野营/军事/自然/魔法）
 -- 从 DecorationRenderers.lua 纯剥离，零逻辑修改
 -- ============================================================================
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local T = require("config.UITheme")
 
 local M = {}

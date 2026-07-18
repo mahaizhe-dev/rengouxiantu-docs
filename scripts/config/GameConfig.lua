@@ -15,7 +15,7 @@ GameConfig.DUNGEON_ENABLED = false
 -- 游戏代码版本号（每次发版递增，用于版本守卫和前向校验）
 -- 规则：纯整数，比较简单；每次改动存档结构或重大更新时 +1
 GameConfig.CODE_VERSION = 7
-GameConfig.DISPLAY_VERSION = "v1.13.8"
+GameConfig.DISPLAY_VERSION = "v1.13.16"
 
 -- 地图设置
 GameConfig.TILE_SIZE = 128         -- 每个瓦片的逻辑像素大小（基准值，不要直接用于渲染）
@@ -54,6 +54,31 @@ GameConfig.HEAL_PCT = 0.01             -- 每次回血比例（1%最大生命）
 GameConfig.STUCK_THRESHOLD = 5.0       -- 判定卡住时间（秒）
 GameConfig.STUCK_CHECK_INTERVAL = 0.5  -- 检测间隔（秒）
 GameConfig.STUCK_MOVE_THRESHOLD = 0.3  -- 检测周期内最小移动距离（瓦片）
+
+-- 玩家脚部碰撞：保持原外接尺寸，仅把尖角矩形改为椭圆。
+GameConfig.PLAYER_COLLISION = {
+    radiusX = 0.30,
+    radiusY = 0.15,
+    offsetY = 0.525,
+    epsilon = 0.000001,
+}
+
+-- 仅缓解近身战斗怪物完全同点，不建立强制碰撞或绝对最小间距。
+GameConfig.MONSTER_SOFT_SEPARATION = {
+    enabled = true,
+    interval = 0.10,
+    combatRange = GameConfig.DEAGGRO_RANGE,
+    maxMonsters = 16,
+    maxPairs = 128,
+    correctionFraction = 0.50,
+    maxCorrection = 0.030,
+    bossMaxCorrection = 0.005,
+    normalDistance = 0.30,
+    eliteDistance = 0.36,
+    bossDistance = 0.40,
+    eliteMobility = 0.70,
+    bossMobility = 0.20,
+}
 
 GameConfig.PET_ATTACK_RANGE = 1.2
 GameConfig.LOOT_PICKUP_RANGE = 1.0     -- 拾取距离
@@ -215,8 +240,10 @@ GameConfig.PET_MATERIALS = {
     wind_eroded_grass = { name = "风蚀草", icon = "🌿", sellPrice = 1000, quality = "orange", desc = "沙漠中被风沙打磨千年的灵草，韧如精钢。\n用途：炼制千锤百炼丹的材料。\n获取：沙漠九寨怪物掉落" },
     night_shadow_grass = { name = "影神草", icon = "🌿", sellPrice = 3000, quality = "red", desc = "只在两界村暗影灵脉旁生长的幽草，叶脉泛着淡淡黑光。\n用途：炼制影神丹的必需材料。\n获取：第六章皇级及以上BOSS稀有世界掉落。" },
     lotus_pool_dew = { name = "莲池仙露", icon = "image/icon_lotus_pool_dew_20260701120319.png", sellPrice = 30000, quality = "red", desc = "呱大人领地莲湖中凝结的圣器级仙露，青白光华流转不散。\n用途：激活天青白莲，解锁青莲长生体。\n获取：蛤蟆仙人、呱大人极低概率掉落。" },
-    lingyun_fruit = { name = "灵韵果", icon = "🍇", sellPrice = 0, quality = "orange", desc = "八卦海灵脉孕育的奇果，咬破果皮，灵韵四溢。\n用途：使用后获得50灵韵（不可出售）。\n获取：第四章BOSS掉落" },
-    lingyun_fruit_superior = { name = "上品灵韵果", icon = "🍇", sellPrice = 0, quality = "red", desc = "太虚宗灵脉深处孕育的上品奇果，灵韵浓郁，异香扑鼻。\n用途：使用后获得500灵韵（不可出售）。\n获取：第五章BOSS掉落" },
+    lingyun_fruit = { name = "灵韵果", icon = "image/icon_lingyun_fruit_20260711095806.png", sellPrice = 0, quality = "orange", desc = "八卦海灵脉孕育的奇果，咬破果皮，灵韵四溢。\n用途：使用后获得50灵韵（不可出售）。\n获取：第四章BOSS掉落" },
+    lingyun_fruit_superior = { name = "上品灵韵果", icon = "image/icon_lingyun_fruit_20260711095806.png", sellPrice = 0, quality = "red", desc = "太虚宗灵脉深处孕育的上品奇果，灵韵浓郁，异香扑鼻。\n用途：使用后获得500灵韵（不可出售）。\n获取：第五章BOSS掉落" },
+    lingyun_fruit_supreme = { name = "极品灵韵果", icon = "image/icon_lingyun_fruit_20260711095806.png", sellPrice = 0, quality = "gold", desc = "藏宝海灵眼孕育的极品灵韵果，果实内自成灵潮。\n用途：使用后获得5000灵韵（不可出售）。\n获取：藏宝图宝箱" },
+    treasure_map = { name = "藏宝图", icon = "image/treasure_map_20260711095806.png", sellPrice = 0, quality = "purple", category = "treasure_map", desc = "一张被海雾浸润的古老藏宝图，墨迹指向八卦海深处。\n用途：在第四章打开藏宝图界面，循图前往寻宝。\n获取：第四章四龙、第五章四仙剑、第六章呱大人和魔君·蚀玄。" },
     -- 高阶境界突破材料
     jiuzhuan_jindan = { name = "九转金丹", icon = "icon_jiuzhuan_jindan.png", sellPrice = 0, quality = "red", desc = "传说中的仙丹，需九次淬炼方成，蕴含无上仙力。\n用途：化神·合体境界突破的必需品。\n炼制：500灵韵 → 1颗（第四章炼丹炉）\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
     dujie_dan = { name = "渡劫丹", icon = "icon_dujie_dan.png", sellPrice = 0, quality = "red", desc = "以九天雷髓与万年灵液淬炼而成的极品仙丹，丹中隐现雷纹。\n用途：大乘境界突破的必需品。\n炼制：1000灵韵 → 1颗（第五章炼丹炉）\n多余丹药可在瑶池化为灵液，用于洗髓修炼。" },
@@ -234,6 +261,7 @@ GameConfig.PET_MATERIALS = {
     -- 纯卖钱物品
     gold_bar = { name = "金条", icon = "icon_gold_bar.png", sellPrice = 1000, quality = "orange", desc = "沉甸甸的金条，闪耀着诱人的光泽。\n用途：出售给商人换取金币。" },
     gold_brick = { name = "金砖", icon = "icon_gold_bar.png", sellPrice = 100000, quality = "cyan", desc = "由万年灵金铸炼而成的实心金砖，沉如磐石，金光内敛。\n用途：出售给商人换取大量金币。" },
+    gold_box_10m = { name = "金盒", icon = "image/icon_gold_box_10m_20260711095806.png", sellPrice = 0, quality = "gold", desc = "沉重的鎏金宝盒，封存着整整一千万金币。\n用途：使用后获得10000000金币。\n获取：藏宝图宝箱。" },
     -- 挑战系统货币
     wubao_token = { name = "乌堡令", icon = "🏷️", sellPrice = 100, quality = "blue", desc = "乌堡势力的信物，散发着阴冷的气息。\n用途：向浩气宗或血煞盟使者上交，解锁切磋挑战。\n售价：100金币" },
     sha_hai_ling = { name = "沙海令", icon = "🏜️", sellPrice = 100, quality = "blue", desc = "沙漠九寨的通行令牌，散发着炽热的气息。\n用途：向浩气宗或血煞盟使者上交，解锁沙海试炼。\n售价：100金币" },
@@ -241,7 +269,7 @@ GameConfig.PET_MATERIALS = {
     zhexian_ling = { name = "谪仙令", icon = "🔱", sellPrice = 100, quality = "blue", desc = "两界村之影中流转的谪仙令牌，记录着踏入仙阶后的试炼印记。\n用途：第六章后续挑战与兑换信物。\n售价：100金币。\n获取：第六章世界掉落。" },
     -- 令牌盒（使用获得100令牌；第2~5章100灵韵打包，第6章200灵韵打包）
     wubao_token_box = { name = "乌堡令盒", icon = "📦", sellPrice = 0, quality = "purple", desc = "封装了100枚乌堡令的锦盒，散发幽冷气息。\n用途：使用后获得100枚乌堡令。\n炼制：100乌堡令 + 100灵韵（第二章炼丹炉）" },
-    wubao_treasure_key = { name = "堡主钥匙", icon = "image/wubao_treasure_key_20260704023406.png", sellPrice = 10000, quality = "purple", desc = "乌万海随身秘钥，钥身缠绕乌堡大殿的幽紫封纹。\n用途：开启乌家宝藏中未开启的宝箱。\n获取：击败乌万海独立掉落（1%）" },
+    wubao_treasure_key = { name = "堡主钥匙", icon = "image/wubao_treasure_key_20260704023406.png", sellPrice = 10000, quality = "purple", desc = "乌万海随身秘钥，钥身缠绕乌堡大殿的幽紫封纹。\n用途：开启乌家宝藏中未开启的宝箱。\n获取：击败乌万海独立掉落（2%）" },
     sha_hai_ling_box = { name = "沙海令盒", icon = "📦", sellPrice = 0, quality = "purple", desc = "封装了100枚沙海令的锦盒，散发炽热气息。\n用途：使用后获得100枚沙海令。\n炼制：100沙海令 + 100灵韵（第三章炼丹炉）" },
     taixu_token_box = { name = "太虚令盒", icon = "📦", sellPrice = 0, quality = "purple", desc = "封装了100枚太虚令的锦盒，蕴含上古灵力。\n用途：使用后获得100枚太虚令。\n炼制：100太虚令 + 100灵韵（第四章炼丹炉）" },
     taixu_jianling = { name = "太虚剑令", icon = "⚔️", sellPrice = 100, quality = "blue", desc = "太虚宗剑台传承之令，残留着上古剑意。\n用途：向浩气宗或血煞盟使者上交，解锁太虚试炼。\n售价：100金币" },
@@ -278,9 +306,17 @@ GameConfig.PET_MATERIALS = {
     dragon_scale_sand = { name = "蚀骨龙牙", icon = "🦷", sellPrice = 10000, quality = "red", desc = "蚀骨螭龙的獠牙碎片，坚逾金刚，可侵蚀万物。\n用途：圣器打造材料。\n获取：蚀骨螭龙掉落（1%）" },
     -- 仙人精血（屠血将0.2%+噬渊血犼/蚀骨/裂魂1%+四仙剑3%，圣器打造材料）
     immortal_essence_blood = { name = "仙人精血", icon = "🩸", sellPrice = 10000, quality = "red", desc = "洒落的仙人之血，浸透断壁残兵，千年不枯。谪仙之上，无一不是从尸山血海中走出来的。\n用途：圣器打造材料。\n获取：第五章高阶BOSS掉落；第六章皇级BOSS掉落（1%）。" },
-    shadow_crystal = { name = "影子水晶", icon = "image/icon_shadow_crystal_20260701001812.png", sellPrice = 10000, quality = "red", desc = "凝结自两界阴影的幽暗水晶，内部似有影游之息流动。\n用途：第六章稀有材料（暂未开放锻造用途）。\n获取：哼哈元帅、呱大人、魔君·蚀玄掉落。" },
-    -- 界匙碎片（第六章神器线索，本次只注册碎片物品；神器本体后置）
-    jieshi_fragment_1 = { name = "界匙碎片·壹", icon = "🗝️", sellPrice = 0, quality = "red", desc = "残缺界匙的第一枚碎片，边缘缠绕着两界裂隙的微光。\n用途：第六章神器「界匙」碎片之一；神器本体与重铸功能后续开放。\n获取：第一章隐藏触发战斗「界隙残阵」胜利奖励。\n（一次性剧情碎片，无法出售）" },
+    shadow_crystal = { name = "影子水晶", icon = "image/icon_shadow_crystal_20260701001812.png", sellPrice = 10000, quality = "red", desc = "凝结自两界阴影的幽暗水晶，内部似有影游之息流动。\n用途：两界影炉仙1终局装备的核心材料，每条配方消耗6个。\n获取：哼哈元帅、呱大人、魔君·蚀玄掉落。" },
+    -- 界匙碎片（第六章神器，九片对应九宫位格）
+    jieshi_fragment_1 = { name = "界匙碎片·壹", icon = "🗝️", sellPrice = 0, quality = "red", desc = "残缺界匙的第一枚碎片，边缘缠绕着两界裂隙的微光。\n用途：在两界村神器「界匙」处激活第一位格。\n获取：第一章隐藏触发战斗「界隙残阵」胜利奖励。\n（一次性剧情碎片，无法出售）" },
+    jieshi_fragment_2 = { name = "界匙碎片·贰", icon = "🗝️", sellPrice = 180000, quality = "red", desc = "残缺界匙的第二枚碎片，钥齿处残留破军天罡剑痕。\n用途：在两界村神器「界匙」处激活第二位格。\n获取：西大营天将·破军掉落（0.1%）。" },
+    jieshi_fragment_3 = { name = "界匙碎片·叁", icon = "🗝️", sellPrice = 180000, quality = "red", desc = "残缺界匙的第三枚碎片，碎面沉重如界垣镇压。\n用途：在两界村神器「界匙」处激活第三位格。\n获取：西大营天将·镇垣掉落（0.1%）。" },
+    jieshi_fragment_4 = { name = "界匙碎片·肆", icon = "🗝️", sellPrice = 180000, quality = "red", desc = "残缺界匙的第四枚碎片，青色锋芒在裂隙边缘游走。\n用途：在两界村神器「界匙」处激活第四位格。\n获取：东大营天将·青锋掉落（0.1%）。" },
+    jieshi_fragment_5 = { name = "界匙碎片·伍", icon = "🗝️", sellPrice = 180000, quality = "red", desc = "残缺界匙的第五枚碎片，雷纹断续闪烁，似可牵引两界封雷。\n用途：在两界村神器「界匙」处激活第五位格。\n获取：东大营天将·雷策掉落（0.1%）。" },
+    jieshi_fragment_6 = { name = "界匙碎片·陆", icon = "🗝️", sellPrice = 180000, quality = "red", desc = "残缺界匙的第六枚碎片，残存哼元帅震魂法音。\n用途：在两界村神器「界匙」处激活第六位格。\n获取：哼元帅掉落（0.1%）。" },
+    jieshi_fragment_7 = { name = "界匙碎片·柒", icon = "🗝️", sellPrice = 180000, quality = "red", desc = "残缺界匙的第七枚碎片，裂面回荡哈元帅破界雷音。\n用途：在两界村神器「界匙」处激活第七位格。\n获取：哈元帅掉落（0.1%）。" },
+    jieshi_fragment_8 = { name = "界匙碎片·捌", icon = "🗝️", sellPrice = 180000, quality = "red", desc = "残缺界匙的第八枚碎片，厚土山脉之力凝在钥脊之上。\n用途：在两界村神器「界匙」处激活第八位格。\n获取：两界山神·断岳掉落（0.1%）。" },
+    jieshi_fragment_9 = { name = "界匙碎片·玖", icon = "🗝️", sellPrice = 210000, quality = "red", desc = "残缺界匙的第九枚碎片，蚀玄魔气与两界封印互相撕扯，是界匙重铸的核心残片。\n用途：在两界村神器「界匙」处激活第九位格。\n获取：魔君·蚀玄掉落（0.1%）。" },
     -- 天帝剑痕碎片（仙劫战场·域外邪魔掉落，9片合成天帝剑痕）
     tiandi_fragment_1 = { name = "天帝剑痕碎片·壹", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "远古天帝斩落域外邪魔时遗留的剑痕残片，剑意犹存，隐约可闻天雷余响。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },
     tiandi_fragment_2 = { name = "天帝剑痕碎片·贰", icon = "icon_tiandi_fragment.png", sellPrice = 100000, quality = "red", desc = "据传天帝以此一剑斩断天外入侵通道，立下中洲万世屏障。碎片表面仍残留斩裂虚空的痕迹。\n用途：集齐九片可重铸天帝剑痕。\n获取：域外邪魔掉落（0.1%）" },

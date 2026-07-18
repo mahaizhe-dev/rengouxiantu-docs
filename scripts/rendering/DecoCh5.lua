@@ -3,6 +3,7 @@
 -- 包含: ruined_pillar, anvil, ice_shard, toppled_stele, burning_shelf
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local M = {}
 
 -- ============================================================================

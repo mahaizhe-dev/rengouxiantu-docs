@@ -91,6 +91,7 @@ return {
                 "yinyang_boots_ch4",
                 "tiantianquan_weapon_ch4",
                 "jilong_helmet_ch4",
+                "zhenlong_helmet_ch4",
                 "fabao_xuehaitu_t9",
                 "fabao_haoqiyin_t9",
                 "fabao_qingyunta_t9",
@@ -160,6 +161,19 @@ return {
                 "ch6_gua_king_ring",
                 "ch6_xianzun_1_ring",
                 "ch6_shixuan_demon_cape",
+                "ch6_true_zhuxian",
+                "ch6_true_xianxian",
+                "ch6_true_luxian",
+                "ch6_true_juexian",
+                "ch6_hengha_dual_blade",
+                "ch6_zhenjie_saint_armor",
+                "ch6_guagua_junling_ring",
+                "ch6_shijie_saint_cape",
+                "fabao_xuehaitu_t11",
+                "fabao_haoqiyin_t11",
+                "fabao_qingyunta_t11",
+                "fabao_fengmopan_t11",
+                "fabao_longwangling_t11",
             },
         },
     },
@@ -233,6 +247,7 @@ return {
         "yinyang_boots_ch4",
         "tiantianquan_weapon_ch4",
         "jilong_helmet_ch4",
+        "zhenlong_helmet_ch4",
         "fabao_xuehaitu_t9",
         "fabao_haoqiyin_t9",
         "fabao_qingyunta_t9",
@@ -294,6 +309,19 @@ return {
         "ch6_gua_king_ring",
         "ch6_xianzun_1_ring",
         "ch6_shixuan_demon_cape",
+        "ch6_true_zhuxian",
+        "ch6_true_xianxian",
+        "ch6_true_luxian",
+        "ch6_true_juexian",
+        "ch6_hengha_dual_blade",
+        "ch6_zhenjie_saint_armor",
+        "ch6_guagua_junling_ring",
+        "ch6_shijie_saint_cape",
+        "fabao_xuehaitu_t11",
+        "fabao_haoqiyin_t11",
+        "fabao_qingyunta_t11",
+        "fabao_fengmopan_t11",
+        "fabao_longwangling_t11",
     },
 
     -- 每个条目的收录奖励（总计≈T3绿全套的20%）
@@ -580,6 +608,10 @@ return {
             bonus = { atk = 8, killHeal = 8 },
             desc = "四方龙神之力凝聚的战盔，龙威加身，坚不可摧。",
         },
+        zhenlong_helmet_ch4 = {
+            bonus = { atk = 12 },
+            desc = "极龙盔再经龙极令与帝尊肆戒淬炼，真龙威势尽聚于冠。",
+        },
         -- 法宝图鉴（第四章·T9）
         fabao_xuehaitu_t9 = {
             bonus = { atk = 9, killHeal = 18 },
@@ -811,6 +843,59 @@ return {
         ch6_shixuan_demon_cape = {
             bonus = { def = 8, maxHp = 30, hpRegen = 2 },
             desc = "蚀玄魔君氅，暗影成披，魔气侵蚀而护身。",
+        },
+        ch6_true_zhuxian = {
+            bonus = { atk = 12, killHeal = 12, hpRegen = 1 },
+            desc = "诛仙二次解封，剑意贯穿两界。",
+        },
+        ch6_true_xianxian = {
+            bonus = { atk = 10, maxHp = 40, hpRegen = 1 },
+            desc = "陷仙二次解封，生灭攻守相依。",
+        },
+        ch6_true_luxian = {
+            bonus = { atk = 12, def = 8, hpRegen = 1 },
+            desc = "戮仙二次解封，连斩势不可挡。",
+        },
+        ch6_true_juexian = {
+            bonus = { atk = 10, maxHp = 40, hpRegen = 1 },
+            desc = "绝仙二次解封，绝命锋芒再临。",
+        },
+        ch6_zhenjie_saint_armor = {
+            bonus = { def = 12, maxHp = 30, hpRegen = 2 },
+            desc = "镇界五甲归一，天幕护身而不夺八卦之效。",
+        },
+        ch6_hengha_dual_blade = {
+            bonus = { atk = 12, maxHp = 30, hpRegen = 1 },
+            desc = "哼哈双刃齐鸣，震杀之威横贯战阵。",
+        },
+        ch6_guagua_junling_ring = {
+            bonus = { constitution = 5, wisdom = 5, physique = 5 },
+            desc = "呱呱均灵，四缘取其低者而补之。",
+        },
+        ch6_shijie_saint_cape = {
+            bonus = { def = 12, maxHp = 40, hpRegen = 2 },
+            desc = "蚀界仙氅合并深渊与魔君之力，渊甲长护。",
+        },
+        -- 第六章·T11 红色法宝
+        fabao_xuehaitu_t11 = {
+            bonus = { atk = 15, killHeal = 30 },
+            desc = "血海图踏入仙阶，血潮横贯两界，杀意凝而不散。",
+        },
+        fabao_haoqiyin_t11 = {
+            bonus = { killHeal = 30, hpRegen = 10 },
+            desc = "浩气印踏入仙阶，正气生生不息，攻守皆可回转。",
+        },
+        fabao_qingyunta_t11 = {
+            bonus = { heavyHit = 50, def = 15 },
+            desc = "青云塔踏入仙阶，塔威镇界，重势可碎金石。",
+        },
+        fabao_fengmopan_t11 = {
+            bonus = { maxHp = 50, hpRegen = 5 },
+            desc = "封魔盘踏入仙阶，封镇万魔，血脉与生机长存。",
+        },
+        fabao_longwangling_t11 = {
+            bonus = { atk = 5, fortune = 5 },
+            desc = "龙王令号令龙息，威临两界，攻伐与福缘并聚。",
         },
     },
 }

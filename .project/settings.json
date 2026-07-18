@@ -27,9 +27,9 @@
       "background_match": true,
       "match_info": {
         "desc_name": "free_match_with_ai",
-        "player_number": 1,
         "immediately_start": true,
-        "match_timeout": 3
+        "match_timeout": 3,
+        "player_number": 1
       },
       "persistent_world": {
         "enabled": false

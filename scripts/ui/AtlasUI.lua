@@ -23,7 +23,7 @@ local visible_ = false
 local currentTab_ = 1  -- 1=道印 2=神器
 local tabBtns_ = {}
 local contentArea_ = nil
-local artifactSubTab_ = 1  -- 1=上宝逊金钯 2=文王八卦盘 3=天帝剑痕 4=诛仙阵图
+local artifactSubTab_ = 1  -- 1=上宝逊金钯 2=文王八卦盘 3=天帝剑痕 4=诛仙阵图 5=界匙
 local subTabBtns_ = {}     -- 子切页按钮引用
 
 -- ============================================================================
@@ -339,12 +339,13 @@ local ARTIFACT_SUB_TABS = {
     { name = "文王八卦盘", icon = "☯", chapter = "第四章：八卦海" },
     { name = "天帝剑痕",   icon = "⚡", chapter = "中洲" },
     { name = "诛仙阵图",   icon = "☠", chapter = "第五章：太虚之殇" },
+    { name = "界匙",       icon = "◇", chapter = "第六章：两界村之影" },
 }
 
---- 构建子切页按钮栏（两行布局，每行两个，防止超框）
+--- 构建子切页按钮栏（最多两列，避免窄屏超框）
 local function BuildSubTabBar()
     subTabBtns_ = {}
-    local rows = { {1, 2}, {3, 4} }
+    local rows = { {1, 2}, {3, 4}, {5} }
     local rowPanels = {}
     for _, idxPair in ipairs(rows) do
         local rowChildren = {}
@@ -1028,6 +1029,151 @@ local function BuildZhentuContent()
     return children
 end
 
+--- 构建界匙内容（第六章神器）
+local function BuildJieshiContent()
+    local children = {}
+    local data = AtlasSystem.data
+    local ArtifactCh6 = require("systems.ArtifactSystem_ch6")
+    local progress = data and data.artifact_jieshi or nil
+
+    local activatedCount = 0
+    for i = 1, ArtifactCh6.GRID_COUNT do
+        if progress and progress.activatedGrids
+            and progress.activatedGrids[i] == true then
+            activatedCount = activatedCount + 1
+        end
+    end
+
+    local gridRows = {}
+    for row = 1, 3 do
+        local rowCells = {}
+        for col = 1, 3 do
+            local idx = (row - 1) * 3 + col
+            local isActive = progress and progress.activatedGrids
+                and progress.activatedGrids[idx] == true
+            rowCells[#rowCells + 1] = UI.Panel {
+                width = RAKE_CELL_W,
+                height = RAKE_CELL_H,
+                borderWidth = isActive and 2 or 1,
+                borderColor = isActive
+                    and (idx % 2 == 0 and {190, 120, 255, 255}
+                        or {145, 235, 255, 255})
+                    or {50, 55, 75, 150},
+                backgroundColor = isActive and MASK_ACTIVATED
+                    or {8, 8, 18, 225},
+                justifyContent = "center",
+                alignItems = "center",
+                children = {
+                    UI.Label {
+                        text = isActive and "✓" or ArtifactCh6.GRID_NAMES[idx],
+                        fontSize = isActive and T.fontSize.md or T.fontSize.sm,
+                        fontColor = isActive and {120, 245, 180, 255}
+                            or {110, 110, 130, 170},
+                    },
+                },
+            }
+        end
+        gridRows[#gridRows + 1] = UI.Panel {
+            flexDirection = "row",
+            gap = RAKE_GAP,
+            justifyContent = "center",
+            children = rowCells,
+        }
+    end
+
+    children[#children + 1] = UI.Panel {
+        width = "100%",
+        alignItems = "center",
+        children = {
+            UI.Panel {
+                width = RAKE_GRID_W,
+                height = RAKE_GRID_H,
+                alignSelf = "center",
+                borderRadius = T.radius.md,
+                overflow = "hidden",
+                backgroundImage = ArtifactCh6.FULL_IMAGE,
+                backgroundFit = "fill",
+                borderWidth = 1,
+                borderColor = {145, 235, 255, 90},
+                justifyContent = "center",
+                alignItems = "center",
+                gap = RAKE_GAP,
+                children = gridRows,
+            },
+        },
+    }
+
+    children[#children + 1] = UI.Panel {
+        flexDirection = "row",
+        justifyContent = "center",
+        alignItems = "center",
+        gap = T.spacing.sm,
+        children = {
+            UI.Label {
+                text = "位格重铸",
+                fontSize = T.fontSize.xs,
+                fontColor = A.dim,
+            },
+            UI.Label {
+                text = activatedCount .. "/" .. ArtifactCh6.GRID_COUNT,
+                fontSize = T.fontSize.sm,
+                fontColor = activatedCount >= ArtifactCh6.GRID_COUNT
+                    and A.green or A.gold,
+                fontWeight = "bold",
+            },
+        },
+    }
+
+    local fullReached = activatedCount >= ArtifactCh6.GRID_COUNT
+    local per = ArtifactCh6.PER_GRID_BONUS
+    local full = ArtifactCh6.FULL_BONUS
+    local totalMaxHp = activatedCount * per.maxHp
+        + (fullReached and full.maxHp or 0)
+    local totalHpRegen = activatedCount * per.hpRegen
+        + (fullReached and full.hpRegen or 0)
+    local totalFortune = activatedCount * per.fortune
+        + (fullReached and full.fortune or 0)
+
+    children[#children + 1] = Divider()
+    children[#children + 1] = UI.Panel {
+        width = "100%",
+        padding = T.spacing.sm,
+        backgroundColor = A.sectionBg,
+        borderRadius = T.radius.sm,
+        gap = T.spacing.xs,
+        children = {
+            UI.Label {
+                text = "属性加成",
+                fontSize = T.fontSize.sm,
+                fontColor = A.titleGold,
+                fontWeight = "bold",
+            },
+            StatRow("生命", "+" .. totalMaxHp, A.green),
+            StatRow("生命回复", "+" .. totalHpRegen, A.green),
+            StatRow("福源", "+" .. totalFortune, A.green),
+        },
+    }
+
+    children[#children + 1] = Divider()
+    local passiveUnlocked = progress and progress.passiveUnlocked == true
+    local passiveCfg = {
+        name = ArtifactCh6.PASSIVE.name,
+        desc = ArtifactCh6.GetPassiveDisplayDesc(),
+    }
+    children[#children + 1] = BuildPassivePanel(passiveCfg, passiveUnlocked)
+
+    if fullReached and not passiveUnlocked then
+        children[#children + 1] = UI.Label {
+            text = "神器Boss后续开放，当前不会进入战斗。",
+            fontSize = T.fontSize.xs,
+            fontColor = A.dim,
+            textAlign = "center",
+        }
+    end
+
+    return children
+end
+
 
 local function BuildArtifactContent()
     local children = {}
@@ -1036,7 +1182,13 @@ local function BuildArtifactContent()
     children[#children + 1] = BuildSubTabBar()
 
     -- 根据子切页选择内容
-    local subBuilders = { BuildRakeContent, BuildBaguaContent, BuildTiandiContent, BuildZhentuContent }
+    local subBuilders = {
+        BuildRakeContent,
+        BuildBaguaContent,
+        BuildTiandiContent,
+        BuildZhentuContent,
+        BuildJieshiContent,
+    }
     local subBuilder  = subBuilders[artifactSubTab_] or BuildRakeContent
     local subItems = subBuilder()
     for _, item in ipairs(subItems) do

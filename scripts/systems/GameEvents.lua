@@ -101,13 +101,21 @@ function GameEvents.Register(refs)
                 healAmt = math.floor(healAmt * killHealMul)
             end
             if player.hp < maxHp then
+                local hpBefore = player.hp
                 player.hp = math.min(maxHp, player.hp + healAmt)
-                CombatSystem.AddFloatingText(
-                    player.x, player.y - 0.3,
-                    "+" .. healAmt,
-                    {100, 255, 100, 255},
-                    1.0
-                )
+                local actualHeal = player.hp - hpBefore
+                if actualHeal > 0 then
+                    CombatSystem.EmitCombatFeedback({
+                        kind = "heal", value = actualHeal,
+                        source = player, target = player, targetKey = "player:self",
+                        sourceType = "passive", sourceId = "kill_heal",
+                        sourceName = "击杀回血", color = {100, 255, 100, 255},
+                    }, {
+                        x = player.x, y = player.y - 0.3,
+                        text = "+" .. actualHeal,
+                        color = {100, 255, 100, 255}, lifetime = 1.0,
+                    })
+                end
             end
         end
 
@@ -275,24 +283,45 @@ function GameEvents.Register(refs)
                 end
             end
             if safe then
-                CombatSystem.AddFloatingText(
-                    player.x, player.y - 0.5,
-                    "闪避!", {100, 255, 100, 255}, 1.5
-                )
+                CombatSystem.EmitCombatFeedback({
+                    kind = "evade",
+                    text = "闪避",
+                    source = monster,
+                    target = player,
+                    targetKey = "player:self",
+                    sourceType = "boss",
+                    sourceId = skill.id or skill.name,
+                    sourceName = skill.name,
+                    color = {100, 255, 100, 255},
+                }, {
+                    x = player.x, y = player.y - 0.5,
+                    text = "闪避!", color = {100, 255, 100, 255}, lifetime = 1.5,
+                })
                 print("[Skill] Player dodged " .. skill.name .. " in safe zone!")
             else
-                local damage = math.floor(player:GetTotalMaxHp() * (skill.damagePercent or 0.5))
-                player:TakeDamage(damage, monster)
-                CombatSystem.AddFloatingText(
-                    player.x, player.y - 0.8,
-                    skill.name .. " " .. damage, monster.skillTextColor or {255, 50, 50, 255}, 2.0
-                )
-                print("[Skill] " .. monster.name .. " field skill hit player for " .. damage .. " (" .. math.floor((skill.damagePercent or 0.5) * 100) .. "% maxHP)")
+                local damagePercent = monster.fieldDamagePercent or skill.damagePercent or 0.5
+                local damage = math.floor(player:GetTotalMaxHp() * damagePercent)
+                local color = monster.skillTextColor or {255, 50, 50, 255}
+                local actualDamage = player:TakeDamage(damage, monster, {
+                    sourceType = "boss",
+                    sourceId = skill.id or skill.name,
+                    sourceName = skill.name,
+                    damageTag = "skill",
+                    impact = "heavy",
+                    color = color,
+                    legacyPrefix = skill.name .. " ",
+                    legacyColor = color,
+                    legacyY = player.y - 0.8,
+                    legacyLifetime = 2.0,
+                })
+                print("[Skill] " .. monster.name .. " field skill hit player for " .. actualDamage
+                    .. " (" .. math.floor(damagePercent * 100) .. "% maxHP)")
             end
             -- 宠物也受场地技能伤害（减半，不检查安全区）
             local pet = GameState.pet
             if pet and pet.alive then
-                local petDmg = math.floor(pet.maxHp * (skill.damagePercent or 0.5) * 0.5)
+                local petDamagePercent = monster.fieldDamagePercent or skill.damagePercent or 0.5
+                local petDmg = math.floor(pet.maxHp * petDamagePercent * 0.5)
                 if petDmg > 0 then
                     pet:TakeDamage(petDmg, monster)
                 end
@@ -358,12 +387,38 @@ function GameEvents.Register(refs)
             rawDamage = math.floor(rawDamage * 0.5)
         end
         local damage = GameConfig.CalcDamage(rawDamage, target:GetTotalDef())
-        target:TakeDamage(damage, monster)
-
-        CombatSystem.AddFloatingText(
-            target.x, target.y - 0.8,
-            skill.name, monster.skillTextColor or {255, 180, 50, 255}, 1.5
-        )
+        local color = monster.skillTextColor or {255, 180, 50, 255}
+        local actualDamage
+        if isPet then
+            actualDamage = target:TakeDamage(damage, monster)
+            CombatSystem.EmitCombatFeedback({
+                kind = "hurt",
+                value = actualDamage,
+                source = monster,
+                target = target,
+                targetKey = "pet:self",
+                sourceType = "boss",
+                sourceId = skill.id or skill.name,
+                sourceName = skill.name,
+                damageTag = "skill",
+                color = color,
+            }, {
+                x = target.x, y = target.y - 0.8,
+                text = skill.name, color = color, lifetime = 1.5,
+            })
+        else
+            actualDamage = target:TakeDamage(damage, monster, {
+                sourceType = "boss",
+                sourceId = skill.id or skill.name,
+                sourceName = skill.name,
+                damageTag = "skill",
+                color = color,
+                legacyText = skill.name,
+                legacyColor = color,
+                legacyY = target.y - 0.8,
+                legacyLifetime = 1.5,
+            })
+        end
 
         -- 毒只对玩家生效
         if skill.effect == "poison" and not isPet and target.alive then
@@ -410,7 +465,11 @@ function GameEvents.Register(refs)
         -- 血煞印记叠层：沈墨系BOSS命中玩家时叠加印记
         if not isPet and target.alive and monster.bloodMark then
             if player and target == player then
+                local maxStacks = monster.bloodMark.maxStacks
                 player.bloodMarkStacks = player.bloodMarkStacks + 1
+                if maxStacks then
+                    player.bloodMarkStacks = math.min(player.bloodMarkStacks, maxStacks)
+                end
                 player.bloodMarkDmgPercent = monster.bloodMark.damagePercent
                 CombatSystem.AddFloatingText(
                     player.x, player.y - 0.5,
@@ -422,7 +481,7 @@ function GameEvents.Register(refs)
             end
         end
 
-        print("[Skill] " .. monster.name .. " used " .. skill.name .. " on " .. (isPet and "pet" or "player") .. " for " .. damage .. " damage")
+        print("[Skill] " .. monster.name .. " used " .. skill.name .. " on " .. (isPet and "pet" or "player") .. " for " .. actualDamage .. " damage")
     end)
 
     -- 怪物技能蓄力
@@ -441,13 +500,26 @@ function GameEvents.Register(refs)
     end)
 
     -- 中毒 tick
-    RegisterEvent("player_poison_tick", function(damage)
+    RegisterEvent("player_poison_tick", function(damage, source)
         local player = GameState.player
         if player then
-            CombatSystem.AddFloatingText(
-                player.x, player.y - 0.3,
-                "-" .. damage .. " 毒", {80, 200, 60, 255}, 0.8
-            )
+            CombatSystem.EmitCombatFeedback({
+                kind = "hurt",
+                value = damage,
+                source = source,
+                target = player,
+                targetKey = "player:self",
+                sourceType = "boss",
+                sourceId = "poison",
+                sourceName = "中毒",
+                damageTag = "dot",
+                impact = "dot",
+                color = {80, 200, 60, 255},
+            }, {
+                x = player.x, y = player.y - 0.3,
+                text = "-" .. damage .. " 毒",
+                color = {80, 200, 60, 255}, lifetime = 0.8,
+            })
         end
     end)
 

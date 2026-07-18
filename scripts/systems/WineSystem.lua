@@ -273,15 +273,23 @@ function WineSystem.OnGourdSkillCast(duration)
                     -- 乌泉酿：瞬间回复15%最大生命
                     local maxHp = player:GetTotalMaxHp()
                     local healAmount = math.floor(maxHp * val)
-                    if healAmount > 0 then
+                    if healAmount > 0 and player.hp < maxHp then
+                        local hpBefore = player.hp
                         player.hp = math.min(maxHp, player.hp + healAmount)
-                        CombatSystem.AddFloatingText(
-                            player.x, player.y - 0.5,
-                            "+" .. healAmount .. "(美酒)",
-                            {100, 255, 180, 255},
-                            1.2
-                        )
-                        print("[WineSystem] 乌泉酿触发: 回复" .. healAmount .. "HP")
+                        local actualHeal = player.hp - hpBefore
+                        if actualHeal > 0 then
+                            CombatSystem.EmitCombatFeedback({
+                                kind = "heal", value = actualHeal,
+                                source = player, target = player, targetKey = "player:self",
+                                sourceType = "consumable", sourceId = wineId,
+                                sourceName = wineDef.name, color = {100, 255, 180, 255},
+                            }, {
+                                x = player.x, y = player.y - 0.5,
+                                text = "+" .. actualHeal .. "(美酒)",
+                                color = {100, 255, 180, 255}, lifetime = 1.2,
+                            })
+                            print("[WineSystem] 乌泉酿触发: 回复" .. actualHeal .. "HP")
+                        end
                     end
 
                 elseif etype == "crit_dmg_pct" then

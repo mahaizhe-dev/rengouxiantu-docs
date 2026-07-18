@@ -282,6 +282,77 @@ local function CmdGiveTigerTrialForgeKit()
     end)
 end
 
+local function CmdGiveHuangshaForgeKit()
+    SendGMCommand("give_huangsha_forge_kit", function()
+        local player = GameState.player
+        if not player then return end
+        local InventorySystem = require("systems.InventorySystem")
+        local LootSystem = require("systems.LootSystem")
+        local equipIds = {
+            "huangsha_duanliu",
+            "huangsha_fentian",
+            "huangsha_shihun",
+            "huangsha_liedi",
+            "huangsha_mieying",
+        }
+        local ringCount = 5
+        local requiredSlots = #equipIds + ringCount
+
+        if InventorySystem.GetFreeSlots() < requiredSlots then
+            ShowLog("背包空位不足，需要" .. requiredSlots .. "格", {255, 120, 100, 255})
+            return
+        end
+
+        local items = {}
+        for _, eqId in ipairs(equipIds) do
+            local item = LootSystem.CreateSpecialEquipment(eqId)
+            if not item then
+                ShowLog("创建失败：" .. eqId, {255, 120, 100, 255})
+                return
+            end
+            items[#items + 1] = item
+        end
+        for _ = 1, ringCount do
+            local item = LootSystem.CreateSpecialEquipment("dizun_ring_ch3")
+            if not item then
+                ShowLog("创建失败：dizun_ring_ch3", {255, 120, 100, 255})
+                return
+            end
+            items[#items + 1] = item
+        end
+
+        local added = 0
+        for _, item in ipairs(items) do
+            if InventorySystem.AddItem(item) then
+                added = added + 1
+            end
+        end
+
+        if added == requiredSlots then
+            player.gold = player.gold + 5000000
+            InventorySystem.AddConsumable("sha_hai_ling", 1000)
+            EventBus.Emit("save_request")
+            ShowLog("黄沙铸造测试包：黄沙武器×5 + 帝尊叁戒×5 + 沙海令×1000 + 500万金币", {255, 200, 80, 255})
+        else
+            ShowLog("黄沙测试包发放不完整：" .. added .. "/" .. requiredSlots, {255, 120, 100, 255})
+        end
+    end)
+end
+
+local function CmdGiveCh6ForgeKit(kitId)
+    local GMForgeKits = require("ui.GMForgeKits")
+    local kit = GMForgeKits.GetKit(kitId)
+    if not kit then
+        ShowLog("未知第六章铸造包：" .. tostring(kitId), {255, 120, 100, 255})
+        return
+    end
+
+    SendGMCommand(kit.commandId, function()
+        local ok, msg = GMForgeKits.Grant(kitId)
+        ShowLog(msg, ok and {255, 200, 80, 255} or {255, 120, 100, 255})
+    end)
+end
+
 local function CmdGiveBaguaFullKit()
     SendGMCommand("give_bagua_full", function()
         local player = GameState.player
@@ -319,6 +390,126 @@ local function CmdGiveZhentuFullKit()
         "诛仙阵图: 残符×9 + " .. math.floor(totalGold / 10000) .. "万金 + " .. totalLY .. "灵韵",
         {180, 100, 255, 255}
     )
+end
+
+local function CmdGiveJieshiFullKit()
+    SendGMCommand("give_jieshi_full", function()
+        local player = GameState.player
+        if not player then return end
+        local InventorySystem = require("systems.InventorySystem")
+        local SaveSerializer = require("systems.save.SaveSerializer")
+        local SaveSystem = require("systems.SaveSystem")
+        local ArtifactCh6 = require("systems.ArtifactSystem_ch6")
+        local inventoryBefore = SaveSerializer.SerializeInventory()
+        local goldBefore = player.gold or 0
+        local lingYunBefore = player.lingYun or 0
+
+        for i = 1, #ArtifactCh6.FRAGMENT_IDS do
+            local ok, added = InventorySystem.AddConsumable(
+                ArtifactCh6.FRAGMENT_IDS[i], 1)
+            if not ok or added ~= 1 then
+                SaveSerializer.DeserializeInventory(inventoryBefore)
+                ShowLog("界匙材料包发放失败，背包空间不足",
+                    {255, 120, 100, 255})
+                return
+            end
+        end
+
+        local totalGold = ArtifactCh6.ACTIVATE_GOLD_COST
+            * ArtifactCh6.GRID_COUNT
+        local totalLY = ArtifactCh6.ACTIVATE_LINGYUN_COST
+            * ArtifactCh6.GRID_COUNT
+        player.gold = goldBefore + totalGold
+        player.lingYun = lingYunBefore + totalLY
+        EventBus.Emit("player_lingyun_change", player.lingYun)
+
+        local callbackCalled = false
+        local function finish(ok, reason)
+            if callbackCalled then return end
+            callbackCalled = true
+            if ok then
+                ShowLog(
+                    "界匙材料包保存成功：碎片×9 + 2.7亿金币 + 270000灵韵",
+                    {145, 235, 255, 255})
+            else
+                SaveSerializer.DeserializeInventory(inventoryBefore)
+                player.gold = goldBefore
+                player.lingYun = lingYunBefore
+                EventBus.Emit("player_lingyun_change", player.lingYun)
+                ShowLog("界匙材料包保存失败，已回滚："
+                    .. tostring(reason or "unknown"),
+                    {255, 120, 100, 255})
+            end
+        end
+        local ok, err = pcall(function()
+            SaveSystem.Save(finish)
+        end)
+        if not ok then finish(false, err) end
+    end)
+end
+
+local function CmdToggleJieshiBypass()
+    local ArtifactCh6 = require("systems.ArtifactSystem_ch6")
+    ArtifactCh6.gmBypass = not ArtifactCh6.gmBypass
+    if ArtifactCh6.gmBypass then
+        ShowLog("界匙：无视碎片、金币和灵韵激活",
+            {100, 255, 255, 255})
+    else
+        ShowLog("界匙：恢复正常激活条件", {255, 200, 100, 255})
+    end
+end
+
+local function CmdResetJieshiCooldown()
+    SendGMCommand("reset_jieshi_cooldown", function()
+        local ArtifactCh6 = require("systems.ArtifactSystem_ch6")
+        local started, message = ArtifactCh6.GMResetCooldown(function(ok, msg)
+            ShowLog(msg, ok and {100, 255, 180, 255}
+                or {255, 120, 100, 255})
+        end)
+        if not started then
+            ShowLog(message, {255, 120, 100, 255})
+        else
+            ShowLog(message, {255, 220, 120, 255})
+        end
+    end)
+end
+
+local function CmdResetJieshiAccount()
+    SendGMCommand("reset_jieshi_account", function()
+        local ArtifactCh6 = require("systems.ArtifactSystem_ch6")
+        local started, message = ArtifactCh6.GMResetAccount(function(ok, msg)
+            ShowLog(msg, ok and {100, 255, 180, 255}
+                or {255, 120, 100, 255})
+        end)
+        if not started then
+            ShowLog(message, {255, 120, 100, 255})
+        else
+            ShowLog(message, {255, 220, 120, 255})
+        end
+    end)
+end
+
+local function CmdTestJieshiRescue()
+    SendGMCommand("test_jieshi_rescue", function()
+        local ArtifactCh6 = require("systems.ArtifactSystem_ch6")
+        local ok, message = ArtifactCh6.GMTriggerRescueForTest(
+            GameState.player)
+        ShowLog(message, ok and {145, 235, 255, 255}
+            or {255, 120, 100, 255})
+    end)
+end
+
+local function CmdTeleportToJieshi()
+    local player = GameState.player
+    if not player then return end
+    if GameState.currentChapter ~= 6 then
+        ShowLog("请先切换到第六章两界村", {255, 200, 100, 255})
+        return
+    end
+    player.x = 54.5
+    player.y = 40.5
+    ShowLog("已传送到界匙附近 (54.5, 40.5)",
+        {145, 235, 255, 255})
 end
 
 local function CmdToggleInvincible()
@@ -425,6 +616,15 @@ local GM_CATEGORIES = {
             end },
             { label = "龙神材料+5000W", action = CmdGiveDragonForgeMats },
             { label = "极虎材料包", action = CmdGiveTigerTrialForgeKit },
+            { label = "黄沙铸造包", action = CmdGiveHuangshaForgeKit },
+            { label = "六章铸造全包", action = function() CmdGiveCh6ForgeKit("ch6_all") end },
+            { label = "真仙剑铸造包", action = function() CmdGiveCh6ForgeKit("ch6_true_swords") end },
+            { label = "哼哈双刃包", action = function() CmdGiveCh6ForgeKit("ch6_hengha") end },
+            { label = "镇界仙甲包", action = function() CmdGiveCh6ForgeKit("ch6_zhenjie_armor") end },
+            { label = "呱呱均灵包", action = function() CmdGiveCh6ForgeKit("ch6_guagua") end },
+            { label = "蚀界仙氅包", action = function() CmdGiveCh6ForgeKit("ch6_shijie_cape") end },
+            { label = "龙王令铸造包", action = function() CmdGiveCh6ForgeKit("ch6_longwangling") end },
+            { label = "界匙神器材料包", action = CmdGiveJieshiFullKit },
             { label = "龙血草 +10", action = function()
                 SendGMCommand("give_dragon_herb", function()
                     local InventorySystem = require("systems.InventorySystem")
@@ -447,6 +647,16 @@ local GM_CATEGORIES = {
                     ShowLog(msg or "堡主钥匙 ×16 已发放", {200, 150, 255, 255})
                 end)
             end },
+            { label = "藏宝图 ×10", action = function()
+                SendGMCommand("treasure_maps_10", function(msg, eventData)
+                    local TreasureMapSystem = require("systems.TreasureMapSystem")
+                    local patchJson = ReadGMString(eventData, "backpackPatch")
+                    if patchJson ~= "" then
+                        TreasureMapSystem.ApplyBackpackPatch(patchJson)
+                    end
+                    ShowLog(msg or "藏宝图 ×10 已发放", {255, 210, 100, 255})
+                end)
+            end },
             { label = "沙海令 +1000", action = function()
                 local InventorySystem = require("systems.InventorySystem")
                 InventorySystem.AddConsumable("sha_hai_ling", 1000)
@@ -461,6 +671,15 @@ local GM_CATEGORIES = {
                 local InventorySystem = require("systems.InventorySystem")
                 InventorySystem.AddConsumable("taixu_jianling", 3000)
                 ShowLog("发放 3000 太虚剑令", {120, 200, 255, 255})
+            end },
+            { label = "谪仙令 +3000", action = function()
+                local InventorySystem = require("systems.InventorySystem")
+                local ok, added = InventorySystem.AddConsumable("zhexian_ling", 3000)
+                if ok then
+                    ShowLog("发放 3000 谪仙令", T.color.info)
+                else
+                    ShowLog("谪仙令发放不完整：" .. tostring(added or 0) .. "/3000", T.color.error)
+                end
             end },
             { label = "修炼果 +100", action = function()
                 local InventorySystem = require("systems.InventorySystem")
@@ -1102,6 +1321,11 @@ local GM_CATEGORIES = {
                 ArtifactCh5.Reset()
                 ShowLog("诛仙阵图 已重置", {255, 100, 100, 255})
             end },
+            { label = "神器6免费激活", action = CmdToggleJieshiBypass },
+            { label = "界匙替命表现自测", action = CmdTestJieshiRescue },
+            { label = "界匙冷却清零", action = CmdResetJieshiCooldown },
+            { label = "神器6账号重置", action = CmdResetJieshiAccount },
+            { label = "传送到界匙", action = CmdTeleportToJieshi },
             { label = "福源果重置", action = function()
                 local FortuneFruitSystem = require("systems.FortuneFruitSystem")
                 FortuneFruitSystem.Reset()
@@ -1425,9 +1649,7 @@ local GM_CATEGORIES = {
                 local CS = require("systems.CombatSystem")
                 local px, py = player.x, player.y
                 local function mockAt(x, y) return { x = x, y = y } end
-                CS.AddFloatingText(px, py, "99999", {255, 50, 50, 255}, 2.0)
-                CS.AddFloatingText(px + 1, py - 1, "1234", {255, 255, 255, 255}, 2.0)
-                CS.AddFloatingText(px - 1, py, "+888", {100, 255, 100, 255}, 2.0)
+                require("ui.CombatFeedbackDebug").SpawnMatrix(CS, player)
                 CS.AddSlashEffect(player, mockAt(px + 2, py), 0.5)
                 CS.AddClawEffect(mockAt(px, py + 2), player)
                 local skills = {"ice_slash", "blood_slash", "golden_bell", "three_swords", "giant_sword", "earth_surge", "dragon_breath"}

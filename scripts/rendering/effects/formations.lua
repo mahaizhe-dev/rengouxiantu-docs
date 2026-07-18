@@ -2,6 +2,7 @@
 -- effects/formations.lua - 剑阵降临特效（持续性电磁塔渲染）
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.effects.shared")
 local assets = require("rendering.effects.assets")
 

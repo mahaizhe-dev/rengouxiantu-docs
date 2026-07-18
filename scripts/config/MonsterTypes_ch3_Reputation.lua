@@ -1,12 +1,12 @@
 -- ============================================================================
--- MonsterTypes_ch3_Reputation.lua - 声望体系挑战 R1-R8
--- 沈墨/陆青云/云裳/李无极 四组声望挑战
+-- MonsterTypes_ch3_Reputation.lua - 声望体系挑战 R1-R9
+-- 沈墨/陆青云/云裳/凌战 四组声望挑战
 -- ============================================================================
 
 ---@param M table MonsterData 主模块
 return function(M)
--- ===================== 挑战副本：血煞盟·沈墨（新声望体系 R1-R8） =====================
--- 新体系所有 BOSS 均为 emperor_boss，与旧 t1-t8 共存（旧存档向后兼容）
+-- ===================== 挑战副本：血煞盟·沈墨（新声望体系 R1-R9） =====================
+-- R1-R7 为 emperor_boss，R8-R9 为 saint_boss；与旧 t1-t8 共存（旧存档向后兼容）
 
 -- 声望等级1: T3 筑基初期（单阶段，仅基础技能）
 M.Types.challenge_shenmo_r1 = {
@@ -50,7 +50,7 @@ M.Types.challenge_shenmo_r2 = {
           announce = "血海...翻涌吧！",
           triggerSkill = "shenmo_blood_flood",
           addSkill = "shenmo_shadow_clone" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "以我之血，染尽苍穹！",
           triggerSkill = "shenmo_blood_flood" },
     },
@@ -80,7 +80,7 @@ M.Types.challenge_shenmo_r3 = {
           announce = "血海...翻涌吧！",
           triggerSkill = "shenmo_blood_flood",
           addSkill = "shenmo_shadow_clone" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "以我之血，染尽苍穹！",
           triggerSkill = "shenmo_blood_flood" },
     },
@@ -110,7 +110,7 @@ M.Types.challenge_shenmo_r4 = {
           announce = "血海...翻涌吧！",
           triggerSkill = "shenmo_blood_flood",
           addSkill = "shenmo_shadow_clone" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "以我之血，染尽苍穹！",
           triggerSkill = "shenmo_blood_flood" },
     },
@@ -141,7 +141,7 @@ M.Types.challenge_shenmo_r5 = {
           announce = "血海...翻涌吧！",
           triggerSkill = "shenmo_blood_flood",
           addSkill = "shenmo_shadow_clone" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "以我之血，染尽苍穹！",
           triggerSkill = "shenmo_blood_flood" },
     },
@@ -172,7 +172,7 @@ M.Types.challenge_shenmo_r6 = {
           announce = "血海...翻涌吧！",
           triggerSkill = "shenmo_blood_flood",
           addSkill = "shenmo_shadow_clone" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "以我之血，染尽苍穹！",
           triggerSkill = "shenmo_blood_flood" },
     },
@@ -203,7 +203,7 @@ M.Types.challenge_shenmo_r7 = {
           announce = "血海...翻涌吧！",
           triggerSkill = "shenmo_blood_flood",
           addSkill = "shenmo_shadow_clone" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "以我之血，染尽苍穹！",
           triggerSkill = "shenmo_blood_flood" },
     },
@@ -234,7 +234,7 @@ M.Types.challenge_shenmo_r8 = {
           announce = "血海...翻涌吧！",
           triggerSkill = "shenmo_blood_flood",
           addSkill = "shenmo_shadow_clone" },
-        { threshold = 0.25, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
+        { threshold = 0.3, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
           announce = "以我之血，染尽苍穹！",
           triggerSkill = "shenmo_blood_flood" },
     },
@@ -244,8 +244,40 @@ M.Types.challenge_shenmo_r8 = {
     berserkBuff = { atkSpeedMult = 1.4, speedMult = 1.4, cdrMult = 0.6 },
 }
 
+-- 声望等级9: T11 仙1（Lv.140 人仙1阶，新增血影追命）
+M.Types.challenge_shenmo_r9 = {
+    name = "沈墨",
+    icon = "🗡️",
+    portrait = "Textures/npc_xuesha_spy.png",
+    zone = "challenge_arena",
+    category = "saint_boss",
+    race = "human",
+    level = 140,
+    realm = "renxian_1",
+    bodyColor = {255, 0, 0, 255},
+    clawColor = {235, 20, 25},
+    skillTextColor = {255, 60, 40, 255},
+    warningColorOverride = {210, 20, 25, 145},
+    phases = 3,
+    skills = { "line_charge", "whirlwind", "cross_smash" },
+    phaseConfig = {
+        { threshold = 0.6, speedMult = 1.4, intervalMult = 0.6,
+          announce = "血影既出，无路可退！",
+          triggerSkill = "shenmo_blood_flood",
+          addSkill = "shenmo_blood_hunt" },
+        { threshold = 0.3, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
+          announce = "以我之血，染尽苍穹！",
+          triggerSkill = "shenmo_blood_flood" },
+    },
+    dropTable = {},
+    isChallenge = true,
+    fieldDamagePercent = 0.50,
+    bloodMark = { damagePercent = 0.03 },
+    berserkBuff = { atkSpeedMult = 1.4, speedMult = 1.4, cdrMult = 0.6 },
+}
+
 -- ═══════════════════════════════════════════════════════════════════
--- 浩气宗声望 BOSS：陆青云 R1-R8
+-- 浩气宗声望 BOSS：陆青云 R1-R9
 -- 核心机制：正气结界（barrierZone）—— 周期性生成屏障区域
 -- ═══════════════════════════════════════════════════════════════════
 
@@ -291,7 +323,7 @@ M.Types.challenge_luqingyun_r2 = {
           announce = "剑阵...起！",
           triggerSkill = "luqingyun_sword_array",
           addSkill = "luqingyun_prison" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "浩然正气，天地无极！",
           triggerSkill = "luqingyun_sword_array" },
     },
@@ -321,7 +353,7 @@ M.Types.challenge_luqingyun_r3 = {
           announce = "剑阵...起！",
           triggerSkill = "luqingyun_sword_array",
           addSkill = "luqingyun_prison" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "浩然正气，天地无极！",
           triggerSkill = "luqingyun_sword_array" },
     },
@@ -351,7 +383,7 @@ M.Types.challenge_luqingyun_r4 = {
           announce = "剑阵...起！",
           triggerSkill = "luqingyun_sword_array",
           addSkill = "luqingyun_prison" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "浩然正气，天地无极！",
           triggerSkill = "luqingyun_sword_array" },
     },
@@ -382,7 +414,7 @@ M.Types.challenge_luqingyun_r5 = {
           announce = "剑阵...起！",
           triggerSkill = "luqingyun_sword_array",
           addSkill = "luqingyun_prison" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "浩然正气，天地无极！",
           triggerSkill = "luqingyun_sword_array" },
     },
@@ -413,7 +445,7 @@ M.Types.challenge_luqingyun_r6 = {
           announce = "剑阵...起！",
           triggerSkill = "luqingyun_sword_array",
           addSkill = "luqingyun_prison" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "浩然正气，天地无极！",
           triggerSkill = "luqingyun_sword_array" },
     },
@@ -444,7 +476,7 @@ M.Types.challenge_luqingyun_r7 = {
           announce = "剑阵...起！",
           triggerSkill = "luqingyun_sword_array",
           addSkill = "luqingyun_prison" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "浩然正气，天地无极！",
           triggerSkill = "luqingyun_sword_array" },
     },
@@ -475,7 +507,7 @@ M.Types.challenge_luqingyun_r8 = {
           announce = "剑阵...起！",
           triggerSkill = "luqingyun_sword_array",
           addSkill = "luqingyun_prison" },
-        { threshold = 0.25, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
+        { threshold = 0.3, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
           announce = "浩然正气，天地无极！",
           triggerSkill = "luqingyun_sword_array" },
     },
@@ -485,8 +517,40 @@ M.Types.challenge_luqingyun_r8 = {
     berserkBuff = { atkSpeedMult = 1.4, speedMult = 1.4, cdrMult = 0.6 },
 }
 
+-- 声望等级9: T11 仙1（Lv.140 人仙1阶，新增正气锁阵）
+M.Types.challenge_luqingyun_r9 = {
+    name = "陆青云",
+    icon = "⚔️",
+    portrait = "Textures/npc_haoqi_envoy.png",
+    zone = "challenge_arena",
+    category = "saint_boss",
+    race = "human",
+    level = 140,
+    realm = "renxian_1",
+    bodyColor = {25, 65, 210, 255},
+    clawColor = {250, 210, 55},
+    skillTextColor = {255, 235, 85, 255},
+    warningColorOverride = {40, 115, 245, 145},
+    phases = 3,
+    skills = { "shield_bash", "rect_sweep", "ground_pound" },
+    phaseConfig = {
+        { threshold = 0.6, speedMult = 1.4, intervalMult = 0.6,
+          announce = "正气锁阵，诸邪止步！",
+          triggerSkill = "luqingyun_sword_array",
+          addSkill = "luqingyun_righteous_lock" },
+        { threshold = 0.3, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
+          announce = "浩然正气，天地无极！",
+          triggerSkill = "luqingyun_sword_array" },
+    },
+    dropTable = {},
+    isChallenge = true,
+    fieldDamagePercent = 0.50,
+    barrierZone = { interval = 12, maxCount = 5, damagePercent = 0.50, radius = 0.9 },
+    berserkBuff = { atkSpeedMult = 1.4, speedMult = 1.4, cdrMult = 0.6 },
+}
+
 -- ═══════════════════════════════════════════════════════════════════
--- 青云门声望 BOSS：云裳 R1-R8
+-- 青云门声望 BOSS：云裳 R1-R9
 -- 核心机制：玉甲回响（jadeShield）—— 周期性激活护盾，反弹伤害+减伤
 -- 玩家需要在护盾期间停止攻击，等护盾结束后加大输出
 -- ═══════════════════════════════════════════════════════════════════
@@ -509,7 +573,7 @@ M.Types.challenge_yunshang_r1 = {
     skills = { "jade_palm", "spirit_needle" },
     dropTable = {},
     isChallenge = true,
-    jadeShield = { interval = 20, duration = 4.0, reflectPercent = 0.30, dmgReduction = 0.50 },
+    jadeShield = { interval = 20, duration = 3.0, reflectPercent = 0.10, dmgReduction = 0.25 },
 }
 
 -- 声望等级2: T4 筑基后期（3阶段，增加云遁步 + P2/P3）
@@ -533,13 +597,13 @@ M.Types.challenge_yunshang_r2 = {
           announce = "你的攻势...还不够格！",
           triggerSkill = "yunshang_jade_storm",
           addSkill = "yunshang_root_armor" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "青云之道，岂容亵渎！",
           triggerSkill = "yunshang_jade_storm" },
     },
     dropTable = {},
     isChallenge = true,
-    jadeShield = { interval = 19, duration = 4.0, reflectPercent = 0.30, dmgReduction = 0.50 },
+    jadeShield = { interval = 19, duration = 3.0, reflectPercent = 0.10, dmgReduction = 0.25 },
 }
 
 -- 声望等级3: T5 金丹中期
@@ -563,13 +627,13 @@ M.Types.challenge_yunshang_r3 = {
           announce = "你的攻势...还不够格！",
           triggerSkill = "yunshang_jade_storm",
           addSkill = "yunshang_root_armor" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "青云之道，岂容亵渎！",
           triggerSkill = "yunshang_jade_storm" },
     },
     dropTable = {},
     isChallenge = true,
-    jadeShield = { interval = 17, duration = 4.5, reflectPercent = 0.35, dmgReduction = 0.55 },
+    jadeShield = { interval = 17, duration = 3.5, reflectPercent = 0.12, dmgReduction = 0.30 },
 }
 
 -- 声望等级4: T6 元婴初期（增加狂暴buff）
@@ -593,13 +657,13 @@ M.Types.challenge_yunshang_r4 = {
           announce = "你的攻势...还不够格！",
           triggerSkill = "yunshang_jade_storm",
           addSkill = "yunshang_root_armor" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "青云之道，岂容亵渎！",
           triggerSkill = "yunshang_jade_storm" },
     },
     dropTable = {},
     isChallenge = true,
-    jadeShield = { interval = 15, duration = 4.5, reflectPercent = 0.35, dmgReduction = 0.55 },
+    jadeShield = { interval = 15, duration = 3.5, reflectPercent = 0.12, dmgReduction = 0.30 },
     berserkBuff = { atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 },
 }
 
@@ -624,13 +688,13 @@ M.Types.challenge_yunshang_r5 = {
           announce = "你的攻势...还不够格！",
           triggerSkill = "yunshang_jade_storm",
           addSkill = "yunshang_root_armor" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "青云之道，岂容亵渎！",
           triggerSkill = "yunshang_jade_storm" },
     },
     dropTable = {},
     isChallenge = true,
-    jadeShield = { interval = 14, duration = 5.0, reflectPercent = 0.40, dmgReduction = 0.60 },
+    jadeShield = { interval = 14, duration = 4.0, reflectPercent = 0.15, dmgReduction = 0.35 },
     berserkBuff = { atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 },
 }
 
@@ -655,13 +719,13 @@ M.Types.challenge_yunshang_r6 = {
           announce = "你的攻势...还不够格！",
           triggerSkill = "yunshang_jade_storm",
           addSkill = "yunshang_root_armor" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "青云之道，岂容亵渎！",
           triggerSkill = "yunshang_jade_storm" },
     },
     dropTable = {},
     isChallenge = true,
-    jadeShield = { interval = 13, duration = 5.0, reflectPercent = 0.45, dmgReduction = 0.65 },
+    jadeShield = { interval = 13, duration = 4.0, reflectPercent = 0.18, dmgReduction = 0.40 },
     berserkBuff = { atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 },
 }
 
@@ -686,13 +750,13 @@ M.Types.challenge_yunshang_r7 = {
           announce = "你的攻势...还不够格！",
           triggerSkill = "yunshang_jade_storm",
           addSkill = "yunshang_root_armor" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "青云之道，岂容亵渎！",
           triggerSkill = "yunshang_jade_storm" },
     },
     dropTable = {},
     isChallenge = true,
-    jadeShield = { interval = 12, duration = 5.5, reflectPercent = 0.50, dmgReduction = 0.70 },
+    jadeShield = { interval = 12, duration = 4.5, reflectPercent = 0.20, dmgReduction = 0.45 },
     berserkBuff = { atkSpeedMult = 1.3, speedMult = 1.3, cdrMult = 0.7 },
 }
 
@@ -717,18 +781,50 @@ M.Types.challenge_yunshang_r8 = {
           announce = "你的攻势...还不够格！",
           triggerSkill = "yunshang_jade_storm",
           addSkill = "yunshang_root_armor" },
-        { threshold = 0.25, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
+        { threshold = 0.3, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
           announce = "青云之道，岂容亵渎！",
           triggerSkill = "yunshang_jade_storm" },
     },
     dropTable = {},
     isChallenge = true,
-    jadeShield = { interval = 10, duration = 6.0, reflectPercent = 0.60, dmgReduction = 0.80 },
+    jadeShield = { interval = 11, duration = 4.5, reflectPercent = 0.22, dmgReduction = 0.50 },
+    berserkBuff = { atkSpeedMult = 1.4, speedMult = 1.4, cdrMult = 0.6 },
+}
+
+-- 声望等级9: T11 仙1（Lv.140 人仙1阶，新增玉脉回响）
+M.Types.challenge_yunshang_r9 = {
+    name = "云裳",
+    icon = "🌿",
+    portrait = "Textures/npc_qingyun_envoy.png",
+    zone = "challenge_arena",
+    category = "saint_boss",
+    race = "human",
+    level = 140,
+    realm = "renxian_1",
+    bodyColor = {25, 185, 85, 255},
+    clawColor = {70, 235, 115},
+    skillTextColor = {85, 255, 130, 255},
+    warningColorOverride = {40, 205, 90, 145},
+    phases = 3,
+    skills = { "jade_palm", "spirit_needle", "cloud_drift" },
+    phaseConfig = {
+        { threshold = 0.6, speedMult = 1.4, intervalMult = 0.6,
+          announce = "玉脉回响，攻守相生！",
+          triggerSkill = "yunshang_jade_storm",
+          addSkills = { "yunshang_root_armor", "yunshang_jade_echo" } },
+        { threshold = 0.3, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
+          announce = "青云之道，岂容亵渎！",
+          triggerSkill = "yunshang_jade_storm" },
+    },
+    dropTable = {},
+    isChallenge = true,
+    fieldDamagePercent = 0.50,
+    jadeShield = { interval = 10, duration = 5.0, reflectPercent = 0.25, dmgReduction = 0.55 },
     berserkBuff = { atkSpeedMult = 1.4, speedMult = 1.4, cdrMult = 0.6 },
 }
 
 -- ═══════════════════════════════════════════════════════════════════
--- 封魔殿声望 BOSS：凌战 R1-R8（封魔殿少帅，年轻一代）
+-- 封魔殿声望 BOSS：凌战 R1-R9（封魔殿少帅，年轻一代）
 -- 核心机制：封魔印（sealMark）—— 周期性叠加印记，满层爆发伤害
 --   每隔 stackInterval 秒自动叠1层封魔印
 --   达到 maxStacks 层时触发"封印爆发"，造成 burstDamagePercent × 玩家最大HP 的伤害
@@ -777,7 +873,7 @@ M.Types.challenge_liwuji_r2 = {
           announce = "封魔之力...觉醒！",
           triggerSkill = "liwuji_seal_burst",
           addSkill = "liwuji_void_pull" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "万魔臣服，封印永镇！",
           triggerSkill = "liwuji_seal_burst" },
     },
@@ -807,7 +903,7 @@ M.Types.challenge_liwuji_r3 = {
           announce = "封魔之力...觉醒！",
           triggerSkill = "liwuji_seal_burst",
           addSkill = "liwuji_void_pull" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "万魔臣服，封印永镇！",
           triggerSkill = "liwuji_seal_burst" },
     },
@@ -837,7 +933,7 @@ M.Types.challenge_liwuji_r4 = {
           announce = "封魔之力...觉醒！",
           triggerSkill = "liwuji_seal_burst",
           addSkill = "liwuji_void_pull" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "万魔臣服，封印永镇！",
           triggerSkill = "liwuji_seal_burst" },
     },
@@ -868,7 +964,7 @@ M.Types.challenge_liwuji_r5 = {
           announce = "封魔之力...觉醒！",
           triggerSkill = "liwuji_seal_burst",
           addSkill = "liwuji_void_pull" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "万魔臣服，封印永镇！",
           triggerSkill = "liwuji_seal_burst" },
     },
@@ -899,7 +995,7 @@ M.Types.challenge_liwuji_r6 = {
           announce = "封魔之力...觉醒！",
           triggerSkill = "liwuji_seal_burst",
           addSkill = "liwuji_void_pull" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "万魔臣服，封印永镇！",
           triggerSkill = "liwuji_seal_burst" },
     },
@@ -930,7 +1026,7 @@ M.Types.challenge_liwuji_r7 = {
           announce = "封魔之力...觉醒！",
           triggerSkill = "liwuji_seal_burst",
           addSkill = "liwuji_void_pull" },
-        { threshold = 0.25, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
+        { threshold = 0.3, atkMult = 2.0, speedMult = 1.5, intervalMult = 0.4,
           announce = "万魔臣服，封印永镇！",
           triggerSkill = "liwuji_seal_burst" },
     },
@@ -961,13 +1057,52 @@ M.Types.challenge_liwuji_r8 = {
           announce = "封魔之力...觉醒！",
           triggerSkill = "liwuji_seal_burst",
           addSkill = "liwuji_void_pull" },
-        { threshold = 0.25, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
+        { threshold = 0.3, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
           announce = "万魔臣服，封印永镇！",
           triggerSkill = "liwuji_seal_burst" },
     },
     dropTable = {},
     isChallenge = true,
     sealMark = { stackInterval = 1.5, maxStacks = 6, burstDamagePercent = 0.30, clearPerHit = 1 },
+    berserkBuff = { atkSpeedMult = 1.4, speedMult = 1.4, cdrMult = 0.6 },
+}
+
+-- 声望等级9: T11 仙1（Lv.140 人仙1阶，新增封魔震返）
+M.Types.challenge_liwuji_r9 = {
+    name = "凌战",
+    icon = "🔮",
+    portrait = "Textures/npc_fengmo_envoy.png",
+    zone = "challenge_arena",
+    category = "saint_boss",
+    race = "human",
+    level = 140,
+    realm = "renxian_1",
+    bodyColor = {145, 35, 205, 255},
+    clawColor = {215, 65, 250},
+    skillTextColor = {225, 105, 255, 255},
+    warningColorOverride = {165, 40, 210, 145},
+    phases = 3,
+    skills = { "line_charge", "whirlwind", "cross_smash" },
+    phaseConfig = {
+        { threshold = 0.6, speedMult = 1.4, intervalMult = 0.6,
+          announce = "封魔震返，进退皆封！",
+          triggerSkill = "liwuji_seal_burst",
+          addSkills = { "liwuji_void_pull_r9", "liwuji_seal_repel" } },
+        { threshold = 0.3, atkMult = 2.5, speedMult = 1.6, intervalMult = 0.35,
+          announce = "万魔臣服，封印永镇！",
+          triggerSkill = "liwuji_seal_burst" },
+    },
+    dropTable = {},
+    isChallenge = true,
+    fieldDamagePercent = 0.50,
+    sealMark = {
+        stackInterval = 1.5,
+        maxStacks = 6,
+        burstDamagePercent = 0.30,
+        clearPerHit = 1,
+        clearCooldown = 0.25,
+        clearDirectHitsOnly = true,
+    },
     berserkBuff = { atkSpeedMult = 1.4, speedMult = 1.4, cdrMult = 0.6 },
 }
 

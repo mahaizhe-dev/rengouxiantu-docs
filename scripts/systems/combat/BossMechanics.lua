@@ -44,11 +44,21 @@ function CS.UpdateHealingSpring(dt, player, gameMap)
             healSpringTickTimer_ = healSpringTickTimer_ - 1.0
             local healAmt = math.floor(player:GetTotalMaxHp() * 0.05)
             if healAmt > 0 and player.hp < player:GetTotalMaxHp() then
+                local hpBefore = player.hp
                 player.hp = math.min(player:GetTotalMaxHp(), player.hp + healAmt)
-                CS.AddFloatingText(
-                    player.x, player.y, "+" .. healAmt .. " 泉",
-                    FT_HEAL_SPRING, 0.8
-                )
+                local actualHeal = player.hp - hpBefore
+                if actualHeal > 0 then
+                    CS.EmitCombatFeedback({
+                        kind = "heal", value = actualHeal,
+                        source = player, target = player, targetKey = "player:self",
+                        sourceType = "environment", sourceId = "healing_spring",
+                        sourceName = "治愈之泉", color = FT_HEAL_SPRING,
+                    }, {
+                        x = player.x, y = player.y,
+                        text = "+" .. actualHeal .. " 泉",
+                        color = FT_HEAL_SPRING, lifetime = 0.8,
+                    })
+                end
             end
         end
     else
@@ -82,13 +92,18 @@ function CS.UpdateDelayedHits(dt)
             if player and player.alive then
                 local dist = Utils.Distance(player.x, player.y, h.x, h.y)
                 if dist <= (h.range or 0.8) then
-                    player:TakeDamage(h.damage, h.source)
                     local color = h.effectColor or FT_HIT_DEFAULT
-                    CS.AddFloatingText(
-                        player.x, player.y - 0.3,
-                        (h.effectName or "") .. " " .. h.damage,
-                        color, 1.0
-                    )
+                    player:TakeDamage(h.damage, h.source, {
+                        sourceType = "boss",
+                        sourceId = h.effectId or h.effectName or "delayed_hit",
+                        sourceName = h.effectName,
+                        damageTag = "skill",
+                        color = color,
+                        legacyPrefix = (h.effectName or "") .. " ",
+                        legacyColor = color,
+                        legacyY = player.y - 0.3,
+                        legacyLifetime = 1.0,
+                    })
                 end
             end
             -- 宠物也受延迟命中伤害（减半）
@@ -156,14 +171,23 @@ function CS.UpdateSacrificeAura(dt)
     if #targets == 0 then return end
 
     local dmg = math.max(1, math.floor(player:GetTotalAtk() * (eff.damagePercent or 0.05)))
+    local castId = CS.NextCombatCastId(eff.type)
     for _, m in ipairs(targets) do
-        local actualDmg = m:TakeDamage(dmg, player)
-        CS.AddFloatingText(
-            m.x, m.y - 0.3,
-            actualDmg .. " 灼",
-            FT_SACRIFICE,
-            0.6
-        )
+        local actualDmg = m:TakeDamage(dmg, player, {
+            sourceType = "equipment",
+            sourceId = eff.type,
+            sourceName = eff.name or "献祭灼烧",
+            damageTag = "dot",
+        })
+        CS.EmitDamageFeedback(player, m, actualDmg, {
+            sourceType = "equipment", sourceId = eff.type,
+            sourceName = eff.name or "献祭灼烧",
+            damageTag = "dot", impact = "dot", castId = castId,
+            color = FT_SACRIFICE, y = m.y - 0.3,
+        }, {
+            x = m.x, y = m.y - 0.3,
+            text = actualDmg .. " 灼", color = FT_SACRIFICE, lifetime = 0.6,
+        })
     end
 end
 
@@ -185,12 +209,18 @@ function CS.UpdateBloodMark(dt)
         local dmgPerStack = math.floor(maxHp * player.bloodMarkDmgPercent)
         local totalDmg = dmgPerStack * player.bloodMarkStacks
         if totalDmg > 0 then
-            player:TakeDamage(totalDmg, nil)
-            CS.AddFloatingText(
-                player.x, player.y - 0.3,
-                "-" .. totalDmg .. " 血煞",
-                FT_BLOOD_MARK, 0.8
-            )
+            player:TakeDamage(totalDmg, nil, {
+                sourceType = "boss",
+                sourceId = "blood_mark",
+                sourceName = "血煞",
+                damageTag = "dot",
+                impact = "dot",
+                color = FT_BLOOD_MARK,
+                legacySuffix = " 血煞",
+                legacyColor = FT_BLOOD_MARK,
+                legacyY = player.y - 0.3,
+                legacyLifetime = 0.8,
+            })
         end
     end
 end
@@ -278,12 +308,18 @@ function CS.UpdateBarrierZones(dt)
                 local dmg = math.floor(zone.monsterAtk * zone.damagePercent)
                 if dmg > 0 then
                     local actualDmg = GameConfig.CalcDamage(dmg, player:GetTotalDef())
-                    player:TakeDamage(actualDmg, nil)
-                    CS.AddFloatingText(
-                        player.x, player.y - 0.3,
-                        "-" .. actualDmg .. " 结界",
-                        FT_BARRIER, 0.8
-                    )
+                    player:TakeDamage(actualDmg, nil, {
+                        sourceType = "environment",
+                        sourceId = "barrier_zone",
+                        sourceName = "正气结界",
+                        damageTag = "dot",
+                        impact = "dot",
+                        color = FT_BARRIER,
+                        legacySuffix = " 结界",
+                        legacyColor = FT_BARRIER,
+                        legacyY = player.y - 0.3,
+                        legacyLifetime = 0.8,
+                    })
                 end
             end
             -- 宠物也受结界伤害（减半）
@@ -362,18 +398,22 @@ function CS.AddBloodRageStack(player, monster)
     else
         CS.bloodRageStacks[mId] = 0
         local detonateDmg = math.max(1, math.floor(player:GetTotalMaxHp() * BLOOD_RAGE_DETONATE_RATIO))
-        local detCrit
-        detonateDmg, detCrit = player:ApplyCrit(detonateDmg)
+        local detCrit, detTianzhu
+        detonateDmg, detCrit, detTianzhu = player:ApplyCrit(detonateDmg)
         detonateDmg = monster:TakeDamage(detonateDmg, player)
 
-        local prefix = detCrit and "血怒引爆暴击 " or "血怒引爆 "
-        local color = detCrit and FT_RAGE_DET_CRIT or FT_RAGE_DET_NORMAL
-        CS.AddFloatingText(
-            monster.x, monster.y - 0.6,
-            prefix .. detonateDmg,
-            color,
-            1.5
-        )
+        local prefix = detTianzhu and "天诛血怒引爆 " or (detCrit and "血怒引爆暴击 " or "血怒引爆 ")
+        local color = detTianzhu and {0, 220, 220, 255}
+            or (detCrit and FT_RAGE_DET_CRIT or FT_RAGE_DET_NORMAL)
+        CS.EmitDamageFeedback(player, monster, detonateDmg, {
+            sourceType = "passive", sourceId = "blood_rage",
+            sourceName = "血怒引爆", damageTag = "blood_rage",
+            criticality = detTianzhu and "tianzhu" or (detCrit and "crit" or "normal"),
+            color = FT_RAGE_DET_NORMAL, y = monster.y - 0.6,
+        }, {
+            x = monster.x, y = monster.y - 0.6,
+            text = prefix .. detonateDmg, color = color, lifetime = 1.5,
+        })
         print("[Combat] 血怒引爆(保证)! " .. monster.name .. " " .. detonateDmg .. (detCrit and " (CRIT)" or ""))
     end
 end
@@ -435,12 +475,18 @@ function CS.UpdateBaguaAura(dt)
         if dist <= cfg.radius then
             local dmg = math.floor(player:GetTotalMaxHp() * (cfg.damagePercent or 0.02))
             if dmg > 0 then
-                player:TakeDamage(dmg, baguaBoss)
-                CS.AddFloatingText(
-                    player.x, player.y - 0.3,
-                    "-" .. dmg .. " 八卦",
-                    FT_BAGUA_AURA, 0.8
-                )
+                player:TakeDamage(dmg, baguaBoss, {
+                    sourceType = "boss",
+                    sourceId = "bagua_aura",
+                    sourceName = "八卦领域",
+                    damageTag = "dot",
+                    impact = "dot",
+                    color = FT_BAGUA_AURA,
+                    legacySuffix = " 八卦",
+                    legacyColor = FT_BAGUA_AURA,
+                    legacyY = player.y - 0.3,
+                    legacyLifetime = 0.8,
+                })
             end
         end
 
@@ -593,18 +639,23 @@ function CS.ClearJadeShield()
     CS.activeJadeShieldBoss = nil
 end
 
---- 订阅玉甲反伤事件（由 Monster:TakeDamage 触发）
-EventBus.On("jade_shield_reflect", function(reflectDmg, monsterX, monsterY)
+--- 玉甲反伤事件（由 Monster:TakeDamage 触发）
+local function HandleJadeShieldReflect(reflectDmg, _monsterX, _monsterY)
     local player = GameState.player
     if player and player.alive and reflectDmg > 0 then
-        player:TakeDamage(reflectDmg, nil)
-        CS.AddFloatingText(
-            player.x, player.y - 0.3,
-            "-" .. reflectDmg .. " 玉甲反伤",
-            FT_JADE_REFLECT, 0.8
-        )
+        player:TakeDamage(reflectDmg, nil, {
+            sourceType = "boss",
+            sourceId = "jade_shield_reflect",
+            sourceName = "玉甲反伤",
+            damageTag = "skill",
+            color = FT_JADE_REFLECT,
+            legacySuffix = " 玉甲反伤",
+            legacyColor = FT_JADE_REFLECT,
+            legacyY = player.y - 0.3,
+            legacyLifetime = 0.8,
+        })
     end
-end)
+end
 
 -- ============================================================================
 -- 封魔印系统（凌战BOSS机制）
@@ -616,6 +667,7 @@ end)
 function CS.UpdateSealMark(dt)
     local player = GameState.player
     if not player or not player.alive then return end
+    player.sealMarkClearCooldown = math.max(0, (player.sealMarkClearCooldown or 0) - dt)
 
     -- 查找当前存活的带 sealMark 配置的挑战怪物
     ---@type table|nil
@@ -659,12 +711,18 @@ function CS.UpdateSealMark(dt)
             local maxHp = player:GetTotalMaxHp()
             local burstDmg = math.floor(maxHp * cfg.burstDamagePercent)
             if burstDmg > 0 then
-                player:TakeDamage(burstDmg, nil)
-                CS.AddFloatingText(
-                    player.x, player.y - 0.8,
-                    "封印爆发! -" .. burstDmg,
-                    FT_SEAL_BURST, 1.5
-                )
+                player:TakeDamage(burstDmg, sealMonster, {
+                    sourceType = "boss",
+                    sourceId = "seal_mark_burst",
+                    sourceName = "封印爆发",
+                    damageTag = "skill",
+                    impact = "heavy",
+                    color = FT_SEAL_BURST,
+                    legacyPrefix = "封印爆发! -",
+                    legacyColor = FT_SEAL_BURST,
+                    legacyY = player.y - 0.8,
+                    legacyLifetime = 1.5,
+                })
             end
             -- 爆发后清零层数，重新开始叠加
             player.sealMarkStacks = 0
@@ -680,20 +738,54 @@ function CS.ClearSealMark()
         player.sealMarkStacks = 0
         player.sealMarkTickTimer = 0
         player.sealMarkConfig = nil
+        player.sealMarkClearCooldown = 0
     end
 end
 
---- 订阅怪物受伤事件：玩家攻击封魔印BOSS时削减印记层数
-EventBus.On("monster_hurt", function(monster, _damage)
+--- 清除挑战 BOSS 施加在玩家身上的持续伤害与控制
+function CS.ClearChallengeStatusEffects()
+    CS.ClearBloodMark()
+    CS.ClearSealMark()
+
+    local player = GameState.player
+    if not player then return end
+
+    player.poisoned = false
+    player.poisonTimer = 0
+    player.poisonDamage = 0
+    player.poisonTickTimer = 0
+    player.poisonSource = nil
+    player.stunTimer = 0
+    player.slowTimer = 0
+    player.slowMovePercent = 0
+    player.slowAtkPercent = 0
+end
+
+--- 削减封魔印；R9 可配置为仅玩家本体非 DOT 命中参与
+local function HandleSealMarkMonsterHurt(monster, _damage, source, damageOptions)
     if not monster or not monster.sealMark then return end
     local player = GameState.player
     if not player or player.sealMarkStacks <= 0 then return end
     local cfg = monster.sealMark
+    if cfg.clearDirectHitsOnly then
+        if source ~= player then return end
+        if damageOptions and damageOptions.damageTag == "dot" then return end
+        if (player.sealMarkClearCooldown or 0) > 0 then return end
+    end
     local clearCount = cfg.clearPerHit or 1
     player.sealMarkStacks = math.max(0, player.sealMarkStacks - clearCount)
+    player.sealMarkClearCooldown = cfg.clearCooldown or 0
     if player.sealMarkStacks == 0 then
         player.sealMarkTickTimer = 0  -- 清空后重置计时
     end
-end)
+end
+
+--- 在 EventBus.Clear 后恢复 BOSS 机制监听；重复调用不会叠加。
+function CS.InitBossMechanicsListeners()
+    EventBus.Off("jade_shield_reflect", HandleJadeShieldReflect)
+    EventBus.Off("monster_hurt", HandleSealMarkMonsterHurt)
+    EventBus.On("jade_shield_reflect", HandleJadeShieldReflect)
+    EventBus.On("monster_hurt", HandleSealMarkMonsterHurt)
+end
 
 end -- return function(CS)

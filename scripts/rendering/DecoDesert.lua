@@ -2,6 +2,7 @@
 -- DecoDesert.lua  —— 沙漠装饰物渲染
 -- 从 DecorationRenderers.lua 纯剥离，零逻辑修改
 -- ============================================================================
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local M = {}
 
 -- ============================================================================

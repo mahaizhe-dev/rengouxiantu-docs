@@ -519,6 +519,20 @@ function GameMap:BuildCh4Terrain()
         {x = 3,   y = 75},     -- 仙缘宝箱(福源)入口通道
     })
 
+    -- ================================================================
+    -- Step 6: 九座真实藏宝岛
+    -- 普通岛 7 格，仙缘秘藏岛 10 格；坐标已在配置层验证一圈海水隔离。
+    -- ================================================================
+    for _, island in ipairs(zd.TREASURE_ISLANDS or {}) do
+        for _, pos in ipairs(island.tiles or {}) do
+            local tile = ((pos[1] + pos[2]) % 3 == 0) and T.REEF_FLOOR or T.SEA_SAND
+            self:SetTile(pos[1], pos[2], tile)
+        end
+        self:SetTile(island.chest.x, island.chest.y, T.REEF_FLOOR)
+        self:SetTile(island.spawn.x, island.spawn.y, T.SEA_SAND)
+        self:SetTile(island.exit.x, island.exit.y, T.SEA_SAND)
+    end
+
     print("[Chapter4] Terrain generation complete: " .. W .. "x" .. H)
 end
 

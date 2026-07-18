@@ -33,6 +33,7 @@ local M = {}
 function M.CastMeleeAoeDotSkill(skill, player)
     -- 必须有普攻目标
     if not player.target or not player.target.alive then return false end
+    local castId = CombatSystem.NextCombatCastId(skill.id)
 
     -- 以玩家到目标的角度作为释放方向
     local targetAngle = math_atan(player.target.y - player.y, player.target.x - player.x)
@@ -62,7 +63,7 @@ function M.CastMeleeAoeDotSkill(skill, player)
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage, isCrit = HitResolver.Standard(player, m,
+            local damage, isCrit, isTianzhu = HitResolver.Standard(player, m,
                 math_floor(effectiveAtk * skill.damageMultiplier))
 
             local dmgText = skill.icon .. damage
@@ -71,7 +72,11 @@ function M.CastMeleeAoeDotSkill(skill, player)
                 dmgText = skill.icon .. "暴击 " .. damage
                 dmgColor = {255, 220, 50, 255}
             end
-            CombatSystem.AddFloatingText(m.x, m.y - 0.3, dmgText, dmgColor, 1.2)
+            shared.EmitSkillDamage(player, m, skill, damage, isCrit, isTianzhu, castId, {
+                hitIndex = i,
+                legacyText = dmgText,
+                legacyColor = dmgColor,
+            })
         end
     end
 
@@ -82,17 +87,14 @@ function M.CastMeleeAoeDotSkill(skill, player)
     -- 连击（ReplayHits + 额外剑阵 DOT）
     ComboRunner.Schedule(player, skill, targetAngle, function()
         ComboRunner.ReplayHits(player, skill, targets, hitCount,
-            math_floor(effectiveAtk * skill.damageMultiplier))
+            math_floor(effectiveAtk * skill.damageMultiplier), nil, castId)
         SkillSystem.CreateSwordFormationFromSkill(skill, player, cx, cy)
     end)
 
-    -- 技能名浮动文字
-    CombatSystem.AddFloatingText(
-        player.x, player.y - 0.8,
-        skill.name,
-        skill.effectColor,
-        1.5
-    )
+    CombatSystem.EmitLegacyOnlyFeedback({
+        x = player.x, y = player.y - 0.8,
+        text = skill.name, color = skill.effectColor, lifetime = 1.5,
+    })
 
     -- 技能特效（复用巨剑下落特效）
     CombatSystem.AddSkillEffect(player, skill.id, skill.range, skill.effectColor, skill.type, {
@@ -110,6 +112,7 @@ end
 function M.CastMultiZoneHeavySkill(skill, player)
     -- 必须有普攻目标才能释放
     if not player.target or not player.target.alive then return false end
+    local castId = CombatSystem.NextCombatCastId(skill.id)
 
     -- 朝向：玩家→目标
     local targetAngle = math_atan(player.target.y - player.y, player.target.x - player.x)
@@ -200,8 +203,8 @@ function M.CastMultiZoneHeavySkill(skill, player)
     local scaledDmg = math_floor(baseDmg * damageMultiplier)
 
     -- 暴击判定（全体共用同一次判定）
-    local isCrit
-    scaledDmg, isCrit = player:ApplyCrit(scaledDmg)
+    local isCrit, isTianzhu
+    scaledDmg, isCrit, isTianzhu = player:ApplyCrit(scaledDmg)
 
     -- 对命中目标施加伤害
     local actualDmg = scaledDmg
@@ -209,6 +212,12 @@ function M.CastMultiZoneHeavySkill(skill, player)
         local m = hitList[i]
         if m and m.alive then
             actualDmg = HitResolver.Hit(player, m, scaledDmg, { skipCalcDamage = true, skipCrit = true })
+            shared.EmitSkillDamage(player, m, skill, actualDmg, isCrit, isTianzhu, castId, {
+                hitIndex = i,
+                damageTag = "heavy",
+                impact = "heavy",
+                noLegacy = true,
+            })
         end
     end
 
@@ -216,7 +225,10 @@ function M.CastMultiZoneHeavySkill(skill, player)
     local icon = skill.icon or "🏯"
     local prefix = isCrit and (icon .. "暴击 ") or (icon .. "神塔镇压 ")
     local dmgColor = isCrit and {255, 220, 50, 255} or (skill.effectColor or {80, 200, 120, 255})
-    CombatSystem.AddFloatingText(player.x, player.y - 0.6, prefix .. actualDmg, dmgColor, 1.8)
+    CombatSystem.EmitLegacyOnlyFeedback({
+        x = player.x, y = player.y - 0.6,
+        text = prefix .. actualDmg, color = dmgColor, lifetime = 1.8,
+    })
 
     -- 技能特效（显示 4 个区域的落点效果）
     CombatSystem.AddSkillEffect(player, skill.id, skill.range or 2.0,
@@ -234,18 +246,27 @@ function M.CastMultiZoneHeavySkill(skill, player)
             comboDmg = math_floor(comboDmg * (1 + comboDmgBonus))
         end
         comboDmg = math_floor(comboDmg * damageMultiplier)
-        local comboCrit
-        comboDmg, comboCrit = player:ApplyCrit(comboDmg)
+        local comboCrit, comboTianzhu
+        comboDmg, comboCrit, comboTianzhu = player:ApplyCrit(comboDmg)
 
         for i = 1, hitCount do
             local m = hitList[i]
             if m and m.alive then
-                HitResolver.Hit(player, m, comboDmg, { skipCalcDamage = true, skipCrit = true })
+                local applied = HitResolver.Hit(player, m, comboDmg, { skipCalcDamage = true, skipCrit = true })
+                shared.EmitSkillDamage(player, m, skill, applied, comboCrit, comboTianzhu, castId, {
+                    hitIndex = i,
+                    damageTag = "heavy",
+                    impact = "heavy",
+                    noLegacy = true,
+                })
             end
         end
         local comboPrefix = comboCrit and (icon .. "连击暴击 ") or (icon .. "连击 ")
         local comboColor = comboCrit and {255, 220, 50, 255} or (skill.effectColor or {80, 200, 120, 255})
-        CombatSystem.AddFloatingText(player.x, player.y - 0.8, comboPrefix .. comboDmg, comboColor, 1.5)
+        CombatSystem.EmitLegacyOnlyFeedback({
+            x = player.x, y = player.y - 0.8,
+            text = comboPrefix .. comboDmg, color = comboColor, lifetime = 1.5,
+        })
     end)
 
     local EventBus = shared.EventBus
@@ -262,6 +283,7 @@ function M.CastHpDamageSkill(skill, player)
     -- 必须有目标
     if not player.target or not player.target.alive then return false end
     skill = SkillData.CreateRuntimeSkill(skill, player)
+    local castId = CombatSystem.NextCombatCastId(skill.id)
 
     local maxHp = player:GetTotalMaxHp()
     local hpCost = math_floor(maxHp * (skill.hpCost or 0))
@@ -306,7 +328,7 @@ function M.CastHpDamageSkill(skill, player)
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage, isCrit = HitResolver.Standard(player, m, rawDmg)
+            local damage, isCrit, isTianzhu = HitResolver.Standard(player, m, rawDmg)
 
             if not firstHitMonster and m.alive then
                 firstHitMonster = m
@@ -314,7 +336,11 @@ function M.CastHpDamageSkill(skill, player)
 
             local dmgText = isCrit and (skill.icon .. "暴击 " .. damage) or (skill.icon .. damage)
             local dmgColor = isCrit and {255, 220, 50, 255} or (skill.effectColor or {255, 100, 50, 255})
-            CombatSystem.AddFloatingText(m.x, m.y - 0.3, dmgText, dmgColor, 1.2)
+            shared.EmitSkillDamage(player, m, skill, damage, isCrit, isTianzhu, castId, {
+                hitIndex = i,
+                legacyText = dmgText,
+                legacyColor = dmgColor,
+            })
         end
     end
 
@@ -326,8 +352,15 @@ function M.CastHpDamageSkill(skill, player)
         CombatSystem.AddBloodRageStack(player, firstHitMonster)
     end
 
-    -- HP 消耗浮字
-    CombatSystem.AddFloatingText(player.x, player.y - 0.8, "-" .. hpCost .. " HP", {200, 80, 80, 200}, 1.0)
+    CombatSystem.EmitCombatFeedback({
+        kind = "status", text = "-" .. hpCost .. " HP",
+        target = player, targetKey = "player:self",
+        sourceType = "skill", sourceId = skill.id,
+        color = {200, 80, 80, 200},
+    }, {
+        x = player.x, y = player.y - 0.8,
+        text = "-" .. hpCost .. " HP", color = {200, 80, 80, 200}, lifetime = 1.0,
+    })
 
     -- 技能特效（传递偏移中心和朝向信息）
     CombatSystem.AddSkillEffect(player, skill.id, skill.range or 1.5, skill.effectColor, "melee_aoe", {
@@ -356,11 +389,19 @@ function M.CastHpHealDamageSkill(skill, player)
     end
 
     local maxHp = player:GetTotalMaxHp()
+    local castId = CombatSystem.NextCombatCastId(skill.id)
 
     -- 回血
     local healAmount = math_floor(maxHp * (skill.healPercent or 0.30))
+    local hpBefore = player.hp
     player.hp = math_min(maxHp, player.hp + healAmount)
-    CombatSystem.AddFloatingText(player.x, player.y - 0.8, "+" .. healAmount, {80, 255, 120, 255}, 1.2)
+    local actualHeal = player.hp - hpBefore
+    if actualHeal > 0 then
+        shared.EmitHealFeedback(player, player, actualHeal, skill.name, {80, 255, 120, 255}, {
+            x = player.x, y = player.y - 0.8,
+            text = "+" .. actualHeal, color = {80, 255, 120, 255}, lifetime = 1.2,
+        })
+    end
 
     -- 目标选择（Pattern C: 条件形状过滤 + centerOffset，无排序）
     local targets, hitCount = TargetSelector.Select(player, {
@@ -390,11 +431,15 @@ function M.CastHpHealDamageSkill(skill, player)
     for i = 1, hitCount do
         local m = targets[i]
         if m and m.alive then
-            local damage, isCrit = HitResolver.Standard(player, m, rawDmg)
+            local damage, isCrit, isTianzhu = HitResolver.Standard(player, m, rawDmg)
 
             local dmgText = isCrit and (skill.icon .. "暴击 " .. damage) or (skill.icon .. damage)
             local dmgColor = isCrit and {255, 220, 50, 255} or (skill.effectColor or {80, 220, 120, 255})
-            CombatSystem.AddFloatingText(m.x, m.y - 0.3, dmgText, dmgColor, 1.2)
+            shared.EmitSkillDamage(player, m, skill, damage, isCrit, isTianzhu, castId, {
+                hitIndex = i,
+                legacyText = dmgText,
+                legacyColor = dmgColor,
+            })
         end
     end
 
@@ -409,7 +454,7 @@ function M.CastHpHealDamageSkill(skill, player)
         duration = skill.effectDuration,
     } or nil)
 
-    print("[SkillSystem] " .. skill.name .. ": heal " .. healAmount .. ", hit " .. hitCount .. " targets")
+    print("[SkillSystem] " .. skill.name .. ": heal " .. actualHeal .. ", hit " .. hitCount .. " targets")
     return true
 end
 

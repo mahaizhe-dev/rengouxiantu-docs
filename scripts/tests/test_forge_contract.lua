@@ -13,12 +13,14 @@
 --   C9: 虎王试炼炉 — 第一章独立站点与唯一配方
 --   C10: 乌堡锻造台 — 第二章独立站点与唯一配方
 --   C11: 图鉴运行时生效 — 所有 Collection.entries bonus 均实际应用到 Player 字段
+--   C14: 第四至第六章锻造链优化 — 配方、模板、图鉴和UI语义精确一致
 -- ============================================================================
 
 local EquipmentData = require("config.EquipmentData")
 local GameConfig = require("config.GameConfig")
 local TigerDomainZone = require("config.zones.tiger_domain")
 local Chapter2FortressZone = require("config.zones.chapter2.fortress_e")
+local Chapter3Fort1Zone = require("config.zones.chapter3.fort_1")
 local CollectionSystem = require("systems.CollectionSystem")
 local GameState = require("core.GameState")
 
@@ -59,6 +61,23 @@ end
 local function SUITE(name)
     print("")
     print("  ── " .. name .. " ──")
+end
+
+local function readFile(path)
+    local f = io.open(path, "rb")
+    if not f then return "" end
+    local text = f:read("*a") or ""
+    f:close()
+    return text
+end
+
+local function fileContains(path, needle)
+    return readFile(path):find(needle, 1, true) ~= nil
+end
+
+local function indexOf(path, needle)
+    local pos = readFile(path):find(needle, 1, true)
+    return pos or -1
 end
 
 -- ── 辅助：判断 outputId 是否为合法法宝模板 ─────────────────────────────────
@@ -234,6 +253,10 @@ local TestRegistry = require("tests.TestRegistry")
 local DANGEROUS_TEST_IDS = {
     "jiefeng_forge_pipeline",
     "sword_forge_comprehensive",
+    "ch1_tiger_trial_forge_pipeline",
+    "ch2_wubao_forge_pipeline",
+    "ch3_huangsha_forge_pipeline",
+    "all_forge_pipeline",
 }
 
 local allTests = TestRegistry.GetAll()
@@ -414,7 +437,105 @@ ASSERT_EQ(xuehaiCollectionEntry and xuehaiCollectionEntry.bonus and xuehaiCollec
 ASSERT_EQ(xuehaiCollectionEntry and xuehaiCollectionEntry.bonus and xuehaiCollectionEntry.bonus.maxHp, 20,
     "血海深仇戒图鉴奖励 maxHp+20")
 
-SUITE("C11: 全图鉴运行时实际生效")
+-- ============================================================================
+-- C11: 黄沙锻造台独立站点与黄沙换兵配方
+-- ============================================================================
+SUITE("C11: 黄沙锻造台独立站点")
+
+ASSERT(EquipmentData.FORGE_STATIONS and EquipmentData.FORGE_STATIONS.huangsha_forge ~= nil,
+    "huangsha_forge 站点存在")
+if EquipmentData.FORGE_STATIONS and EquipmentData.FORGE_STATIONS.huangsha_forge then
+    ASSERT_EQ(EquipmentData.FORGE_STATIONS.huangsha_forge.name, "黄沙锻造台", "黄沙锻造台站点名正确")
+    ASSERT_EQ(EquipmentData.FORGE_STATIONS.huangsha_forge.subtitle, "黄沙换兵", "黄沙锻造台副标题正确")
+end
+
+local huangshaForgeNpc = nil
+for _, npc in ipairs(Chapter3Fort1Zone.npcs or {}) do
+    if npc.id == "ch3_huangsha_forge" then
+        huangshaForgeNpc = npc
+        break
+    end
+end
+ASSERT(huangshaForgeNpc ~= nil, "黄沙锻造台地图交互物存在")
+if huangshaForgeNpc then
+    ASSERT_EQ(huangshaForgeNpc.interactType, "huangsha_forge", "黄沙锻造台使用独立交互")
+    ASSERT(huangshaForgeNpc.isObject == true, "黄沙锻造台使用物件渲染")
+    ASSERT(huangshaForgeNpc.showNameplate == true and huangshaForgeNpc.hideName ~= true, "黄沙锻造台显示 NPC 新名板")
+    ASSERT_EQ(huangshaForgeNpc.name, "黄沙锻造台", "黄沙锻造台名板标题正确")
+    ASSERT_EQ(huangshaForgeNpc.subtitle, "黄沙换兵", "黄沙锻造台名板副标题正确")
+    ASSERT_EQ(huangshaForgeNpc.zone, "ch3_fort_1", "黄沙锻造台位于第三章第一寨")
+    ASSERT_EQ(huangshaForgeNpc.x, 65, "黄沙锻造台 X 坐标为 65")
+    ASSERT_EQ(huangshaForgeNpc.y, 59, "黄沙锻造台 Y 坐标为 59")
+end
+
+local hasStoneAtForge = false
+for _, deco in ipairs(Chapter3Fort1Zone.decorations or {}) do
+    if deco.type == "stone_tablet" and deco.x == 65 and deco.y == 59 then
+        hasStoneAtForge = true
+        break
+    end
+end
+ASSERT(not hasStoneAtForge, "65,59 石碑装饰已移除")
+
+local huangshaOrder = EquipmentData.FORGE_RECIPE_ORDER and EquipmentData.FORGE_RECIPE_ORDER.huangsha_forge
+ASSERT(huangshaOrder ~= nil and #huangshaOrder == 1 and huangshaOrder[1] == "huangsha_weapon_reroll",
+    "黄沙锻造台只有黄沙换兵一个配方")
+
+local huangshaRecipe = EquipmentData.FORGE_RECIPES and EquipmentData.FORGE_RECIPES.huangsha_weapon_reroll
+ASSERT(huangshaRecipe ~= nil, "黄沙换兵配方存在")
+if huangshaRecipe then
+    ASSERT_EQ(huangshaRecipe.stationId, "huangsha_forge", "黄沙换兵配方归属第三章站点")
+    ASSERT_EQ(huangshaRecipe.inputMode, "equip_weapon", "黄沙换兵要求装备栏武器")
+    ASSERT_EQ(huangshaRecipe.outputMode, "replace_weapon", "黄沙换兵原地替换武器")
+    ASSERT_EQ(huangshaRecipe.gold, 1000000, "黄沙换兵金币消耗 100 万")
+    ASSERT_EQ(huangshaRecipe.fromBag2 and huangshaRecipe.fromBag2.equipId, "dizun_ring_ch3", "黄沙换兵消耗帝尊叁戒")
+    ASSERT_EQ(#(huangshaRecipe.materials or {}), 1, "黄沙换兵消耗 1 种普通材料")
+    ASSERT_EQ(huangshaRecipe.materials and huangshaRecipe.materials[1] and huangshaRecipe.materials[1].id, "sha_hai_ling", "黄沙换兵消耗沙海令")
+    ASSERT_EQ(huangshaRecipe.materials and huangshaRecipe.materials[1] and huangshaRecipe.materials[1].count, 1000, "黄沙换兵消耗 1000 沙海令")
+    ASSERT_EQ(huangshaRecipe.generator and huangshaRecipe.generator.type, "random_huangsha_weapon_except_equipped", "黄沙换兵使用随机排除自身生成器")
+    ASSERT_EQ(#(huangshaRecipe.equipSourcePool or {}), 5, "黄沙换兵装备输入池为 5 把")
+    ASSERT_EQ(#(huangshaRecipe.generator and huangshaRecipe.generator.pool or {}), 5, "黄沙换兵生成池为 5 把")
+
+    local poolSet = {}
+    for _, equipId in ipairs(huangshaRecipe.equipSourcePool or {}) do
+        poolSet[equipId] = true
+        ASSERT(EquipmentData.SpecialEquipment[equipId] ~= nil, "黄沙输入池装备存在：" .. tostring(equipId))
+        ASSERT_EQ(EquipmentData.SpecialEquipment[equipId] and EquipmentData.SpecialEquipment[equipId].slot, "weapon", "黄沙输入池必须是武器：" .. tostring(equipId))
+    end
+    for _, equipId in ipairs((huangshaRecipe.generator and huangshaRecipe.generator.pool) or {}) do
+        ASSERT(poolSet[equipId] == true, "黄沙生成池与输入池一致：" .. tostring(equipId))
+    end
+end
+
+for _, stationId in ipairs({ "tiger_trial_forge", "wubao_forge", "dragon_forge", "sword_forge" }) do
+    for _, id in ipairs((EquipmentData.FORGE_RECIPE_ORDER and EquipmentData.FORGE_RECIPE_ORDER[stationId]) or {}) do
+        ASSERT(id ~= "huangsha_weapon_reroll", stationId .. " 不显示黄沙换兵配方")
+    end
+end
+
+ASSERT(fileContains("scripts/ui/GMConsole.lua", "give_huangsha_forge_kit"), "GM 控制台包含黄沙铸造测试包命令")
+ASSERT(fileContains("scripts/ui/GMConsole.lua", "CmdGiveHuangshaForgeKit"), "GM 控制台包含黄沙铸造测试包实现函数")
+ASSERT(fileContains("scripts/ui/GMConsole.lua", "黄沙铸造包"), "GM 控制台包含黄沙铸造包按钮")
+ASSERT(fileContains("scripts/ui/GMConsole.lua", "dizun_ring_ch3"), "黄沙铸造包发放帝尊叁戒")
+ASSERT(fileContains("scripts/ui/GMConsole.lua", 'AddConsumable("sha_hai_ling", 1000)'), "黄沙铸造包发放 1000 沙海令")
+ASSERT(fileContains("scripts/ui/GMConsole.lua", "5000000"), "黄沙铸造包发放 500 万金币")
+
+local swordForgeUiPath = "scripts/ui/SwordForgeUI.lua"
+ASSERT(fileContains(swordForgeUiPath, 'BuildEquippedWeaponRow("任意黄沙武器"'),
+    "黄沙换兵 UI 将正确的装备池要求传给公共材料行")
+ASSERT(fileContains(swordForgeUiPath, 'local displayText = requiredName .. "（需要装备）"'),
+    "黄沙换兵 UI 由公共材料行统一标注需要装备")
+ASSERT(fileContains(swordForgeUiPath, 'isHuangshaRerollRecipe and "⚠️ 必须装备黄沙武器" or recipe.desc'), "黄沙换兵按钮上方只显示短警示")
+do
+    local posWeapon = indexOf(swordForgeUiPath, "-- ── 当前装备武器池输入")
+    local posRing = indexOf(swordForgeUiPath, "-- ── fromBag2")
+    local posToken = indexOf(swordForgeUiPath, "-- ── 普通材料")
+    local posGold = indexOf(swordForgeUiPath, "-- ── 金币（展示在材料列表最后）")
+    ASSERT(posWeapon > 0 and posRing > posWeapon and posToken > posRing and posGold > posToken,
+        "黄沙换兵材料展示顺序为武器、戒指、令牌、金币")
+end
+
+SUITE("C12: 全图鉴运行时实际生效")
 
 do
     local oldPlayer = GameState.player
@@ -507,6 +628,265 @@ do
     CollectionSystem.collected = oldCollected
     ASSERT(ok, "全图鉴运行时生效测试无异常：" .. tostring(err))
 end
+
+SUITE("C13: 统一铸造配置与界面单一数据源")
+
+do
+    local recipeOrderSeen = {}
+    for stationId, order in pairs(EquipmentData.FORGE_RECIPE_ORDER or {}) do
+        ASSERT(EquipmentData.FORGE_STATIONS[stationId] ~= nil,
+            "配方顺序表存在对应站点：" .. tostring(stationId))
+        for _, recipeId in ipairs(order) do
+            local recipe = EquipmentData.FORGE_RECIPES[recipeId]
+            ASSERT(recipe ~= nil, "顺序表引用统一配方：" .. tostring(recipeId))
+            if recipe then
+                ASSERT_EQ(recipe.stationId, stationId,
+                    recipeId .. " 统一配方归属站点一致")
+                ASSERT(recipeOrderSeen[recipeId] == nil,
+                    recipeId .. " 只出现在一个站点顺序表")
+                recipeOrderSeen[recipeId] = stationId
+
+                local generator = recipe.generator or {}
+                local outputId = recipe.outputId
+                    or generator.outputId
+                    or generator.targetId
+                if outputId and generator.type ~= "fabao" then
+                    ASSERT(EquipmentData.SpecialEquipment[outputId] ~= nil,
+                        recipeId .. " 统一配方产物模板存在")
+                end
+
+                if recipe.inputMode == "equip_weapon" then
+                    local hasFixedSource = type(recipe.equipSource) == "string"
+                    local hasSourcePool = type(recipe.equipSourcePool) == "table"
+                        and #recipe.equipSourcePool > 0
+                    ASSERT(hasFixedSource ~= hasSourcePool,
+                        recipeId .. " 装备栏输入必须且只能声明 equipSource/equipSourcePool 之一")
+                    if hasFixedSource then
+                        local sourceDef = EquipmentData.SpecialEquipment[recipe.equipSource]
+                        ASSERT(sourceDef and sourceDef.slot == "weapon",
+                            recipeId .. " 固定装备栏输入必须引用 weapon 模板")
+                    end
+                end
+
+                if recipe.outputMode == "replace_weapon" then
+                    ASSERT_EQ(recipe.inputMode, "equip_weapon",
+                        recipeId .. " 原地替换配方必须从装备栏读取武器")
+                    if generator.type == "random_huangsha_weapon_except_equipped" then
+                        for _, candidateId in ipairs(generator.pool or {}) do
+                            local candidateDef = EquipmentData.SpecialEquipment[candidateId]
+                            ASSERT(candidateDef and candidateDef.slot == "weapon",
+                                recipeId .. " 随机产物槽位为 weapon：" .. tostring(candidateId))
+                        end
+                    else
+                        local outputDef = EquipmentData.SpecialEquipment[outputId]
+                        ASSERT(outputDef and outputDef.slot == "weapon",
+                            recipeId .. " 原地替换产物槽位为 weapon")
+                    end
+                end
+            end
+        end
+    end
+
+    for recipeId in pairs(EquipmentData.FORGE_RECIPES or {}) do
+        ASSERT(recipeOrderSeen[recipeId] ~= nil,
+            "统一配方已进入且仅进入一个站点顺序表：" .. tostring(recipeId))
+    end
+end
+
+local dragonForgeUiPath = "scripts/ui/DragonForgeUI.lua"
+ASSERT(not fileContains(dragonForgeUiPath, "EquipmentData.DRAGON_FORGE_RECIPES"),
+    "龙神界面不再读取旧 DRAGON_FORGE_RECIPES")
+ASSERT(not fileContains(dragonForgeUiPath, "EquipmentData.DRAGON_FORGE_COST"),
+    "龙神界面不再读取旧 DRAGON_FORGE_COST")
+ASSERT(not fileContains(dragonForgeUiPath, "EquipmentData.LONGJI_FORGE_COST"),
+    "龙极令界面不再读取旧 LONGJI_FORGE_COST")
+ASSERT(not fileContains(dragonForgeUiPath, "EquipmentData.LINGQI_FORGE_COST"),
+    "灵器铸造界面不再读取旧 LINGQI_FORGE_COST")
+ASSERT(fileContains(dragonForgeUiPath, "EquipmentData.FORGE_RECIPES"),
+    "龙神界面统一读取 FORGE_RECIPES")
+ASSERT(not fileContains(swordForgeUiPath, "EquipmentData.SWORD_FORGE_COSTS"),
+    "通用铸造界面不再合并旧 SWORD_FORGE_COSTS")
+ASSERT(not fileContains(swordForgeUiPath, "EquipmentData.SWORD_FORGE_ORDER"),
+    "通用铸造界面不再回退旧 SWORD_FORGE_ORDER")
+ASSERT(fileContains(swordForgeUiPath, "EquipmentData.FORGE_RECIPES"),
+    "通用铸造界面统一读取 FORGE_RECIPES")
+ASSERT(fileContains(swordForgeUiPath, 'local displayText = requiredName .. "（需要装备）"'),
+    "装备栏材料行统一显示配方要求并标注需要装备")
+ASSERT(fileContains(swordForgeUiPath, '"；当前装备：" .. item.name'),
+    "装备错误时当前装备只作为诊断信息追加")
+ASSERT(not fileContains(swordForgeUiPath, "item and item.name or requiredText"),
+    "禁止当前装备名称覆盖配方要求名称")
+
+SUITE("C14: 第四至第六章锻造链优化")
+
+local function materialCount(recipe, materialId)
+    for _, material in ipairs((recipe and recipe.materials) or {}) do
+        if material.id == materialId then return material.count end
+    end
+    return nil
+end
+
+local dragonWeaponRecipeIds = {
+    "dragon_shengqi_duanliu",
+    "dragon_shengqi_fentian",
+    "dragon_shengqi_shihun",
+    "dragon_shengqi_liedi",
+    "dragon_shengqi_mieying",
+}
+for _, recipeId in ipairs(dragonWeaponRecipeIds) do
+    local recipe = EquipmentData.FORGE_RECIPES[recipeId]
+    ASSERT_EQ(recipe and recipe.fromBag2 and recipe.fromBag2.equipId,
+        "silong_ring_ch4", recipeId .. " 消耗帝尊肆戒")
+    ASSERT_EQ(recipe and recipe.inputMode, "equip_weapon", recipeId .. " 保持装备升级")
+    ASSERT_EQ(recipe and recipe.outputMode, "replace_weapon", recipeId .. " 保持原位替换")
+end
+
+local longjiRecipe = EquipmentData.FORGE_RECIPES.dragon_longji
+ASSERT_EQ(longjiRecipe and longjiRecipe.fromBag and longjiRecipe.fromBag.equipId,
+    "silong_ring_ch4", "龙极令消耗帝尊肆戒")
+ASSERT_EQ(longjiRecipe and longjiRecipe.taixu_token, 1000, "龙极令太虚令消耗不变")
+
+local zhenlongRecipe = EquipmentData.FORGE_RECIPES.zhenlong_helmet_ch4
+local zhenlongTemplate = EquipmentData.SpecialEquipment.zhenlong_helmet_ch4
+ASSERT_EQ(zhenlongRecipe and zhenlongRecipe.stationId, "dragon_forge", "真龙盔归属龙神熔炉")
+ASSERT_EQ(zhenlongRecipe and zhenlongRecipe.inputMode, "bag_consume", "真龙盔为背包打造")
+ASSERT_EQ(zhenlongRecipe and zhenlongRecipe.outputMode, "add_to_bag", "真龙盔产物进入背包")
+ASSERT_EQ(zhenlongRecipe and zhenlongRecipe.gold, 1000000, "真龙盔消耗100万金币")
+ASSERT_EQ(zhenlongRecipe and zhenlongRecipe.fromBagList and zhenlongRecipe.fromBagList[1].equipId,
+    "jilong_helmet_ch4", "真龙盔消耗极龙盔")
+ASSERT_EQ(zhenlongRecipe and zhenlongRecipe.fromBagList and zhenlongRecipe.fromBagList[2].equipId,
+    "fabao_longjiling", "真龙盔消耗龙极令")
+ASSERT_EQ(zhenlongRecipe and zhenlongRecipe.fromBagList and zhenlongRecipe.fromBagList[3].equipId,
+    "silong_ring_ch4", "真龙盔消耗帝尊肆戒")
+ASSERT_EQ(zhenlongTemplate and zhenlongTemplate.tier, 10, "真龙盔为T10")
+ASSERT_EQ(zhenlongTemplate and zhenlongTemplate.quality, "cyan", "真龙盔为青色")
+ASSERT_NUM_EQ(zhenlongTemplate and zhenlongTemplate.mainStat and zhenlongTemplate.mainStat.maxHp,
+    756, "真龙盔生命属性")
+ASSERT_NUM_EQ(zhenlongTemplate and zhenlongTemplate.subStats and zhenlongTemplate.subStats[1].value,
+    19.5, "真龙盔攻击副属性")
+ASSERT_NUM_EQ(zhenlongTemplate and zhenlongTemplate.subStats and zhenlongTemplate.subStats[2].value,
+    0.075, "真龙盔暴击副属性")
+ASSERT_NUM_EQ(zhenlongTemplate and zhenlongTemplate.subStats and zhenlongTemplate.subStats[3].value,
+    15.6, "真龙盔防御副属性")
+ASSERT_NUM_EQ(zhenlongTemplate and zhenlongTemplate.spiritStat and zhenlongTemplate.spiritStat.value,
+    0.1875, "真龙盔灵性暴伤")
+
+local bloodFiveRecipeIds = {
+    "daozang_saint_armor",
+    "saint_cape_ch5",
+    "jiefeng_zhuxian_ch5",
+    "jiefeng_xianxian_ch5",
+    "jiefeng_luxian_ch5",
+    "jiefeng_juexian_ch5",
+}
+for _, recipeId in ipairs(bloodFiveRecipeIds) do
+    ASSERT_EQ(materialCount(EquipmentData.FORGE_RECIPES[recipeId], "immortal_essence_blood"),
+        5, recipeId .. " 仙人精血消耗为5")
+end
+
+local longhunRecipe = EquipmentData.FORGE_RECIPES.fabao_longhunling
+ASSERT_EQ(longhunRecipe and longhunRecipe.fromBag and longhunRecipe.fromBag.equipId,
+    "dizun_ring_ch5", "龙魂令消耗帝尊伍戒")
+ASSERT_EQ(materialCount(longhunRecipe, "immortal_essence_blood"), 5, "龙魂令消耗仙人精血5")
+ASSERT_EQ(materialCount(longhunRecipe, "taixu_jianling"), 1000, "龙魂令消耗太虚剑令1000")
+ASSERT_EQ(longhunRecipe and longhunRecipe.generator and longhunRecipe.generator.type,
+    "fabao", "龙魂令使用通用法宝生成器")
+ASSERT_EQ(longhunRecipe and longhunRecipe.generator and longhunRecipe.generator.templateId,
+    "fabao_longhunling", "龙魂令直接生成自身模板")
+
+local t9Random = EquipmentData.FORGE_RECIPES.dragon_lingqi
+local t10Random = EquipmentData.FORGE_RECIPES.t10_random_lingqi_ch5
+ASSERT(t9Random and not t9Random.fromBag and not t9Random.fromBag2 and not t9Random.fromBagList,
+    "随机T9灵器不消耗帝尊戒")
+ASSERT(t10Random and not t10Random.fromBag and not t10Random.fromBag2 and not t10Random.fromBagList,
+    "随机T10灵器不消耗帝尊戒")
+
+local longwangRecipe = EquipmentData.FORGE_RECIPES.fabao_longwangling
+local longwangTemplate = EquipmentData.FabaoTemplates.fabao_longwangling
+ASSERT_EQ(longwangRecipe and longwangRecipe.fromBag and longwangRecipe.fromBag.equipId,
+    "ch6_xianzun_1_ring", "龙王令消耗仙尊壹戒")
+ASSERT_EQ(materialCount(longwangRecipe, "shadow_crystal"), 6, "龙王令消耗影子水晶6")
+ASSERT_EQ(materialCount(longwangRecipe, "zhexian_ling"), 1000, "龙王令消耗谪仙令1000")
+ASSERT_EQ(longwangRecipe and longwangRecipe.gold, 0, "龙王令不消耗金币")
+ASSERT_EQ(longwangRecipe and longwangRecipe.generator and longwangRecipe.generator.type,
+    "fabao", "龙王令使用通用法宝生成器")
+ASSERT_EQ(longwangTemplate and longwangTemplate.skillId, "dragon_breath", "龙王令沿用龙息技能")
+
+local collection = EquipmentData.Collection.entries
+ASSERT_NUM_EQ(collection.zhenlong_helmet_ch4 and collection.zhenlong_helmet_ch4.bonus.atk,
+    12, "真龙盔图鉴攻击+12")
+local ch6FabaoBonuses = {
+    fabao_xuehaitu_t11 = { atk = 15, killHeal = 30 },
+    fabao_haoqiyin_t11 = { killHeal = 30, hpRegen = 10 },
+    fabao_qingyunta_t11 = { heavyHit = 50, def = 15 },
+    fabao_fengmopan_t11 = { maxHp = 50, hpRegen = 5 },
+    fabao_longwangling_t11 = { atk = 5, fortune = 5 },
+}
+for equipId, expectedBonus in pairs(ch6FabaoBonuses) do
+    local template = EquipmentData.SpecialEquipment[equipId]
+    local entry = collection[equipId]
+    ASSERT_EQ(template and template.tier, 11, equipId .. " 图鉴精确匹配T11")
+    ASSERT_EQ(template and template.quality, "red", equipId .. " 图鉴精确匹配红色")
+    for stat, value in pairs(expectedBonus) do
+        ASSERT_NUM_EQ(entry and entry.bonus and entry.bonus[stat], value,
+            equipId .. " 图鉴加成 " .. stat)
+    end
+end
+
+do
+    local oldInventorySystem = package.loaded["systems.InventorySystem"]
+    local slots = {
+        [1] = {
+            isFabao = true,
+            equipId = "fabao_xuehaitu",
+            tier = 11,
+            quality = "cyan",
+        },
+        [2] = {
+            isFabao = true,
+            equipId = "fabao_xuehaitu",
+            tier = 11,
+            quality = "red",
+        },
+    }
+    package.loaded["systems.InventorySystem"] = {
+        GetManager = function()
+            return {
+                GetInventoryItem = function(_, index)
+                    return slots[index]
+                end,
+            }
+        end,
+    }
+    ASSERT_EQ(CollectionSystem.FindInBackpack("fabao_xuehaitu_t11"), 2,
+        "T11法宝图鉴跳过青色并精确匹配红色")
+    slots[2] = nil
+    ASSERT_EQ(CollectionSystem.FindInBackpack("fabao_xuehaitu_t11"), nil,
+        "T11法宝图鉴不接受青色替代红色")
+    package.loaded["systems.InventorySystem"] = oldInventorySystem
+end
+
+local orderedRecipeCount = 0
+for _, order in pairs(EquipmentData.FORGE_RECIPE_ORDER or {}) do
+    orderedRecipeCount = orderedRecipeCount + #order
+end
+ASSERT_EQ(orderedRecipeCount, 29, "统一锻造配方总数为29")
+ASSERT(fileContains(dragonForgeUiPath, '"装备升级"')
+    and fileContains(dragonForgeUiPath, '"背包打造"'),
+    "龙神熔炉明确区分装备升级与背包打造")
+ASSERT(fileContains(swordForgeUiPath, '"装备升级"')
+    and fileContains(swordForgeUiPath, '"背包打造"'),
+    "通用锻造界面明确区分装备升级与背包打造")
+ASSERT(fileContains(swordForgeUiPath, 'haveCount .. "/" .. needCount'),
+    "通用背包装备材料显示拥有数量/需求数量")
+ASSERT(fileContains(swordForgeUiPath, "EquipmentUtils.CalcMainStatValue"),
+    "法宝预览与运行时共用主属性公式")
+
+local forgeSystemPath = "scripts/systems/ForgeSystem.lua"
+ASSERT(fileContains(forgeSystemPath, "NormalizeEquipmentRuntimeFields(weapon)"),
+    "原地替换武器统一补齐运行时 type 字段")
+ASSERT(fileContains(forgeSystemPath, 'elseif genType == "true_sword"'),
+    "第六章真仙剑接入统一生成器分派")
 
 -- ============================================================================
 -- 汇总

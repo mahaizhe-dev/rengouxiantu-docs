@@ -3,6 +3,7 @@
 -- 包含: House, Tree, Well, Lantern, Sign, FlowerBed, Barrel, Stall
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local T = require("config.UITheme")
 
 local M = {}

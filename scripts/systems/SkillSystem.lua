@@ -357,12 +357,16 @@ function SkillSystem.PassiveShieldTrigger(skill, player, skillId)
 
         SkillSystem.cooldowns[skillId] = skill.cooldown
 
-        CombatSystem.AddFloatingText(
-            player.x, player.y - 0.8,
-            skill.icon .. skill.name .. " +" .. shieldValue,
-            skill.effectColor,
-            1.8
-        )
+        CombatSystem.EmitCombatFeedback({
+            kind = "absorb", value = shieldValue,
+            source = player, target = player, targetKey = "player:self",
+            sourceType = "skill", sourceId = skillId,
+            sourceName = skill.name, color = skill.effectColor,
+        }, {
+            x = player.x, y = player.y - 0.8,
+            text = skill.icon .. skill.name .. " +" .. shieldValue,
+            color = skill.effectColor, lifetime = 1.8,
+        })
         CombatSystem.AddSkillEffect(player, skill.id, 1.5, skill.effectColor, "passive", nil)
 
         EventBus.Emit("skill_cast", skillId, skill)

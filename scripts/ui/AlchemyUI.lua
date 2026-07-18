@@ -15,6 +15,7 @@ local PillRecipes = require("config.PillRecipes")
 local PanelShell = require("ui.components.PanelShell")
 local ItemSlot = require("ui.components.ItemSlot")
 local CategoryBadge = require("ui.components.CategoryBadge")
+local AdaptiveIcon = require("ui.components.AdaptiveIcon")
 
 local AlchemyUI = {}
 
@@ -618,7 +619,10 @@ local function BuildMidlandContent()
                                         backgroundColor = T.decor.qualitySlotBg.orange,
                                         justifyContent = "center", alignItems = "center",
                                         children = {
-                                            UI.Label { text = cfg.icon, fontSize = T.fontSize.xl + 4 },
+                                            AdaptiveIcon.Create(cfg.icon, {
+                                                size = ICON_SIZE - T.spacing.sm * 2,
+                                                fontSize = T.fontSize.xl + 4,
+                                            }),
                                         },
                                     },
                                     UI.Panel {

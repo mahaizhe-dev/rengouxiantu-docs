@@ -5,7 +5,7 @@
 --
 -- 覆盖：
 --   1. 模块可加载
---   2. 6 个开关默认值全部为 false
+--   2. 7 个开关默认值全部为 false
 --   3. 未定义开关返回 false（安全降级）
 --   4. 统一读取 API（isEnabled）正常工作
 --   5. 运行时覆盖（setOverride / clearOverride）正常
@@ -65,6 +65,7 @@ end
 assert_true(type(FF) == "table", "FeatureFlags 是 table")
 assert_true(type(FF.isEnabled) == "function", "isEnabled 是函数")
 assert_true(type(FF.setOverride) == "function", "setOverride 是函数")
+assert_true(type(FF.getOverride) == "function", "getOverride 是函数")
 assert_true(type(FF.clearOverride) == "function", "clearOverride 是函数")
 assert_true(type(FF.clearAllOverrides) == "function", "clearAllOverrides 是函数")
 assert_true(type(FF.getMeta) == "function", "getMeta 是函数")
@@ -73,12 +74,13 @@ assert_true(type(FF.getCount) == "function", "getCount 是函数")
 assert_true(type(FF.snapshot) == "function", "snapshot 是函数")
 
 -- ============================================================================
--- TEST 2: 6 个开关全部已注册
+-- TEST 2: 7 个开关全部已注册
 -- ============================================================================
-print("--- FF TEST 2: 6 个开关已注册 ---")
+print("--- FF TEST 2: 7 个开关已注册 ---")
 
 local EXPECTED_FLAGS = {
     "CLOUDSTORAGE_STRICT_BATCHSET",
+    "COMBAT_FEEDBACK_V2",
     "NEW_MAIN_LOOP_ORCHESTRATOR",
     "NEW_SERVER_ROUTER",
     "SAVE_MIGRATION_SINGLE_ENTRY",
@@ -86,11 +88,11 @@ local EXPECTED_FLAGS = {
     "SERVER_SAVE_VALIDATOR_V2",
 }
 
-assert_eq(FF.getCount(), 6, "已注册 flag 数量 = 6")
+assert_eq(FF.getCount(), 7, "已注册 flag 数量 = 7")
 
 local allNames = FF.getAllNames()
 table.sort(allNames)
-assert_eq(#allNames, #EXPECTED_FLAGS, "getAllNames 返回 6 个名称")
+assert_eq(#allNames, #EXPECTED_FLAGS, "getAllNames 返回 7 个名称")
 
 for i, name in ipairs(EXPECTED_FLAGS) do
     assert_eq(allNames[i], name, "flag 名称匹配: " .. name)
@@ -139,6 +141,7 @@ FF._resetForTest()
 local setOk = FF.setOverride("SAVE_PIPELINE_V2", true)
 assert_true(setOk, "setOverride 已注册 flag 返回 true")
 assert_true(FF.isEnabled("SAVE_PIPELINE_V2"), "覆盖后 isEnabled 返回 true")
+assert_eq(FF.getOverride("SAVE_PIPELINE_V2"), true, "getOverride 返回显式 true")
 
 -- 其他 flag 不受影响
 assert_false(FF.isEnabled("NEW_SERVER_ROUTER"), "其他 flag 不受影响")
@@ -146,6 +149,7 @@ assert_false(FF.isEnabled("NEW_SERVER_ROUTER"), "其他 flag 不受影响")
 -- 覆盖回 false
 FF.setOverride("SAVE_PIPELINE_V2", false)
 assert_false(FF.isEnabled("SAVE_PIPELINE_V2"), "覆盖回 false 后 isEnabled 返回 false")
+assert_eq(FF.getOverride("SAVE_PIPELINE_V2"), false, "getOverride 返回显式 false")
 
 -- 覆盖未注册 flag：必须拒绝且不生效
 local setUnknown = FF.setOverride("UNKNOWN_FLAG", true)
@@ -177,6 +181,7 @@ assert_true(FF.isEnabled("NEW_SERVER_ROUTER"), "覆盖后为 true")
 
 FF.clearOverride("NEW_SERVER_ROUTER")
 assert_false(FF.isEnabled("NEW_SERVER_ROUTER"), "清除覆盖后恢复默认 false")
+assert_true(FF.getOverride("NEW_SERVER_ROUTER") == nil, "清除后 getOverride 返回 nil")
 
 -- ============================================================================
 -- TEST 8: clearAllOverrides
@@ -232,6 +237,7 @@ local EXPECTED_TASKS = {
     NEW_MAIN_LOOP_ORCHESTRATOR  = "P1-1",  -- 客户端主入口编排器拆分
     NEW_SERVER_ROUTER           = "P0-6",  -- 服务端路由/服务化
     CLOUDSTORAGE_STRICT_BATCHSET = "P0-5", -- CloudStorage 语义修正
+    COMBAT_FEEDBACK_V2          = "COMBAT-FEEDBACK-V2",
 }
 
 for flagName, expectedTask in pairs(EXPECTED_TASKS) do

@@ -3,6 +3,7 @@
 -- 子模块: DecoTown / DecoDungeon / DecoGeneric / DecoDesert / DecoDivine / DecoSea
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local GameConfig = require("config.GameConfig")
 local GameState = require("core.GameState")
 local ActiveZoneData = require("config.ActiveZoneData")
@@ -16,13 +17,17 @@ local DecoDesert  = require("rendering.DecoDesert")
 local DecoDivine  = require("rendering.DecoDivine")
 local DecoSea     = require("rendering.DecoSea")
 local DecoCh5     = require("rendering.DecoCh5")
+local DecoCh6     = require("rendering.DecoCh6")
 
 local M = {}
 
 -- ============================================================================
 -- 合并子模块函数到 M 表（保持 M.RenderXxx 接口不变）
 -- ============================================================================
-local SUB_MODULES = { DecoTown, DecoDungeon, DecoGeneric, DecoDesert, DecoDivine, DecoSea, DecoCh5 }
+local SUB_MODULES = {
+    DecoTown, DecoDungeon, DecoGeneric, DecoDesert,
+    DecoDivine, DecoSea, DecoCh5, DecoCh6,
+}
 
 for _, sub in ipairs(SUB_MODULES) do
     for k, v in pairs(sub) do
@@ -88,6 +93,7 @@ local DECORATION_RENDER_KEYS = {
     "divine_bagua",
     "divine_tiandi",
     "divine_zhentu",
+    "divine_jieshi",
     "trial_tower",
     "dao_tree",
     "sea_reef",
@@ -108,6 +114,8 @@ local DECORATION_RENDER_KEYS = {
     -- ch5 太虚遗址装饰
     "ruined_pillar", "anvil", "ice_shard",
     "toppled_stele", "burning_shelf",
+    -- ch6 两界阵石
+    "liangjie_stone",
 }
 
 local DECORATION_RENDER_METHOD = {
@@ -130,6 +138,7 @@ local DECORATION_RENDER_METHOD = {
     divine_bagua = "RenderDivineBagua",
     divine_tiandi = "RenderDivineTiandi",
     divine_zhentu = "RenderDivineZhentu",
+    divine_jieshi = "RenderDivineJieshi",
     trial_tower = "RenderTrialTower",
     dao_tree = "RenderDaoTree",
     sea_reef = "RenderSeaReef",
@@ -153,6 +162,7 @@ local DECORATION_RENDER_METHOD = {
     ice_shard = "RenderIceShard",
     toppled_stele = "RenderToppledStele",
     burning_shelf = "RenderBurningShelf",
+    liangjie_stone = "RenderLiangjieStone",
 }
 
 local function initDecorationRenderFN()

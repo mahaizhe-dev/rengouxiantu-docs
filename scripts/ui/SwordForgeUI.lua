@@ -11,7 +11,10 @@ local EventBus = require("core.EventBus")
 local T = require("config.UITheme")
 local StatNames = require("utils.StatNames")
 local FormatUtils = require("utils.FormatUtils")
+local EquipmentUtils = require("utils.EquipmentUtils")
 local ForgeSystem = require("systems.ForgeSystem")
+local ForgeStatRules = require("systems.forge.ForgeStatRules")
+local AdaptiveIcon = require("ui.components.AdaptiveIcon")
 
 local SwordForgeUI = {}
 
@@ -38,6 +41,10 @@ local currentStationId_ = "sword_forge"
 
 local RED_COLOR = {255, 80, 50, 255}
 local STAT_ROW_H = 22  -- 属性行统一高度（对齐 EquipTooltip）
+local MATERIAL_ROW_H = 18
+local MATERIAL_LIST_GAP = T.spacing.xxs
+local MATERIAL_LIST_PADDING = T.spacing.xs
+local FORGE_BUTTON_H = 34
 
 --- 格式化金币
 local FormatGold = FormatUtils.Gold
@@ -59,15 +66,13 @@ end
 
 local function GetRecipeOrder()
     local orders = EquipmentData.FORGE_RECIPE_ORDER or {}
-    return orders[currentStationId_] or (currentStationId_ == DEFAULT_STATION_ID and EquipmentData.SWORD_FORGE_ORDER) or {}
+    return orders[currentStationId_] or {}
 end
 
 local function GetRecipe(recipeId)
     local unified = EquipmentData.FORGE_RECIPES and EquipmentData.FORGE_RECIPES[recipeId]
-    local legacy = EquipmentData.SWORD_FORGE_COSTS and EquipmentData.SWORD_FORGE_COSTS[recipeId]
-    if not unified and not legacy then return nil end
+    if not unified then return nil end
     local merged = {}
-    if legacy then for k, v in pairs(legacy) do merged[k] = v end end
     if unified then for k, v in pairs(unified) do merged[k] = v end end
     local gen = merged.generator
     if merged.outputId == nil and gen then
@@ -102,6 +107,18 @@ local function FindBagItemByEquipId(manager, equipId, usedSlots)
     return nil, nil
 end
 
+local function CountBagItemsByEquipId(manager, equipId)
+    if not manager then return 0 end
+    local count = 0
+    for index = 1, GameConfig.BACKPACK_SIZE do
+        local item = manager:GetInventoryItem(index)
+        if item and item.equipId == equipId then
+            count = count + 1
+        end
+    end
+    return count
+end
+
 --- 获取当前装备栏中的武器实例
 local function GetEquippedWeapon()
     local InventorySystem = require("systems.InventorySystem")
@@ -112,14 +129,16 @@ end
 
 --- 构建单条材料检查行（消耗品）
 local function BuildMaterialRow(matId, need, have)
-    local matDef = GameConfig.PET_MATERIALS and GameConfig.PET_MATERIALS[matId]
+    local matDef = (GameConfig.PET_MATERIALS and GameConfig.PET_MATERIALS[matId])
+        or (GameConfig.CONSUMABLES and GameConfig.CONSUMABLES[matId])
     local matName = matDef and matDef.name or matId
     local matIcon = matDef and matDef.icon or "❓"
     local enough = have >= need
     return UI.Panel {
+        height = MATERIAL_ROW_H,
         flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
         children = {
-            UI.Label { text = matIcon, fontSize = T.fontSize.sm },
+            AdaptiveIcon.Create(matIcon, { size = 16, fontSize = T.fontSize.sm }),
             UI.Label {
                 text = matName .. "  " .. have .. "/" .. need,
                 fontSize = T.fontSize.xs,
@@ -130,18 +149,67 @@ local function BuildMaterialRow(matId, need, have)
 end
 
 --- 构建背包装备检查行
-local function BuildBagEquipRow(equipId, have)
+local function BuildBagEquipRow(equipId, have, haveCount, needCount)
     local tpl = EquipmentData.SpecialEquipment[equipId]
           or EquipmentData.FabaoTemplates[equipId]
     local name = tpl and tpl.name or equipId
+    haveCount = haveCount or (have and 1 or 0)
+    needCount = needCount or 1
     return UI.Panel {
+        height = MATERIAL_ROW_H,
         flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
         children = {
-            UI.Label { text = "🎴", fontSize = T.fontSize.sm },
+            UI.Label { text = "背包消耗", fontSize = T.fontSize.xxs, fontColor = T.color.textMuted },
             UI.Label {
-                text = name .. "  " .. (have and "✓" or "✗（缺少）"),
+                text = name .. "  " .. haveCount .. "/" .. needCount,
                 fontSize = T.fontSize.xs,
                 fontColor = have and {130, 230, 130, 255} or {255, 130, 100, 255},
+            },
+        },
+    }
+end
+
+--- 构建当前装备武器检查行
+local function BuildEquippedWeaponRow(requiredName, item, have)
+    local displayText = requiredName .. "（需要装备）"
+    if not have and item and item.name then
+        displayText = displayText .. "；当前装备：" .. item.name
+    end
+    return UI.Panel {
+        height = MATERIAL_ROW_H,
+        flexDirection = "row", alignItems = "center", gap = T.spacing.xs,
+        children = {
+            UI.Label { text = "⚔️", fontSize = T.fontSize.sm },
+            UI.Label {
+                text = displayText .. "  " .. (have and "✓" or "✗"),
+                fontSize = T.fontSize.xs,
+                fontColor = have and {130, 230, 130, 255} or {255, 130, 100, 255},
+            },
+        },
+    }
+end
+
+local function BuildForgeModeHint(inputMode)
+    local isUpgrade = inputMode == "equip_weapon"
+    return UI.Panel {
+        width = "100%",
+        backgroundColor = isUpgrade and {70, 45, 25, 180} or {25, 55, 60, 180},
+        borderRadius = T.radius.sm,
+        padding = T.spacing.sm,
+        gap = T.spacing.xs,
+        children = {
+            UI.Label {
+                text = isUpgrade and "装备升级" or "背包打造",
+                fontSize = T.fontSize.sm,
+                fontWeight = "bold",
+                fontColor = isUpgrade and T.color.gold or T.color.statValueCyan,
+            },
+            UI.Label {
+                text = isUpgrade
+                    and "需先装备指定武器，打造后原位替换。"
+                    or "无需穿戴，材料从背包扣除，产物进入背包。",
+                fontSize = T.fontSize.xs,
+                fontColor = T.color.textSecondary,
             },
         },
     }
@@ -205,6 +273,13 @@ local function GetSpecialEffectDesc(eff)
     elseif eff.type == "yuanjia" then
         return string.format("受到伤害后，若当前生命低于50%%，获得%.0f%%减伤，持续%.0f秒（冷却%.0f秒）",
             (eff.dmgReduce or 0) * 100, eff.duration or 4, eff.cooldown or 8)
+    elseif eff.type == "zhenjie_shield" then
+        return string.format("受到生命伤害后，若镇界护盾不存在，则有%.0f%%概率获得总防御×%.0f的独立护盾，持续%.0f秒（冷却%.0f秒）",
+            (eff.triggerChance or 0.20) * 100, eff.defMultiplier or 3,
+            eff.duration or 6, eff.cooldown or 15)
+    elseif eff.type == "hengha_fixed_burst" then
+        return string.format("普攻%.0f%%概率追加%d点固定伤害，不可暴击（冷却%.0f秒）",
+            (eff.procChance or 0.15) * 100, eff.fixedDamage or 50000, eff.cooldown or 1)
     elseif eff.type == "abyss_guard" then
         return string.format("受到伤害后，若当前生命低于%.0f%%，获得%.0f%%减伤，持续%.0f秒（冷却%.0f秒）",
             (eff.lowHpThreshold or 0.50) * 100, (eff.dmgReduce or 0.12) * 100,
@@ -218,20 +293,12 @@ local function GetSpecialEffectDesc(eff)
 end
 
 --- 构建产出装备属性预览面板（仿第四章打造）
-local function BuildForgePreviewRows(targetDef)
+local function BuildForgePreviewRows(targetDef, recipe)
     local rows = {}
     local qualityKey = targetDef.quality or "red"
     local qualityConfig = GameConfig.QUALITY[qualityKey] or GameConfig.QUALITY.red
     local qColor = qualityConfig and qualityConfig.color or {255, 50, 50, 255}
-    local randLo = 1.1
-    local randHi = 1.5
-    -- 使用产出装备的实际阶级，而非 hardcode T9（铸剑地炉圣器均为 T10）
-    local tier   = targetDef.tier or 10
-    local numTM  = (EquipmentData.SUB_STAT_TIER_MULT and EquipmentData.SUB_STAT_TIER_MULT[tier])
-                   or (EquipmentData.SUB_STAT_TIER_MULT and EquipmentData.SUB_STAT_TIER_MULT[9]) or 11.0
-    local pctTM  = (EquipmentData.PCT_SUB_TIER_MULT  and EquipmentData.PCT_SUB_TIER_MULT[tier])
-                   or (EquipmentData.PCT_SUB_TIER_MULT  and EquipmentData.PCT_SUB_TIER_MULT[9])  or 6.0
-    local qMult  = qualityConfig and qualityConfig.multiplier or 2.1
+    local tier = targetDef.tier or 10
 
     -- 装备名称 & 阶位
     local tierLabel = targetDef.tier and EquipmentData.GetTierDisplayName(targetDef.tier) or "9阶"
@@ -279,29 +346,31 @@ local function BuildForgePreviewRows(targetDef)
         padding = T.spacing.sm, gap = T.spacing.xs, children = mainChildren,
     })
 
-    -- 副属性（随机范围）
+    local subPreviews = {}
+    local hasRandomSubStats = false
+    for _, sub in ipairs(targetDef.subStats or {}) do
+        local preview = ForgeStatRules.GetForgeSubStatPreview(recipe, targetDef, sub)
+        if preview.mode == "range" then hasRandomSubStats = true end
+        table.insert(subPreviews, { sub = sub, preview = preview })
+    end
+
+    -- 副属性（保留原范围显示样式，固定模板显示精确值）
     local subChildren = {
-        UI.Label { text = "▸ 副属性（随机锻造）", fontSize = T.fontSize.xs,
+        UI.Label { text = hasRandomSubStats and "▸ 副属性（随机锻造）" or "▸ 固定副属性",
+                   fontSize = T.fontSize.xs,
                    fontColor = {160, 180, 200, 220}, paddingLeft = T.spacing.xs,
                    marginBottom = T.spacing.xs },
     }
-    for _, sub in ipairs(targetDef.subStats or {}) do
+    for _, entry in ipairs(subPreviews) do
+        local sub = entry.sub
+        local preview = entry.preview
         local icon = STAT_ICONS[sub.stat] or "📊"
         local name = sub.name or STAT_NAMES[sub.stat] or sub.stat
-        local subDef = nil
-        for _, s in ipairs(EquipmentData.SUB_STATS or {}) do
-            if s.stat == sub.stat then subDef = s; break end
-        end
         local valStr
-        if subDef and subDef.linearGrowth then
-            -- linearGrowth 属性值 = floor(tier × qMult)，使用产出装备实际阶级
-            valStr = "+" .. math.floor(tier * qMult)
+        if preview.mode == "range" then
+            valStr = FormatRange(sub.stat, preview.minValue, preview.maxValue)
         else
-            local baseVal = subDef and subDef.baseValue or 1
-            local tierMult = (EquipmentData.PCT_STATS and EquipmentData.PCT_STATS[sub.stat]) and pctTM or numTM
-            local minV = math.floor(baseVal * tierMult * randLo * 100 + 0.5) / 100
-            local maxV = math.floor(baseVal * tierMult * randHi * 100 + 0.5) / 100
-            valStr = FormatRange(sub.stat, minV, maxV)
+            valStr = FormatStatVal(sub.stat, preview.value)
         end
         table.insert(subChildren, UI.Panel {
             flexDirection = "row", justifyContent = "space-between", alignItems = "center",
@@ -317,8 +386,35 @@ local function BuildForgePreviewRows(targetDef)
         padding = T.spacing.sm, gap = T.spacing.xs, children = subChildren,
     })
 
-    -- 灵性属性（随机，显示❓）
-    if targetDef.hasSpiritStat then
+    local extraStatMode = ForgeStatRules.GetForgeExtraStatMode(recipe, targetDef)
+
+    -- 灵性属性
+    if extraStatMode == "spirit_fixed" then
+        local ss = targetDef.spiritStat
+        table.insert(rows, UI.Panel {
+            backgroundColor = {20, 45, 45, 220}, borderRadius = T.radius.sm,
+            borderWidth = 1, borderColor = {0, 200, 200, 120},
+            padding = T.spacing.sm, gap = T.spacing.xs,
+            children = {
+                UI.Label { text = "▸ 灵性属性（固定）", fontSize = T.fontSize.xs,
+                           fontColor = {0, 200, 200, 220}, paddingLeft = T.spacing.xs },
+                UI.Panel {
+                    flexDirection = "row", justifyContent = "space-between", alignItems = "center",
+                    paddingLeft = T.spacing.sm, paddingRight = T.spacing.sm, height = STAT_ROW_H,
+                    children = {
+                        UI.Label {
+                            text = (STAT_ICONS[ss.stat] or "✨") .. " " .. (ss.name or STAT_NAMES[ss.stat] or ss.stat),
+                            fontSize = T.fontSize.sm, fontColor = {150, 235, 235, 255},
+                        },
+                        UI.Label {
+                            text = FormatStatVal(ss.stat, ss.value),
+                            fontSize = T.fontSize.sm, fontWeight = "bold", fontColor = {0, 200, 200, 255},
+                        },
+                    },
+                },
+            },
+        })
+    elseif extraStatMode == "spirit_random" then
         table.insert(rows, UI.Panel {
             backgroundColor = {20, 45, 45, 220}, borderRadius = T.radius.sm,
             borderWidth = 1, borderColor = {0, 200, 200, 120},
@@ -338,7 +434,7 @@ local function BuildForgePreviewRows(targetDef)
     end
 
     -- 圣性属性（确认固定 或 随机❓）
-    if targetDef.saintStat and targetDef.saintStat.confirmed then
+    if extraStatMode == "saint_fixed" then
         -- 帝尊圣戒：固定圣性属性
         local ss = targetDef.saintStat
         local icon = STAT_ICONS[ss.stat] or "🔴"
@@ -361,7 +457,7 @@ local function BuildForgePreviewRows(targetDef)
                 },
             },
         })
-    elseif targetDef.hasSaintStat then
+    elseif extraStatMode == "saint_random" then
         -- 四把仙剑：随机圣性属性
         table.insert(rows, UI.Panel {
             backgroundColor = {50, 10, 10, 230}, borderRadius = T.radius.sm,
@@ -682,14 +778,25 @@ function SwordForgeUI.DoForgeSword(recipeId)
     local title, subtitle, displayItem
 
     if recipe and recipe.outputMode == "replace_weapon" then
-        -- 解封古剑路径
-        title       = "⚔️ 解封古剑！"
-        subtitle    = "封印破除，圣剑出世"
+        if recipe.generator and recipe.generator.type == "random_huangsha_weapon_except_equipped" then
+            title       = "⚔️ 黄沙换兵！"
+            subtitle    = "旧兵入炉，新锋出沙"
+        elseif recipe.generator and recipe.generator.type == "true_sword" then
+            title       = "⚔️ 真仙剑铸成！"
+            subtitle    = "二次解封，圣性重生"
+        else
+            title       = "⚔️ 解封古剑！"
+            subtitle    = "封印破除，圣剑出世"
+        end
         displayItem = result.weapon
     elseif recipe and recipe.generator and recipe.generator.type == "longhunling" then
-        title       = "🐲 龙魂令铸成！"
-        subtitle    = "千枚剑灵融入龙极，龙魂觉醒"
+        title       = "龙魂令铸成！"
+        subtitle    = "龙魂觉醒，法宝已放入背包"
         displayItem = result.item
+    elseif recipe and recipe.generator and recipe.generator.type == "fabao" then
+        displayItem = result.item
+        title       = ((displayItem and displayItem.name) or recipe.label or "法宝") .. "铸成！"
+        subtitle    = "法宝凝成，已放入背包"
     elseif recipe and recipe.generator and recipe.generator.type == "random_lingqi_mixed" then
         title       = "✨ 灵器铸成！"
         subtitle    = (result.item and result.item.setId) and "套装灵器，天工巧铸" or "灵器出炉，神光隐现"
@@ -731,6 +838,7 @@ local function BuildRecipeContent(recipeId)
     local mgr = InventorySystem.GetManager()
     local materialRows = {}
     local canForge = true
+    table.insert(materialRows, BuildForgeModeHint(recipe.inputMode))
 
     -- ── 标题行：产出名称 + 品质色 ──────────────────────────────────────────
     local outputTemplate = EquipmentData.SpecialEquipment[recipe.outputId]
@@ -742,6 +850,7 @@ local function BuildRecipeContent(recipeId)
 
     -- ── 灵器铸造专属信息面板（outputId=nil 且配方含 lingqi）─────────────────
     local isLingqiRecipe = (recipe.outputId == nil) and string.find(recipeId, "lingqi")
+    local isHuangshaRerollRecipe = recipe.generator and recipe.generator.type == "random_huangsha_weapon_except_equipped"
     if isLingqiRecipe then
         local cyanColor = GameConfig.QUALITY["cyan"] and GameConfig.QUALITY["cyan"].color or {0, 200, 200, 255}
         -- 从 FORGE_RECIPES 获取 tier 和 setChance
@@ -782,44 +891,74 @@ local function BuildRecipeContent(recipeId)
     local freedSlots = 0
     local hasSpace = true
 
-    -- ── 金币 ────────────────────────────────────────────────────────────────
+    -- ── 金币状态（展示顺序：所有材料之后）────────────────────────────────────
     local goldCost = recipe.gold or 0
     local canAfford = (goldCost == 0) or (player.gold >= goldCost)
     if not canAfford then canForge = false end
-    if goldCost > 0 then
-        table.insert(materialRows, UI.Label {
-            text = "💰 " .. FormatGold(goldCost) .. "  （持有：" .. FormatGold(player.gold) .. "）",
-            fontSize = T.fontSize.xs,
-            fontColor = canAfford and {130, 230, 130, 255} or {255, 130, 100, 255},
-        })
+
+    local missingWeaponEquip = false  -- 解封/装备池配方缺少装备武器标记
+    local missingWeaponName = nil
+
+    -- ── 当前装备武器池输入 ────────────────────────────────────────────────────
+    if recipe.inputMode == "equip_weapon" and recipe.equipSourcePool then
+        local equippedWeapon = GetEquippedWeapon()
+        local inPool = false
+        if equippedWeapon and equippedWeapon.equipId then
+            for _, equipId in ipairs(recipe.equipSourcePool) do
+                if equipId == equippedWeapon.equipId then
+                    inPool = true
+                    break
+                end
+            end
+        end
+        if not inPool then
+            canForge = false
+            missingWeaponEquip = true
+            missingWeaponName = "黄沙武器"
+        end
+        table.insert(materialRows, BuildEquippedWeaponRow("任意黄沙武器", equippedWeapon, inPool))
+    elseif recipe.inputMode == "equip_weapon" and recipe.equipSource then
+        local equippedWeapon = GetEquippedWeapon()
+        local matches = equippedWeapon ~= nil and equippedWeapon.equipId == recipe.equipSource
+        if not matches then
+            canForge = false
+            missingWeaponEquip = true
+        end
+        local sourceDef = EquipmentData.SpecialEquipment[recipe.equipSource]
+        local sourceName = sourceDef and sourceDef.name or recipe.equipSource
+        if not matches then missingWeaponName = sourceName end
+        table.insert(materialRows, BuildEquippedWeaponRow(sourceName, equippedWeapon, matches))
     end
 
     -- ── fromBag ──────────────────────────────────────────────────────────────
-    local missingWeaponEquip = false  -- 解封配方缺少装备武器标记
     if recipe.fromBag then
         local isFengyinSword = recipe.fromBag.equipId and string.find(recipe.fromBag.equipId, "fengyin_")
         local hasFb
+        local haveCount
         if isFengyinSword then
             -- 封印四仙剑：检查装备栏（而非背包）
             local equippedWeapon = GetEquippedWeapon()
             hasFb = equippedWeapon ~= nil and equippedWeapon.equipId == recipe.fromBag.equipId
+            haveCount = hasFb and 1 or 0
             if not hasFb then missingWeaponEquip = true end
         else
             local fbItem = mgr and FindBagItemByEquipId(mgr, recipe.fromBag.equipId)
             hasFb = fbItem ~= nil
+            haveCount = CountBagItemsByEquipId(mgr, recipe.fromBag.equipId)
         end
         if not hasFb then canForge = false end
         if hasFb then freedSlots = freedSlots + 1 end
-        table.insert(materialRows, BuildBagEquipRow(recipe.fromBag.equipId, hasFb))
+        table.insert(materialRows, BuildBagEquipRow(recipe.fromBag.equipId, hasFb, haveCount, 1))
     end
 
     -- ── fromBag2 ─────────────────────────────────────────────────────────────
     if recipe.fromBag2 then
         local fb2Item = mgr and FindBagItemByEquipId(mgr, recipe.fromBag2.equipId)
         local hasFb2 = fb2Item ~= nil
+        local haveCount = CountBagItemsByEquipId(mgr, recipe.fromBag2.equipId)
         if not hasFb2 then canForge = false end
         if hasFb2 then freedSlots = freedSlots + 1 end
-        table.insert(materialRows, BuildBagEquipRow(recipe.fromBag2.equipId, hasFb2))
+        table.insert(materialRows, BuildBagEquipRow(recipe.fromBag2.equipId, hasFb2, haveCount, 1))
     end
 
     -- ── fromBagList（如帝尊圣戒的5个戒指）────────────────────────────────────
@@ -831,7 +970,8 @@ local function BuildRecipeContent(recipeId)
             if not has then canForge = false end
             if foundSlot then usedSlots2[foundSlot] = true end
             if has then freedSlots = freedSlots + 1 end
-            table.insert(materialRows, BuildBagEquipRow(fb.equipId, has))
+            local haveCount = CountBagItemsByEquipId(mgr, fb.equipId)
+            table.insert(materialRows, BuildBagEquipRow(fb.equipId, has, haveCount, 1))
         end
     end
 
@@ -842,6 +982,15 @@ local function BuildRecipeContent(recipeId)
             if have < mat.count then canForge = false end
             table.insert(materialRows, BuildMaterialRow(mat.id, mat.count, have))
         end
+    end
+
+    -- ── 金币（展示在材料列表最后）────────────────────────────────────────────
+    if goldCost > 0 then
+        table.insert(materialRows, UI.Label {
+            text = "💰 " .. FormatGold(goldCost) .. "  （持有：" .. FormatGold(player.gold) .. "）",
+            fontSize = T.fontSize.xs,
+            fontColor = canAfford and {130, 230, 130, 255} or {255, 130, 100, 255},
+        })
     end
 
     -- ── 背包空位（消耗装备腾出的格子可承接产物）──────────────────────────────
@@ -857,11 +1006,12 @@ local function BuildRecipeContent(recipeId)
 
     -- ── 配方描述 ─────────────────────────────────────────────────────────────
     if recipe.desc then
+        local descText = isHuangshaRerollRecipe and "⚠️ 必须装备黄沙武器" or recipe.desc
         table.insert(materialRows, UI.Panel {
             width = "100%", height = 1, backgroundColor = {80, 80, 100, 60},
         })
         table.insert(materialRows, UI.Label {
-            text = recipe.desc, fontSize = T.fontSize.xs,
+            text = descText, fontSize = T.fontSize.xs,
             fontColor = {200, 180, 160, 160}, flexWrap = "wrap", width = "100%",
         })
     end
@@ -873,7 +1023,7 @@ local function BuildRecipeContent(recipeId)
     elseif not canAfford then
         btnText = "金币不足"
     elseif missingWeaponEquip then
-        btnText = "⚠️ 需要装备武器"
+        btnText = "⚠️ 需要装备「" .. (missingWeaponName or "指定武器") .. "」"
     elseif not canForge then
         btnText = "材料不足"
     else
@@ -887,7 +1037,7 @@ local function BuildRecipeContent(recipeId)
     table.insert(materialRows, UI.Button {
         text = btnText,
         width = "100%",
-        height = T.size.dialogBtnH,
+        height = FORGE_BUTTON_H,
         fontSize = T.fontSize.sm, fontWeight = "bold",
         variant = canForge and "primary" or "disabled",
         backgroundColor = canForge and {200, 50, 30, 220} or {80, 80, 90, 200},
@@ -900,24 +1050,25 @@ local function BuildRecipeContent(recipeId)
     })
 
     -- ── 解封仙剑配方：DragonForgeUI 风格（上部左右对比 + 下部材料） ───────────
-    local isJiefeng = recipe.fromBag and recipe.fromBag.equipId
-                      and string.find(recipe.fromBag.equipId, "fengyin_")
+    local generatorType = recipe.generator and recipe.generator.type
+    local isWeaponUpgrade = recipe.inputMode == "equip_weapon"
+        and recipe.equipSource ~= nil
+        and (generatorType == "jiefeng_sword" or generatorType == "true_sword")
 
-    if isJiefeng then
+    if isWeaponUpgrade then
         local EquipTooltip = require("ui.EquipTooltip")
-        local fromBagDef   = EquipmentData.SpecialEquipment[recipe.fromBag.equipId]
-        -- 封印四仙剑在装备栏（而非背包）
+        local sourceDef = EquipmentData.SpecialEquipment[recipe.equipSource]
         local equippedWeapon = GetEquippedWeapon()
-        local fromBagItem  = (equippedWeapon and equippedWeapon.equipId == recipe.fromBag.equipId)
-                             and equippedWeapon or nil
-        local hasFromBag   = fromBagItem ~= nil
+        local sourceItem = (equippedWeapon and equippedWeapon.equipId == recipe.equipSource)
+            and equippedWeapon or nil
+        local hasSource = sourceItem ~= nil
 
-        -- 左面板：封印古剑（消耗品，显示装备栏中的实例）
+        -- 左面板：当前装备的升级源武器
         local curRows
-        if hasFromBag then
-            curRows = EquipTooltip.BuildItemInfoRows(fromBagItem, "消耗", {180, 80, 60, 220})
+        if hasSource then
+            curRows = EquipTooltip.BuildItemInfoRows(sourceItem, "当前", {180, 80, 60, 220})
         else
-            curRows = EquipTooltip.BuildItemInfoRows(fromBagDef, "缺少", {80, 50, 50, 220})
+            curRows = EquipTooltip.BuildItemInfoRows(sourceDef, "需装备", {80, 50, 50, 220})
         end
 
         local curPanel = UI.Panel {
@@ -925,14 +1076,14 @@ local function BuildRecipeContent(recipeId)
             maxWidth = T.size.tooltipWidth,
             backgroundColor = T.color.equipTipComparePanelBg,
             borderRadius = T.radius.lg, borderWidth = 1,
-            borderColor = hasFromBag and {200, 100, 80, 200} or T.color.equipTipComparePanelBorder,
+            borderColor = hasSource and {200, 100, 80, 200} or T.color.equipTipComparePanelBorder,
             padding = T.spacing.sm, gap = T.spacing.sm,
             overflow = "hidden",
             children = curRows,
         }
 
         -- 右面板：解封仙剑属性预览
-        local previewRows = BuildForgePreviewRows(outputTemplate)
+        local previewRows = BuildForgePreviewRows(outputTemplate, recipe)
         local qCfg = outputTemplate and GameConfig.QUALITY[outputTemplate.quality]
         local qColor = qCfg and qCfg.color or RED_COLOR
 
@@ -959,8 +1110,8 @@ local function BuildRecipeContent(recipeId)
         -- 下部：材料（居中纯文字，无框体）
         table.insert(children, UI.Panel {
             width = "100%",
-            gap = T.spacing.sm,
-            padding = T.spacing.sm,
+            gap = MATERIAL_LIST_GAP,
+            padding = MATERIAL_LIST_PADDING,
             alignItems = "center",
             children = materialRows,
         })
@@ -969,8 +1120,35 @@ local function BuildRecipeContent(recipeId)
         -- ── 灵器铸造配方：居中纯文字材料 ──────────────────────────────────────
         table.insert(children, UI.Panel {
             width = "100%",
+            gap = MATERIAL_LIST_GAP,
+            padding = MATERIAL_LIST_PADDING,
+            alignItems = "center",
+            children = materialRows,
+        })
+
+    elseif isHuangshaRerollRecipe then
+        local cyanColor = GameConfig.QUALITY["cyan"] and GameConfig.QUALITY["cyan"].color or {0, 200, 200, 255}
+        table.insert(children, UI.Panel {
+            width = "90%",
+            maxWidth = T.size.tooltipWidth,
+            backgroundColor = T.color.equipTipComparePanelBg,
+            borderRadius = T.radius.lg,
+            borderWidth = 1,
+            borderColor = {cyanColor[1], cyanColor[2], cyanColor[3], 160},
+            padding = T.spacing.md,
             gap = T.spacing.sm,
-            padding = T.spacing.sm,
+            alignItems = "center",
+            children = {
+                UI.Label { text = "⚔️ 黄沙换兵", fontSize = T.fontSize.lg, fontWeight = "bold", fontColor = {cyanColor[1], cyanColor[2], cyanColor[3], 255} },
+                UI.Label { text = "当前装备的黄沙武器将被重铸", fontSize = T.fontSize.sm, fontColor = T.color.textSecondary, textAlign = "center" },
+                UI.Label { text = "随机获得另一把黄沙武器，不会返还原武器", fontSize = T.fontSize.xs, fontColor = T.color.warning, textAlign = "center" },
+                UI.Label { text = "重铸后不保留洗练属性", fontSize = T.fontSize.xs, fontColor = {255, 130, 100, 220}, textAlign = "center" },
+            },
+        })
+        table.insert(children, UI.Panel {
+            width = "100%",
+            gap = MATERIAL_LIST_GAP,
+            padding = MATERIAL_LIST_PADDING,
             alignItems = "center",
             children = materialRows,
         })
@@ -981,7 +1159,7 @@ local function BuildRecipeContent(recipeId)
         -- ── 右面板：产出属性预览 ──────────────────────────────────────────────
         local rightPanel
         if outputTemplate and outputTemplate.mainStat then
-            local previewRows = BuildForgePreviewRows(outputTemplate)
+            local previewRows = BuildForgePreviewRows(outputTemplate, recipe)
             local rqCfg = GameConfig.QUALITY[outputTemplate.quality or "red"]
             local rqColor = rqCfg and rqCfg.color or RED_COLOR
             rightPanel = UI.Panel {
@@ -996,15 +1174,23 @@ local function BuildRecipeContent(recipeId)
         else
             -- 法宝类：龙魂令等，展示主属性/技能确认/灵性/其他随机
             local fabaoRows = {}
+            local generator = recipe.generator or {}
+            local fabaoTier = generator.tier or 10
+            local fabaoQuality = generator.quality or "red"
+            local fabaoQualityConfig = GameConfig.QUALITY[fabaoQuality] or GameConfig.QUALITY.red
+            local fabaoColor = fabaoQualityConfig and fabaoQualityConfig.color or RED_COLOR
             local fabaoName = outputTemplate and outputTemplate.name or (recipe.outputId or "产出")
             table.insert(fabaoRows, UI.Label {
                 text = fabaoName,
                 fontSize = T.fontSize.lg, fontWeight = "bold",
-                fontColor = {255, 50, 50, 255}, textAlign = "center",
+                fontColor = fabaoColor, textAlign = "center",
             })
             table.insert(fabaoRows, UI.Label {
-                text = "10阶  [圣器] 法宝",
-                fontSize = T.fontSize.sm, fontColor = {255, 50, 50, 160}, textAlign = "center",
+                text = EquipmentData.GetTierDisplayName(fabaoTier)
+                    .. "  [" .. (fabaoQualityConfig and fabaoQualityConfig.name or fabaoQuality) .. "] 法宝",
+                fontSize = T.fontSize.sm,
+                fontColor = {fabaoColor[1], fabaoColor[2], fabaoColor[3], 160},
+                textAlign = "center",
             })
             table.insert(fabaoRows, UI.Panel {
                 width = "100%", height = 1, backgroundColor = {80, 85, 100, 120},
@@ -1013,15 +1199,26 @@ local function BuildRecipeContent(recipeId)
 
             -- 主属性（法宝固定）
             if outputTemplate and outputTemplate.mainStatBase then
-                local mainVal = outputTemplate.mainStatBase
-                              * (outputTemplate.mainStatTierMult or 10)
-                              * 2.1  -- 圣器 qualityMult
                 local statKey = outputTemplate.mainStatType or "atk"
+                local qualityMult = fabaoQualityConfig and fabaoQualityConfig.multiplier or 1
+                local mainVal = EquipmentUtils.CalcMainStatValue(
+                    outputTemplate.mainStatBase,
+                    statKey,
+                    fabaoTier,
+                    qualityMult
+                )
                 local icon = STAT_ICONS[statKey] or "📊"
                 local name = STAT_NAMES[statKey] or statKey
                 table.insert(fabaoRows, UI.Panel {
-                    backgroundColor = {math.floor(255*0.15), math.floor(50*0.15), math.floor(50*0.15), 220},
-                    borderRadius = T.radius.sm, borderWidth = 1, borderColor = {255, 50, 50, 100},
+                    backgroundColor = {
+                        math.floor(fabaoColor[1] * 0.15),
+                        math.floor(fabaoColor[2] * 0.15),
+                        math.floor(fabaoColor[3] * 0.15),
+                        220,
+                    },
+                    borderRadius = T.radius.sm,
+                    borderWidth = 1,
+                    borderColor = {fabaoColor[1], fabaoColor[2], fabaoColor[3], 100},
                     padding = T.spacing.sm, gap = T.spacing.xs,
                     children = {
                         UI.Label { text = "▸ 主属性", fontSize = T.fontSize.xs, fontColor = {200, 160, 160, 220}, paddingLeft = T.spacing.xs },
@@ -1110,7 +1307,8 @@ local function BuildRecipeContent(recipeId)
                 maxWidth = T.size.tooltipWidth,
                 backgroundColor = T.color.equipTipComparePanelBg,
                 borderRadius = T.radius.lg,
-                borderWidth = 1, borderColor = {RED_COLOR[1], RED_COLOR[2], RED_COLOR[3], 150},
+                borderWidth = 1,
+                borderColor = {fabaoColor[1], fabaoColor[2], fabaoColor[3], 150},
                 padding = T.spacing.sm, gap = T.spacing.sm,
                 children = fabaoRows,
             }
@@ -1126,8 +1324,8 @@ local function BuildRecipeContent(recipeId)
         -- 下方：材料（居中纯文字，无框体）
         table.insert(children, UI.Panel {
             width = "100%",
-            gap = T.spacing.sm,
-            padding = T.spacing.sm,
+            gap = MATERIAL_LIST_GAP,
+            padding = MATERIAL_LIST_PADDING,
             alignItems = "center",
             children = materialRows,
         })
@@ -1201,7 +1399,7 @@ local function RefreshUI_internal()
     local newChildren = recipeId and BuildRecipeContent(recipeId) or {}
 
     contentPanel_ = UI.Panel {
-        width = "100%", gap = T.spacing.sm, alignItems = "center",
+        width = "100%", gap = T.spacing.xs, alignItems = "center",
         children = newChildren,
     }
     outerPanel_:AddChild(contentPanel_)
@@ -1225,7 +1423,7 @@ function SwordForgeUI.Create(parentOverlay)
 
     outerPanel_ = UI.Panel {
         width = "100%",
-        gap = T.spacing.sm,
+        gap = T.spacing.xs,
     }
 
     titleLabel_ = UI.Label { text = "铸剑地炉", fontSize = T.fontSize.lg,
@@ -1295,14 +1493,14 @@ function SwordForgeUI.Create(parentOverlay)
                     UI.ScrollView {
                         flexGrow = 1, flexShrink = 1, flexBasis = 0,
                         width = "100%",
-                        padding = T.spacing.md,
-                        gap = T.spacing.sm,
+                        padding = T.spacing.sm,
+                        gap = T.spacing.xs,
                         children = { outerPanel_ },
                     },
                     -- ── Footer ──
                     UI.Panel {
                         width = "100%", alignItems = "center", gap = T.spacing.xs,
-                        paddingTop = T.spacing.sm, paddingBottom = T.spacing.sm,
+                        paddingTop = T.spacing.xs, paddingBottom = T.spacing.xs,
                         borderTopWidth = 1, borderColor = T.color.border,
                         children = {
                             resultLabel_,

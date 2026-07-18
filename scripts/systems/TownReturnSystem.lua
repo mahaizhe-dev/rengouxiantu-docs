@@ -33,6 +33,24 @@ TownReturnSystem._fxTimer       = 0       -- 传送完成后光效计时
 TownReturnSystem._startX        = 0       -- 读条开始时玩家坐标（用于移动检测）
 TownReturnSystem._startY        = 0
 
+local ARTIFACT_ARENA_MODULES = {
+    "systems.ArtifactSystem",
+    "systems.ArtifactSystem_ch4",
+    "systems.ArtifactSystem_ch5",
+    "systems.ArtifactSystem_tiandi",
+    "systems.ArtifactSystem_ch6",
+}
+
+local function IsArtifactArenaActive()
+    for _, moduleName in ipairs(ARTIFACT_ARENA_MODULES) do
+        local system = package.loaded[moduleName]
+        if type(system) == "table" and system.arenaActive == true then
+            return true
+        end
+    end
+    return false
+end
+
 -- ============================================================================
 -- 查询接口
 -- ============================================================================
@@ -65,9 +83,16 @@ end
 ---@return boolean canUse
 ---@return string|nil reason 不可用原因
 function TownReturnSystem.CanUse()
+    if GameState.worldMode == "treasure_map" then
+        return false, "藏宝海中请使用归航法阵"
+    end
     local player = GameState.player
     if not player or not player.alive then
         return false, "当前无法使用回城"
+    end
+
+    if IsArtifactArenaActive() then
+        return false, "神器战斗中无法回城"
     end
 
     -- 挑战系统
@@ -150,14 +175,22 @@ function TownReturnSystem.Cancel()
 end
 
 --- 执行传送（读条完成后调用）
+---@return boolean success
+---@return string|nil reason
 function TownReturnSystem.PerformTeleport()
     local player = GameState.player
-    if not player then return end
+    if not player then return false, "当前无法使用回城" end
+
+    local canUse, reason = TownReturnSystem.CanUse()
+    if not canUse then
+        print("[TownReturn] Teleport blocked: " .. tostring(reason))
+        return false, reason
+    end
 
     local spawn = ActiveZoneData.Get().SPAWN_POINT
     if not spawn then
         print("[TownReturn] ERROR: SPAWN_POINT not found")
-        return
+        return false, "回城点不存在"
     end
 
     -- 1. 传送玩家
@@ -212,6 +245,7 @@ function TownReturnSystem.PerformTeleport()
     EventBus.Emit("save_request")
 
     print("[TownReturn] Teleported to SPAWN_POINT (" .. spawn.x .. ", " .. spawn.y .. ")")
+    return true, nil
 end
 
 -- ============================================================================

@@ -52,6 +52,12 @@ function TribulationSystem.CanEnter()
     local target = AscensionSystem.GetTargetInfo()
     if not target or not target.isMajor then return false, "当前目标不需要渡劫" end
 
+    local player = GameState.player
+    local reqLevel = target.requiredLevel or 1
+    if not player or player.level < reqLevel then
+        return false, "等级不足 (需要 Lv." .. reqLevel .. ")"
+    end
+
     if state.tribState == "inProgress" then return false, "渡劫中" end
     if state.tribState == "cooldown" then
         local remaining = state.cooldownUntil - os.time()

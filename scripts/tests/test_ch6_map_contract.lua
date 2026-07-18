@@ -330,6 +330,23 @@ local merchantTile = ch6Merchant and tileFromWorld(ch6Merchant.x, ch6Merchant.y)
 assert_true(merchantTile and map:IsWalkable(merchantTile[1], merchantTile[2]),
     "第六章装备商人落点可通行")
 
+local ch6Warehouse = findNpc("warehouse_chest_ch6")
+assert_true(ch6Warehouse ~= nil, "第六章百宝箱存在")
+assert_eq(ch6Warehouse and ch6Warehouse.name, "百宝箱", "第六章仓库沿用百宝箱名称")
+assert_eq(ch6Warehouse and ch6Warehouse.subtitle, "存取物品", "第六章百宝箱标明存取功能")
+assert_eq(ch6Warehouse and ch6Warehouse.interactType, "warehouse", "第六章百宝箱接入成熟仓库入口")
+assert_eq(ch6Warehouse and ch6Warehouse.zone, "shadow_spawn_safe", "第六章百宝箱位于影入口安全区")
+assert_eq(ch6Warehouse and ch6Warehouse.image,
+    "image/warehouse_chest_20260331104459.png", "第六章百宝箱复用前五章素材")
+assert_true(ch6Warehouse and ch6Warehouse.isObject == true, "第六章百宝箱作为物件交互")
+assert_eq(ch6Warehouse and ch6Warehouse.x, 78, "第六章百宝箱 x 坐标")
+assert_eq(ch6Warehouse and ch6Warehouse.y, 37, "第六章百宝箱 y 坐标")
+local warehouseTile = ch6Warehouse and tileFromWorld(ch6Warehouse.x, ch6Warehouse.y)
+assert_true(warehouseTile and map:IsWalkable(warehouseTile[1], warehouseTile[2]),
+    "第六章百宝箱落点可通行")
+assert_eq(ch6Warehouse and map:GetZoneAt(ch6Warehouse.x, ch6Warehouse.y),
+    "shadow_spawn_safe", "第六章百宝箱坐标归属影入口安全区")
+
 -- ============================================================================
 -- M7: 第六章主线 NPC、中央封印、虎王封印隔离
 -- ============================================================================

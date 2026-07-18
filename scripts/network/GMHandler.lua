@@ -40,6 +40,13 @@ function M.HandleGMCommand(eventType, eventData)
         return
     end
 
+    if cmd == "treasure_maps_10" then
+        local slot = Session.connSlots_[connKey]
+        local TreasureMapHandler = require("network.TreasureMapHandler")
+        TreasureMapHandler.GMGrantMaps10(userId, slot, connection)
+        return
+    end
+
     -- §12 黑市收购：异步分支（服务端执行后返回结果）
     if cmd == "bm_recycle" then
         print("[Server][GM] bm_recycle: 开始异步执行")

@@ -202,6 +202,60 @@ do
 end
 
 do
+    local originalTitleSystem = package.loaded["systems.TitleSystem"]
+    local originalSkillSystem = package.loaded["systems.SkillSystem"]
+    local titleState = { unlocked = { old_title = true } }
+    local skillState = {
+        unlockedSkills = { old_skill = true },
+        equippedSkills = { "old_skill" },
+    }
+    package.loaded["systems.TitleSystem"] = {
+        Serialize = function()
+            local unlocked = {}
+            for id, value in pairs(titleState.unlocked) do unlocked[id] = value end
+            return { unlocked = unlocked }
+        end,
+        Deserialize = function(data)
+            titleState = { unlocked = {} }
+            for id, value in pairs(data and data.unlocked or {}) do
+                titleState.unlocked[id] = value
+            end
+        end,
+    }
+    package.loaded["systems.SkillSystem"] = skillState
+
+    resetEnv(false)
+    InventorySystem.SetManager(newManager({ [1] = makeDewStack(1) }))
+    GameState.player.GainExp = function(self, amount)
+        self.exp = self.exp + amount
+        self.level = self.level + 2
+        self.maxHp = self.maxHp + 30
+        self.atk = self.atk + 6
+        self.def = self.def + 4
+        self.hpRegen = self.hpRegen + 0.6
+        self.hp = self.maxHp
+        titleState.unlocked.temp_title = true
+        skillState.unlockedSkills.temp_skill = true
+        skillState.equippedSkills[1] = "temp_skill"
+    end
+
+    QinglianBodySystem.Activate("ch6_qingbai_lotus_01")
+    eq(GameState.player.level, 121, "qinglian rollback level")
+    eq(GameState.player.maxHp, 1000, "qinglian rollback maxHp")
+    eq(GameState.player.atk, 100, "qinglian rollback atk")
+    eq(GameState.player.def, 50, "qinglian rollback def")
+    eq(GameState.player.hpRegen, 5, "qinglian rollback hpRegen")
+    ok(titleState.unlocked.old_title == true, "qinglian preserves old title")
+    ok(titleState.unlocked.temp_title == nil, "qinglian rolls back temporary title")
+    ok(skillState.unlockedSkills.old_skill == true, "qinglian preserves old skill")
+    ok(skillState.unlockedSkills.temp_skill == nil, "qinglian rolls back temporary skill")
+    eq(skillState.equippedSkills[1], "old_skill", "qinglian restores equipped skill")
+
+    package.loaded["systems.TitleSystem"] = originalTitleSystem
+    package.loaded["systems.SkillSystem"] = originalSkillSystem
+end
+
+do
     local saves = resetEnv(true)
     InventorySystem.SetManager(newManager({ [1] = makeDewStack(1) }))
 
@@ -256,9 +310,9 @@ do
         version = 33,
         player = { level = 121, realm = "zhexian", shadowGodPillCount = 0 },
     })
-    ok(migrated ~= nil, "v33 save migrates to v34 without error: " .. tostring(err))
+    ok(migrated ~= nil, "v33 save migrates to current version without error: " .. tostring(err))
     if migrated then
-        eq(migrated.version, 34, "migration bumps save version to v34")
+        eq(migrated.version, 36, "migration bumps save version to v36")
         ok(type(migrated.qinglianBody) == "table", "migration initializes qinglianBody")
         ok(type(migrated.qinglianBody.activatedLotuses) == "table", "migration initializes lotus table")
         eq(migrated.qinglianBody.finalRewardClaimed, false, "migration defaults final reward to false")
@@ -279,7 +333,7 @@ do
 
     local bm = BlackMerchantConfig.ITEMS[QinglianBodySystem.CONSUMABLE_ID]
     ok(bm ~= nil, "dew registered in black market")
-    eq(bm.category, "consumable_mat", "black market category")
+    eq(bm.category, "material", "black market category")
     eq(bm.sell_price, 60, "black market buy price for player")
     eq(bm.buy_price, 30, "black market sell price for player")
 end

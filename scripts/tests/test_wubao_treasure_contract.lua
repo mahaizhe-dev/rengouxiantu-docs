@@ -77,7 +77,7 @@ assertTrue(key and assetExists(key.icon), "堡主钥匙图标资源存在")
 
 local bmKey = BlackMerchantConfig.ITEMS.wubao_treasure_key
 assertTrue(bmKey ~= nil, "堡主钥匙加入黑市")
-assertEqual(bmKey and bmKey.category, "consumable_mat", "堡主钥匙黑市分类为消耗品")
+assertEqual(bmKey and bmKey.category, "consumable", "堡主钥匙黑市分类为消耗品")
 assertEqual(bmKey and bmKey.max_stock, 10, "堡主钥匙黑市库存")
 assertEqual(bmKey and bmKey.buy_price, 2, "堡主钥匙黑市收购价")
 assertEqual(bmKey and bmKey.sell_price, 4, "堡主钥匙黑市出售价")
@@ -94,7 +94,7 @@ for _, drop in ipairs((wanhai and wanhai.dropTable) or {}) do
     end
 end
 assertTrue(keyDrop ~= nil, "乌万海挂载堡主钥匙独立掉落")
-assertEqual(keyDrop and keyDrop.chance, 0.01, "堡主钥匙掉率为1%")
+assertEqual(keyDrop and keyDrop.chance, 0.02, "堡主钥匙掉率为2%")
 
 assertEqual(#WubaoTreasureConfig.CHEST_ORDER, 16, "乌万海宝箱数量")
 assertTrue(assetExists(WubaoTreasureConfig.CHEST_TEXTURE), "乌万海宝箱贴图资源存在")

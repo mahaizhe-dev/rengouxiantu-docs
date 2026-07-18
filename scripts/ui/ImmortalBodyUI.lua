@@ -234,6 +234,10 @@ function ImmortalBodyUI._buildBodyCard(body, profile, isActive, isSelected)
                 children = {
                     UI.Label { text = "HP+" .. profile.maxHp .. "/级", fontSize = 10, fontColor = T.color.textSecondary },
                     UI.Label { text = "ATK+" .. profile.atk .. "/级", fontSize = 10, fontColor = T.color.textSecondary },
+                    profile.xianyuanGrowth and profile.xianyuanGrowth.fortune and UI.Label {
+                        text = "福源+" .. tostring(profile.xianyuanGrowth.fortune.perLevel or 0) .. "/级",
+                        fontSize = 10, fontColor = T.color.gold,
+                    } or nil,
                 },
             },
         },
@@ -291,6 +295,7 @@ function ImmortalBodyUI._buildPreviewSection(targetBodyId, cost, player)
                     UI.Label { text = "攻击：" .. deltaStr(preview.deltaAtk), fontSize = T.fontSize.xs, fontColor = deltaColor(preview.deltaAtk) },
                     UI.Label { text = "防御：" .. deltaStr(preview.deltaDef), fontSize = T.fontSize.xs, fontColor = deltaColor(preview.deltaDef) },
                     UI.Label { text = "回复：" .. deltaStr(preview.deltaRegen, "%.1f"), fontSize = T.fontSize.xs, fontColor = deltaColor(preview.deltaRegen) },
+                    UI.Label { text = "福源：" .. deltaStr(preview.deltaFortune), fontSize = T.fontSize.xs, fontColor = deltaColor(preview.deltaFortune) },
                 },
             },
             UI.Panel {

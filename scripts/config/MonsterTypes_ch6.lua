@@ -85,7 +85,7 @@ local function WorldDrop()
 end
 
 local function EmperorRareWorldDrop()
-    return { chance = 0.05, type = "world_drop", pool = "ch6_emperor_rare" }
+    return { chance = 0.06, type = "world_drop", pool = "ch6_emperor_rare" }
 end
 
 local function ConsumableDrop(chance, consumableId, amount)
@@ -116,7 +116,7 @@ M.Types.ch6_patrol_immortal_soldier = {
         SpecialEquipmentDrop(0.005, "ch6_xuntian_helmet"),
         { chance = 1.0, type = "lingYun", amount = {6, 10} },
         WorldDrop(),
-        { chance = 0.20, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.25, type = "consumable", consumableId = "demon_essence" },
     },
 }
 
@@ -148,7 +148,7 @@ M.Types.ch6_lingfeng = {
         WorldDrop(),
         EmperorRareWorldDrop(),
         ConsumableDrop(0.01, "immortal_essence_blood"),
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", amount = {2, 2} },
+        { chance = 0.60, type = "consumable", consumableId = "dragon_marrow" },
     },
 }
 
@@ -174,7 +174,7 @@ M.Types.ch6_shadow_wanderer = {
         SpecialEquipmentDrop(0.005, "ch6_yingyou_ring"),
         { chance = 1.0, type = "lingYun", amount = {8, 12} },
         WorldDrop(),
-        { chance = 0.25, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.50, type = "consumable", consumableId = "demon_essence" },
     },
 }
 
@@ -206,7 +206,7 @@ M.Types.ch6_zhuyou = {
         WorldDrop(),
         EmperorRareWorldDrop(),
         ConsumableDrop(0.01, "immortal_essence_blood"),
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", amount = {2, 3} },
+        { chance = 0.80, type = "consumable", consumableId = "dragon_marrow" },
     },
 }
 
@@ -232,7 +232,7 @@ M.Types.ch6_mountain_colossus = {
         SpecialEquipmentDrop(0.005, "ch6_lieshan_shoulder"),
         { chance = 1.0, type = "lingYun", amount = {10, 14} },
         WorldDrop(),
-        { chance = 0.30, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 0.75, type = "consumable", consumableId = "demon_essence" },
     },
 }
 
@@ -266,8 +266,9 @@ M.Types.ch6_duanyue = {
         { chance = 1.0, type = "lingYun", amount = {30, 42} },
         WorldDrop(),
         EmperorRareWorldDrop(),
+        ConsumableDrop(0.001, "jieshi_fragment_8"),
         ConsumableDrop(0.01, "immortal_essence_blood"),
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", amount = {3, 3} },
+        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow" },
     },
 }
 
@@ -295,7 +296,7 @@ M.Types.ch6_west_celestial_soldier = {
         SpecialEquipmentDrop(0.001, "ch6_zhenjie_helmet"),
         { chance = 1.0, type = "lingYun", amount = {12, 16} },
         WorldDrop(),
-        { chance = 0.35, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 1.0, type = "consumable", consumableId = "demon_essence" },
     },
 }
 
@@ -329,8 +330,9 @@ M.Types.ch6_pojun = {
         { chance = 1.0, type = "lingYun", amount = {36, 48} },
         WorldDrop(),
         EmperorRareWorldDrop(),
+        ConsumableDrop(0.001, "jieshi_fragment_2"),
         ConsumableDrop(0.01, "immortal_essence_blood"),
-        { chance = 1.0, type = "consumable", consumableId = "immortal_beast_soul", amount = {1, 1} },
+        { chance = 0.50, type = "consumable", consumableId = "immortal_beast_soul", amount = {1, 1} },
     },
 }
 
@@ -364,8 +366,9 @@ M.Types.ch6_zhenyuan = {
         { chance = 1.0, type = "lingYun", amount = {36, 48} },
         WorldDrop(),
         EmperorRareWorldDrop(),
+        ConsumableDrop(0.001, "jieshi_fragment_3"),
         ConsumableDrop(0.01, "immortal_essence_blood"),
-        { chance = 1.0, type = "consumable", consumableId = "immortal_beast_soul", amount = {1, 1} },
+        { chance = 0.50, type = "consumable", consumableId = "immortal_beast_soul", amount = {1, 1} },
     },
 }
 
@@ -401,8 +404,9 @@ M.Types.ch6_heng_marshal = {
         { chance = 1.0, type = "lingYun", amount = {42, 54} },
         WorldDrop(),
         EmperorRareWorldDrop(),
+        ConsumableDrop(0.001, "jieshi_fragment_6"),
         ConsumableDrop(0.01, "shadow_crystal"),
-        { chance = 1.0, type = "consumable", consumableId = "immortal_beast_soul", amount = {1, 2} },
+        { chance = 0.50, type = "consumable", consumableId = "immortal_beast_soul", amount = {1, 1} },
     },
 }
 
@@ -430,7 +434,7 @@ M.Types.ch6_east_celestial_soldier = {
         SpecialEquipmentDrop(0.001, "ch6_zhenjie_helmet"),
         { chance = 1.0, type = "lingYun", amount = {12, 16} },
         WorldDrop(),
-        { chance = 0.35, type = "consumable", consumableId = "dragon_marrow" },
+        { chance = 1.0, type = "consumable", consumableId = "demon_essence" },
     },
 }
 
@@ -464,8 +468,9 @@ M.Types.ch6_qingfeng = {
         { chance = 1.0, type = "lingYun", amount = {36, 48} },
         WorldDrop(),
         EmperorRareWorldDrop(),
+        ConsumableDrop(0.001, "jieshi_fragment_4"),
         ConsumableDrop(0.01, "immortal_essence_blood"),
-        { chance = 1.0, type = "consumable", consumableId = "immortal_beast_soul", amount = {1, 1} },
+        { chance = 0.50, type = "consumable", consumableId = "immortal_beast_soul", amount = {1, 1} },
     },
 }
 
@@ -499,8 +504,9 @@ M.Types.ch6_leice = {
         { chance = 1.0, type = "lingYun", amount = {36, 48} },
         WorldDrop(),
         EmperorRareWorldDrop(),
+        ConsumableDrop(0.001, "jieshi_fragment_5"),
         ConsumableDrop(0.01, "immortal_essence_blood"),
-        { chance = 1.0, type = "consumable", consumableId = "immortal_beast_soul", amount = {1, 1} },
+        { chance = 0.50, type = "consumable", consumableId = "immortal_beast_soul", amount = {1, 1} },
     },
 }
 
@@ -536,8 +542,9 @@ M.Types.ch6_ha_marshal = {
         { chance = 1.0, type = "lingYun", amount = {42, 54} },
         WorldDrop(),
         EmperorRareWorldDrop(),
+        ConsumableDrop(0.001, "jieshi_fragment_7"),
         ConsumableDrop(0.01, "shadow_crystal"),
-        { chance = 1.0, type = "consumable", consumableId = "immortal_beast_soul", amount = {1, 2} },
+        { chance = 1.0, type = "consumable", consumableId = "immortal_beast_soul", amount = {1, 1} },
     },
 }
 
@@ -567,7 +574,7 @@ M.Types.ch6_toad_immortal = {
         { chance = 1.0, type = "lingYun", amount = {18, 30} },
         WorldDrop(),
         ConsumableDrop(0.002, "lotus_pool_dew"),
-        { chance = 1.0, type = "consumable", consumableId = "dragon_marrow", amount = {1, 1} },
+        { chance = 0.40, type = "consumable", consumableId = "dragon_marrow" },
     },
 }
 
@@ -605,8 +612,105 @@ M.Types.ch6_gua_master = {
         EmperorRareWorldDrop(),
         ConsumableDrop(0.02, "shadow_crystal"),
         ConsumableDrop(0.0005, "lotus_pool_dew"),
-        { chance = 1.0, type = "consumable", consumableId = "immortal_beast_soul", amount = {2, 2} },
+        { chance = 1.0, type = "consumable", consumableId = "immortal_beast_soul", amount = {1, 2} },
+        ConsumableDrop(0.01, "treasure_map"),
     },
+}
+
+-- 第六章神器「界匙」专属双王。仅由神器竞技场生成，不参与世界刷新和掉落。
+M.Types.artifact_ch6_gua_demon = {
+    name = "魔化·呱大王",
+    icon = "🐸",
+    portrait = "image/monster_ch6_gua_master_funny_ref_20260627104326.png",
+    category = "saint_boss",
+    race = "ch6_frog_immortal",
+    level = 145,
+    realm = "renxian_2",
+    respawnTime = 999999,
+    bodyColor = {105, 35, 85, 255},
+    clawColor = {245, 70, 115},
+    skillTextColor = {255, 105, 155, 255},
+    warningColorOverride = {175, 45, 105, 155},
+    demonBuff = true,
+    artifactCh6Aspect = "demon",
+    artifactCh6AtkMult = 1.25,
+    phases = 3,
+    skills = {
+        "yanchan_venom_spray",
+        "ch6_gua_toxic_orbs",
+        "ch6_gua_swamp_cross",
+    },
+    phaseConfig = {
+        {
+            threshold = 0.65,
+            atkMult = 1.45,
+            speedMult = 1.25,
+            state = "demonize",
+            announce = "魔化呱大王吞下影界毒潮，万毒同时沸腾！",
+            addSkill = "ch6_gua_toxic_burst",
+        },
+        {
+            threshold = 0.28,
+            atkMult = 1.75,
+            speedMult = 1.4,
+            intervalMult = 0.65,
+            state = "berserk",
+            announce = "魔呱裂界，毒潭再无退路！",
+            addSkill = "ch6_gua_domain_cycle",
+        },
+    },
+    expReward = 0,
+    goldReward = {0, 0},
+    dropTable = {},
+}
+
+M.Types.artifact_ch6_gua_immortal = {
+    name = "仙化·呱大王",
+    icon = "🐸",
+    portrait = "image/monster_ch6_gua_master_funny_ref_20260627104326.png",
+    category = "saint_boss",
+    race = "ch6_frog_immortal",
+    level = 145,
+    realm = "renxian_2",
+    respawnTime = 999999,
+    bodyColor = {115, 205, 175, 255},
+    clawColor = {235, 225, 145},
+    skillTextColor = {205, 255, 235, 255},
+    warningColorOverride = {145, 230, 205, 145},
+    artifactCh6Aspect = "immortal",
+    artifactCh6HpMult = 1.65,
+    artifactCh6DefMult = 1.40,
+    artifactCh6SpeedMult = 0.88,
+    artifactCh6HealInterval = 14,
+    artifactCh6HealRatio = 0.04,
+    phases = 3,
+    skills = {
+        "yanchan_quake",
+        "ch6_gua_immortal_lotus",
+        "ch6_gua_immortal_cross",
+    },
+    phaseConfig = {
+        {
+            threshold = 0.68,
+            atkMult = 1.25,
+            speedMult = 1.0,
+            state = "immortalize",
+            announce = "仙化呱大王结成玉莲法轮，镇住两界裂隙！",
+            addSkill = "ch5_rock_scatter",
+        },
+        {
+            threshold = 0.30,
+            atkMult = 1.5,
+            speedMult = 1.12,
+            intervalMult = 0.78,
+            state = "immortalize",
+            announce = "九霄莲印降下，仙潮封锁四方！",
+            addSkill = "ch6_gua_immortal_seal",
+        },
+    },
+    expReward = 0,
+    goldReward = {0, 0},
+    dropTable = {},
 }
 
 -- 封印的两界村
@@ -643,8 +747,10 @@ M.Types.ch6_mojun_shixuan = {
         { chance = 1.0, type = "lingYun", amount = {50, 70} },
         WorldDrop(),
         EmperorRareWorldDrop(),
+        ConsumableDrop(0.001, "jieshi_fragment_9"),
         ConsumableDrop(0.02, "shadow_crystal"),
-        { chance = 1.0, type = "consumable", consumableId = "immortal_beast_soul", amount = {2, 3} },
+        { chance = 1.0, type = "consumable", consumableId = "immortal_beast_soul", amount = {2, 2} },
+        ConsumableDrop(0.01, "treasure_map"),
     },
 }
 

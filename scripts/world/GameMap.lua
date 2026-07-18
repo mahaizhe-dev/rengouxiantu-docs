@@ -308,6 +308,13 @@ function GameMap:Generate()
     self:BuildXianyuanRooms()
 end
 
+---@param zoneData table
+function GameMap:ActivateZoneData(zoneData)
+    self.zoneData = zoneData
+    activeZoneData = zoneData
+    ActiveZoneData.Set(zoneData)
+end
+
 --- 设置瓦片
 ---@param x number
 ---@param y number

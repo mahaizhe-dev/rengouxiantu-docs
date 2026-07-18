@@ -11,6 +11,7 @@ local EquipmentData   = shared.EquipmentData
 local Utils           = shared.Utils
 local EquipmentUtils  = shared.EquipmentUtils
 local IconUtils       = shared.IconUtils
+local ForgeStatRules  = shared.ForgeStatRules
 
 local BASE_QUALITY_WEIGHTS = shared.BASE_QUALITY_WEIGHTS
 local TIER_QUALITY_WEIGHTS = shared.TIER_QUALITY_WEIGHTS
@@ -36,10 +37,7 @@ local function GetSubStatRandRange(quality)
 end
 
 local function RoundScaledSpecialSubStat(stat, value)
-    if EquipmentData.PCT_STATS[stat] then
-        return math.floor(value * 10000 + 0.5) / 10000
-    end
-    return math.floor(value * 100 + 0.5) / 100
+    return ForgeStatRules.RoundSpecialSubStat(stat, value)
 end
 
 local function ShouldScaleFixedSpecialSubStats(equipId, item)
@@ -608,22 +606,11 @@ function M.CreateSpecialEquipment(equipId)
 
     -- 第六章过渡特殊装备要求副属性固定；旧章节未标记模板继续沿用波动逻辑。
     if item.subStats and item.tier and not item.fixedSubStats then
-        local fluct = SPECIAL_FLUCTUATION[item.quality] or { 1.0, 0.2 }
-        local specialBase = fluct[1]
-        local specialRange = fluct[2]
-
-        local numTierMult = EquipmentData.SUB_STAT_TIER_MULT[item.tier] or 1.0
-        local pctTierMult = EquipmentData.PCT_SUB_TIER_MULT[item.tier] or 1.0
-
         for _, sub in ipairs(item.subStats) do
-            local baseInfo = SUB_BASE_MAP[sub.stat]
-            if baseInfo and not baseInfo.linearGrowth then
-                local tierMult = EquipmentData.PCT_STATS[sub.stat] and pctTierMult or numTierMult
-                local rawValue = baseInfo.baseValue * tierMult
-                local fluctuation = specialBase + math.random() * specialRange
-                local newValue = rawValue * fluctuation
-                sub.value = math.floor(newValue * 100 + 0.5) / 100
-            end
+            local value = ForgeStatRules.RollSpecialSubStat(
+                sub.stat, item.tier, item.quality
+            )
+            if value ~= nil then sub.value = value end
         end
     end
 
@@ -637,9 +624,10 @@ end
 --- 创建法宝装备（阵营挑战动态掉落）
 ---@param templateId string
 ---@param tier number
----@param quality string
+---@param quality string|nil
+---@param opts table|nil { minQuality = string|nil, maxQuality = string|nil }
 ---@return table|nil
-function M.CreateFabaoEquipment(templateId, tier, quality)
+function M.CreateFabaoEquipment(templateId, tier, quality, opts)
     local template = EquipmentData.FabaoTemplates[templateId]
     if not template then
         print("[LootSystem] WARNING: FabaoTemplate not found: " .. tostring(templateId))
@@ -647,6 +635,7 @@ function M.CreateFabaoEquipment(templateId, tier, quality)
     end
 
     if not quality then
+        local minQ = "white"
         local maxQ = "purple"
         if tier >= 10 then
             maxQ = "red"
@@ -655,8 +644,15 @@ function M.CreateFabaoEquipment(templateId, tier, quality)
         elseif tier >= 5 then
             maxQ = "orange"
         end
-        quality = M.RollQuality("white", maxQ)
-        print("[LootSystem] Fabao quality rolled: " .. quality .. " (maxQ=" .. maxQ .. " tier=" .. tier .. ")")
+        if opts and opts.minQuality then
+            minQ = opts.minQuality
+        end
+        if opts and opts.maxQuality then
+            maxQ = opts.maxQuality
+        end
+        quality = M.RollQuality(minQ, maxQ)
+        print("[LootSystem] Fabao quality rolled: " .. quality
+            .. " (minQ=" .. minQ .. " maxQ=" .. maxQ .. " tier=" .. tier .. ")")
     end
 
     local qualityConfig = GameConfig.QUALITY[quality]

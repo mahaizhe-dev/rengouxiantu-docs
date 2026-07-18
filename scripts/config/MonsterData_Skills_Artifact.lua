@@ -1,10 +1,82 @@
 -- ============================================================================
--- MonsterData_Skills_Artifact.lua - 跨章节/秘境技能定义
--- 包含: 仙劫战场·域外邪魔 + 云裳(青云门挑战) + 凌战专属技能
+-- MonsterData_Skills_Artifact.lua - 跨章节/秘境/声望技能定义
+-- 包含: 仙劫战场·域外邪魔 + 云裳/凌战专属技能 + R9 声望技能
 -- ============================================================================
 
 ---@param M table MonsterData 主模块
 return function(M)
+    -- ===================== R9 声望挑战新增技能 =====================
+    -- 碰撞/命中区域示意（全部复用现有几何与效果，不新增专用运行时）：
+    --
+    -- 沈墨： [BOSS] =====直线=====> [玩家]  命中：减速 + 血印
+    -- 陆青云：[BOSS][ 前方矩形锁阵 ][玩家] 命中：短眩晕
+    -- 云裳： [BOSS] =====追踪线====> [玩家]  两段，命中：轻减速
+    -- 凌战： [BOSS] >>>扇形震返>>> [玩家]  命中：击退；P2 仍可用虚空拉扯拉回
+    --
+    -- 边界：预警外不命中；所有控制均为短时效果；不生成召唤物、移动安全区或新碰撞体。
+
+    M.Skills.shenmo_blood_hunt = {
+        id = "shenmo_blood_hunt",
+        name = "血影追命",
+        cooldown = 14,
+        damageMult = 3.0,
+        effect = "slow",
+        effectDuration = 2.0,
+        effectValue = 0.35,
+        castTime = 1.0,
+        warningShape = "line",
+        warningRange = 4.5,
+        warningLineWidth = 0.9,
+        warningColor = {190, 25, 35, 135},
+    }
+
+    M.Skills.luqingyun_righteous_lock = {
+        id = "luqingyun_righteous_lock",
+        name = "正气锁阵",
+        cooldown = 15,
+        damageMult = 2.5,
+        effect = "stun",
+        effectDuration = 1.0,
+        castTime = 1.1,
+        warningShape = "rect",
+        warningRange = 3.2,
+        warningRectLength = 3.2,
+        warningRectWidth = 1.6,
+        warningColor = {235, 195, 55, 135},
+    }
+
+    M.Skills.yunshang_jade_echo = {
+        id = "yunshang_jade_echo",
+        name = "玉脉回响",
+        cooldown = 15,
+        damageMult = 2.0,
+        effect = "slow",
+        effectDuration = 1.5,
+        effectValue = 0.25,
+        castTime = 0.8,
+        burstCount = 2,
+        burstInterval = 0.55,
+        burstTrack = true,
+        warningShape = "line",
+        warningRange = 5.0,
+        warningLineWidth = 0.6,
+        warningColor = {70, 215, 135, 130},
+    }
+
+    M.Skills.liwuji_seal_repel = {
+        id = "liwuji_seal_repel",
+        name = "封魔震返",
+        cooldown = 14,
+        damageMult = 3.0,
+        effect = "knockback",
+        effectValue = 3.0,
+        castTime = 0.9,
+        warningShape = "cone",
+        warningRange = 2.8,
+        warningConeAngle = 100,
+        warningColor = {165, 55, 215, 135},
+    }
+
     -- ===================== 仙劫战场·域外邪魔技能 =====================
 
     -- 虚空裂斩：十字形剑气，高伤害，可躲避
@@ -103,7 +175,6 @@ return function(M)
         isFieldSkill = true,
         safeZoneCount = 3,                       -- 3 个安全区
         safeZoneRadius = 0.5,
-        safeZoneMoving = true,                   -- 安全区缓慢移动
         castTime = 2.0,
         warningShape = "circle",
         warningRange = 8.0,
@@ -157,6 +228,20 @@ return function(M)
         warningShape = "circle",
         warningRange = 4.0,
         warningColor = {140, 60, 200, 140},  -- 深紫
+    }
+
+    --- R9 专用虚空拉扯：只提高 R9 系数，不改变线上 R1-R8
+    M.Skills.liwuji_void_pull_r9 = {
+        id = "liwuji_void_pull_r9",
+        name = "虚空拉扯",
+        cooldown = 10,
+        damageMult = 2.0,
+        effect = "knockback",
+        effectValue = -2.5,
+        castTime = 1.0,
+        warningShape = "circle",
+        warningRange = 4.0,
+        warningColor = {140, 60, 200, 140},
     }
 
 end

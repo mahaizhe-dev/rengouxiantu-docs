@@ -1,4 +1,5 @@
 -- tiles/ch5_ground.lua - 第五章地面瓦片（程序化纹理）
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.tiles.shared")
 local M = {}
 

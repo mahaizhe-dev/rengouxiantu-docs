@@ -44,6 +44,12 @@ function M.UseBatchConsumable(IS, consumableId, count)
         return M._UseBatchLingyunFruit(IS, count)
     elseif consumableId == "lingyun_fruit_superior" then
         return M._UseBatchLingyunFruitSuperior(IS, count)
+    elseif consumableId == "lingyun_fruit_supreme" then
+        return M._UseBatchLingyunFruitSupreme(IS, count)
+    elseif consumableId == "gold_box_10m" then
+        return M._UseGoldBox(IS, count)
+    elseif consumableId == "treasure_map" then
+        return false, "藏宝图只能在第四章的藏宝图界面使用"
     elseif consumableId == "xianjie_premium_zong" then
         return M._UseBatchPremiumZong(IS, count)
     elseif consumableId == "valentine_xiangsi_redbean_cake" then
@@ -309,6 +315,48 @@ function M._UseBatchLingyunFruitSuperior(IS, count)
     player:GainLingYun(totalLingYun)
 
     local msg = "使用 " .. count .. " 颗上品灵韵果，获得 " .. totalLingYun .. " 灵韵！"
+    print("[InventorySystem] " .. msg)
+    return true, msg, count
+end
+
+---@param IS table
+---@param count number
+---@return boolean success, string|nil message, number|nil actualCount
+function M._UseBatchLingyunFruitSupreme(IS, count)
+    local player = GameState.player
+    if not player then return false, "玩家不存在" end
+
+    local have = IS.CountConsumable("lingyun_fruit_supreme")
+    count = math.min(count, have)
+    if count <= 0 then return false, "极品灵韵果不足" end
+
+    local ok = IS.ConsumeConsumable("lingyun_fruit_supreme", count)
+    if not ok then return false, "消耗失败" end
+
+    local totalLingYun = 5000 * count
+    player:GainLingYun(totalLingYun)
+    local msg = "使用 " .. count .. " 颗极品灵韵果，获得 " .. totalLingYun .. " 灵韵！"
+    print("[InventorySystem] " .. msg)
+    return true, msg, count
+end
+
+---@param IS table
+---@param count number
+---@return boolean success, string|nil message, number|nil actualCount
+function M._UseGoldBox(IS, count)
+    local player = GameState.player
+    if not player then return false, "玩家不存在" end
+
+    local have = IS.CountConsumable("gold_box_10m")
+    count = math.min(count, have)
+    if count <= 0 then return false, "金盒不足" end
+
+    local ok = IS.ConsumeConsumable("gold_box_10m", count)
+    if not ok then return false, "消耗失败" end
+
+    local totalGold = 10000000 * count
+    player:GainGold(totalGold)
+    local msg = "开启 " .. count .. " 个金盒，获得 " .. totalGold .. " 金币！"
     print("[InventorySystem] " .. msg)
     return true, msg, count
 end

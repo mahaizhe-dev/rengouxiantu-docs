@@ -2,6 +2,7 @@
 -- effects/skills_a.lua - 技能特效渲染器 A（金刚掌/伏魔刀/血海/浩气封印/金钟罩/龙象/三剑/巨剑）
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.effects.shared")
 local assets = require("rendering.effects.assets")
 

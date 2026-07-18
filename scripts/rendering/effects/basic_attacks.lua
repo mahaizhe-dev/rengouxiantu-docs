@@ -3,8 +3,10 @@
 -- effects/basic_attacks.lua - 基础攻击特效（浮动文字、刀光、爪击、宠物攻击）
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.effects.shared")
 local assets = require("rendering.effects.assets")
+local combatFeedbackRenderer = require("rendering.effects.combat_feedback")
 
 local CombatSystem = shared.CombatSystem
 local GameConfig = shared.GameConfig
@@ -15,52 +17,41 @@ local M = {}
 --- 渲染浮动伤害数字
 function M.RenderFloatingTexts(nvg, l, camera)
     local texts = CombatSystem.floatingTexts
-    if #texts == 0 then return end
+    if #texts > 0 then
+        local tileSize = camera:GetTileSize()
+        nvgFontFace(nvg, "sans")
 
-    local tileSize = camera:GetTileSize()
+        for i = 1, #texts do
+            local ft = texts[i]
+            if camera:IsVisible(ft.x, ft.y, l.w, l.h, 3) then
+                local sx = (ft.x - camera.x) * tileSize + l.w / 2 + l.x
+                local sy = (ft.y - camera.y) * tileSize + l.h / 2 + l.y + ft.offsetY
+                local progress = ft.elapsed / ft.lifetime
+                local alpha = 255
+                if progress > 0.7 then
+                    alpha = math.floor(255 * (1.0 - (progress - 0.7) / 0.3))
+                end
+                alpha = math.max(0, math.min(255, alpha))
 
-    nvgFontFace(nvg, "sans")
+                local c = ft.color
+                local baseScale = ft.baseScale or 1.0
+                local scale = baseScale
+                if progress < 0.15 then
+                    scale = baseScale + 0.5 * baseScale * (1.0 - progress / 0.15)
+                end
 
-    for i = 1, #texts do
-        local ft = texts[i]
-
-        -- 检查是否在可见范围
-        if camera:IsVisible(ft.x, ft.y, l.w, l.h, 3) then
-            -- 世界坐标转屏幕坐标
-            local sx = (ft.x - camera.x) * tileSize + l.w / 2 + l.x
-            local sy = (ft.y - camera.y) * tileSize + l.h / 2 + l.y + ft.offsetY
-
-            -- 计算透明度（最后 30% 时间淡出）
-            local progress = ft.elapsed / ft.lifetime
-            local alpha = 255
-            if progress > 0.7 then
-                alpha = math.floor(255 * (1.0 - (progress - 0.7) / 0.3))
+                local fontSize = math.floor(T.worldFont.damage * scale)
+                nvgFontSize(nvg, fontSize)
+                nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+                nvgFillColor(nvg, nvgRGBA(0, 0, 0, math.floor(alpha * 0.6)))
+                nvgText(nvg, sx + 1, sy + 1, ft.text, nil)
+                nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], alpha))
+                nvgText(nvg, sx, sy, ft.text, nil)
             end
-            alpha = math.max(0, math.min(255, alpha))
-
-            local c = ft.color
-
-            -- 缩放效果（刚出现时放大，然后恢复）
-            local baseScale = ft.baseScale or 1.0
-            local scale = baseScale
-            if progress < 0.15 then
-                scale = baseScale + 0.5 * baseScale * (1.0 - progress / 0.15)
-            end
-
-            -- 阴影
-            local fontSize = math.floor(T.worldFont.damage * scale)
-            nvgFontSize(nvg, fontSize)
-            nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
-
-            -- 描边（黑色阴影）
-            nvgFillColor(nvg, nvgRGBA(0, 0, 0, math.floor(alpha * 0.6)))
-            nvgText(nvg, sx + 1, sy + 1, ft.text, nil)
-
-            -- 主色
-            nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], alpha))
-            nvgText(nvg, sx, sy, ft.text, nil)
         end
     end
+
+    combatFeedbackRenderer.Render(nvg, l, camera)
 end
 
 --- 渲染刀光特效（图片素材版）

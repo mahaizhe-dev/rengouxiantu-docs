@@ -7,6 +7,10 @@ local GameConfig = require("config.GameConfig")
 local Utils = require("core.Utils")
 local EventBus = require("core.EventBus")
 local PetAppearanceConfig = require("config.PetAppearanceConfig")
+local Ch6ForgeEffects = require("systems.Ch6ForgeEffects")
+
+local math_ceil = math.ceil
+local math_floor = math.floor
 
 local Player = {}
 Player.__index = Player
@@ -30,9 +34,10 @@ function Player.New(x, y, opts)
     -- 精灵高 1.5 格，锚点(x,y)在头部，视觉脚底在 y+0.675
     -- 碰撞箱覆盖腰部到脚底：顶=y+0.375, 底=y+0.675
     -- offsetY+halfH=0.675 确保底边对齐视觉脚底和瓦片视觉边缘
-    self.colHalfW = 0.3          -- 碰撞箱半宽（总宽 0.6 格，匹配身体宽度）
-    self.colHalfH = 0.15         -- 碰撞箱半高（总高 0.3 格，腰部到脚底）
-    self.collisionOffsetY = 0.525 -- 碰撞箱中心 Y 偏移（底边=y+0.675 对齐视觉脚底）
+    local collision = GameConfig.PLAYER_COLLISION
+    self.colHalfW = collision.radiusX       -- 椭圆横向半径（外接总宽 0.6 格）
+    self.colHalfH = collision.radiusY       -- 椭圆纵向半径（外接总高 0.3 格）
+    self.collisionOffsetY = collision.offsetY -- 中心偏移，保持脚底锚点不变
 
     -- 移动方向
     self.dx = 0
@@ -69,6 +74,7 @@ function Player.New(x, y, opts)
     self._yuanjiaActive   = false
     self._yuanjiaDuration = 0
     self._yuanjiaCooldown = 0
+    Ch6ForgeEffects.Initialize(self)
 
     -- 装备加成（由 InventorySystem 计算后设置）
     self.equipAtk = 0
@@ -149,6 +155,11 @@ function Player.New(x, y, opts)
     self.artifactCh5Constitution = 0   -- 体质
     self.artifactCh5Physique     = 0   -- 根骨
 
+    -- 第六章神器加成：界匙（按账号九格档案重算，不直接存最终值）
+    self.artifactCh6MaxHp   = 0
+    self.artifactCh6HpRegen = 0
+    self.artifactCh6Fortune = 0
+
     -- 称号加成（由 TitleSystem 计算后设置，所有已解锁称号累加）
     self.titleAtk = 0
     self.titleCritRate = 0
@@ -186,6 +197,11 @@ function Player.New(x, y, opts)
     self.prisonTowerDef = 0
     self.prisonTowerMaxHp = 0
     self.prisonTowerHpRegen = 0
+    -- 第六章两界阵石永久加成（由 LiangjieStoneSystem 按规范等级重算）
+    self.liangjieStoneAtk = 0
+    self.liangjieStoneDef = 0
+    self.liangjieStoneMaxHp = 0
+    self.liangjieStoneHpRegen = 0
     self.daoAnswers = {}       -- { [1]="A"|"B", [2]="A"|"B", ... [5]="A"|"B" }
 
     -- 五行命格加成（由 MinggeSystem.RecalcStats 计算后设置）
@@ -272,6 +288,8 @@ end
 ---@type table|nil
 local _CombatSystem = nil
 local _CombatSystemLoaded = false
+local _ImmortalBodySystem = nil
+local _ImmortalBodySystemLoaded = false
 
 local function GetCombatSystem()
     if not _CombatSystemLoaded then
@@ -280,6 +298,15 @@ local function GetCombatSystem()
         if ok then _CombatSystem = mod end
     end
     return _CombatSystem
+end
+
+local function GetImmortalBodySystem()
+    if not _ImmortalBodySystemLoaded then
+        _ImmortalBodySystemLoaded = true
+        local ok, mod = pcall(require, "systems.ImmortalBodySystem")
+        if ok then _ImmortalBodySystem = mod end
+    end
+    return _ImmortalBodySystem
 end
 
 --- 强制失效属性缓存，使下次 GetTotal*() 调用触发重算
@@ -299,7 +326,7 @@ function Player:_RecalcStatsCache()
     local skinBonuses = PetAppearanceConfig.GetAllPremiumBonuses(skinAc)
 
     -- GetTotalAtk
-    local base = self.atk + self.equipAtk + (self.collectionAtk or 0) + (self.titleAtk or 0) + (self.seaPillarAtk or 0) + (self.swordPoolAtk or 0) + (self.medalAtkFlat or 0) + (self.artifactTiandiAtk or 0) + (self.daoAtk or 0) + (self.prisonTowerAtk or 0) + (self.minggeAtk or 0)
+    local base = self.atk + self.equipAtk + (self.collectionAtk or 0) + (self.titleAtk or 0) + (self.seaPillarAtk or 0) + (self.liangjieStoneAtk or 0) + (self.swordPoolAtk or 0) + (self.medalAtkFlat or 0) + (self.artifactTiandiAtk or 0) + (self.daoAtk or 0) + (self.prisonTowerAtk or 0) + (self.minggeAtk or 0)
     local atkBonus = (self.titleAtkBonus or 0) + (skinBonuses.atkPct or 0)
     local cs = GetCombatSystem()
     if cs and cs.GetBuffAtkPercent then
@@ -328,8 +355,58 @@ function Player:_RecalcStatsCache()
     local buffConst = (cs and cs.GetBuffConstitutionFlat) and cs.GetBuffConstitutionFlat() or 0
     self._cachedTotalConstitution = (self.equipConstitution or 0) + (self.pillConstitution or 0) + (self.gangguConstitution or 0) + (self.artifactConstitution or 0) + classConst + petBonusConst + (self.wineConstitution or 0) + (self.medalGengu or 0) + (self.collectionConstitution or 0) + buffConst + (self.daoConstitution or 0) + (skinBonuses.constitution or 0) + (self.artifactCh5Constitution or 0) + (self.minggeConstitution or 0)
 
-    -- GetTotalDef（依赖根骨）
-    local defBase = self.def + self.equipDef + (self.collectionDef or 0) + (self.seaPillarDef or 0) + (self.swordPoolDef or 0) + (self.artifactCh4Defense or 0) + (self.medalDefFlat or 0) + (self.prisonTowerDef or 0) + (self.minggeDef or 0)
+    -- GetTotalPhysique（先算仙缘原始总值，均灵结算后再派生 MaxHp）
+    local classPhys = 0
+    if classData and classData.passive and classData.passive.physiquePerLevel then
+        classPhys = self.level * classData.passive.physiquePerLevel
+    end
+    local petBonusPhys = self.petOwnerBonuses and self.petOwnerBonuses.physique or 0
+    local pillPhysique = self.pillPhysique or 0
+    local buffPhys = (cs and cs.GetBuffPhysiqueFlat) and cs.GetBuffPhysiqueFlat() or 0
+    self._cachedTotalPhysique = (self.equipPhysique or 0) + (self.artifactPhysique or 0) + petBonusPhys + pillPhysique + (self.winePhysique or 0) + (self.medalTipo or 0) + (self.collectionPhysique or 0) + buffPhys + classPhys + (self.daoPhysique or 0) + (skinBonuses.physique or 0) + (self.artifactCh5Physique or 0) + (self.minggePhysique or 0)
+
+    -- GetTotalFortune
+    local petBonusFort = self.petOwnerBonuses and self.petOwnerBonuses.fortune or 0
+    local buffFort = (cs and cs.GetBuffFortuneFlat) and cs.GetBuffFortuneFlat() or 0
+    local bodyFortune = 0
+    local bodySystem = GetImmortalBodySystem()
+    if bodySystem and bodySystem.GetActiveXianyuanBonuses then
+        bodyFortune = bodySystem.GetActiveXianyuanBonuses(self.level).fortune or 0
+    end
+    self._cachedTotalFortune = (self.equipFortune or 0) + (self.collectionFortune or 0) + (self.artifactCh4Fortune or 0) + (self.fruitFortune or 0) + (self.pillFortune or 0) + petBonusFort + (self.wineFortune or 0) + (self.medalFuyuan or 0) + buffFort + (self.daoFortune or 0) + (skinBonuses.fortune or 0) + (self.minggeFortune or 0) + (self.artifactCh6Fortune or 0) + bodyFortune
+
+    -- GetTotalWisdom（含职业每级悟性加成）
+    local classWisdom = 0
+    if classData and classData.passive and classData.passive.wisdomPerLevel then
+        classWisdom = self.level * classData.passive.wisdomPerLevel
+    end
+    local petBonusWis = self.petOwnerBonuses and self.petOwnerBonuses.wisdom or 0
+    local daoTreeWisdom = self.daoTreeWisdom or 0
+    local buffWis = (cs and cs.GetBuffWisdomFlat) and cs.GetBuffWisdomFlat() or 0
+    self._cachedTotalWisdom = (self.equipWisdom or 0) + (self.artifactCh4Wisdom or 0) + petBonusWis + daoTreeWisdom + (self.pillWisdom or 0) + (self.wineWisdom or 0) + (self.medalWuxing or 0) + classWisdom + (self.collectionWisdom or 0) + buffWis + (self.daoWisdom or 0) + (skinBonuses.wisdom or 0) + (self.artifactCh5Wisdom or 0) + (self.minggeWisdom or 0)
+
+    -- xianyuan_lowest_boost 特效（唯一）：同类只取最高 bonus，装备顺序不影响结果
+    local xianyuanBonus = 0
+    for _, eff in ipairs(self.equipSpecialEffects or {}) do
+        if eff.type == "xianyuan_lowest_boost" then
+            xianyuanBonus = math.max(xianyuanBonus, eff.bonus or 0)
+        end
+    end
+    if xianyuanBonus > 0 then
+        local c = self._cachedTotalConstitution
+        local p = self._cachedTotalPhysique
+        local f = self._cachedTotalFortune
+        local w = self._cachedTotalWisdom
+        local minVal = math.min(c, p, f, w)
+        -- 并列最低时全部获得最高档加成（不用 elseif）
+        if c == minVal then self._cachedTotalConstitution = c + xianyuanBonus end
+        if p == minVal then self._cachedTotalPhysique = p + xianyuanBonus end
+        if f == minVal then self._cachedTotalFortune = f + xianyuanBonus end
+        if w == minVal then self._cachedTotalWisdom = w + xianyuanBonus end
+    end
+
+    -- GetTotalDef（依赖均灵结算后的根骨）
+    local defBase = self.def + self.equipDef + (self.collectionDef or 0) + (self.seaPillarDef or 0) + (self.liangjieStoneDef or 0) + (self.swordPoolDef or 0) + (self.artifactCh4Defense or 0) + (self.medalDefFlat or 0) + (self.prisonTowerDef or 0) + (self.minggeDef or 0)
     local defBonus = math.floor(self._cachedTotalConstitution / 5) * 0.01 + (skinBonuses.defPct or 0)  -- GetConstitutionDefBonus 内联 + 皮肤
     if cs and cs.GetBuffDefPercent then
         defBonus = defBonus + cs.GetBuffDefPercent()
@@ -346,59 +423,13 @@ function Player:_RecalcStatsCache()
     end
     self._cachedTotalDef = defBase
 
-    -- GetTotalPhysique（先算，因为 MaxHp 依赖它）
-    local classPhys = 0
-    if classData and classData.passive and classData.passive.physiquePerLevel then
-        classPhys = self.level * classData.passive.physiquePerLevel
-    end
-    local petBonusPhys = self.petOwnerBonuses and self.petOwnerBonuses.physique or 0
-    local pillPhysique = self.pillPhysique or 0
-    local buffPhys = (cs and cs.GetBuffPhysiqueFlat) and cs.GetBuffPhysiqueFlat() or 0
-    self._cachedTotalPhysique = (self.equipPhysique or 0) + (self.artifactPhysique or 0) + petBonusPhys + pillPhysique + (self.winePhysique or 0) + (self.medalTipo or 0) + (self.collectionPhysique or 0) + buffPhys + classPhys + (self.daoPhysique or 0) + (skinBonuses.physique or 0) + (self.artifactCh5Physique or 0) + (self.minggePhysique or 0)
-
-    -- GetTotalMaxHp（依赖体魄）
-    local hpBase = self.maxHp + self.equipHp + (self.collectionHp or 0) + (self.seaPillarMaxHp or 0) + (self.swordPoolMaxHp or 0) + (self.medalHpFlat or 0) + (self.daoMaxHp or 0) + (self.prisonTowerMaxHp or 0) + (self.minggeHp or 0)
+    -- GetTotalMaxHp（依赖均灵结算后的体魄）
+    local hpBase = self.maxHp + self.equipHp + (self.collectionHp or 0) + (self.seaPillarMaxHp or 0) + (self.liangjieStoneMaxHp or 0) + (self.swordPoolMaxHp or 0) + (self.medalHpFlat or 0) + (self.daoMaxHp or 0) + (self.prisonTowerMaxHp or 0) + (self.minggeHp or 0) + (self.artifactCh6MaxHp or 0)
     local hpBonus = math.floor(self._cachedTotalPhysique / 5) * 0.01 + (skinBonuses.hpPct or 0)  -- GetPhysiqueHpBonus 内联 + 皮肤
     if hpBonus > 0 then
         hpBase = math.floor(hpBase * (1 + hpBonus))
     end
     self._cachedTotalMaxHp = hpBase
-
-    -- GetTotalFortune
-    local petBonusFort = self.petOwnerBonuses and self.petOwnerBonuses.fortune or 0
-    local buffFort = (cs and cs.GetBuffFortuneFlat) and cs.GetBuffFortuneFlat() or 0
-    self._cachedTotalFortune = (self.equipFortune or 0) + (self.collectionFortune or 0) + (self.artifactCh4Fortune or 0) + (self.fruitFortune or 0) + (self.pillFortune or 0) + petBonusFort + (self.wineFortune or 0) + (self.medalFuyuan or 0) + buffFort + (self.daoFortune or 0) + (skinBonuses.fortune or 0) + (self.minggeFortune or 0)
-
-    -- GetTotalWisdom（含职业每级悟性加成）
-    local classWisdom = 0
-    if classData and classData.passive and classData.passive.wisdomPerLevel then
-        classWisdom = self.level * classData.passive.wisdomPerLevel
-    end
-    local petBonusWis = self.petOwnerBonuses and self.petOwnerBonuses.wisdom or 0
-    local daoTreeWisdom = self.daoTreeWisdom or 0
-    local buffWis = (cs and cs.GetBuffWisdomFlat) and cs.GetBuffWisdomFlat() or 0
-    self._cachedTotalWisdom = (self.equipWisdom or 0) + (self.artifactCh4Wisdom or 0) + petBonusWis + daoTreeWisdom + (self.pillWisdom or 0) + (self.wineWisdom or 0) + (self.medalWuxing or 0) + classWisdom + (self.collectionWisdom or 0) + buffWis + (self.daoWisdom or 0) + (skinBonuses.wisdom or 0) + (self.artifactCh5Wisdom or 0) + (self.minggeWisdom or 0)
-
-    -- xianyuan_lowest_boost 特效（唯一）：最低仙缘属性+bonus，并列最低时全部获得加成
-    local xianyuanApplied = false
-    for _, eff in ipairs(self.equipSpecialEffects or {}) do
-        if eff.type == "xianyuan_lowest_boost" and not xianyuanApplied then
-            xianyuanApplied = true  -- 唯一：只生效一条
-            local bonus = eff.bonus or 0
-            if bonus > 0 then
-                local c = self._cachedTotalConstitution
-                local p = self._cachedTotalPhysique
-                local f = self._cachedTotalFortune
-                local w = self._cachedTotalWisdom
-                local minVal = math.min(c, p, f, w)
-                -- 并列最低时全部获得加成（不用 elseif）
-                if c == minVal then self._cachedTotalConstitution = c + bonus end
-                if p == minVal then self._cachedTotalPhysique = p + bonus end
-                if f == minVal then self._cachedTotalFortune = f + bonus end
-                if w == minVal then self._cachedTotalWisdom = w + bonus end
-            end
-        end
-    end
 
     -- 金丹被动：境界 order >= 7 时追加额外属性（在所有%放大之后，防止二次加成）
     local realmData = GameConfig.REALMS[self.realm]
@@ -643,9 +674,11 @@ function Player:GetTotalHpRegen()
         + (self.skillBonusHpRegen or 0)
         + (self.collectionHpRegen or 0)
         + (self.seaPillarHpRegen or 0)
+        + (self.liangjieStoneHpRegen or 0)
         + (self.swordPoolHpRegen or 0)
         + (self.medalHpRegen or 0)
         + (self.artifactTiandiHpRegen or 0)
+        + (self.artifactCh6HpRegen or 0)
         + (self.prisonTowerHpRegen or 0)
         + (self.minggeHpRegen or 0)
         + self:GetPhysiqueHealEfficiency()
@@ -724,6 +757,53 @@ function Player:IsPetBerserkActive()
     return self.petBerserkTimer > 0
 end
 
+--- 判断玩家脚部椭圆在目标位置是否与阻挡瓦片相交。
+--- 瓦片中心为整数坐标，碰撞边界按 [N-0.5, N+0.5] 保守处理。
+---@param gameMap table GameMap 实例
+---@param playerX number 玩家锚点 X
+---@param playerY number 玩家锚点 Y
+---@return boolean
+function Player:CanOccupy(gameMap, playerX, playerY)
+    if not gameMap then return true end
+
+    local radiusX = self.colHalfW
+    local radiusY = self.colHalfH
+    local centerX = playerX
+    local centerY = playerY + self.collisionOffsetY
+    local minTileX = math_ceil(centerX - radiusX - 0.5)
+    local maxTileX = math_floor(centerX + radiusX + 0.5)
+    local minTileY = math_ceil(centerY - radiusY - 0.5)
+    local maxTileY = math_floor(centerY + radiusY + 0.5)
+    local epsilon = GameConfig.PLAYER_COLLISION.epsilon
+
+    for tileY = minTileY, maxTileY do
+        for tileX = minTileX, maxTileX do
+            if not gameMap:IsWalkable(tileX, tileY) then
+                local left = tileX - 0.5
+                local right = tileX + 0.5
+                local top = tileY - 0.5
+                local bottom = tileY + 0.5
+
+                local nearestX = centerX
+                if nearestX < left then nearestX = left
+                elseif nearestX > right then nearestX = right end
+
+                local nearestY = centerY
+                if nearestY < top then nearestY = top
+                elseif nearestY > bottom then nearestY = bottom end
+
+                local normalizedX = (centerX - nearestX) / radiusX
+                local normalizedY = (centerY - nearestY) / radiusY
+                if normalizedX * normalizedX + normalizedY * normalizedY <= 1 + epsilon then
+                    return false
+                end
+            end
+        end
+    end
+
+    return true
+end
+
 --- 更新玩家
 ---@param dt number
 ---@param gameMap table GameMap 实例
@@ -759,6 +839,7 @@ function Player:Update(dt, gameMap)
         self._yuanjiaCooldown = self._yuanjiaCooldown - dt
         if self._yuanjiaCooldown < 0 then self._yuanjiaCooldown = 0 end
     end
+    Ch6ForgeEffects.Update(self, dt)
 
     -- 受伤闪烁
     if self.hurtFlashTimer > 0 then
@@ -781,7 +862,7 @@ function Player:Update(dt, gameMap)
                 if dmg > 0 then
                     self.hp = self.hp - dmg
                     self.hurtFlashTimer = 0.1
-                    EventBus.Emit("player_poison_tick", dmg)
+                    EventBus.Emit("player_poison_tick", dmg, self.poisonSource)
                     if self.hp <= 0 then
                         self.hp = 0
                         self.alive = false
@@ -852,29 +933,17 @@ function Player:Update(dt, gameMap)
         if self.dx > 0 then self.facingRight = true
         elseif self.dx < 0 then self.facingRight = false end
 
-        -- 碰撞箱四角检测（身体级别 AABB）+ 墙壁滑行
+        -- 脚部椭圆碰撞 + 原有 X→Y 分轴墙壁滑行
         if gameMap then
-            local hw, hh = self.colHalfW, self.colHalfH
-            local ofy = self.collisionOffsetY
-            local cy = self.y + ofy
             local movedX, movedY = false, false
 
-            -- 检查某个位置碰撞箱是否可通行
-            local function canStandAt(px, py)
-                local ccy = py + ofy
-                return gameMap:IsWalkable(px - hw, ccy - hh)
-                   and gameMap:IsWalkable(px + hw, ccy - hh)
-                   and gameMap:IsWalkable(px - hw, ccy + hh)
-                   and gameMap:IsWalkable(px + hw, ccy + hh)
-            end
-
             -- X 轴：固定 Y，测试新 X
-            if canStandAt(newX, self.y) then
+            if self:CanOccupy(gameMap, newX, self.y) then
                 self.x = newX
                 movedX = true
             end
             -- Y 轴：用已更新的 X，测试新 Y
-            if canStandAt(self.x, newY) then
+            if self:CanOccupy(gameMap, self.x, newY) then
                 self.y = newY
                 movedY = true
             end
@@ -903,16 +972,9 @@ end
 --- 脱困：沿面朝方向滑步到最近可行走点
 ---@param gameMap table
 function Player:Unstuck(gameMap)
-    local hw, hh = self.colHalfW, self.colHalfH
-    local ofy = self.collisionOffsetY
-
     -- 检查某个位置是否可站立
     local function canStandAt(px, py)
-        local cy = py + ofy
-        return gameMap:IsWalkable(px - hw, cy - hh)
-           and gameMap:IsWalkable(px + hw, cy - hh)
-           and gameMap:IsWalkable(px - hw, cy + hh)
-           and gameMap:IsWalkable(px + hw, cy + hh)
+        return self:CanOccupy(gameMap, px, py)
     end
 
     -- 当前位置可站立则无需脱困
@@ -1014,8 +1076,9 @@ end
 --- 受伤
 ---@param damage number
 ---@param source table|nil 伤害来源
+---@param feedbackContext table|nil 仅供表现层消费，不参与伤害结算
 ---@return number actualDamage 实际造成的伤害（闪避/护盾吸收/未存活时返回 0）
-function Player:TakeDamage(damage, source)
+function Player:TakeDamage(damage, source, feedbackContext)
     if not self.alive then return 0 end
     if self.invincibleTimer > 0 then return 0 end
 
@@ -1025,7 +1088,15 @@ function Player:TakeDamage(damage, source)
         for _, eff in ipairs(effects) do
             if eff.type == "evade_damage" and math.random() < (eff.evadeChance or 0) then
                 local CombatSystem = require("systems.CombatSystem")
-                CombatSystem.AddFloatingText(self.x, self.y, "闪避", {180, 240, 255, 255}, 0.8)
+                CombatSystem.EmitCombatFeedback({
+                    kind = "evade", text = "闪避",
+                    target = self, targetKey = "player:self",
+                    sourceType = "equipment", sourceId = eff.type,
+                    color = {180, 240, 255, 255},
+                }, {
+                    x = self.x, y = self.y,
+                    text = "闪避", color = {180, 240, 255, 255}, lifetime = 0.8,
+                })
                 return 0  -- 完全闪避，不受伤害
             end
         end
@@ -1076,6 +1147,42 @@ function Player:TakeDamage(damage, source)
         end
     end
 
+    -- 镇界天幕独立护盾优先吸收，不覆盖技能护盾或文王护体。
+    local zhenjieRemaining, zhenjieAbsorbed, zhenjieBroken = Ch6ForgeEffects.AbsorbDamage(self, damage)
+    if zhenjieAbsorbed > 0 then
+        damage = zhenjieRemaining
+        self.hurtFlashTimer = 0.1
+        local CombatSystem = require("systems.CombatSystem")
+        if zhenjieBroken then
+            CombatSystem.EmitCombatFeedback({
+                kind = "status", text = "镇界天幕破碎",
+                target = self, targetKey = "player:self",
+                sourceType = "equipment", sourceId = "zhenjie_shield",
+                color = {105, 155, 255, 255},
+            }, {
+                x = self.x, y = self.y - 0.6, text = "镇界天幕破碎",
+                color = {105, 155, 255, 255}, lifetime = 1.6, baseScale = 1.35,
+            })
+        else
+            CombatSystem.EmitCombatFeedback({
+                kind = "absorb", value = zhenjieAbsorbed,
+                target = self, targetKey = "player:self",
+                sourceType = "equipment", sourceId = "zhenjie_shield",
+                sourceName = "镇界天幕", color = {135, 195, 255, 255},
+            }, {
+                x = self.x, y = self.y - 0.6, text = "镇界吸收 " .. zhenjieAbsorbed,
+                color = {135, 195, 255, 255}, lifetime = 1.0, baseScale = 1.15,
+            })
+        end
+        EventBus.Emit("zhenjie_shield_hit", zhenjieAbsorbed, self._zhenjieShieldHp)
+        if zhenjieBroken then
+            EventBus.Emit("zhenjie_shield_broken")
+        end
+        if damage <= 0 then
+            return 0
+        end
+    end
+
     -- 护盾优先吸收伤害（金钟罩）
     if self.shieldHp and self.shieldHp > 0 then
         if damage <= self.shieldHp then
@@ -1105,6 +1212,21 @@ function Player:TakeDamage(damage, source)
     self.hp = math.max(0, self.hp - damage)
     self.hurtFlashTimer = 0.2
 
+    local zhenjieTriggered, zhenjieShieldValue = Ch6ForgeEffects.TryTrigger(self, damage)
+    if zhenjieTriggered then
+        local CombatSystem = require("systems.CombatSystem")
+        CombatSystem.EmitCombatFeedback({
+            kind = "status", text = "镇界天幕 +" .. zhenjieShieldValue,
+            target = self, targetKey = "player:self",
+            sourceType = "equipment", sourceId = "zhenjie_shield",
+            color = {120, 180, 255, 255},
+        }, {
+            x = self.x, y = self.y - 0.7, text = "【镇界天幕】+" .. zhenjieShieldValue,
+            color = {120, 180, 255, 255}, lifetime = 1.8, baseScale = 1.45,
+        })
+        EventBus.Emit("zhenjie_shield_activated", zhenjieShieldValue)
+    end
+
     -- 渊甲护身 触发检查（hp 扣减后）
     if self.equipSpecialEffects and self._yuanjiaCooldown <= 0 then
         local totalMaxHp = self:GetTotalMaxHp()
@@ -1115,14 +1237,22 @@ function Player:TakeDamage(damage, source)
                     self._yuanjiaDuration = eff.duration or 4.0
                     self._yuanjiaCooldown = eff.cooldown or 8.0
                     local CombatSystem = require("systems.CombatSystem")
-                    CombatSystem.AddFloatingText(self.x, self.y - 0.5, "渊甲护身", {180, 220, 255, 255}, 1.5)
+                    CombatSystem.EmitCombatFeedback({
+                        kind = "status", text = "渊甲护身",
+                        target = self, targetKey = "player:self",
+                        sourceType = "equipment", sourceId = eff.type,
+                        color = {180, 220, 255, 255},
+                    }, {
+                        x = self.x, y = self.y - 0.5,
+                        text = "渊甲护身", color = {180, 220, 255, 255}, lifetime = 1.5,
+                    })
                     break
                 end
             end
         end
     end
 
-    EventBus.Emit("player_hurt", damage, source)
+    EventBus.Emit("player_hurt", damage, source, feedbackContext)
 
     if self.hp <= 0 then
         -- 蜃影判定（death_immunity 特效：概率免疫致命伤害+短暂无敌）
@@ -1134,13 +1264,28 @@ function Player:TakeDamage(damage, source)
                     self.hp = 1
                     self.invincibleTimer = eff.immuneDuration or 1.0
                     local CombatSystem = require("systems.CombatSystem")
-                    CombatSystem.AddFloatingText(self.x, self.y - 0.5, "蜃影·免死", {100, 240, 255, 255}, 1.5)
+                    CombatSystem.EmitCombatFeedback({
+                        kind = "immune", text = "蜃影·免死",
+                        target = self, targetKey = "player:self",
+                        sourceType = "equipment", sourceId = eff.type,
+                        color = {100, 240, 255, 255},
+                    }, {
+                        x = self.x, y = self.y - 0.5,
+                        text = "蜃影·免死", color = {100, 240, 255, 255}, lifetime = 1.5,
+                    })
                     print("[Player] 蜃影触发! 免疫致命伤害，无敌" .. (eff.immuneDuration or 1.0) .. "s")
                     break
                 end
             end
         end
+        local artifactRescued = false
         if not deathImmune then
+            local okCh6, ArtifactCh6 = pcall(require, "systems.ArtifactSystem_ch6")
+            if okCh6 and ArtifactCh6 and ArtifactCh6.TryRescuePlayer then
+                artifactRescued = ArtifactCh6.TryRescuePlayer(self, source) == true
+            end
+        end
+        if not deathImmune and not artifactRescued then
             self.hp = 0
             self.alive = false
             EventBus.Emit("player_death")

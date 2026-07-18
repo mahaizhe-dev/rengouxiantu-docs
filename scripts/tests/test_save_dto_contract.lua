@@ -3,13 +3,13 @@
 -- test_save_dto_contract.lua — SaveDTO v1 合同边界测试
 --
 -- P0-3:  验证 SaveDTO 模块的字段边界约束
--- P0-3R: 三层边界分离断言（DTO 28 / envelope 7 / passthrough 4）
+-- P0-3R: 三层边界分离断言（DTO 32 / envelope 8 / passthrough 4）
 --
 -- 覆盖范围：
---   1. 22 个 DTO 主体字段（P0-3A 合同 §4.1）
---   2. 6 个信封字段（DoSave 额外构建）
---   3. 3 个透传字段被正确分离
---   4. 后向兼容 schema = DTO ∪ envelope = 28
+--   1. 32 个 DTO 主体字段
+--   2. 8 个信封字段（DoSave 额外构建）
+--   3. 4 个透传字段被正确分离
+--   4. 后向兼容 schema = DTO ∪ envelope = 40
 --   5. 非法字段不进入 DTO
 --   6. ToCoreData 不改 key 名
 --   7. FromCoreData + ToCoreData 无损往返
@@ -53,40 +53,41 @@ end
 print("\n[test_save_dto_contract] === SaveDTO v1 三层边界测试 ===\n")
 
 -- ─────────────────────────────────────────────────────────────
--- 1. 三层字段数量断言（核心：22 / 6 / 3）
+-- 1. 三层字段数量断言（核心：32 / 8 / 4）
 -- ─────────────────────────────────────────────────────────────
 
-test("DTO field count = 30", function()
-    assertEqual(SaveDTO.GetDTOFieldCount(), 30, "DTO fields")
+test("DTO field count = 32", function()
+    assertEqual(SaveDTO.GetDTOFieldCount(), 32, "DTO fields")
 end)
 
-test("envelope field count = 7", function()
-    assertEqual(SaveDTO.GetEnvelopeFieldCount(), 7, "envelope fields")
+test("envelope field count = 8", function()
+    assertEqual(SaveDTO.GetEnvelopeFieldCount(), 8, "envelope fields")
 end)
 
 test("passthrough field count = 4", function()
     assertEqual(SaveDTO.GetPassthroughFieldCount(), 4, "passthrough fields")
 end)
 
--- 后向兼容：schema = DTO + envelope = 29
-test("schema field count = 37 (backward compat: DTO 30 + envelope 7)", function()
-    assertEqual(SaveDTO.GetSchemaFieldCount(), 37, "schema fields")
+-- 后向兼容：schema = DTO + envelope = 40
+test("schema field count = 40 (backward compat: DTO 32 + envelope 8)", function()
+    assertEqual(SaveDTO.GetSchemaFieldCount(), 40, "schema fields")
 end)
 
 -- ─────────────────────────────────────────────────────────────
--- 2. P0-3A 合同 22 个 DTO 主体字段全部存在
+-- 2. 当前 32 个 DTO 主体字段全部存在
 -- ─────────────────────────────────────────────────────────────
 
-local CONTRACT_30 = {
+local CONTRACT_32 = {
     "version", "player", "equipment", "backpack", "skills",
     "collection", "pet", "quests", "shop", "titles",
     "challenges", "sealDemon", "trialTower", "artifact",
-    "fortuneFruits", "qinglianBody", "seaPillar", "prisonTower", "warehouse",
+    "fortuneFruits", "qinglianBody", "seaPillar", "liangjieStones", "swordPool",
+    "prisonTower", "warehouse",
     "yaochi_wash", "event_data", "openedXianyuanChests", "wubaoTreasureState", "bossKillTimes",
     "triggeredBattles", "treasureRunner", "mingge", "ascension", "tribulation", "immortalBody",
 }
 
-for _, field in ipairs(CONTRACT_30) do
+for _, field in ipairs(CONTRACT_32) do
     test("contract DTO field '" .. field .. "' is DTO", function()
         assertTrue(SaveDTO.IsDTOField(field), field .. " should be DTO")
         assertTrue(SaveDTO.IsSchemaField(field), field .. " should also be schema (compat)")
@@ -96,16 +97,16 @@ for _, field in ipairs(CONTRACT_30) do
 end
 
 -- ─────────────────────────────────────────────────────────────
--- 3. 6 个信封字段全部存在且不属于 DTO 主体
+-- 3. 8 个信封字段全部存在且不属于 DTO 主体
 -- ─────────────────────────────────────────────────────────────
 
-local ENVELOPE_6 = {
+local ENVELOPE_8 = {
     "code_version", "timestamp", "bossKills",
     "_bossKillsMigrated", "bulletin", "artifact_ch4",
-    "artifact_ch5",
+    "artifact_ch5", "artifact_ch6",
 }
 
-for _, field in ipairs(ENVELOPE_6) do
+for _, field in ipairs(ENVELOPE_8) do
     test("envelope field '" .. field .. "' is envelope, not DTO", function()
         assertTrue(SaveDTO.IsEnvelopeField(field), field .. " should be envelope")
         assertTrue(SaveDTO.IsSchemaField(field), field .. " should also be schema (compat)")
@@ -115,7 +116,7 @@ for _, field in ipairs(ENVELOPE_6) do
 end
 
 -- ─────────────────────────────────────────────────────────────
--- 4. 3 个透传字段
+-- 4. 4 个透传字段
 -- ─────────────────────────────────────────────────────────────
 
 local PASSTHROUGH_4 = { "atlas", "accountCosmetics", "pendingXianyuanRewards", "accountImmortalBodies" }
@@ -268,25 +269,28 @@ end)
 -- 9. 无损往返：FromCoreData → ToCoreData ≈ 原始 coreData
 -- ─────────────────────────────────────────────────────────────
 
-test("round-trip: FromCoreData → ToCoreData preserves all 41 fields", function()
-    -- 构造包含所有 30 DTO + 7 envelope + 4 passthrough = 41 字段的 coreData
+test("round-trip: FromCoreData → ToCoreData preserves all 44 fields", function()
+    -- 构造包含所有 32 DTO + 8 envelope + 4 passthrough = 44 字段的 coreData
     local original = {
-        -- 30 DTO
+        -- 32 DTO
         version = 23, player = { level = 50 }, equipment = { w = 1 },
         backpack = { b = 1 }, skills = { s = 1 }, collection = { c = 1 },
         pet = { p = 1 }, quests = { q = 1 }, shop = { sh = 1 },
         titles = { t = 1 }, challenges = { ch = 1 }, sealDemon = { sd = 1 },
         trialTower = { tt = 1 }, artifact = { a = 1 }, fortuneFruits = { ff = 1 },
-        qinglianBody = { qb = 1 }, seaPillar = { sp = 1 }, prisonTower = { pt = 1 }, warehouse = { wh = 1 },
+        qinglianBody = { qb = 1 }, seaPillar = { sp = 1 },
+        liangjieStones = { ls = 1 }, swordPool = { swp = 1 },
+        prisonTower = { pt = 1 }, warehouse = { wh = 1 },
         yaochi_wash = { yw = 1 }, event_data = { ed = 1 },
         openedXianyuanChests = { ox = 1 }, wubaoTreasureState = { rewardOrder = {}, opened = {} }, bossKillTimes = { bkt = 1 },
         triggeredBattles = { tb = 1 }, treasureRunner = { trn = 1 },
         mingge = { equipped = {}, backpack = {} },
         ascension = { as = 1 }, tribulation = { tr = 1 }, immortalBody = { ib = 1 },
-        -- 7 envelope
+        -- 8 envelope
         code_version = "1.2.3", timestamp = 1234567890,
         bossKills = 42, _bossKillsMigrated = true,
-        bulletin = { bu = 1 }, artifact_ch4 = { ac4 = 1 }, artifact_ch5 = { ac5 = 1 },
+        bulletin = { bu = 1 }, artifact_ch4 = { ac4 = 1 },
+        artifact_ch5 = { ac5 = 1 }, artifact_ch6 = { ac6 = 1 },
         -- 4 passthrough
         atlas = { at = 1 }, accountCosmetics = { ac = 1 },
         pendingXianyuanRewards = { pxr = 1 }, accountImmortalBodies = { aib = 1 },
@@ -300,25 +304,25 @@ test("round-trip: FromCoreData → ToCoreData preserves all 41 fields", function
     for _ in pairs(unk) do unkCount = unkCount + 1 end
     assertEqual(unkCount, 0, "no unknowns")
 
-    -- DTO 提取 30 个
+    -- DTO 提取 32 个
     local dtoCount = 0
     for _ in pairs(dto) do dtoCount = dtoCount + 1 end
-    assertEqual(dtoCount, 30, "dto field count")
+    assertEqual(dtoCount, 32, "dto field count")
 
-    -- envelope 提取 7 个
+    -- envelope 提取 8 个
     local envCount = 0
     for _ in pairs(env) do envCount = envCount + 1 end
-    assertEqual(envCount, 7, "envelope field count")
+    assertEqual(envCount, 8, "envelope field count")
 
     -- passthrough 提取 4 个
     local ptCount = 0
     for _ in pairs(pt) do ptCount = ptCount + 1 end
     assertEqual(ptCount, 4, "passthrough field count")
 
-    -- 重建后字段数 = 41
+    -- 重建后字段数 = 44
     local reCount = 0
     for _ in pairs(reconstructed) do reCount = reCount + 1 end
-    assertEqual(reCount, 41, "reconstructed field count")
+    assertEqual(reCount, 44, "reconstructed field count")
 
     -- 抽检关键字段
     assertEqual(reconstructed.version, 23, "version")

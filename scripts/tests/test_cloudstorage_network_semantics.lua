@@ -10,6 +10,7 @@
 --   T4. flag=true  + unsupported  → reason 包含 desc 和 keys
 --   T5. flag=false + 存档 batch   → 尝试走 C2S（旧行为不变）
 --   T6. ERR_UNSUPPORTED_BATCH 常量稳定
+--   T9. 保存 pending 可按类型确定性失败，且不会误伤排行榜回调
 --
 -- 注意：测试通过 stub 替代引擎全局（network/SubscribeToEvent/Variant 等），
 -- 仅验证 CloudStorage 内部分支逻辑。
@@ -331,6 +332,87 @@ assert_match(t8_reason, "slots_index", "T8: reason 包含 Set key")
 assert_match(t8_reason, "deleted_save_1", "T8: reason 包含 Delete key")
 
 FF._resetForTest()
+
+-- ============================================================================
+-- T9: 保存 pending 按类型失败，排行榜 pending 保持独立
+-- ============================================================================
+print("--- T9: pending 按类型确定性失败 ---")
+
+local originalNetwork = network
+local sentEvents = 0
+network = {
+    GetServerConnection = function()
+        return {
+            SendRemoteEvent = function()
+                sentEvents = sentEvents + 1
+            end,
+        }
+    end,
+}
+
+local saveErrors = 0
+local saveReason = nil
+local rankErrors = 0
+
+CloudStorage.BatchSet()
+    :Set("save_1", { player = { level = 10 } })
+    :Save("timeout_contract", {
+        ok = function() end,
+        error = function(code, reason)
+            saveErrors = saveErrors + 1
+            saveReason = reason
+        end,
+    })
+
+CloudStorage.GetRankList("rank_score_1", 0, 10, {
+    ok = function() end,
+    error = function()
+        rankErrors = rankErrors + 1
+    end,
+})
+
+local oldSaveRequestId = nil
+for requestId, entry in pairs(CloudStorage._getPendingSnapshot()) do
+    if entry.kind == "save" then oldSaveRequestId = requestId end
+end
+assert_true(oldSaveRequestId ~= nil, "T9: 可定位旧保存 requestId")
+assert_true(sentEvents >= 2, "T9: 保存与排行榜请求均已发送")
+assert_eq(CloudStorage.ExpirePendingCallbacks("save", "forced_save_timeout"), 1,
+    "T9: 只结算一个保存 pending")
+assert_eq(saveErrors, 1, "T9: 保存 error 回调恰好一次")
+assert_eq(saveReason, "forced_save_timeout", "T9: 保存失败原因透传")
+assert_eq(rankErrors, 0, "T9: 排行榜回调未被误伤")
+assert_eq(CloudStorage.ExpirePendingCallbacks("save", "duplicate"), 0,
+    "T9: 重复结算不会再次回调")
+assert_eq(saveErrors, 1, "T9: 保存 error 回调仍为一次")
+
+local newSaveOk = 0
+local newSaveErrors = 0
+CloudStorage.BatchSet()
+    :Set("save_1", { player = { level = 11 } })
+    :Save("new_retry", {
+        ok = function() newSaveOk = newSaveOk + 1 end,
+        error = function() newSaveErrors = newSaveErrors + 1 end,
+    })
+
+---@type any
+local lateResult = {
+    ok = { GetBool = function() return true end },
+    requestId = { GetInt = function() return oldSaveRequestId end },
+    message = { GetString = function() return "" end },
+}
+CloudStorage_HandleSaveResult("test", lateResult)
+assert_eq(newSaveOk, 0, "T9: 旧成功回包不得窃取新保存 callback")
+assert_eq(newSaveErrors, 0, "T9: 新保存 callback 仍保持 pending")
+assert_eq(CloudStorage.ExpirePendingCallbacks("save", "new_retry_cleanup"), 1,
+    "T9: 新保存 pending 仍可独立清理")
+assert_eq(newSaveErrors, 1, "T9: 新保存只收到自身清理回调")
+
+assert_eq(CloudStorage.ExpirePendingCallbacks("rank", "test_cleanup"), 1,
+    "T9: 排行榜 pending 可独立清理")
+assert_eq(rankErrors, 1, "T9: 排行榜清理回调一次")
+
+network = originalNetwork
 
 -- ============================================================================
 -- 清理：恢复单机模式

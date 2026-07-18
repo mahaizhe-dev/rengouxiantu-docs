@@ -2,6 +2,7 @@
 -- DecoDivine.lua  —— 仙界装饰物渲染（神器 + 法器 + 试炼塔 + 悟道树）
 -- 从 DecorationRenderers.lua 纯剥离，零逻辑修改
 -- ============================================================================
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local RenderUtils = require("rendering.RenderUtils")
 
 local M = {}

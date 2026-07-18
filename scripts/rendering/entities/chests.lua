@@ -1,4 +1,5 @@
 -- entities/chests.lua - 锁链封印与仙缘宝箱渲染
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.entities.shared")
 local GameConfig = shared.GameConfig
 local GameState = shared.GameState

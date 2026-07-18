@@ -11,6 +11,7 @@ local GameState = require("core.GameState")
 local InventorySystem = require("systems.InventorySystem")
 local EventBus = require("core.EventBus")
 local SaveSession = require("systems.save.SaveSession")
+local ForgeStatRules = require("systems.forge.ForgeStatRules")
 local T = require("config.UITheme")
 local PanelShell = require("ui.components.PanelShell")
 local ImageItemSlot = require("ui.ImageItemSlot")
@@ -83,22 +84,6 @@ local function GetForgeCost(item)
     return FORGE_COST[item.tier or 1] or 500
 end
 
----@param item table|nil
----@return number
-local function GetForgeQualityMultiplier(item)
-    if not item or not item.quality then return 1.0 end
-    local qualityConfig = GameConfig.QUALITY[item.quality]
-    return (qualityConfig and qualityConfig.multiplier) or 1.0
-end
-
----@param tier number|nil
----@param qualityMult number|nil
----@return number
-local function GetLinearForgeBase(tier, qualityMult)
-    local value = math.floor((tier or 1) * (qualityMult or 1.0))
-    return math.max(1, value)
-end
-
 --- 计算某属性在指定 tier 下的洗练值范围文本
 ---@param statId string
 ---@param item table|nil
@@ -111,26 +96,9 @@ local function GetForgeRangeText(statId, item)
     if not baseDef then return "" end
 
     local tier = item and item.tier or 1
-    if baseDef.linearGrowth or EquipmentData.LINEAR_GROWTH_STATS[statId] then
-        local baseValue = GetLinearForgeBase(tier, GetForgeQualityMultiplier(item))
-        local rawMin = math.max(1, math.floor(baseValue * 0.8 + 0.5))
-        local rawMax = math.max(1, math.floor(baseValue * 1.2 + 0.5))
-        return "（" .. tostring(rawMin) .. "~" .. tostring(rawMax) .. "）"
-    end
-
-    local tierMult
-    if EquipmentData.PCT_STATS[statId] then
-        tierMult = EquipmentData.PCT_SUB_TIER_MULT[tier] or 1.0
-    else
-        tierMult = EquipmentData.SUB_STAT_TIER_MULT[tier] or 1.0
-    end
-
-    local rawMin = baseDef.baseValue * tierMult * 0.8
-    local rawMax = baseDef.baseValue * tierMult * 1.2
-    rawMin = math.floor(rawMin * 100 + 0.5) / 100
-    rawMax = math.floor(rawMax * 100 + 0.5) / 100
-    if rawMin <= 0 then rawMin = 0.01 end
-    if rawMax <= 0 then rawMax = 0.01 end
+    local quality = item and item.quality or "white"
+    local rawMin, rawMax = ForgeStatRules.GetRerollRange(statId, tier, quality)
+    if rawMin == nil then return "" end
 
     local function fmt(val)
         if EquipmentData.PCT_STATS[statId] or EquipmentData.PCT_MAIN_STATS[statId] then
@@ -173,25 +141,11 @@ local function RollForgeStat(item)
     if #pool == 0 then return nil end
 
     local pick = pool[math.random(1, #pool)]
-    local value
-    if pick.linearGrowth or EquipmentData.LINEAR_GROWTH_STATS[pick.stat] then
-        local baseValue = GetLinearForgeBase(item.tier or 1, GetForgeQualityMultiplier(item))
-        value = math.max(1, math.floor(baseValue * (0.8 + math.random() * 0.4) + 0.5))
-    else
-        local tierMult
-        if EquipmentData.PCT_STATS[pick.stat] then
-            tierMult = EquipmentData.PCT_SUB_TIER_MULT[item.tier or 1] or 1.0
-        else
-            tierMult = EquipmentData.SUB_STAT_TIER_MULT[item.tier or 1] or 1.0
-        end
-        value = pick.baseValue * tierMult * (0.8 + math.random() * 0.4)
-        value = math.floor(value * 100 + 0.5) / 100
-        if value <= 0 then value = 0.01 end
-
-        if not EquipmentData.PCT_STATS[pick.stat] and pick.stat ~= "hpRegen" then
-            value = math.max(1, math.floor(value + 0.5))
-        end
-    end
+    local value = ForgeStatRules.RollRerollValue(
+        pick.stat,
+        item.tier or 1,
+        item.quality or "white"
+    )
 
     return { stat = pick.stat, name = pick.name, value = value }
 end

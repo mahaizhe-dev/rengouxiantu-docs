@@ -9,6 +9,7 @@ local Session = require("network.ServerSession")
 local SaveProtocol = require("network.SaveProtocol")
 local SkinShopConfig = require("config.SkinShopConfig")
 local GameConfig = require("config.GameConfig")
+local AccountCosmeticsService = require("network.AccountCosmeticsService")
 
 local cjson = cjson ---@diagnostic disable-line: undefined-global
 
@@ -78,21 +79,13 @@ end
 ---@param callback fun(cosmetics: table)
 ---@param errCallback fun(code: any, reason: any)
 local function FetchAccountCosmetics(userId, callback, errCallback)
-    serverCloud:BatchGet(userId)
-        :Key("account_cosmetics")
-        :Fetch({
-            ok = function(scores)
-                local cosmetics = scores["account_cosmetics"]
-                if not cosmetics or type(cosmetics) ~= "table" then
-                    cosmetics = {}
-                end
-                callback(cosmetics)
-            end,
-            error = function(code, reason)
-                print("[SkinShop] FetchAccountCosmetics FAILED: " .. tostring(code) .. " " .. tostring(reason))
-                if errCallback then errCallback(code, reason) end
-            end,
-        })
+    AccountCosmeticsService.Fetch(userId, {
+        ok = callback,
+        error = function(code, reason)
+            print("[SkinShop] FetchAccountCosmetics FAILED: " .. tostring(code) .. " " .. tostring(reason))
+            if errCallback then errCallback(code, reason) end
+        end,
+    })
 end
 
 --- 检查皮肤是否已解锁
@@ -100,10 +93,7 @@ end
 ---@param skinId string
 ---@return boolean
 local function IsSkinUnlocked(cosmetics, skinId)
-    local pa = cosmetics.petAppearances
-    if not pa then return false end
-    local entry = pa[skinId]
-    return entry and entry.unlocked == true
+    return AccountCosmeticsService.IsSkinUnlocked(cosmetics, skinId)
 end
 
 -- ============================================================================
@@ -201,45 +191,39 @@ function M.HandleBuy(eventType, eventData)
             return
         end
 
-        -- 2. 读取已解锁皮肤，检查是否重复购买
-        FetchAccountCosmetics(userId, function(cosmetics)
-            if IsSkinUnlocked(cosmetics, skinId) then
-                buyActive_[connKey] = nil
-                SendError(connection, SaveProtocol.S2C_SkinShopResult, "该皮肤已拥有")
-                return
-            end
+        -- 2. Hold the shared account lock from ownership check through persistence.
+        AccountCosmeticsService.Begin(userId, {
+            ok = function(transaction)
+                local cosmetics = transaction.cosmetics
+                if IsSkinUnlocked(cosmetics, skinId) then
+                    transaction:Release()
+                    buyActive_[connKey] = nil
+                    SendError(connection, SaveProtocol.S2C_SkinShopResult, "该皮肤已拥有")
+                    return
+                end
 
-            -- 3. §8 层②：原子事务扣仙石
-            local price = SkinShopConfig.SKIN_PRICE
-            local batch = serverCloud:BatchCommit("皮肤购买_" .. skinId)
-            batch:MoneyCost(userId, "xianshi", price)
-            batch:Commit({
-                ok = function()
-                    print("[SkinShop][Buy] BatchCommit OK, writing cosmetics...")
-                    -- 4. 写入 account_cosmetics
-                    if not cosmetics.petAppearances then
-                        cosmetics.petAppearances = {}
-                    end
-                    cosmetics.petAppearances[skinId] = { unlocked = true }
-
-                    serverCloud:BatchSet(userId)
-                        :Set("account_cosmetics", cosmetics)
-                        :Save("皮肤解锁_" .. skinId, {
+                local price = SkinShopConfig.SKIN_PRICE
+                local batch = serverCloud:BatchCommit("皮肤购买_" .. skinId)
+                batch:MoneyCost(userId, "xianshi", price)
+                batch:Commit({
+                    ok = function()
+                        print("[SkinShop][Buy] BatchCommit OK, writing cosmetics...")
+                        local updated = AccountCosmeticsService.PrepareSkinGrant(
+                            cosmetics, skinId, nil, "skin_shop")
+                        transaction:Save(updated, "皮肤解锁_" .. skinId, {
                             ok = function()
                                 buyActive_[connKey] = nil
                                 print("[SkinShop][Buy] cosmetics saved, skinId=" .. skinId)
-                                -- 5. 发送成功回包
                                 local reply = VariantMap()
                                 reply["ok"] = Variant(true)
                                 reply["skinId"] = Variant(skinId)
-                                -- 重新查余额返回最新值
                                 serverCloud.money:Get(userId, {
                                     ok = function(moneys)
                                         reply["xianshi"] = Variant(moneys.xianshi or 0)
                                         Session.SafeSend(connection, SaveProtocol.S2C_SkinShopResult, reply)
                                     end,
                                     error = function()
-                                        reply["xianshi"] = Variant(-1)  -- 读余额失败，前端会重新 Query
+                                        reply["xianshi"] = Variant(-1)
                                         Session.SafeSend(connection, SaveProtocol.S2C_SkinShopResult, reply)
                                     end,
                                 })
@@ -248,8 +232,6 @@ function M.HandleBuy(eventType, eventData)
                                 buyActive_[connKey] = nil
                                 print("[SkinShop][Buy] cosmetics save FAILED: "
                                     .. tostring(code) .. " " .. tostring(reason))
-                                -- 仙石已扣但皮肤未写入，需要补偿
-                                -- 用 MoneyAdd 回退仙石
                                 local rollback = serverCloud:BatchCommit("皮肤回退_" .. skinId)
                                 rollback:MoneyAdd(userId, "xianshi", price)
                                 rollback:Commit({
@@ -263,22 +245,29 @@ function M.HandleBuy(eventType, eventData)
                                 SendError(connection, SaveProtocol.S2C_SkinShopResult, "保存失败，仙石已退回")
                             end,
                         })
-                end,
-                error = function(code, reason)
-                    buyActive_[connKey] = nil
-                    print("[SkinShop][Buy] BatchCommit FAILED: "
-                        .. tostring(code) .. " " .. tostring(reason))
-                    local msg = "仙石不足"
-                    if code ~= "INSUFFICIENT_FUNDS" then
-                        msg = "交易失败: " .. tostring(reason)
-                    end
-                    SendError(connection, SaveProtocol.S2C_SkinShopResult, msg)
-                end,
-            })
-        end, function(code, reason)
-            buyActive_[connKey] = nil
-            SendError(connection, SaveProtocol.S2C_SkinShopResult, "读取皮肤数据失败")
-        end)
+                    end,
+                    error = function(code, reason)
+                        transaction:Release()
+                        buyActive_[connKey] = nil
+                        print("[SkinShop][Buy] BatchCommit FAILED: "
+                            .. tostring(code) .. " " .. tostring(reason))
+                        local msg = "仙石不足"
+                        if code ~= "INSUFFICIENT_FUNDS" then
+                            msg = "交易失败: " .. tostring(reason)
+                        end
+                        SendError(connection, SaveProtocol.S2C_SkinShopResult, msg)
+                    end,
+                })
+            end,
+            busy = function()
+                buyActive_[connKey] = nil
+                SendError(connection, SaveProtocol.S2C_SkinShopResult, "皮肤数据处理中，请稍候")
+            end,
+            error = function(code, reason)
+                buyActive_[connKey] = nil
+                SendError(connection, SaveProtocol.S2C_SkinShopResult, "读取皮肤数据失败")
+            end,
+        })
     end)
 end
 

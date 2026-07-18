@@ -153,7 +153,9 @@ function Monster.New(data, spawnX, spawnY)
     self.isChallenge = data.isChallenge or false
     self.bloodMark = data.bloodMark        -- 血煞印记配置（沈墨）
     self.barrierZone = data.barrierZone    -- 正气结界配置（陆青云）
+    self.jadeShield = data.jadeShield      -- 玉甲回响配置（云裳）
     self.sealMark = data.sealMark          -- 封魔印配置（凌战）
+    self.fieldDamagePercent = data.fieldDamagePercent  -- 场地技伤害覆盖（用于稳定章节难度对齐）
     self.clawColor = data.clawColor        -- 自定义爪击颜色
     self.skillTextColor = data.skillTextColor          -- 技能名浮字颜色
     self.warningColorOverride = data.warningColorOverride  -- 通用技能预警颜色覆盖
@@ -924,8 +926,9 @@ end
 --- 受伤
 ---@param damage number
 ---@param source table|nil
+---@param damageOptions table|nil
 --- @return number actualDamage 实际造成的伤害（未存活时返回 0）
-function Monster:TakeDamage(damage, source)
+function Monster:TakeDamage(damage, source, damageOptions)
     if not self.alive then return 0 end
 
     if self.isTreasureRunner then
@@ -936,50 +939,54 @@ function Monster:TakeDamage(damage, source)
         return 0
     end
 
-    -- 易伤增伤：受到所有伤害增加
-    local vulnDebuff = self.debuffs["vulnerability"]
-    if vulnDebuff and vulnDebuff.timer > 0 and vulnDebuff.percent then
-        damage = math_floor(damage * (1 + vulnDebuff.percent))
-    end
+    if not (damageOptions and damageOptions.fixedDamage) then
+        -- 易伤增伤：受到所有非固定伤害增加
+        local vulnDebuff = self.debuffs["vulnerability"]
+        if vulnDebuff and vulnDebuff.timer > 0 and vulnDebuff.percent then
+            damage = math_floor(damage * (1 + vulnDebuff.percent))
+        end
 
-    -- 封魔大阵增伤：怪物在增伤区域内受到最终伤害加成（独立乘区）
-    local CS = CombatSystem
-    if CS.activeZones then
-        for _, zone in ipairs(CS.activeZones) do
-            if zone.damageBoostPercent and zone.damageBoostPercent > 0 then
-                local dx = self.x - zone.x
-                local dy = self.y - zone.y
-                if dx * dx + dy * dy <= zone.range * zone.range then
-                    damage = math_floor(damage * (1 + zone.damageBoostPercent))
-                    break  -- 同类增伤区域不叠加
+        -- 封魔大阵增伤：怪物在增伤区域内受到最终伤害加成（独立乘区）
+        local CS = CombatSystem
+        if CS.activeZones then
+            for _, zone in ipairs(CS.activeZones) do
+                if zone.damageBoostPercent and zone.damageBoostPercent > 0 then
+                    if CS.IsPointInZone and CS.IsPointInZone(self.x, self.y, zone) then
+                        damage = math_floor(damage * (1 + zone.damageBoostPercent))
+                        break  -- 同类增伤区域不叠加
+                    end
                 end
             end
         end
-    end
 
-    -- 洗髓增伤（灵体增伤，独立乘区，每级 1%，上限 26%）
-    -- 仅玩家本体伤害享受加成，宠物不包括
-    if source and source.GetWashLevel then
-        local washLevel = source:GetWashLevel()
-        if washLevel > 0 then
-            damage = math_floor(damage * (1 + washLevel * 0.01))
+        -- 洗髓增伤（灵体增伤，独立乘区，每级 1%，上限 26%）
+        -- 仅玩家本体伤害享受加成，宠物不包括
+        if source and source.GetWashLevel then
+            local washLevel = source:GetWashLevel()
+            if washLevel > 0 then
+                damage = math_floor(damage * (1 + washLevel * 0.01))
+            end
         end
-    end
 
-    -- 玉甲回响：护盾激活时减伤+反射
-    if self.jadeShieldActive and self.jadeShieldDmgReduction then
-        local origDamage = damage
-        damage = math_max(1, math_floor(damage * (1 - self.jadeShieldDmgReduction)))
-        local reflectDmg = math_floor(origDamage * (self.jadeShieldReflectPercent or 0))
-        if reflectDmg > 0 then
-            EventBus.Emit("jade_shield_reflect", reflectDmg, self.x, self.y)
+        -- 玉甲回响：护盾激活时减伤+反射
+        if self.jadeShieldActive and self.jadeShieldDmgReduction then
+            local origDamage = damage
+            damage = math_max(1, math_floor(damage * (1 - self.jadeShieldDmgReduction) + 1e-9))
+            -- 只反射玩家本体造成的伤害，宠物/DOT 不代替玩家承受反伤。
+            local isPlayerDot = damageOptions and damageOptions.damageTag == "dot"
+            if source == GameState.player and not isPlayerDot then
+                local reflectDmg = math_floor(origDamage * (self.jadeShieldReflectPercent or 0))
+                if reflectDmg > 0 then
+                    EventBus.Emit("jade_shield_reflect", reflectDmg, self.x, self.y)
+                end
+            end
         end
     end
 
     -- 训练假人：不扣血、不死亡，仅触发受伤闪烁和伤害事件
     if self.isTrainingDummy then
         self.hurtFlashTimer = 0.15
-        EventBus.Emit("monster_hurt", self, damage)
+        EventBus.Emit("monster_hurt", self, damage, source, damageOptions)
         self.hp = self.maxHp  -- 始终满血
         return damage
     end
@@ -1013,7 +1020,7 @@ function Monster:TakeDamage(damage, source)
         self._onDamageTaken(damage)
     end
 
-    EventBus.Emit("monster_hurt", self, damage)
+    EventBus.Emit("monster_hurt", self, damage, source, damageOptions)
 
     if self.hp <= 0 then
         self.hp = 0

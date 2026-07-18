@@ -241,12 +241,12 @@ local function TestS4_Bonuses()
     ASSERT_EQ(bonuses.atk, 15, "zhu lv3: atk=15 (5*3)")
     ASSERT_EQ(bonuses.def, 0, "zhu lv3: def不受影响")
 
-    -- 陷仙剑(xian) → def +5/级
+    -- 陷仙剑(xian) → def +4/级
     SwordPoolSystem.swords["xian"].unlocked = true
     SwordPoolSystem.swords["xian"].level = 5
     bonuses = SwordPoolSystem.GetAllBonuses()
     ASSERT_EQ(bonuses.atk, 15, "zhu lv3: atk=15 不变")
-    ASSERT_EQ(bonuses.def, 25, "xian lv5: def=25 (5*5)")
+    ASSERT_EQ(bonuses.def, 20, "xian lv5: def=20 (4*5)")
 
     -- 戮仙剑(lu) → maxHp +50/级
     SwordPoolSystem.swords["lu"].unlocked = true
@@ -267,7 +267,7 @@ local function TestS4_Bonuses()
     SwordPoolSystem.swords["jue"].level = 10
     bonuses = SwordPoolSystem.GetAllBonuses()
     ASSERT_EQ(bonuses.atk, 50, "全满级 atk=50 (5*10)")
-    ASSERT_EQ(bonuses.def, 50, "全满级 def=50 (5*10)")
+    ASSERT_EQ(bonuses.def, 40, "全满级 def=40 (4*10)")
     ASSERT_EQ(bonuses.maxHp, 500, "全满级 maxHp=500 (50*10)")
     ASSERT_EQ(bonuses.hpRegen, 50, "全满级 hpRegen=50 (5*10)")
 
@@ -279,7 +279,7 @@ local function TestS4_Bonuses()
     end
 
     -- 验证各剑 bonusPerLevel 配置正确
-    local expectedBPL = { zhu = 5, xian = 5, lu = 50, jue = 5 }
+    local expectedBPL = { zhu = 5, xian = 4, lu = 50, jue = 5 }
     for id, bpl in pairs(expectedBPL) do
         local cfg = SwordPoolConfig.SWORDS[id]
         ASSERT_EQ(cfg.bonusPerLevel, bpl, id .. " bonusPerLevel=" .. bpl)
@@ -393,7 +393,7 @@ local function TestS6_Serialization()
     -- 属性加成在反序列化后正确计算
     local bonuses = SwordPoolSystem.GetAllBonuses()
     ASSERT_EQ(bonuses.atk, 25, "反序列化后 atk=25 (zhu lv5 * 5)")
-    ASSERT_EQ(bonuses.def, 50, "反序列化后 def=50 (xian lv10 * 5)")
+    ASSERT_EQ(bonuses.def, 40, "反序列化后 def=40 (xian lv10 * 4)")
     ASSERT_EQ(bonuses.maxHp, 0, "反序列化后 maxHp=0 (lu 未解锁)")
     ASSERT_EQ(bonuses.hpRegen, 15, "反序列化后 hpRegen=15 (jue lv3 * 5)")
 

@@ -33,6 +33,7 @@ local RedeemHandler = require("network.RedeemHandler")
 local BlackMerchantHandler = require("network.BlackMerchantHandler")
 local XianyuanChestHandler = require("network.XianyuanChestHandler")
 local WubaoTreasureHandler = require("network.WubaoTreasureHandler")
+local TreasureMapHandler = require("network.TreasureMapHandler")
 local SkinShopHandler = require("network.SkinShopHandler")
 local Blacklist = require("config.Blacklist")
 local AdminPenaltyControl = require("network.AdminPenaltyControl")
@@ -40,6 +41,7 @@ local AdminPenaltyControl = require("network.AdminPenaltyControl")
 local SlotReadService   = require("network.SlotReadService")
 local SaveLoadService   = require("network.SaveLoadService")
 local SaveWriteService  = require("network.SaveWriteService")
+local CharacterService  = require("network.CharacterService")
 local _dhOk, DungeonHandler = pcall(require, "network.DungeonHandler")
 if not _dhOk then
     print("[Server][WARN] DungeonHandler load failed: " .. tostring(DungeonHandler))
@@ -102,7 +104,6 @@ local rateLimitCounters_ = Session.rateLimitCounters_
 local CheckRateLimit     = Session.CheckRateLimit
 local slotWriteLocks_    = Session.slotWriteLocks_
 local AcquireSlotLock    = Session.AcquireSlotLock
-local ReleaseSlotLock    = Session.ReleaseSlotLock
 local IsSlotLocked       = Session.IsSlotLocked
 local ConnKey            = Session.ConnKey
 local GetUserId          = Session.GetUserId
@@ -251,6 +252,14 @@ function Start()
     RateLimitedSubscribe(SaveProtocol.C2S_XianyuanChest_CompleteOpen, "HandleXianyuanChestCompleteOpen")
     RateLimitedSubscribe(SaveProtocol.C2S_XianyuanChest_Pick, "HandleXianyuanChestPick")
     RateLimitedSubscribe(SaveProtocol.C2S_WubaoTreasure_StartOpen, "HandleWubaoTreasureStartOpen"); RateLimitedSubscribe(SaveProtocol.C2S_WubaoTreasure_CancelOpen, "HandleWubaoTreasureCancelOpen"); RateLimitedSubscribe(SaveProtocol.C2S_WubaoTreasure_CompleteOpen, "HandleWubaoTreasureCompleteOpen")
+    RateLimitedSubscribe(SaveProtocol.C2S_TreasureMap_QueryState, "HandleTreasureMapQueryState")
+    RateLimitedSubscribe(SaveProtocol.C2S_TreasureMap_Use, "HandleTreasureMapUse")
+    RateLimitedSubscribe(SaveProtocol.C2S_TreasureMap_Continue, "HandleTreasureMapContinue")
+    RateLimitedSubscribe(SaveProtocol.C2S_TreasureMap_StartOpen, "HandleTreasureMapStartOpen")
+    RateLimitedSubscribe(SaveProtocol.C2S_TreasureMap_CompleteOpen, "HandleTreasureMapCompleteOpen")
+    RateLimitedSubscribe(SaveProtocol.C2S_TreasureMap_CancelOpen, "HandleTreasureMapCancelOpen")
+    RateLimitedSubscribe(SaveProtocol.C2S_TreasureMap_Abandon, "HandleTreasureMapAbandon")
+    RateLimitedSubscribe(SaveProtocol.C2S_TreasureMap_Exit, "HandleTreasureMapExit")
     -- 五一活动（Kill Switch 守卫：EventConfig.IsActive() 在 Handler 内部检查）
     if EventHandler then
         RateLimitedSubscribe(SaveProtocol.C2S_EventExchange, "HandleEventExchange")
@@ -371,9 +380,11 @@ function HandleClientDisconnected(eventType, eventData)
     trialClaimingActive_[connKey] = nil
 
     -- ========= 非核心清理（各自 pcall，互不影响）=========
-    if userId and slot then
-        pcall(ReleaseSlotLock, userId, slot)
-    end
+    -- Do not force-release a slot lock on disconnect. The cloud write that
+    -- owns it may still be in flight; releasing here lets a fast reconnect
+    -- start a second writer before the old callback finishes. Normal
+    -- callbacks release the lock, and ServerSession's 30s TTL is the
+    -- fail-closed fallback when a callback never arrives.
 
     if userId then
         pcall(function()
@@ -387,6 +398,7 @@ function HandleClientDisconnected(eventType, eventData)
 
     pcall(BlackMerchantHandler.OnDisconnect, connKey)
     pcall(XianyuanChestHandler.CleanupConnection, connKey); pcall(WubaoTreasureHandler.CleanupConnection, connKey)
+    pcall(TreasureMapHandler.CleanupConnection, connKey)
     if TriggeredBattleHandler then
         pcall(TriggeredBattleHandler.CleanupConnection, connKey)
     end
@@ -476,132 +488,7 @@ end
 -- ============================================================================
 
 function HandleCreateChar(eventType, eventData)
-    local connection = eventData["Connection"]:GetPtr("Connection")
-    local connKey = ConnKey(connection)
-    local userId = GetUserId(connKey)
-    if not userId then
-        -- P0-fix: 回错误包
-        local data = VariantMap()
-        data["ok"] = Variant(false)
-        data["message"] = Variant("identity_not_ready")
-        SafeSend(connection, SaveProtocol.S2C_CharResult, data)
-        return
-    end
-
-    local slot = eventData["slot"]:GetInt()
-    local charName = eventData["charName"]:GetString()
-    local classId = eventData["classId"]:GetString()
-    -- 职业白名单校验（防止客户端篡改）
-    if not classId or classId == "" or not GameConfig.CLASS_DATA[classId] then
-        classId = GameConfig.PLAYER_CLASS
-    end
-
-
-    print("[Server] CreateChar: userId=" .. tostring(userId)
-        .. " slot=" .. slot .. " name=" .. charName .. " class=" .. classId)
-
-    -- 槽位范围限制：1-4 槽均可创角
-    if slot < 1 or slot > 4 then
-        print("[Server] CreateChar REJECTED: slot " .. slot .. " out of allowed range (1-4)")
-        SendResult(connection, SaveProtocol.S2C_CharResult, false, "该槽位不允许创建角色")
-        return
-    end
-
-    -- P1-SRV-4: 防重入守卫（TOCTOU 防护）
-    local guardKey = tostring(userId) .. ":" .. slot
-    if creatingChar_[guardKey] then
-        print("[Server] CreateChar REJECTED: already in progress for " .. guardKey)
-        SendResult(connection, SaveProtocol.S2C_CharResult, false, "正在创建中，请稍候")
-        return
-    end
-    creatingChar_[guardKey] = true
-
-    -- P0-fix: 同时读取 slots_index 和 save_{slot}，防止索引丢失时覆盖真实存档
-    local saveKey = "save_" .. slot
-    serverCloud:BatchGet(userId)
-        :Key("slots_index")
-        :Key(saveKey)
-        :Fetch({
-        ok = function(scores)
-            local slotsIndex = scores["slots_index"] or { version = 1, slots = {} }
-            slotsIndex.slots = slotsIndex.slots or {}
-            NormalizeSlotsIndex(slotsIndex)
-
-            -- 检查槽位是否已被占用（索引层）
-            if slotsIndex.slots[slot] then
-                creatingChar_[guardKey] = nil
-                SendResult(connection, SaveProtocol.S2C_CharResult, false, "槽位已被占用")
-                return
-            end
-
-            -- P0-fix #5: 双保险 — 即使索引为空，也检查数据键是否存在
-            local existingSave = scores[saveKey]
-            if existingSave and type(existingSave) == "table" and existingSave.player then
-                creatingChar_[guardKey] = nil
-                print("[Server] CreateChar BLOCKED: save_" .. slot .. " data exists but index missing!"
-                    .. " userId=" .. tostring(userId) .. " — refusing overwrite")
-                SendResult(connection, SaveProtocol.S2C_CharResult, false, "该槽位存在数据，请联系客服")
-                return
-            end
-
-            -- 构建初始存档（与 SaveSystem.CreateCharacter 保持一致，v11 单 key）
-            local coreData = {
-                version = 11,  -- CURRENT_SAVE_VERSION v11
-                timestamp = os.time(),
-                player = {
-                    level = 1, exp = 0, hp = 100, maxHp = 100,
-                    atk = 15, def = 5, hpRegen = 1.0,
-                    gold = 0, lingYun = 0, realm = "mortal",
-                    classId = classId,
-                },
-                equipment = {},
-                backpack = {},
-                skills = {},
-                collection = {},
-                pet = {},
-                quests = {},
-                triggeredBattles = {},
-            }
-
-            -- 更新 slots_index
-            slotsIndex.slots[slot] = {
-                name = charName,
-                level = 1,
-                realm = "mortal",
-                realmName = "凡人",
-                chapter = 1,
-                classId = classId,
-                lastSave = os.time(),
-                saveVersion = coreData.version,
-            }
-
-            serverCloud:BatchSet(userId)
-                :Set(saveKey, coreData)
-                :Set("slots_index", slotsIndex)
-                :Save("创建角色", {
-                    ok = function()
-                        creatingChar_[guardKey] = nil
-                        print("[Server] Character created: userId=" .. tostring(userId)
-                            .. " slot=" .. slot .. " name=" .. charName)
-                        local data = VariantMap()
-                        data["ok"] = Variant(true)
-                        data["slot"] = Variant(slot)
-                        data["slotsIndex"] = Variant(cjson.encode(slotsIndex))
-                        SafeSend(connection, SaveProtocol.S2C_CharResult, data)
-                    end,
-                    error = function(code, reason)
-                        creatingChar_[guardKey] = nil
-                        print("[Server] CreateChar failed: " .. tostring(reason))
-                        SendResult(connection, SaveProtocol.S2C_CharResult, false, tostring(reason))
-                    end,
-                })
-        end,
-        error = function(code, reason)
-            creatingChar_[guardKey] = nil
-            print("[Server] CreateChar read index failed: " .. tostring(reason))
-            SendResult(connection, SaveProtocol.S2C_CharResult, false, tostring(reason))
-        end,
-    })
+    CharacterService.HandleCreate(eventType, eventData)
 end
 
 -- ============================================================================
@@ -609,125 +496,7 @@ end
 -- ============================================================================
 
 function HandleDeleteChar(eventType, eventData)
-    local connection = eventData["Connection"]:GetPtr("Connection")
-    local connKey = ConnKey(connection)
-    local userId = GetUserId(connKey)
-    if not userId then
-        local data = VariantMap()
-        data["ok"] = Variant(false)
-        data["message"] = Variant("identity_not_ready")
-        SafeSend(connection, SaveProtocol.S2C_CharResult, data)
-        return
-    end
-
-    local slot = eventData["slot"]:GetInt()
-
-    print("[Server] DeleteChar: userId=" .. tostring(userId) .. " slot=" .. slot)
-
-    -- 读取 v11 + v10 存档做备份 + 读取 slots_index
-    local newSaveKey = "save_" .. slot
-    local oldSaveKey = "save_data_" .. slot
-    local oldBag1Key = "save_bag1_" .. slot
-    local oldBag2Key = "save_bag2_" .. slot
-
-    serverCloud:BatchGet(userId)
-        :Key(newSaveKey)
-        :Key(oldSaveKey)
-        :Key(oldBag1Key)
-        :Key(oldBag2Key)
-        :Key("slots_index")
-        :Fetch({
-            ok = function(scores)
-                local slotsIndex = scores["slots_index"] or { version = 1, slots = {} }
-                slotsIndex.slots = slotsIndex.slots or {}
-                NormalizeSlotsIndex(slotsIndex)
-
-                local newData = scores[newSaveKey]
-                local oldData = scores[oldSaveKey]
-                local b1Data = scores[oldBag1Key]
-                local b2Data = scores[oldBag2Key]
-
-                -- 移除槽位
-                slotsIndex.slots[slot] = nil
-
-                local deletedKey = "deleted_" .. slot
-
-                local batch = serverCloud:BatchSet(userId)
-                    :Set("slots_index", slotsIndex)
-                    :Delete(newSaveKey)
-                    :Delete(oldSaveKey)
-                    :Delete(oldBag1Key)
-                    :Delete(oldBag2Key)
-                    -- 删除旧版排行 key
-                    :Delete("rank_score_" .. slot)
-                    :Delete("rank_info_" .. slot)
-                    -- 删除 v2 排行 key
-                    :Delete("rank2_info_" .. slot)
-
-                -- 合并备份数据（v11 单 key 格式）
-                local backupData = nil
-                if newData and type(newData) == "table" then
-                    backupData = newData
-                elseif oldData and type(oldData) == "table" then
-                    backupData = oldData
-                    local backpack = {}
-                    if b1Data and type(b1Data) == "table" then
-                        for k, v in pairs(b1Data) do backpack[k] = v end
-                    end
-                    if b2Data and type(b2Data) == "table" then
-                        for k, v in pairs(b2Data) do backpack[k] = v end
-                    end
-                    backupData.backpack = backpack
-                end
-
-                if backupData then
-                    batch:Set(deletedKey, {
-                        data = backupData,
-                        deletedAt = os.time(),
-                    })
-                end
-
-                batch:Save("删除角色", {
-                    ok = function()
-                        print("[Server] Character deleted: userId=" .. tostring(userId) .. " slot=" .. slot)
-
-                        -- 清除 v2 排行索引（顶层 SetInt 置 0，从排行榜移除）
-                        serverCloud:SetInt(userId, "rank2_score_" .. slot, 0, {
-                            error = function(code, reason)
-                                print("[Server] DeleteChar SetInt rank2_score clear FAILED: userId=" .. tostring(userId)
-                                    .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
-                            end,
-                        })
-                        serverCloud:SetInt(userId, "rank2_kills_" .. slot, 0, {
-                            error = function(code, reason)
-                                print("[Server] DeleteChar SetInt rank2_kills clear FAILED: userId=" .. tostring(userId)
-                                    .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
-                            end,
-                        })
-                        serverCloud:SetInt(userId, "rank2_time_" .. slot, 0, {
-                            error = function(code, reason)
-                                print("[Server] DeleteChar SetInt rank2_time clear FAILED: userId=" .. tostring(userId)
-                                    .. " slot=" .. slot .. " err=" .. tostring(code) .. " " .. tostring(reason))
-                            end,
-                        })
-
-                        local data = VariantMap()
-                        data["ok"] = Variant(true)
-                        data["slot"] = Variant(slot)
-                        data["slotsIndex"] = Variant(cjson.encode(slotsIndex))
-                        SafeSend(connection, SaveProtocol.S2C_CharResult, data)
-                    end,
-                    error = function(code, reason)
-                        print("[Server] DeleteChar failed: " .. tostring(reason))
-                        SendResult(connection, SaveProtocol.S2C_CharResult, false, tostring(reason))
-                    end,
-                })
-            end,
-            error = function(code, reason)
-                print("[Server] DeleteChar read failed: " .. tostring(reason))
-                SendResult(connection, SaveProtocol.S2C_CharResult, false, tostring(reason))
-            end,
-        })
+    CharacterService.HandleDelete(eventType, eventData)
 end
 
 -- ============================================================================
@@ -1167,6 +936,14 @@ end
 function HandleWubaoTreasureStartOpen(eventType, eventData) WubaoTreasureHandler.HandleStartOpen(eventType, eventData) end
 function HandleWubaoTreasureCancelOpen(eventType, eventData) WubaoTreasureHandler.HandleCancelOpen(eventType, eventData) end
 function HandleWubaoTreasureCompleteOpen(eventType, eventData) WubaoTreasureHandler.HandleCompleteOpen(eventType, eventData) end
+function HandleTreasureMapQueryState(eventType, eventData) TreasureMapHandler.HandleQueryState(eventType, eventData) end
+function HandleTreasureMapUse(eventType, eventData) TreasureMapHandler.HandleUse(eventType, eventData) end
+function HandleTreasureMapContinue(eventType, eventData) TreasureMapHandler.HandleContinue(eventType, eventData) end
+function HandleTreasureMapStartOpen(eventType, eventData) TreasureMapHandler.HandleStartOpen(eventType, eventData) end
+function HandleTreasureMapCompleteOpen(eventType, eventData) TreasureMapHandler.HandleCompleteOpen(eventType, eventData) end
+function HandleTreasureMapCancelOpen(eventType, eventData) TreasureMapHandler.HandleCancelOpen(eventType, eventData) end
+function HandleTreasureMapAbandon(eventType, eventData) TreasureMapHandler.HandleAbandon(eventType, eventData) end
+function HandleTreasureMapExit(eventType, eventData) TreasureMapHandler.HandleExit(eventType, eventData) end
 -- ============================================================================
 -- 五一活动 — 全局包装函数
 -- ============================================================================

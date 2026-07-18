@@ -486,12 +486,19 @@ function TribulationScene._updateLightningWarnings(dt, player)
             local dist = math.sqrt(dx * dx + dy * dy)
             if dist <= LIGHTNING_RADIUS then
                 local damage = math.floor(player:GetTotalMaxHp() * LIGHTNING_DMG_PCT)
-                player:TakeDamage(damage, { type = "tribulation_lightning", name = "天雷" })
-                CombatSystem.AddFloatingText(
-                    player.x, player.y - 0.5,
-                    "-" .. damage .. " ⚡",
-                    {180, 220, 255, 255}, 1.0
-                )
+                local source = { type = "tribulation_lightning", name = "天雷" }
+                player:TakeDamage(damage, source, {
+                    sourceType = "environment",
+                    sourceId = source.type,
+                    sourceName = source.name,
+                    damageTag = "skill",
+                    impact = "heavy",
+                    color = {180, 220, 255, 255},
+                    legacySuffix = " ⚡",
+                    legacyColor = {180, 220, 255, 255},
+                    legacyY = player.y - 0.5,
+                    legacyLifetime = 1.0,
+                })
             end
         end
 
@@ -568,12 +575,19 @@ function TribulationScene._resolveFireWave(player)
     if not inSafe then
         -- 不在安全区，受到火场伤害
         local damage = math.floor(player:GetTotalMaxHp() * FIRE_DMG_PCT)
-        player:TakeDamage(damage, { type = "tribulation_fire", name = "劫火" })
-        CombatSystem.AddFloatingText(
-            player.x, player.y - 0.5,
-            "-" .. damage .. " 🔥",
-            {255, 100, 30, 255}, 1.2
-        )
+        local source = { type = "tribulation_fire", name = "劫火" }
+        player:TakeDamage(damage, source, {
+            sourceType = "environment",
+            sourceId = source.type,
+            sourceName = source.name,
+            damageTag = "dot",
+            impact = "dot",
+            color = {255, 100, 30, 255},
+            legacySuffix = " 🔥",
+            legacyColor = {255, 100, 30, 255},
+            legacyY = player.y - 0.5,
+            legacyLifetime = 1.2,
+        })
     else
         CombatSystem.AddFloatingText(
             player.x, player.y - 0.5,

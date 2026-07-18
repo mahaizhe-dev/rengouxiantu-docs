@@ -74,6 +74,17 @@ C.GROWTH_PROFILES = {
         name = "青莲长生体",
         maxHp = 30, atk = 3, def = 2, hpRegen = 1.0,
     },
+    immortal_body_wanbao_liuli = {
+        name = "万宝琉璃体",
+        maxHp = 15, atk = 3, def = 2, hpRegen = 0.3,
+        xianyuanGrowth = {
+            fortune = {
+                perLevel = 1,
+                startLevel = 1,
+                maxLevel = 300,
+            },
+        },
+    },
 }
 
 -- ============================================================================
@@ -122,6 +133,7 @@ for stageIdx, stage in ipairs(C.MAJOR_STAGES) do
         local totalIdx = (stageIdx - 1) * 9 + minorIdx
         local isMajor = (minorIdx == 1)
         local rewards = isMajor and major or minor
+        local requiredLevel = (stage.levelRange[1] - 1) + (minorIdx - 1) * 2
         C.ASCENSION_REWARDS[totalIdx] = {
             totalIndex  = totalIdx,
             stageIndex  = stageIdx,
@@ -129,6 +141,7 @@ for stageIdx, stage in ipairs(C.MAJOR_STAGES) do
             stageName   = stage.name,
             displayName = stage.name .. ({"一","二","三","四","五","六","七","八","九"})[minorIdx] .. "阶",
             isMajor     = isMajor,
+            requiredLevel = requiredLevel,
             maxLevel    = stage.maxLevel,
             rewards     = rewards,
         }
@@ -246,38 +259,31 @@ function C.EnsureRealmsRegistered()
     local GameConfig = require("config.GameConfig")
     if not GameConfig.REALMS then return end
 
+    local function ApplyRealmEntry(realmId, entry)
+        local realm = GameConfig.REALMS[realmId]
+        if not realm then
+            realm = {}
+            GameConfig.REALMS[realmId] = realm
+        end
+        realm.name = entry.displayName
+        realm.isMajor = entry.isMajor
+        realm.order = 22 + entry.totalIndex
+        realm.maxLevel = entry.maxLevel or 300
+        realm.requiredLevel = entry.requiredLevel or 120
+        realm.attackSpeedBonus = 1.0  -- 继承谪仙攻速，之后不再增加
+        realm.rewards = entry.rewards
+        realm.monsterAttributeCoeff = C.GetMonsterAttributeCoeff(entry.totalIndex)
+        realm.monsterRewardCoeff = C.GetMonsterRewardCoeff(entry.totalIndex)
+    end
+
     for _, entry in ipairs(C.ASCENSION_REWARDS) do
         local realmId = "asc_" .. entry.totalIndex
-        if not GameConfig.REALMS[realmId] then
-            GameConfig.REALMS[realmId] = {
-                name = entry.displayName,
-                isMajor = entry.isMajor,
-                order = 22 + entry.totalIndex,
-                maxLevel = entry.maxLevel or 300,
-                requiredLevel = 120,
-                attackSpeedBonus = 1.0,  -- 继承谪仙攻速，之后不再增加
-                rewards = entry.rewards,
-            }
-        end
-        GameConfig.REALMS[realmId]["monsterAttributeCoeff"] = C.GetMonsterAttributeCoeff(entry.totalIndex)
-        GameConfig.REALMS[realmId]["monsterRewardCoeff"] = C.GetMonsterRewardCoeff(entry.totalIndex)
+        ApplyRealmEntry(realmId, entry)
 
         -- 怪物配置可直接使用 zhexian_1 / renxian_1 这类执行 ID。
         local stage = C.MAJOR_STAGES[entry.stageIndex]
         local aliasId = stage.id .. "_" .. tostring(entry.minorIndex)
-        if not GameConfig.REALMS[aliasId] then
-            GameConfig.REALMS[aliasId] = {
-                name = entry.displayName,
-                isMajor = entry.isMajor,
-                order = 22 + entry.totalIndex,
-                maxLevel = entry.maxLevel or 300,
-                requiredLevel = 120,
-                attackSpeedBonus = 1.0,
-                rewards = entry.rewards,
-            }
-        end
-        GameConfig.REALMS[aliasId]["monsterAttributeCoeff"] = C.GetMonsterAttributeCoeff(entry.totalIndex)
-        GameConfig.REALMS[aliasId]["monsterRewardCoeff"] = C.GetMonsterRewardCoeff(entry.totalIndex)
+        ApplyRealmEntry(aliasId, entry)
     end
 end
 

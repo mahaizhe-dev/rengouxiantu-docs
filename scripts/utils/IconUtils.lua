@@ -5,7 +5,12 @@ local IconUtils = {}
 ---@param str any
 ---@return boolean
 function IconUtils.IsImagePath(str)
-    return type(str) == "string" and (str:match("%.png$") or str:match("%.jpg$")) ~= nil
+    if type(str) ~= "string" then return false end
+    local normalized = str:lower():match("^[^?#]+") or ""
+    return normalized:match("%.png$") ~= nil
+        or normalized:match("%.jpg$") ~= nil
+        or normalized:match("%.jpeg$") ~= nil
+        or normalized:match("%.webp$") ~= nil
 end
 
 --- 获取安全的文本图标（过滤掉图片路径，返回 fallback）

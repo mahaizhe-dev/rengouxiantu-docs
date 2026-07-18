@@ -1,5 +1,6 @@
 ---@diagnostic disable
 -- entities/monsters.lua - 怪物渲染（列表、单体、边框、血条）
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.entities.shared")
 local GameConfig = shared.GameConfig
 local GameState = shared.GameState
@@ -20,6 +21,102 @@ local M = {}
 
 -- 从 chests 模块借用锁链封印渲染（怪物/宝箱共用）
 M.RenderChainSeal = chests.RenderChainSeal
+
+local function RenderArtifactCh6Aspect(nvg, cx, cy, radius, time, monster)
+    if not monster.isArtifactCh6Boss then return end
+
+    local aspect = monster.artifactCh6Aspect
+    if aspect == "demon" then
+        local pulse = 0.72 + 0.28 * math.sin(time * 4.2)
+        local outerR = radius + 20 + 2 * math.sin(time * 2.6)
+        local glow = nvgRadialGradient(
+            nvg, cx, cy, radius * 0.65, outerR,
+            nvgRGBA(220, 35, 90, math.floor(105 * pulse)),
+            nvgRGBA(55, 5, 70, 0))
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, cx, cy, outerR)
+        nvgFillPaint(nvg, glow)
+        nvgFill(nvg)
+
+        for i = 0, 5 do
+            local startAngle = -time * 1.6 + i * math.pi / 3
+            nvgBeginPath(nvg)
+            nvgArc(
+                nvg, cx, cy, radius + 13,
+                startAngle, startAngle + math.pi * 0.20, NVG_CW)
+            nvgStrokeColor(
+                nvg, nvgRGBA(255, 55, 110, math.floor(230 * pulse)))
+            nvgStrokeWidth(nvg, 3)
+            nvgStroke(nvg)
+        end
+
+        for i = 0, 7 do
+            local seed = i * 0.83
+            local px = cx + math.sin(time * 1.7 + seed) * (radius + 7)
+            local fall = (time * 28 + i * 11) % (radius * 1.7)
+            local py = cy - radius * 0.55 + fall
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, px, py, 2.2 + (i % 2))
+            nvgFillColor(nvg, nvgRGBA(245, 50, 105, math.floor(205 * pulse)))
+            nvgFill(nvg)
+        end
+    elseif aspect == "immortal" then
+        local pulse = 0.78 + 0.22 * math.sin(time * 2.8)
+        local outerR = radius + 21 + 2 * math.sin(time * 2.0)
+        local glow = nvgRadialGradient(
+            nvg, cx, cy, radius * 0.55, outerR,
+            nvgRGBA(150, 255, 220, math.floor(95 * pulse)),
+            nvgRGBA(245, 225, 145, 0))
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, cx, cy, outerR)
+        nvgFillPaint(nvg, glow)
+        nvgFill(nvg)
+
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, cx, cy, radius + 13)
+        nvgStrokeColor(
+            nvg, nvgRGBA(245, 225, 145, math.floor(220 * pulse)))
+        nvgStrokeWidth(nvg, 2.5)
+        nvgStroke(nvg)
+
+        for i = 0, 7 do
+            local angle = time * 0.85 + i * math.pi / 4
+            local pr = radius + 15
+            local px = cx + math.cos(angle) * pr
+            local py = cy + math.sin(angle) * pr
+            nvgSave(nvg)
+            nvgTranslate(nvg, px, py)
+            nvgRotate(nvg, angle)
+            nvgBeginPath(nvg)
+            nvgEllipse(nvg, 0, 0, 5.0, 2.4)
+            nvgFillColor(
+                nvg, nvgRGBA(190, 255, 225, math.floor(215 * pulse)))
+            nvgFill(nvg)
+            nvgRestore(nvg)
+        end
+
+        for i = 0, 5 do
+            local angle = -time * 1.15 + i * math.pi / 3
+            local pr = radius + 8
+            local px = cx + math.cos(angle) * pr
+            local py = cy + math.sin(angle) * pr
+            nvgBeginPath(nvg)
+            nvgCircle(nvg, px, py, 2.0)
+            nvgFillColor(
+                nvg, nvgRGBA(255, 245, 185, math.floor(235 * pulse)))
+            nvgFill(nvg)
+        end
+    end
+
+    if (monster.artifactCh6BlessingTimer or 0) > 0 then
+        local alpha = math.min(1, monster.artifactCh6BlessingTimer) * 210
+        nvgBeginPath(nvg)
+        nvgCircle(nvg, cx, cy, radius + 7)
+        nvgStrokeColor(nvg, nvgRGBA(185, 255, 220, math.floor(alpha)))
+        nvgStrokeWidth(nvg, 4)
+        nvgStroke(nvg)
+    end
+end
 
 function M.RenderMonsters(nvg, l, camera)
     local monsters = GameState.monsters
@@ -233,6 +330,8 @@ function M.RenderMonster(nvg, l, camera, m)
         end
     end
 
+    RenderArtifactCh6Aspect(nvg, cx, cy, radius, time, m)
+
     -- 2) 绘制圆形头像（用图片纹理+圆形路径裁剪）
     local imgHandle = RenderUtils.GetCachedImage(nvg, m.portrait)
     if imgHandle then
@@ -279,6 +378,20 @@ function M.RenderMonster(nvg, l, camera, m)
                 nvgFillColor(nvg, nvgRGBA(120, 10, 40, dAlpha2))
                 nvgFill(nvg)
             end
+
+            if m.isArtifactCh6Boss and m.artifactCh6Aspect == "immortal" then
+                local iAlpha = math.floor(42 + 18 * math.sin(time * 2.2))
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, cx, cy, radius - 1)
+                nvgFillColor(nvg, nvgRGBA(145, 245, 210, iAlpha))
+                nvgFill(nvg)
+            elseif m.isArtifactCh6Boss and m.artifactCh6Aspect == "demon" then
+                local dAlpha3 = math.floor(45 + 20 * math.sin(time * 3.1))
+                nvgBeginPath(nvg)
+                nvgCircle(nvg, cx, cy, radius - 1)
+                nvgFillColor(nvg, nvgRGBA(175, 15, 80, dAlpha3))
+                nvgFill(nvg)
+            end
         end
     else
         -- 无头像时的回退：纯色圆形 + emoji
@@ -310,9 +423,7 @@ function M.RenderMonster(nvg, l, camera, m)
             for zi = 1, #zones do
                 local zone = zones[zi]
                 if (zone.damageBoostPercent or 0) > 0 then
-                    local dx = m.x - zone.x
-                    local dy = m.y - zone.y
-                    if dx * dx + dy * dy <= zone.range * zone.range then
+                    if CombatSystem.IsPointInZone and CombatSystem.IsPointInZone(m.x, m.y, zone) then
                         inDmgBoostZone = true
                         break
                     end
@@ -404,6 +515,11 @@ function M.RenderMonster(nvg, l, camera, m)
     -- saint/emperor/king_boss 头顶 BOSS 标签（在名字上方）
     if m.category == "saint_boss" then
         local bossLabel = "⚡ 圣级 BOSS ⚡"
+        if m.isArtifactCh6Boss and m.artifactCh6Aspect == "demon" then
+            bossLabel = "魔化 · 双界王"
+        elseif m.isArtifactCh6Boss and m.artifactCh6Aspect == "immortal" then
+            bossLabel = "仙化 · 双界王"
+        end
         local bossLabelSize = 13
         nvgFontSize(nvg, bossLabelSize)
         nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)

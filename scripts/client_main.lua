@@ -322,13 +322,17 @@ function HandleRateLimited(eventType, eventData)
     -- C+: 采集
     pcall(function() require("network.NetDiagClient").RecordRateLimited(originEvent) end)
 
-    -- 如果正在存档中，解除 saving 锁并标记脏以便重试
+    -- 如果正在存档中，通过 requestId 回调失败当前事务，不能只解 saving 锁。
     local ok2, _ = pcall(function()
         local SaveSystem = require("systems.SaveSystem")
         if SaveSystem.saving then
-            SaveSystem.saving = false
+            local CloudStorage = require("network.CloudStorage")
+            local expired = CloudStorage.ExpirePendingCallbacks("save", "rate_limited")
+            if expired == 0 and SaveSystem.saving then
+                SaveSystem.FailActiveSave("rate_limited")
+            end
             SaveSystem._dirty = true
-            print("[ClientMain] Save was rate-limited, will retry on next debounce cycle")
+            print("[ClientMain] Save was rate-limited, failed callbacks=" .. tostring(expired))
         end
     end)
 

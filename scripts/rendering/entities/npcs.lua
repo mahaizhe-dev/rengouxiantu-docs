@@ -1,5 +1,6 @@
 ---@diagnostic disable
 -- entities/npcs.lua - NPC 渲染
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.entities.shared")
 local GameConfig = shared.GameConfig
 local GameState = shared.GameState
@@ -12,6 +13,9 @@ local M = {}
 
 local QinglianBodySystem_ = nil
 local QinglianLoadAttempted_ = false
+local LiangjieStoneSystem_ = nil
+local LiangjieStoneLoadAttempted_ = false
+local TreasureMapSystem_ = nil
 
 local function GetQinglianBodySystem()
     if not QinglianLoadAttempted_ then
@@ -28,6 +32,85 @@ local function IsQinglianLotusActivated(npc)
     end
     local sys = GetQinglianBodySystem()
     return sys and sys.IsActivated and sys.IsActivated(npc.id) == true
+end
+
+local function GetLiangjieStoneSystem()
+    if not LiangjieStoneLoadAttempted_ then
+        LiangjieStoneLoadAttempted_ = true
+        local ok, mod = pcall(require, "systems.LiangjieStoneSystem")
+        if ok then LiangjieStoneSystem_ = mod end
+    end
+    return LiangjieStoneSystem_
+end
+
+local function GetTreasureMapSystem()
+    if not TreasureMapSystem_ then
+        local ok, system = pcall(require, "systems.TreasureMapSystem")
+        if ok then TreasureMapSystem_ = system end
+    end
+    return TreasureMapSystem_
+end
+
+local function GetObjectSubtitle(npc)
+    if npc and npc.interactType == "liangjie_stone" and npc.stoneId then
+        local system = GetLiangjieStoneSystem()
+        if system and system.GetNameplateText then
+            return system.GetNameplateText(npc.stoneId)
+        end
+    end
+    if npc and npc.interactType == "treasure_map_chest" then
+        local system = GetTreasureMapSystem()
+        local active = system and system.state and system.state.active
+        if not active then return "需由藏宝图引路" end
+        if active.chestId ~= npc.id then return "并非本次藏宝目标" end
+        if system.IsChanneling and system.IsChanneling() then return "正在开启宝藏" end
+        return "点击交互 · 持续开启3秒"
+    end
+    return npc and npc.subtitle or nil
+end
+
+local function RenderTreasureChannelProgress(nvg, sx, sy, ts, npc)
+    if not npc or npc.interactType ~= "treasure_map_chest" then return end
+    local system = GetTreasureMapSystem()
+    if not system or not system.GetChannelProgress then return end
+    local progress, chestId = system.GetChannelProgress()
+    if not progress or chestId ~= npc.id then return end
+
+    local scale = npc.imageScale or 1.1
+    local barW = math.max(74, ts * 1.25)
+    local barH = 11
+    local barX = sx - barW / 2
+    local barY = sy - ts * math.max(0.68, scale * 0.53)
+
+    nvgBeginPath(nvg)
+    nvgRoundedRect(nvg, barX, barY, barW, barH, 4)
+    nvgFillColor(nvg, nvgRGBA(0, 12, 18, 210))
+    nvgFill(nvg)
+
+    local fillW = (barW - 4) * math.min(progress, 1)
+    if fillW > 0 then
+        nvgBeginPath(nvg)
+        nvgRoundedRect(nvg, barX + 2, barY + 2, fillW, barH - 4, 2)
+        local fill = nvgLinearGradient(nvg,
+            barX, barY, barX + barW, barY,
+            nvgRGBA(60, 205, 220, 255),
+            nvgRGBA(255, 215, 105, 255)
+        )
+        nvgFillPaint(nvg, fill)
+        nvgFill(nvg)
+    end
+
+    nvgBeginPath(nvg)
+    nvgRoundedRect(nvg, barX, barY, barW, barH, 4)
+    nvgStrokeColor(nvg, nvgRGBA(255, 220, 125, 205))
+    nvgStrokeWidth(nvg, 1)
+    nvgStroke(nvg)
+
+    nvgFontFace(nvg, "sans")
+    nvgFontSize(nvg, 10)
+    nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
+    nvgFillColor(nvg, nvgRGBA(255, 255, 255, 240))
+    nvgText(nvg, sx, barY + barH / 2, math.floor(progress * 100) .. "%", nil)
 end
 
 local function RenderQinglianActiveFx(nvg, sx, sy, ts, time)
@@ -74,7 +157,8 @@ local function RenderObjectNameplate(nvg, sx, sy, ts, npc)
 
     nvgFontFace(nvg, "sans")
 
-    local hasSubtitle = npc.subtitle and #npc.subtitle > 0
+    local subtitle = GetObjectSubtitle(npc)
+    local hasSubtitle = subtitle and #subtitle > 0
     local nameFontSize = T.worldFont.name
     local subFontSize = T.worldFont.subtitle
 
@@ -84,7 +168,7 @@ local function RenderObjectNameplate(nvg, sx, sy, ts, npc)
     local subTextW = 0
     if hasSubtitle then
         nvgFontSize(nvg, subFontSize)
-        subTextW = nvgTextBounds(nvg, 0, 0, npc.subtitle, nil)
+        subTextW = nvgTextBounds(nvg, 0, 0, subtitle, nil)
     end
 
     local padH, padV = 8, 4
@@ -94,7 +178,8 @@ local function RenderObjectNameplate(nvg, sx, sy, ts, npc)
     local subLineH = hasSubtitle and (subFontSize + padV) or 0
     local bgH = nameLineH + subLineH + padV * 2
     local scale = npc.imageScale or 1.4
-    local centerY = sy - ts * math.max(0.95, scale * 0.55 + 0.35)
+    local centerY = sy - ts * (npc.nameplateOffset
+        or math.max(0.95, scale * 0.55 + 0.35))
     local bgTopY = centerY - bgH / 2
 
     nvgBeginPath(nvg)
@@ -123,7 +208,7 @@ local function RenderObjectNameplate(nvg, sx, sy, ts, npc)
         nvgFontSize(nvg, subFontSize)
         nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_MIDDLE)
         nvgFillColor(nvg, nvgRGBA(200, 200, 180, 200))
-        nvgText(nvg, sx, subCenterY, npc.subtitle, nil)
+        nvgText(nvg, sx, subCenterY, subtitle, nil)
     end
 end
 
@@ -175,6 +260,7 @@ function M.RenderNPCs(nvg, l, camera)
                 if npc.showNameplate and not npc.hideName then
                     RenderObjectNameplate(nvg, sx, sy, ts, npc)
                 end
+                RenderTreasureChannelProgress(nvg, sx, sy, ts, npc)
 
                 -- 副本入口未领取奖励指示器（头顶黄色大感叹号，与公告栏同样式）
                 if npc.interactType == "dungeon_entrance" and GameConfig.DUNGEON_ENABLED then

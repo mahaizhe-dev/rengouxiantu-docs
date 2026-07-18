@@ -97,6 +97,34 @@ local function RestorePlayerSnapshot(player, snapshot)
     EventBus.Emit("player_exp_gain", 0)
 end
 
+local function GetTitleSnapshot()
+    if not SaveSerializer.SerializeTitles then return nil end
+    local ok, data = pcall(SaveSerializer.SerializeTitles)
+    return ok and DeepCopy(data) or nil
+end
+
+local function RestoreTitleSnapshot(snapshot)
+    if not snapshot or not SaveSerializer.DeserializeTitles then return end
+    pcall(SaveSerializer.DeserializeTitles, DeepCopy(snapshot))
+end
+
+local function GetSkillSnapshot()
+    local ok, SkillSystem = pcall(require, "systems.SkillSystem")
+    if not ok or not SkillSystem then return nil end
+    return {
+        unlockedSkills = DeepCopy(SkillSystem.unlockedSkills),
+        equippedSkills = DeepCopy(SkillSystem.equippedSkills),
+    }
+end
+
+local function RestoreSkillSnapshot(snapshot)
+    if not snapshot then return end
+    local ok, SkillSystem = pcall(require, "systems.SkillSystem")
+    if not ok or not SkillSystem then return end
+    SkillSystem.unlockedSkills = DeepCopy(snapshot.unlockedSkills) or {}
+    SkillSystem.equippedSkills = DeepCopy(snapshot.equippedSkills) or {}
+end
+
 local function GetAccountSnapshot()
     return DeepCopy(ImmortalBodySystem.SerializeAccount())
 end
@@ -119,6 +147,8 @@ local function MakeSnapshot()
         finalRewardClaimed = QinglianBodySystem.finalRewardClaimed == true,
         inventory = DeepCopy(SaveSerializer.SerializeInventory()),
         player = GetPlayerSnapshot(GameState.player),
+        titles = GetTitleSnapshot(),
+        skills = GetSkillSnapshot(),
         accountBodies = GetAccountSnapshot(),
     }
 end
@@ -128,6 +158,8 @@ local function RestoreSnapshot(snapshot)
     QinglianBodySystem.finalRewardClaimed = snapshot.finalRewardClaimed == true
     SaveSerializer.DeserializeInventory(snapshot.inventory)
     RestorePlayerSnapshot(GameState.player, snapshot.player)
+    RestoreTitleSnapshot(snapshot.titles)
+    RestoreSkillSnapshot(snapshot.skills)
     RestoreAccountSnapshot(snapshot.accountBodies)
 end
 

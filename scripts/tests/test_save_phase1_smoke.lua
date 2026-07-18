@@ -130,11 +130,12 @@ test("T6. SavePersistence error 回调区分 slot_locked（WP-03 源码断言）
     local src = f:read("*a"); f:close()
     assertTrue(src:find("slot_locked") ~= nil,
         "SavePersistence 应含 slot_locked 分类处理")
-    -- 确认有"不累计失败"的分支（return 在 _consecutiveFailures++ 之前）
-    local lockBlock = src:match('if reasonStr:find%("slot_locked"%)(.-)return')
-    assertTrue(lockBlock ~= nil, "slot_locked 分支应在 _consecutiveFailures 累加前 return")
-    assertTrue(not lockBlock:find("_consecutiveFailures"),
-        "slot_locked 分支内不应累计 _consecutiveFailures")
+    assertTrue(src:find("SS%._slotLockedCount%s*>=%s*10") ~= nil,
+        "slot_locked 应有连续冲突升级阈值")
+    assertTrue(src:find("SS%._retryTimer%s*=%s*3") ~= nil,
+        "普通 slot_locked 应使用 3 秒短退避")
+    assertTrue(src:find('callback%(false, "slot_locked_persistent"%)') ~= nil,
+        "持续 slot_locked 应显式失败并通知业务回调")
 end)
 
 -- T7: NetworkStatus.RecordSample 可调用

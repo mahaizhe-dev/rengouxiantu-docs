@@ -25,35 +25,37 @@ local SavePersistence = {}
 function SavePersistence.Save(callback)
     -- C+: 包装 callback，失败时自动采集
     local origCallback = callback
+    local callbackResolved = false
     callback = origCallback and function(ok, reason)
+        if callbackResolved then return end
+        callbackResolved = true
+        if SS._activeSaveCallback == callback then
+            SS._activeSaveCallback = nil
+        end
         if not ok then
             pcall(function() require("network.NetDiagClient").RecordSaveFail(reason) end)
         end
         origCallback(ok, reason)
     end or nil
 
-    -- 超时自动解锁：如果 saving 卡死超过 30 秒，强制解锁并计入失败
-    if SS.saving then
-        local elapsed = os.time() - SS._savingStartTime
-        if elapsed > 30 then
-            print("[SaveSystem] saving flag stuck for " .. elapsed .. "s, force unlocking")
-            SS.saving = false
-            SS._saveTimeoutActive = false
-            SS._consecutiveFailures = SS._consecutiveFailures + 1
-            local retryDelay = math.min(10 * SS._consecutiveFailures, 60)
-            SS._retryTimer = retryDelay
-            print("[SaveSystem] 30s stuck unlock: "
-                .. SS._consecutiveFailures .. " consecutive failures, retry in " .. retryDelay .. "s")
-            if SS._consecutiveFailures >= 2 then
-                EventBus.Emit("save_warning", { failures = SS._consecutiveFailures })
-            end
-            if callback then callback(false, "already_saving") end
-            return
-        else
-            print("[SaveSystem] Save already in progress, skipping")
-            if callback then callback(false, "already_saving") end
+    -- Island saves are allowed while idle. Opening, settlement and departure
+    -- remain mutually exclusive with full saves so stale client data cannot
+    -- overwrite an authoritative treasure reward.
+    if GameState.worldMode == "treasure_map" then
+        local ok, TreasureMapSystem = pcall(require, "systems.TreasureMapSystem")
+        if not ok or not TreasureMapSystem.CanSaveOnIsland
+            or not TreasureMapSystem.CanSaveOnIsland() then
+            print("[SaveSystem] Save deferred: treasure_map_busy")
+            if callback then callback(false, "treasure_map_busy") end
             return
         end
+    end
+
+    if SS.saving then
+        -- 保存超时由 CloudStorage requestId 回调统一结算，避免提前解锁后丢失业务回调。
+        print("[SaveSystem] Save already in progress, skipping")
+        if callback then callback(false, "already_saving") end
+        return
     end
     if not SS.loaded then
         print("[SaveSystem] Not loaded, save skipped")
@@ -102,8 +104,9 @@ function SavePersistence.Save(callback)
     end
 
     SS.saving = true
+    SS._activeSaveCallback = callback
     SS._savingStartTime = os.time()
-    -- 方案1补充: 网络模式下激活 15s 响应超时检测
+    -- 网络模式下激活响应超时兜底；CloudStorage 会先按 requestId 结算回调。
     SS._saveTimeoutElapsed = 0
     SS._saveTimeoutActive = CloudStorage.IsNetworkMode()
     -- C+: 采集
@@ -215,6 +218,10 @@ function SavePersistence.DoSave(slot, callback, epoch, attemptId)
             local ArtifactCh5 = require("systems.ArtifactSystem_ch5")
             return ArtifactCh5.Serialize()
         end)(),
+        artifact_ch6 = (function()
+            local ArtifactCh6 = require("systems.ArtifactSystem_ch6")
+            return ArtifactCh6.Serialize()
+        end)(),
         fortuneFruits = (function()
             local FortuneFruitSystem = require("systems.FortuneFruitSystem")
             return FortuneFruitSystem.Serialize()
@@ -226,6 +233,10 @@ function SavePersistence.DoSave(slot, callback, epoch, attemptId)
         seaPillar = (function()
             local SeaPillarSystem = require("systems.SeaPillarSystem")
             return SeaPillarSystem.Serialize()
+        end)(),
+        liangjieStones = (function()
+            local LiangjieStoneSystem = require("systems.LiangjieStoneSystem")
+            return LiangjieStoneSystem.Serialize()
         end)(),
         swordPool = (function()
             local SwordPoolSystem = require("systems.SwordPoolSystem")

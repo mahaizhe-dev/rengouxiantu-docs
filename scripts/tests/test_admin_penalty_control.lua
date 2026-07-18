@@ -10,6 +10,7 @@
 --   6. FilterRankList 正确过滤 suppressRank 用户
 --   7. FilterRankList 处理空列表
 --   8. FilterRankList 不误杀正常用户
+--   9. 一次性处罚提交完整清理修仙榜、仙人榜和附加信息
 -- ============================================================================
 
 local passed = 0
@@ -172,6 +173,10 @@ assert_true(type(Config.RANK_KEYS_TO_CLEAR) == "table", "RANK_KEYS_TO_CLEAR 是 
 assert_true(#Config.RANK_KEYS_TO_CLEAR > 0, "RANK_KEYS_TO_CLEAR 非空")
 assert_true(type(Config.RANK_KEYS_PER_SLOT) == "table", "RANK_KEYS_PER_SLOT 是 table")
 assert_true(#Config.RANK_KEYS_PER_SLOT > 0, "RANK_KEYS_PER_SLOT 非空")
+assert_true(type(Config.INFO_KEYS_TO_CLEAR) == "table", "INFO_KEYS_TO_CLEAR 是 table")
+assert_true(#Config.INFO_KEYS_TO_CLEAR > 0, "INFO_KEYS_TO_CLEAR 非空")
+assert_true(type(Config.INFO_KEYS_PER_SLOT) == "table", "INFO_KEYS_PER_SLOT 是 table")
+assert_true(#Config.INFO_KEYS_PER_SLOT > 0, "INFO_KEYS_PER_SLOT 非空")
 assert_true(type(Config.MAX_SLOTS) == "number", "MAX_SLOTS 是 number")
 assert_true(Config.MAX_SLOTS >= 1, "MAX_SLOTS >= 1")
 assert_true(type(Config.RANK_KEYS_KEEP_VISIBLE) == "table", "RANK_KEYS_KEEP_VISIBLE 是 table")
@@ -186,6 +191,86 @@ if entry then
     assert_true(type(entry.suppressRank) == "boolean", "suppressRank 是 boolean")
     assert_true(type(entry.note) == "string", "note 是 string")
 end
+
+-- ============================================================================
+-- TEST 9: ExecutePunishOnce 提交完整清榜操作
+-- ============================================================================
+print("--- TEST 9: ExecutePunishOnce 清榜提交 ---")
+
+local originalServerCloud = serverCloud
+local scoreSetKeys = {}
+local scoreDeleteKeys = {}
+local moneyCost = nil
+local commitDescription = nil
+local commitCompleted = false
+local callbackCompleted = false
+
+serverCloud = {
+    money = {
+        Get = function(_, userId, callbacks)
+            assert_eq(userId, PENALIZED_UID, "处罚读取仙石使用目标 UID")
+            callbacks.ok({ xianshi = 321 })
+        end,
+    },
+}
+
+function serverCloud:BatchCommit(description)
+    commitDescription = description
+    local commit = {}
+
+    function commit:MoneyCost(userId, key, amount)
+        moneyCost = { userId = userId, key = key, amount = amount }
+        return self
+    end
+
+    function commit:ScoreSetInt(userId, key, value)
+        scoreSetKeys[key] = { userId = userId, value = value }
+        return self
+    end
+
+    function commit:ScoreDelete(userId, key)
+        scoreDeleteKeys[key] = userId
+        return self
+    end
+
+    function commit:Commit(callbacks)
+        commitCompleted = true
+        callbacks.ok()
+    end
+
+    return commit
+end
+
+Ctrl._DoDeductAndClear(PENALIZED_UID, "test_penalty_done", {
+    ok = function()
+        callbackCompleted = true
+    end,
+})
+
+assert_eq(commitDescription,
+    "AdminPenalty-punishOnce-" .. tostring(PENALIZED_UID),
+    "处罚使用单个原子 BatchCommit")
+assert_true(commitCompleted, "处罚 BatchCommit 已提交")
+assert_true(callbackCompleted, "处罚成功回调已触发")
+assert_true(moneyCost ~= nil, "处罚包含仙石扣除")
+if moneyCost then
+    assert_eq(moneyCost.userId, PENALIZED_UID, "仙石扣除 UID 正确")
+    assert_eq(moneyCost.key, "xianshi", "仙石扣除货币键正确")
+    assert_eq(moneyCost.amount, 321, "仙石扣除全部余额")
+end
+
+assert_eq(scoreSetKeys["rank2_score_1"].value, 0, "修仙榜分数清零")
+assert_eq(scoreSetKeys["xianren_score_1"].value, 0, "仙人榜分数清零")
+assert_eq(scoreSetKeys["xianren_kills_1"].value, 0, "仙人榜击杀清零")
+assert_eq(scoreSetKeys["xianren_time_1"].value, 0, "仙人榜时间清零")
+assert_eq(scoreSetKeys["test_penalty_done"].value, 1, "处罚完成标记写入")
+assert_eq(scoreDeleteKeys["rank2_info_1"], PENALIZED_UID, "修仙榜信息删除")
+assert_eq(scoreDeleteKeys["xianren_info_1"], PENALIZED_UID, "仙人榜信息删除")
+assert_eq(scoreDeleteKeys["trial_info"], PENALIZED_UID, "试炼榜信息删除")
+assert_eq(scoreDeleteKeys["prison_info"], PENALIZED_UID, "镇狱榜信息删除")
+assert_eq(scoreDeleteKeys["xianshi_info"], PENALIZED_UID, "仙石榜信息删除")
+
+serverCloud = originalServerCloud
 
 -- ============================================================================
 -- 汇总

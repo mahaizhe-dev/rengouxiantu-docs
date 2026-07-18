@@ -16,6 +16,11 @@ local SwordPoolSystem = {}
 SwordPoolSystem.swords = {}
 SwordPoolSystem._initialized = false
 
+local function NormalizeLevel(value)
+    if type(value) ~= "number" or value ~= value then return 0 end
+    return math.max(0, math.min(SwordPoolConfig.MAX_LEVEL, math.floor(value)))
+end
+
 --- 初始化（幂等）
 function SwordPoolSystem.Init()
     if SwordPoolSystem._initialized then return end
@@ -171,6 +176,7 @@ end
 --- 计算所有仙剑提供的属性加成总和
 ---@return table { atk=N, def=N, maxHp=N, hpRegen=N }
 function SwordPoolSystem.GetAllBonuses()
+    SwordPoolSystem.EnsureInit()
     local bonuses = { atk = 0, def = 0, maxHp = 0, hpRegen = 0 }
     for _, id in ipairs(SwordPoolConfig.SWORD_ORDER) do
         local state = SwordPoolSystem.swords[id]
@@ -203,6 +209,7 @@ end
 --- 序列化
 ---@return table
 function SwordPoolSystem.Serialize()
+    SwordPoolSystem.EnsureInit()
     local data = {}
     for _, id in ipairs(SwordPoolConfig.SWORD_ORDER) do
         local state = SwordPoolSystem.swords[id]
@@ -221,16 +228,19 @@ end
 function SwordPoolSystem.Deserialize(data)
     SwordPoolSystem._initialized = false
     SwordPoolSystem.Init()
-    if not data then return end
 
-    for _, id in ipairs(SwordPoolConfig.SWORD_ORDER) do
-        if data[id] then
-            SwordPoolSystem.swords[id].unlocked = data[id].unlocked or false
-            SwordPoolSystem.swords[id].level = data[id].level or 0
+    if type(data) == "table" then
+        for _, id in ipairs(SwordPoolConfig.SWORD_ORDER) do
+            local saved = data[id]
+            if type(saved) == "table" then
+                local unlocked = saved.unlocked == true
+                SwordPoolSystem.swords[id].unlocked = unlocked
+                SwordPoolSystem.swords[id].level = unlocked and NormalizeLevel(saved.level) or 0
+            end
         end
     end
 
-    -- 加载后立即应用属性
+    -- 四剑等级档案是唯一真值；缺档时也要覆盖历史派生属性。
     SwordPoolSystem.ApplyAllBonuses()
 end
 

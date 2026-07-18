@@ -36,9 +36,11 @@ BMConfig.CATEGORY_RAKE    = "rake"      -- 上宝逊金钯碎片
 BMConfig.CATEGORY_BAGUA   = "bagua"     -- 文王八卦盘碎片
 BMConfig.CATEGORY_TIANDI  = "tiandi"    -- 天帝剑痕碎片
 BMConfig.CATEGORY_ZHENTU  = "zhentu"    -- 诛仙阵图残符（第五章神器）
+BMConfig.CATEGORY_JIESHI  = "jieshi"    -- 界匙碎片（第六章神器）
 BMConfig.CATEGORY_LINGYU   = "lingyu"    -- 附灵玉
-BMConfig.CATEGORY_MATERIAL     = "material"      -- 丹药材料（兼容旧引用）
-BMConfig.CATEGORY_CONSUMABLE_MAT = "consumable_mat" -- 消耗品（龙鳞、金砖、令牌盒等）
+BMConfig.CATEGORY_CONSUMABLE = "consumable"      -- 活动商品、藏宝图、堡主钥匙、金砖、令牌盒
+BMConfig.CATEGORY_MATERIAL   = "material"        -- 龙鳞、仙人精血等制造/养成材料
+BMConfig.CATEGORY_CONSUMABLE_MAT = BMConfig.CATEGORY_CONSUMABLE -- 旧常量兼容
 BMConfig.CATEGORY_HERB         = "herb"           -- 草药（炼丹材料、精华等）
 -- BMConfig.CATEGORY_EVENT     = "event"         -- 活动道具（已下架）
 BMConfig.CATEGORY_SPECIAL_EQUIP = "special_equip" -- 特殊装备
@@ -53,7 +55,10 @@ BMConfig.CATEGORY_NAMES = {
     bagua         = "八卦盘",
     tiandi        = "天帝剑痕",
     zhentu        = "诛仙阵图",
+    jieshi        = "界匙",
     lingyu        = "附灵玉",
+    consumable    = "消耗品",
+    material      = "材料",
     consumable_mat = "消耗品",
     herb          = "草药",
     -- event      = "活动",  -- 已下架
@@ -220,6 +225,34 @@ BMConfig.ITEMS = {
         buy_price = 25, sell_price = 50, category = "zhentu", boss = "温素章",
     }),
 
+    -- === 界匙碎片（第六章神器；一号碎片为第一章隐藏战斗一次性奖励，不在黑市流通） ===
+    -- 仙将/元帅/山神碎片（2-8）：收购价30仙石，出售价60仙石
+    -- 魔君核心碎片（9）：收购价35仙石，出售价70仙石
+    jieshi_fragment_2 = ItemFromGame("jieshi_fragment_2", {
+        buy_price = 30, sell_price = 60, category = "jieshi", boss = "西大营天将·破军",
+    }),
+    jieshi_fragment_3 = ItemFromGame("jieshi_fragment_3", {
+        buy_price = 30, sell_price = 60, category = "jieshi", boss = "西大营天将·镇垣",
+    }),
+    jieshi_fragment_4 = ItemFromGame("jieshi_fragment_4", {
+        buy_price = 30, sell_price = 60, category = "jieshi", boss = "东大营天将·青锋",
+    }),
+    jieshi_fragment_5 = ItemFromGame("jieshi_fragment_5", {
+        buy_price = 30, sell_price = 60, category = "jieshi", boss = "东大营天将·雷策",
+    }),
+    jieshi_fragment_6 = ItemFromGame("jieshi_fragment_6", {
+        buy_price = 30, sell_price = 60, category = "jieshi", boss = "哼元帅",
+    }),
+    jieshi_fragment_7 = ItemFromGame("jieshi_fragment_7", {
+        buy_price = 30, sell_price = 60, category = "jieshi", boss = "哈元帅",
+    }),
+    jieshi_fragment_8 = ItemFromGame("jieshi_fragment_8", {
+        buy_price = 30, sell_price = 60, category = "jieshi", boss = "两界山神·断岳",
+    }),
+    jieshi_fragment_9 = ItemFromGame("jieshi_fragment_9", {
+        buy_price = 35, sell_price = 70, category = "jieshi", boss = "魔君·蚀玄", isBoss = true,
+    }),
+
     -- === 附灵玉（附灵师·萃取产出，对应四大T9套装） ===
     -- 收购价20仙石（玩家卖出），出售价40仙石（玩家买入）
     lingyu_xuesha_lv1  = ItemFromGame("lingyu_xuesha_lv1",  { buy_price = 20, sell_price = 40, category = "lingyu" }),
@@ -247,31 +280,34 @@ BMConfig.ITEMS = {
 
     -- === 六一活动道具（已下架） ===
 
-    -- === 消耗品（龙神材料、仙人精血、金砖、令牌盒） ===
-    dragon_scale_ice   = ItemFromGame("dragon_scale_ice",   { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 5, sort_order = 1 }),
-    dragon_scale_abyss = ItemFromGame("dragon_scale_abyss", { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 5, sort_order = 2 }),
-    dragon_scale_fire  = ItemFromGame("dragon_scale_fire",  { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 5, sort_order = 3 }),
-    dragon_scale_sand  = ItemFromGame("dragon_scale_sand",  { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 5, sort_order = 4 }),
+    -- === 材料（原消耗品页中除活动商品、藏宝图、堡主钥匙、金砖、令牌盒外的商品） ===
+    dragon_scale_ice   = ItemFromGame("dragon_scale_ice",   { buy_price = 10, sell_price = 20, category = "material", max_stock = 5, sort_order = 1 }),
+    dragon_scale_abyss = ItemFromGame("dragon_scale_abyss", { buy_price = 10, sell_price = 20, category = "material", max_stock = 5, sort_order = 2 }),
+    dragon_scale_fire  = ItemFromGame("dragon_scale_fire",  { buy_price = 10, sell_price = 20, category = "material", max_stock = 5, sort_order = 3 }),
+    dragon_scale_sand  = ItemFromGame("dragon_scale_sand",  { buy_price = 10, sell_price = 20, category = "material", max_stock = 5, sort_order = 4 }),
     -- 仙人精血（第五章消耗品，买15卖30仙石，限购5）
-    immortal_essence_blood = ItemFromGame("immortal_essence_blood", { buy_price = 15, sell_price = 30, category = "consumable_mat", max_stock = 5, sort_order = 5 }),
+    immortal_essence_blood = ItemFromGame("immortal_essence_blood", { buy_price = 15, sell_price = 30, category = "material", max_stock = 5, sort_order = 5 }),
     -- 影子水晶（第六章消耗品，买20卖40仙石，限购5）
-    shadow_crystal     = ItemFromGame("shadow_crystal",     { buy_price = 20, sell_price = 40, category = "consumable_mat", max_stock = 5, sort_order = 6 }),
-    lotus_pool_dew     = ItemFromGame("lotus_pool_dew",     { buy_price = 30, sell_price = 60, category = "consumable_mat", max_stock = 5, sort_order = 7 }),
-    gold_brick         = ItemFromGame("gold_brick",         { buy_price = 1,  sell_price = 2,  category = "consumable_mat", max_stock = 10, sort_order = 8 }),
+    shadow_crystal     = ItemFromGame("shadow_crystal",     { buy_price = 20, sell_price = 40, category = "material", max_stock = 5, sort_order = 6 }),
+    lotus_pool_dew     = ItemFromGame("lotus_pool_dew",     { buy_price = 30, sell_price = 60, category = "material", max_stock = 5, sort_order = 7 }),
+
+    -- === 消耗品（活动商品、藏宝图、堡主钥匙、金砖、令牌盒） ===
+    treasure_map       = ItemFromGame("treasure_map",       { buy_price = 6,  sell_price = 12, category = "consumable", max_stock = 10, sort_order = 1 }),
+    wubao_treasure_key = ItemFromGame("wubao_treasure_key", { buy_price = 2, sell_price = 4, category = "consumable", max_stock = 10, sort_order = 2 }),
+    gold_brick         = ItemFromGame("gold_brick",         { buy_price = 1,  sell_price = 2,  category = "consumable", max_stock = 10, sort_order = 3 }),
 
     -- === 令牌盒（旧章节买2卖4仙石；第六章谪仙令盒买3卖6仙石，限购10） ===
-    wubao_token_box    = ItemFromGame("wubao_token_box",    { buy_price = 2, sell_price = 4, category = "consumable_mat", max_stock = 10, sort_order = 9 }),
-    wubao_treasure_key = ItemFromGame("wubao_treasure_key", { buy_price = 2, sell_price = 4, category = "consumable_mat", max_stock = 10, sort_order = 10 }),
-    sha_hai_ling_box   = ItemFromGame("sha_hai_ling_box",   { buy_price = 2, sell_price = 4, category = "consumable_mat", max_stock = 10, sort_order = 11 }),
-    taixu_token_box    = ItemFromGame("taixu_token_box",    { buy_price = 2, sell_price = 4, category = "consumable_mat", max_stock = 10, sort_order = 12 }),
-    taixu_jianling_box = ItemFromGame("taixu_jianling_box", { buy_price = 2, sell_price = 4, category = "consumable_mat", max_stock = 10, sort_order = 13 }),
-    zhexian_ling_box   = ItemFromGame("zhexian_ling_box",   { buy_price = 3, sell_price = 6, category = "consumable_mat", max_stock = 10, sort_order = 14 }),
+    wubao_token_box    = ItemFromGame("wubao_token_box",    { buy_price = 2, sell_price = 4, category = "consumable", max_stock = 10, sort_order = 4 }),
+    sha_hai_ling_box   = ItemFromGame("sha_hai_ling_box",   { buy_price = 2, sell_price = 4, category = "consumable", max_stock = 10, sort_order = 5 }),
+    taixu_token_box    = ItemFromGame("taixu_token_box",    { buy_price = 2, sell_price = 4, category = "consumable", max_stock = 10, sort_order = 6 }),
+    taixu_jianling_box = ItemFromGame("taixu_jianling_box", { buy_price = 2, sell_price = 4, category = "consumable", max_stock = 10, sort_order = 7 }),
+    zhexian_ling_box   = ItemFromGame("zhexian_ling_box",   { buy_price = 3, sell_price = 6, category = "consumable", max_stock = 10, sort_order = 8 }),
 
     -- === 情人节活动道具（端午开启物下架，精品粽黑市保留） ===
-    valentine_red_thread             = ItemFromGame("valentine_red_thread",             { buy_price = 1,  sell_price = 2,  category = "consumable_mat", sort_order = -4, eventHighlight = true }),
-    valentine_pair_jade              = ItemFromGame("valentine_pair_jade",              { buy_price = 6,  sell_price = 12, category = "consumable_mat", sort_order = -3, eventHighlight = true }),
-    valentine_xiangsi_redbean_cake   = ItemFromGame("valentine_xiangsi_redbean_cake",   { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 50, sort_order = -2, eventHighlight = true }),
-    xianjie_premium_zong             = ItemFromGame("xianjie_premium_zong",             { buy_price = 10, sell_price = 20, category = "consumable_mat", max_stock = 50, sort_order = -1, eventHighlight = true }),
+    valentine_red_thread             = ItemFromGame("valentine_red_thread",             { buy_price = 1,  sell_price = 2,  category = "consumable", sort_order = -4, eventHighlight = true }),
+    valentine_pair_jade              = ItemFromGame("valentine_pair_jade",              { buy_price = 6,  sell_price = 12, category = "consumable", sort_order = -3, eventHighlight = true }),
+    valentine_xiangsi_redbean_cake   = ItemFromGame("valentine_xiangsi_redbean_cake",   { buy_price = 10, sell_price = 20, category = "consumable", max_stock = 50, sort_order = -2, eventHighlight = true }),
+    xianjie_premium_zong             = ItemFromGame("xianjie_premium_zong",             { buy_price = 10, sell_price = 20, category = "consumable", max_stock = 50, sort_order = -1, eventHighlight = true }),
 
     -- === 五一活动信物（已下架） ===
 

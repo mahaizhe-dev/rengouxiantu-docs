@@ -219,10 +219,10 @@ EventConfig.ACTIVE_EVENT = {
 
     -- ═══ 黑市商品（仅供参考，实际价格以 BlackMerchantConfig.lua 为准）═══
     blackMarketItems = {
-        valentine_red_thread = { name = "同心红线", buy_price = 1, sell_price = 2, category = "consumable_mat", boss = "各章节BOSS" },
-        valentine_pair_jade = { name = "鸳鸯玉佩", buy_price = 6, sell_price = 12, category = "consumable_mat", boss = "高境界BOSS/里程碑" },
-        valentine_xiangsi_redbean_cake = { name = "相思红豆糕", buy_price = 10, sell_price = 20, category = "consumable_mat", boss = "高阶BOSS/宝箱大奖" },
-        xianjie_premium_zong = { name = "仙界精品粽", buy_price = 10, sell_price = 20, category = "consumable_mat", boss = "端午遗留黑市" },
+        valentine_red_thread = { name = "同心红线", buy_price = 1, sell_price = 2, category = "consumable", boss = "各章节BOSS" },
+        valentine_pair_jade = { name = "鸳鸯玉佩", buy_price = 6, sell_price = 12, category = "consumable", boss = "高境界BOSS/里程碑" },
+        valentine_xiangsi_redbean_cake = { name = "相思红豆糕", buy_price = 10, sell_price = 20, category = "consumable", boss = "高阶BOSS/宝箱大奖" },
+        xianjie_premium_zong = { name = "仙界精品粽", buy_price = 10, sell_price = 20, category = "consumable", boss = "端午遗留黑市" },
     },
 
     -- ═══ 排行榜配置（积分榜）═══

@@ -1,4 +1,5 @@
 -- tiles/town.lua - 城镇/基础瓦片渲染
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.tiles.shared")
 local M = {}
 

@@ -5,6 +5,10 @@
 
 local passed, failed = 0, 0
 
+MOUSEB_LEFT = MOUSEB_LEFT or 0
+MOUSEB_MIDDLE = MOUSEB_MIDDLE or 1
+MOUSEB_RIGHT = MOUSEB_RIGHT or 2
+
 local function assert_eq(actual, expected, msg)
     if actual == expected then
         passed = passed + 1
@@ -49,18 +53,47 @@ GameState.currentSlot = 1
 
 -- ── Mock InventorySystem ──
 local consumables_ = {}
-local InventorySystem = require("systems.InventorySystem")
-local origCount = InventorySystem.CountConsumable
-local origAdd = InventorySystem.AddConsumable
+local _origInventorySystem = package.loaded["systems.InventorySystem"]
+local InventorySystem = {}
 InventorySystem.CountConsumable = function(id) return consumables_[id] or 0 end
 InventorySystem.AddConsumable = function(id, n) consumables_[id] = (consumables_[id] or 0) + (n or 1) end
+InventorySystem.ConsumeConsumable = function(id, n)
+    n = n or 1
+    if (consumables_[id] or 0) < n then return false end
+    consumables_[id] = consumables_[id] - n
+    return true
+end
 InventorySystem.GetFreeSlots = function() return 10 end
+package.loaded["systems.InventorySystem"] = InventorySystem
+
+local _origSaveSession = package.loaded["systems.save.SaveSession"]
+package.loaded["systems.save.SaveSession"] = {
+    MarkDirty = function() end,
+}
 
 -- ── Load Systems ──
 local AscensionConfig = require("config.AscensionConfig")
+local GameConfig = require("config.GameConfig")
 local AscensionSystem = require("systems.AscensionSystem")
 local TribulationSystem = require("systems.TribulationSystem")
 local ImmortalBodySystem = require("systems.ImmortalBodySystem")
+AscensionConfig.EnsureRealmsRegistered()
+
+-- ============================================================================
+-- Test AscensionConfig level contract
+-- ============================================================================
+
+print("\n=== AscensionConfig Level Contract Tests ===")
+assert_eq(AscensionConfig.ASCENSION_REWARDS[1].requiredLevel, 120, "谪仙1阶 requiredLevel")
+assert_eq(AscensionConfig.ASCENSION_REWARDS[2].requiredLevel, 122, "谪仙2阶 requiredLevel")
+assert_eq(AscensionConfig.ASCENSION_REWARDS[9].requiredLevel, 136, "谪仙9阶 requiredLevel")
+assert_eq(AscensionConfig.ASCENSION_REWARDS[1].maxLevel, 140, "谪仙1阶 maxLevel")
+assert_eq(AscensionConfig.ASCENSION_REWARDS[9].maxLevel, 140, "谪仙9阶 maxLevel follows major stage")
+assert_eq(AscensionConfig.ASCENSION_REWARDS[10].requiredLevel, 140, "人仙1阶 requiredLevel")
+assert_eq(AscensionConfig.ASCENSION_REWARDS[18].requiredLevel, 156, "人仙9阶 requiredLevel")
+assert_eq(AscensionConfig.ASCENSION_REWARDS[18].maxLevel, 160, "人仙9阶 maxLevel follows major stage")
+assert_eq(GameConfig.REALMS["asc_9"].requiredLevel, 136, "asc_9 registered requiredLevel")
+assert_eq(GameConfig.REALMS["asc_9"].maxLevel, 140, "asc_9 registered maxLevel")
 
 -- ============================================================================
 -- Test AscensionSystem
@@ -92,12 +125,17 @@ assert_true(AscensionSystem.IsProgressFull(), "IsProgressFull when progress == r
 
 -- BreakthroughMinor (target should be minor)
 -- First we need to set up for a minor target
+GameState.player.realm = "asc_1"
+GameState.player.level = 121
+state.totalIndex = 1
 state.stageIndex = 1
-state.minorIndex = 2  -- 谪仙2阶 → 谪仙3阶 is minor
+state.minorIndex = 1  -- 当前谪仙1阶，目标谪仙2阶 requiredLevel=122
 state.progress = AscensionSystem.GetRequiredProgress()
 local ok3, msg3 = AscensionSystem.BreakthroughMinor()
--- This might fail if target is major; depends on state setup
-print("  BreakthroughMinor result: " .. tostring(ok3) .. " " .. tostring(msg3))
+assert_false(ok3, "BreakthroughMinor below requiredLevel should fail")
+assert_eq(msg3, "等级不足 (需要 Lv.122)", "BreakthroughMinor level gate message")
+GameState.player.realm = "dacheng_4"
+GameState.player.level = 121
 
 -- ============================================================================
 -- Test TribulationSystem
@@ -108,6 +146,21 @@ print("\n=== TribulationSystem Tests ===")
 TribulationSystem.Init()
 local tState = TribulationSystem.GetState()
 assert_eq(tState.tribState, "none", "Initial tribState")
+
+-- CanEnter rejects major target below requiredLevel
+AscensionSystem.Init()
+state = AscensionSystem.GetState()
+GameState.player.realm = "asc_9"
+GameState.player.level = 139
+state.totalIndex = 9
+state.stageIndex = 1
+state.minorIndex = 9
+state.progress = AscensionConfig.PROGRESS_PER_MINOR[1]  -- 人仙1阶（渡劫）需求
+local canEnterLow, enterLowMsg = TribulationSystem.CanEnter()
+assert_false(canEnterLow, "CanEnter below major requiredLevel should fail")
+assert_eq(enterLowMsg, "等级不足 (需要 Lv.140)", "CanEnter level gate message")
+GameState.player.realm = "dacheng_4"
+GameState.player.level = 121
 
 -- CanEnter requires progress full + major target
 -- Set up for major breakthrough
@@ -154,7 +207,21 @@ assert_eq(tState.lastResult, "disconnect", "PostLoadCheck sets disconnect")
 
 print("\n=== ImmortalBodySystem Tests ===")
 
+GameState.player.realm = "dacheng_4"
+GameState.player.level = 121
+GameState.player.maxHp = 10000
+GameState.player.atk = 3000
+GameState.player.def = 2000
+GameState.player.hpRegen = 100
+GameState.player.hp = 10000
+GameState.player._statsCacheFrame = 0
+
 ImmortalBodySystem.Init()
+local ibAccountState = ImmortalBodySystem.GetAccountState()
+ibAccountState.unlockedBodies = {
+    mortal = { unlockedAt = 0, source = "default" },
+}
+ibAccountState.version = 1
 assert_eq(ImmortalBodySystem.GetActiveBodyId(), "mortal", "Initial body is mortal")
 assert_false(ImmortalBodySystem.IsUnlocked("immortal_body_1"), "Body 1 not unlocked initially")
 
@@ -222,8 +289,8 @@ assert_eq(ImmortalBodySystem.GetActiveBodyId(), "immortal_body_1", "ImmortalBody
 -- ============================================================================
 
 -- Restore mocks
-InventorySystem.CountConsumable = origCount
-InventorySystem.AddConsumable = origAdd
+package.loaded["systems.InventorySystem"] = _origInventorySystem
+package.loaded["systems.save.SaveSession"] = _origSaveSession
 GameState.player = _origPlayer
 GameState.currentSlot = _origSlot
 

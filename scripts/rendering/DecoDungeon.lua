@@ -4,6 +4,7 @@
 --        StoneTablet, Banner
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local T = require("config.UITheme")
 
 local M = {}

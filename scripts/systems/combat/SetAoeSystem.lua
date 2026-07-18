@@ -69,16 +69,23 @@ local function TrySetAoe(player, triggerEvent, sourceX, sourceY)
                     -- 对范围内怪物造成伤害
                     local targets = GameState.GetMonstersInRange(sourceX, sourceY, aoe.range)
                     local hitCount = 0
+                    local castId = CS.NextCombatCastId(entry.setId)
                     for _, m in ipairs(targets) do
                         if m.alive then
                             local actualDmg = GameConfig.CalcDamage(rawDmg, m.def)
                             actualDmg = m:TakeDamage(actualDmg, player)
-                            CS.AddFloatingText(
-                                m.x, m.y - 0.2,
-                                tostring(actualDmg),
-                                aoe.color,
-                                0.8
-                            )
+                            CS.EmitDamageFeedback(player, m, actualDmg, {
+                                sourceType = "equipment",
+                                sourceId = entry.setId,
+                                sourceName = aoe.effectName or entry.setName,
+                                damageTag = "set_aoe",
+                                castId = castId,
+                                color = aoe.color,
+                                y = m.y - 0.2,
+                            }, {
+                                x = m.x, y = m.y - 0.2,
+                                text = tostring(actualDmg), color = aoe.color, lifetime = 0.8,
+                            })
                             hitCount = hitCount + 1
                         end
                     end

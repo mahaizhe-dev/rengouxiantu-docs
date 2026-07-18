@@ -2,6 +2,7 @@
 -- effects/zones.lua - 区域效果渲染（领域/怪物预警/正气结界）
 -- ============================================================================
 
+---@diagnostic disable: param-type-mismatch, assign-type-mismatch
 local shared = require("rendering.effects.shared")
 
 local CombatSystem = shared.CombatSystem
@@ -130,7 +131,9 @@ function M.RenderZones(nvg, l, camera)
         if camera:IsVisible(zone.x, zone.y, l.w, l.h, 5) then
             local sx = (zone.x - camera.x) * tileSize + l.w / 2 + l.x
             local sy = (zone.y - camera.y) * tileSize + l.h / 2 + l.y
-            local radius = zone.range * tileSize
+            local isSquare = zone.shape == "square"
+            local zoneExtent = isSquare and (zone.halfSize or zone.range) or zone.range
+            local radius = zoneExtent * tileSize
             local c = zone.color
 
             -- 生命周期进度（用于淡入淡出）
@@ -154,13 +157,21 @@ function M.RenderZones(nvg, l, camera)
                     nvgRGBA(c[1], c[2], c[3], math.floor(60 * alpha * pulse)),
                     nvgRGBA(c[1], c[2], c[3], math.floor(15 * alpha)))
                 nvgBeginPath(nvg)
-                nvgCircle(nvg, sx, sy, radius)
+                if isSquare then
+                    nvgRect(nvg, sx - radius, sy - radius, radius * 2, radius * 2)
+                else
+                    nvgCircle(nvg, sx, sy, radius)
+                end
                 nvgFillPaint(nvg, fillPaint)
                 nvgFill(nvg)
 
                 -- 边缘圆环（脉冲发光）
                 nvgBeginPath(nvg)
-                nvgCircle(nvg, sx, sy, radius)
+                if isSquare then
+                    nvgRect(nvg, sx - radius, sy - radius, radius * 2, radius * 2)
+                else
+                    nvgCircle(nvg, sx, sy, radius)
+                end
                 nvgStrokeColor(nvg, nvgRGBA(c[1], c[2], c[3], math.floor(180 * alpha * pulse)))
                 nvgStrokeWidth(nvg, 2.0)
                 nvgStroke(nvg)
@@ -189,7 +200,11 @@ function M.RenderZones(nvg, l, camera)
                     local flashAlpha = math.floor(100 * tickPulse * alpha)
                     local flashR = isDmgBoost and (radius * 0.15) or (radius * 0.9)
                     nvgBeginPath(nvg)
-                    nvgCircle(nvg, sx, sy, flashR)
+                    if isSquare then
+                        nvgRect(nvg, sx - flashR, sy - flashR, flashR * 2, flashR * 2)
+                    else
+                        nvgCircle(nvg, sx, sy, flashR)
+                    end
                     nvgFillColor(nvg, nvgRGBA(c[1], c[2], c[3], flashAlpha))
                     nvgFill(nvg)
                 end
@@ -527,6 +542,48 @@ function M.RenderBarrierZones(nvg, l, camera)
             nvgText(nvg, sx, sy - radius - 3, "结界", nil)
         end
     end
+end
+
+--- 渲染云裳玉甲回响，护盾激活期间持续显示，避免只靠瞬时浮字判断反伤窗口
+function M.RenderJadeShield(nvg, l, camera)
+    local boss, cfg, isActive, remaining = CombatSystem.GetJadeShieldInfo()
+    if not boss or not cfg or not isActive then return end
+    if not camera:IsVisible(boss.x, boss.y, l.w, l.h, 5) then return end
+
+    local tileSize = camera:GetTileSize()
+    local sx = (boss.x - camera.x) * tileSize + l.w / 2 + l.x
+    local sy = (boss.y - camera.y) * tileSize + l.h / 2 + l.y
+    local radius = math.max(0.9, (boss.bodySize or 1.0) * 0.55) * tileSize
+    local duration = cfg.duration or 0
+    local progress = duration > 0 and math.max(0, math.min(1, remaining / duration)) or 0
+    local pulse = 0.75 + 0.25 * math.sin((duration - remaining) * 5.0)
+
+    local fillPaint = nvgRadialGradient(nvg, sx, sy, radius * 0.25, radius,
+        nvgRGBA(90, 235, 165, math.floor(55 * pulse)),
+        nvgRGBA(40, 150, 95, 5))
+    nvgBeginPath(nvg)
+    nvgCircle(nvg, sx, sy, radius)
+    nvgFillPaint(nvg, fillPaint)
+    nvgFill(nvg)
+
+    nvgBeginPath(nvg)
+    nvgCircle(nvg, sx, sy, radius)
+    nvgStrokeColor(nvg, nvgRGBA(100, 245, 175, math.floor(220 * pulse)))
+    nvgStrokeWidth(nvg, 3)
+    nvgStroke(nvg)
+
+    nvgBeginPath(nvg)
+    nvgArc(nvg, sx, sy, radius * 0.78, -math.pi * 0.5,
+        -math.pi * 0.5 + math.pi * 2 * progress, NVG_CW)
+    nvgStrokeColor(nvg, nvgRGBA(220, 255, 235, 230))
+    nvgStrokeWidth(nvg, 2)
+    nvgStroke(nvg)
+
+    nvgFontFace(nvg, "sans")
+    nvgFontSize(nvg, 12)
+    nvgTextAlign(nvg, NVG_ALIGN_CENTER + NVG_ALIGN_BOTTOM)
+    nvgFillColor(nvg, nvgRGBA(150, 255, 195, 245))
+    nvgText(nvg, sx, sy - radius - 5, string.format("玉甲 %.1fs", remaining), nil)
 end
 
 --- 渲染渡劫场景预警（雷击圈 + 火场 + 安全区 + HUD 倒计时）

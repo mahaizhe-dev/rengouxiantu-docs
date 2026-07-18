@@ -1,7 +1,7 @@
 -- ============================================================================
 -- ChallengeSystem.lua - 阵营挑战/法宝系统（v4）— Facade
 -- 血煞盟·殷无咎（新版声望） / 浩气宗·陆青云（旧版 tiers）
--- 新版：8 级声望（T3-T10），法宝掉落，5 种凝X丹，精华材料
+-- 新版：9 级声望（T3-T11/仙1），法宝掉落，5 种凝X丹，精华材料
 -- 旧版：8 级 tiers（T1-T8），专属装备 + 血煞丹/浩气丹
 -- ============================================================================
 
@@ -226,7 +226,7 @@ function ChallengeSystem.GetProgress(faction, tier)
 end
 
 ---@param factionKey string
----@param repLevel number 1-8
+---@param repLevel number 1-9
 ---@return table|nil { unlocked, completed }
 function ChallengeSystem.GetReputationProgress(factionKey, repLevel)
     local faction = ChallengeConfig.FACTIONS[factionKey]

@@ -6,6 +6,7 @@ local GameConfig = require("config.GameConfig")
 local GameState = require("core.GameState")
 local EventBus = require("core.EventBus")
 local HitResolver = require("systems.combat.HitResolver")
+local Ch6ForgeHitEffects = require("systems.combat.Ch6ForgeHitEffects")
 local ArtifactSystem = require("systems.ArtifactSystem")
 local CombatSystem = {}
 
@@ -41,12 +42,8 @@ end
 -- ── P2-6: 浮动文字/特效颜色常量（消除每次调用的临时表分配） ──
 local FT_WHITE           = {255, 255, 255, 255}  -- 默认
 local FT_YELLOW          = {255, 255, 100, 255}  -- 普攻伤害
-local FT_GREEN           = {100, 255, 150, 255}  -- 宠物攻击
-local FT_PURPLE          = {200, 130, 255, 255}  -- 宠物技能伤害
 local FT_PURPLE_LIGHT    = {180, 120, 255, 255}  -- 宠物技能名/噬魂回血
 local FT_ORANGE_DEBUFF   = {255, 160, 80, 255}   -- 减益提示
-local FT_ORANGE_IGNORE   = {255, 200, 60, 255}   -- 无视防御命中（金黄色）
-local FT_RED             = {255, 80, 80, 255}    -- 玩家受伤
 local FT_GOLD            = {255, 215, 0, 255}    -- 击杀
 
 local FT_CRIT_YELLOW     = {255, 220, 50, 255}   -- 暴击
@@ -91,6 +88,8 @@ CombatSystem.delayedHits = {}
 CombatSystem.rakeStrikeEffects = {}
 -- 四剑诛灭剑影特效队列
 CombatSystem.zhentuSwordEffects = {}
+-- 界匙「两界替命」特效队列
+CombatSystem.jieshiRescueEffects = {}
 -- 血怒叠层: { [monsterId] = stackCount }
 CombatSystem.bloodRageStacks = {}
 
@@ -98,6 +97,8 @@ CombatSystem.bloodRageStacks = {}
 require("systems.combat.BuffZoneSystem")(CombatSystem)
 require("systems.combat.SetAoeSystem")(CombatSystem)
 require("systems.combat.BossMechanics")(CombatSystem)
+require("systems.combat.CombatFeedbackBridge")(CombatSystem)
+require("systems.combat.CombatFeedbackEvents")(CombatSystem)
 
 -- ============================================================================
 -- E-1: 装备特效处理器注册表（新增特效只需注册一条）
@@ -168,11 +169,13 @@ EFFECT_HANDLERS["wind_slash"] = {
             local baseDmg = GameConfig.CalcDamage(player:GetTotalAtk(), monster.def)
             local dmg = math_max(1, math_floor(baseDmg * (eff.damagePercent or 1.20)))
             local actualDmg = HitResolver.Hit(player, monster, dmg, { skipCalcDamage = true, skipCrit = true, noEvent = true })
-            CombatSystem.AddFloatingText(
-                monster.x, monster.y - 0.7,
-                "裂风 " .. actualDmg,
-                FT_WIND_SLASH, 1.2
-            )
+            CombatSystem.EmitDamageFeedback(player, monster, actualDmg, {
+                sourceType = "equipment", sourceId = eff.type, sourceName = "裂风",
+                damageTag = "skill", color = FT_WIND_SLASH, y = monster.y - 0.7,
+            }, {
+                x = monster.x, y = monster.y - 0.7,
+                text = "裂风 " .. actualDmg, color = FT_WIND_SLASH, lifetime = 1.2,
+            })
             print("[Combat] 裂风斩! " .. actualDmg)
         end
     end,
@@ -192,105 +195,9 @@ EFFECT_HANDLERS["wind_slash"] = {
     end,
 }
 
--- ── 噬魂（击杀堆叠10层→释放矩形AOE吸血斩） ──
-EFFECT_HANDLERS["lifesteal_burst"] = {
-    -- 击杀堆叠层数 + 3%最大生命回复
-    onKill = function(eff, player, _monster)
-        -- 击杀回血（保留）
-        local maxHp = player:GetTotalMaxHp()
-        local healAmt = math_floor(maxHp * (eff.healPercent or 0.03))
-        if healAmt > 0 and player.hp < maxHp then
-            player.hp = math_min(maxHp, player.hp + healAmt)
-            CombatSystem.AddFloatingText(
-                player.x, player.y - 0.5,
-                "噬魂 +" .. healAmt,
-                FT_PURPLE_LIGHT, 0.8
-            )
-        end
-        -- 堆叠层数
-        local maxStacks = eff.maxStacks or 10
-        eff._soulStacks = (eff._soulStacks or 0) + 1
-        if eff._soulStacks < maxStacks then
-            CombatSystem.AddFloatingText(
-                player.x, player.y - 0.3,
-                "噬魂 " .. eff._soulStacks .. "/" .. maxStacks,
-                FT_LIFESTEAL_DMG, 0.6
-            )
-            return
-        end
-        -- ══ 满层释放AOE ══
-        eff._soulStacks = 0
-        local atk = player:GetTotalAtk()
-        local baseDmg = math_floor(atk * (eff.damagePercent or 1.0))
-        if baseDmg < 1 then baseDmg = 1 end
-
-        -- 计算朝向（朝最近的怪或面向方向）
-        local nearest = GameState.GetNearestMonster(player.x, player.y, eff.range or 2.5)
-        local sweepAngle
-        if nearest then
-            sweepAngle = math_atan(nearest.y - player.y, nearest.x - player.x)
-        else
-            sweepAngle = player.facingRight and 0 or math_pi
-        end
-        local cosA = math_cos(sweepAngle)
-        local sinA = math_sin(sweepAngle)
-
-        -- 矩形AOE命中检测（与伏魔刀相同范围：2.0长×1.0宽）
-        local rectLen = eff.rectLength or 2.0
-        local halfW = (eff.rectWidth or 1.0) / 2
-        local searchR = math_sqrt(rectLen * rectLen + halfW * halfW) + 0.5
-        local targets = GameState.GetMonstersInRange(player.x, player.y, searchR)
-        local hitCount = 0
-        local totalHeal = 0
-        local maxTargets = eff.maxTargets or 3
-
-        for _, m in ipairs(targets) do
-            if m.alive then
-                local mx = m.x - player.x
-                local my = m.y - player.y
-                local forward = mx * cosA + my * sinA
-                local lateral = -mx * sinA + my * cosA
-                if forward >= 0 and forward <= rectLen and math_abs(lateral) <= halfW then
-                    -- CalcDamage 经过防御减算，不暴击
-                    local dmg = GameConfig.CalcDamage(baseDmg, m.def)
-                    dmg = m:TakeDamage(dmg, player)
-                    hitCount = hitCount + 1
-                    totalHeal = totalHeal + dmg
-                    CombatSystem.AddFloatingText(
-                        m.x, m.y - 0.9,
-                        "噬魂 " .. dmg,
-                        FT_LIFESTEAL_DMG, 1.3
-                    )
-                    if hitCount >= maxTargets then break end
-                end
-            end
-        end
-
-        -- 吸血回复（造成多少伤害回多少血）
-        if totalHeal > 0 and player.hp < maxHp then
-            player.hp = math_min(maxHp, player.hp + totalHeal)
-            CombatSystem.AddFloatingText(
-                player.x, player.y - 0.3,
-                "噬魂回复 +" .. totalHeal,
-                FT_PURPLE_LIGHT, 1.0
-            )
-        end
-
-        -- 视觉特效（紫色矩形，使用 AddSkillEffect）
-        local effectColor = eff.effectColor or {160, 80, 220, 255}
-        CombatSystem.AddSkillEffect(player, "soul_burst", eff.range or 2.5, effectColor,
-            "lifesteal", {
-                shape = "rect",
-                rectLength = rectLen,
-                rectWidth = eff.rectWidth or 1.0,
-                targetAngle = sweepAngle,
-                duration = 0.5,
-            })
-
-        print("[Combat] 噬魂满层爆发! hit=" .. hitCount .. " dmg=" .. totalHeal .. " heal=" .. totalHeal)
-    end,
-    -- 无需 update（没有 buff/cooldown 需要 tick）
-}
+-- ── 噬魂（击杀叠层、满层矩形AOE与吸血反馈） ──
+EFFECT_HANDLERS["lifesteal_burst"] =
+    require("systems.combat.LifestealBurst").CreateHandler(CombatSystem)
 
 -- ── 灭影（暴击追加） ──
 EFFECT_HANDLERS["shadow_strike"] = {
@@ -303,11 +210,13 @@ EFFECT_HANDLERS["shadow_strike"] = {
             local baseDmg = GameConfig.CalcDamage(player:GetTotalAtk(), monster.def)
             local dmg = math_max(1, math_floor(baseDmg * (eff.damagePercent or 0.60)))
             local actualDmg = HitResolver.Hit(player, monster, dmg, { skipCalcDamage = true, skipCrit = true, noEvent = true })
-            CombatSystem.AddFloatingText(
-                monster.x, monster.y - 0.9,
-                "灭影 " .. actualDmg,
-                FT_SHADOW_STRIKE, 1.3
-            )
+            CombatSystem.EmitDamageFeedback(player, monster, actualDmg, {
+                sourceType = "equipment", sourceId = eff.type, sourceName = "灭影",
+                damageTag = "skill", color = FT_SHADOW_STRIKE, y = monster.y - 0.9,
+            }, {
+                x = monster.x, y = monster.y - 0.9,
+                text = "灭影 " .. actualDmg, color = FT_SHADOW_STRIKE, lifetime = 1.3,
+            })
             print("[Combat] 灭影! " .. actualDmg)
         end
     end,
@@ -357,28 +266,44 @@ EFFECT_HANDLERS["zhuxian"] = {
             if math_random() >= (eff.procChance or 0.30) then return end
             eff._cooldown = eff.cooldown or 1.0
             local raw = math_max(1, math_floor(baseDmg * (eff.dmgMult or 1.80)))
-            local actualDmg = HitResolver.Hit(player, monster, raw, { skipCalcDamage = true, noEvent = true })
-            CombatSystem.AddFloatingText(monster.x, monster.y - 0.9, "诛仙剑气 " .. actualDmg, FT_ZHUXIAN, 1.4)
+            local actualDmg, procCrit, procTianzhu = HitResolver.Hit(
+                player, monster, raw, { skipCalcDamage = true, noEvent = true })
+            CombatSystem.EmitDamageFeedback(player, monster, actualDmg, {
+                sourceType = "equipment", sourceId = eff.type, sourceName = "诛仙剑气",
+                criticality = procTianzhu and "tianzhu" or (procCrit and "crit" or "normal"),
+                damageTag = "skill", color = FT_ZHUXIAN, y = monster.y - 0.9,
+            }, {
+                x = monster.x, y = monster.y - 0.9,
+                text = "诛仙剑气 " .. actualDmg, color = FT_ZHUXIAN, lifetime = 1.4,
+            })
             print("[Combat] 诛仙剑气! " .. actualDmg)
         else
             -- ── 封印版：暴击时追加一次额外伤害（可暴击） ──
             if not isCrit then return end
             eff._cooldown = eff.cooldown or 1.0
             local raw = math_max(1, math_floor(baseDmg * (eff.damagePercent or 0.15)))
-            local actualDmg, zhuxianCrit
+            local actualDmg, zhuxianCrit, zhuxianTianzhu
             if eff.canCrit then
-                actualDmg, zhuxianCrit = HitResolver.Hit(player, monster, raw, { skipCalcDamage = true, noEvent = true })
+                actualDmg, zhuxianCrit, zhuxianTianzhu = HitResolver.Hit(
+                    player, monster, raw, { skipCalcDamage = true, noEvent = true })
             else
                 actualDmg = HitResolver.Hit(player, monster, raw, { skipCalcDamage = true, skipCrit = true, noEvent = true })
                 zhuxianCrit = false
+                zhuxianTianzhu = false
             end
-            if zhuxianCrit then
-                CombatSystem.AddFloatingText(monster.x, monster.y - 0.9, "诛仙暴击 " .. actualDmg, FT_CRIT_YELLOW, 1.4)
-                print("[Combat] 诛仙暴击! " .. actualDmg)
-            else
-                CombatSystem.AddFloatingText(monster.x, monster.y - 0.9, "诛仙 " .. actualDmg, FT_ZHUXIAN, 1.3)
-                print("[Combat] 诛仙! " .. actualDmg)
-            end
+            local crit = zhuxianTianzhu and "tianzhu" or (zhuxianCrit and "crit" or "normal")
+            local text = zhuxianTianzhu and ("天诛诛仙 " .. actualDmg)
+                or (zhuxianCrit and ("诛仙暴击 " .. actualDmg) or ("诛仙 " .. actualDmg))
+            local color = zhuxianTianzhu and FT_TIANZHU or (zhuxianCrit and FT_CRIT_YELLOW or FT_ZHUXIAN)
+            CombatSystem.EmitDamageFeedback(player, monster, actualDmg, {
+                sourceType = "equipment", sourceId = eff.type, sourceName = "诛仙",
+                criticality = crit, damageTag = "skill", color = FT_ZHUXIAN,
+                y = monster.y - 0.9,
+            }, {
+                x = monster.x, y = monster.y - 0.9, text = text, color = color,
+                lifetime = zhuxianCrit and 1.4 or 1.3,
+            })
+            print("[Combat] " .. (zhuxianCrit and "诛仙暴击! " or "诛仙! ") .. actualDmg)
         end
     end,
     update = function(dt)
@@ -431,14 +356,20 @@ EFFECT_HANDLERS["luxian"] = {
         if math_random() >= eff.procChance then return end
         eff._cooldown = eff.cooldown or 1.0
         -- 连击：走完整普攻判定（含暴击、装备特效，但标记 isChain=true 排除戮仙）
-        local chainDmg, chainCrit, chainTianzhu = HitResolver.Hit(player, monster, player:GetTotalDef(), { noEvent = true })
-        if chainTianzhu then
-            CombatSystem.AddFloatingText(monster.x, monster.y - 1.1, "天诛连击 " .. chainDmg, FT_TIANZHU, 1.5, 1.6)
-        elseif chainCrit then
-            CombatSystem.AddFloatingText(monster.x, monster.y - 1.1, "连击暴击 " .. chainDmg, FT_CRIT_YELLOW, 1.3)
-        else
-            CombatSystem.AddFloatingText(monster.x, monster.y - 1.1, "连击 " .. chainDmg, FT_LUXIAN, 1.1)
-        end
+        local chainDmg, chainCrit, chainTianzhu = HitResolver.Hit(player, monster, player:GetTotalAtk(), { noEvent = true })
+        local criticality = chainTianzhu and "tianzhu" or (chainCrit and "crit" or "normal")
+        local text = chainTianzhu and ("天诛连击 " .. chainDmg)
+            or (chainCrit and ("连击暴击 " .. chainDmg) or ("连击 " .. chainDmg))
+        local color = chainTianzhu and FT_TIANZHU or (chainCrit and FT_CRIT_YELLOW or FT_LUXIAN)
+        CombatSystem.EmitDamageFeedback(player, monster, chainDmg, {
+            sourceType = "equipment", sourceId = eff.type, sourceName = "戮仙连击",
+            criticality = criticality, damageTag = "skill", color = FT_LUXIAN,
+            y = monster.y - 1.1,
+        }, {
+            x = monster.x, y = monster.y - 1.1, text = text, color = color,
+            lifetime = chainTianzhu and 1.5 or (chainCrit and 1.3 or 1.1),
+            baseScale = chainTianzhu and 1.6 or nil,
+        })
         CombatSystem.AddSlashEffect(player, monster, player:GetAttackInterval() * 0.6)
         print("[Combat] 戮仙连击! " .. chainDmg)
         -- 触发普攻相关特效（传入 isChain=true，防止戮仙递归）
@@ -460,6 +391,9 @@ EFFECT_HANDLERS["luxian"] = {
         end
     end,
 }
+
+-- 哼哈震杀：固定伤害、独立冷却与专属双刃冲击反馈。
+EFFECT_HANDLERS["hengha_fixed_burst"] = Ch6ForgeHitEffects.CreateHenghaHandler(CombatSystem)
 
 -- ── 绝仙（每次攻击+1层绝命，ATK+3%/层，最多5层，4秒持续，命中刷新） ──
 local FT_JUEXIAN = {180, 0, 220, 255}  -- 暗紫
@@ -540,6 +474,7 @@ end
 
 --- 初始化战斗系统
 function CombatSystem.Init()
+    CombatSystem.ResetCombatFeedback()
     CombatSystem.floatingTexts = {}
     CombatSystem.slashEffects = {}
     CombatSystem.clawEffects = {}
@@ -555,46 +490,11 @@ function CombatSystem.Init()
     CombatSystem.delayedHits = {}
     CombatSystem.rakeStrikeEffects = {}
     CombatSystem.zhentuSwordEffects = {}
+    CombatSystem.jieshiRescueEffects = {}
     CombatSystem.bloodRageStacks = {}
 
-    -- 监听攻击事件，创建伤害数字 + 刀光
-    EventBus.On("player_attack", function(player, monster, damage)
-        CombatSystem.AddFloatingText(monster.x, monster.y, tostring(damage), FT_YELLOW)
-        -- 生成刀光特效
-        local atkInterval = player:GetAttackInterval()
-        CombatSystem.AddSlashEffect(player, monster, atkInterval)
-    end)
-
-    EventBus.On("pet_attack", function(pet, monster, damage, isCrit, isDoubleHit, isIgnoreDef)
-        local dmgText = tostring(damage)
-        if isIgnoreDef then
-            dmgText = "破防 " .. damage  -- 无视防御特殊浮字
-            CombatSystem.AddFloatingText(monster.x, monster.y, dmgText, FT_ORANGE_IGNORE)
-        else
-            CombatSystem.AddFloatingText(monster.x, monster.y, dmgText, FT_GREEN)
-        end
-        -- 宠物攻击小刀光
-        CombatSystem.AddPetSlashEffect(pet, monster)
-    end)
-
-    EventBus.On("pet_skill_attack", function(pet, monster, damage, isCrit, skill)
-        -- 灵噬技能伤害浮字（紫色）
-        local dmgText = isCrit and ("暴击 " .. damage) or tostring(damage)
-        CombatSystem.AddFloatingText(monster.x, monster.y - 0.3, dmgText, FT_PURPLE, 1.3)
-        -- 技能名浮字
-        CombatSystem.AddFloatingText(monster.x, monster.y - 0.6, "🐺灵噬Lv." .. pet.tier, FT_PURPLE_LIGHT, 1.0)
-        -- 易伤提示
-        CombatSystem.AddFloatingText(monster.x, monster.y + 0.1, "易伤 8%", FT_ORANGE_DEBUFF, 1.0)
-        -- 宠物攻击特效
-        CombatSystem.AddPetSlashEffect(pet, monster)
-    end)
-
-    EventBus.On("player_hurt", function(damage, source)
-        local player = GameState.player
-        if player then
-            CombatSystem.AddFloatingText(player.x, player.y, "-" .. tostring(damage), FT_RED)
-        end
-    end)
+    CombatSystem.InitCombatFeedbackEvents()
+    CombatSystem.InitBossMechanicsListeners()
 
     -- 监听玩家造成伤害事件，统一触发血怒等后处理
     -- isDot=true 表示持续伤害（焚血等），系统级过滤：持续伤害不触发血怒
@@ -625,6 +525,7 @@ end
 
 --- 清除所有战斗特效（章节切换时调用，不重新注册事件监听）
 function CombatSystem.ClearEffects()
+    CombatSystem.ResetCombatFeedback()
     CombatSystem.floatingTexts = {}
     CombatSystem.slashEffects = {}
     CombatSystem.clawEffects = {}
@@ -637,6 +538,9 @@ function CombatSystem.ClearEffects()
     CombatSystem.activeZones = {}
     CombatSystem.barrierZones = {}
     CombatSystem.barrierSpawnTimer = 0
+    CombatSystem.rakeStrikeEffects = {}
+    CombatSystem.zhentuSwordEffects = {}
+    CombatSystem.jieshiRescueEffects = {}
     CombatSystem.bloodRageStacks = {}
     CombatSystem.ClearBaguaAura()
     CombatSystem.ClearJadeShield()
@@ -764,6 +668,19 @@ function CombatSystem.AddZhentuSwordEffect(px, py, index)
     })
 end
 
+--- 添加界匙「两界替命」表现。
+---@param player table
+---@param duration number|nil
+function CombatSystem.AddJieshiRescueEffect(player, duration)
+    table.insert(CombatSystem.jieshiRescueEffects, {
+        player = player,
+        x = player.x or 0,
+        y = player.y or 0,
+        duration = duration or 3.0,
+        elapsed = 0,
+    })
+end
+
 --- 添加技能范围特效
 ---@param player table 玩家实体
 ---@param skillId string 技能ID
@@ -859,6 +776,7 @@ end
 --- 更新战斗特效
 ---@param dt number
 function CombatSystem.Update(dt)
+    CombatSystem.UpdateCombatFeedback(dt)
     -- 更新浮动文字（到期字段: lifetime）
     local arr = CombatSystem.floatingTexts
     local j = 1
@@ -881,6 +799,7 @@ function CombatSystem.Update(dt)
     CompactTimedArray(CombatSystem.monsterWarnings, dt, "duration")
     CompactTimedArray(CombatSystem.rakeStrikeEffects, dt, "duration")
     CompactTimedArray(CombatSystem.zhentuSwordEffects, dt, "duration")
+    CompactTimedArray(CombatSystem.jieshiRescueEffects, dt, "duration")
 
     -- 更新buff
     CombatSystem.UpdateBuffs(dt)
@@ -936,22 +855,26 @@ function CombatSystem.AutoAttack(dt)
             player.attackTimer = 0
             -- HitResolver: Standard + noEvent（event 在攻击链末尾统一发出）
             local damage, isCrit, isTianzhu = HitResolver.Hit(player, nearest, player:GetTotalAtk(), { noEvent = true })
-            if isTianzhu then
-                CombatSystem.AddFloatingText(
-                    nearest.x, nearest.y - 0.5,
-                    "天诛 " .. damage,
-                    FT_TIANZHU,
-                    1.5,
-                    1.6
-                )
-            elseif isCrit then
-                CombatSystem.AddFloatingText(
-                    nearest.x, nearest.y - 0.5,
-                    "暴击 " .. damage,
-                    FT_CRIT_YELLOW,
-                    1.3
-                )
-            end
+            local attackCastId = CombatSystem.NextCombatCastId("basic")
+            local criticality = isTianzhu and "tianzhu" or (isCrit and "crit" or "normal")
+            local legacyText = isTianzhu and ("天诛 " .. damage)
+                or (isCrit and ("暴击 " .. damage) or tostring(damage))
+            local legacyColor = isTianzhu and FT_TIANZHU or (isCrit and FT_CRIT_YELLOW or FT_YELLOW)
+            CombatSystem.EmitDamageFeedback(player, nearest, damage, {
+                sourceType = "basic",
+                sourceId = "player_attack",
+                criticality = criticality,
+                damageTag = "normal",
+                castId = attackCastId,
+                y = nearest.y - ((isCrit or isTianzhu) and 0.5 or 0),
+            }, {
+                x = nearest.x,
+                y = nearest.y - ((isCrit or isTianzhu) and 0.5 or 0),
+                text = legacyText,
+                color = legacyColor,
+                lifetime = isTianzhu and 1.5 or (isCrit and 1.3 or nil),
+                baseScale = isTianzhu and 1.6 or nil,
+            })
             EventBus.Emit("player_attack", player, nearest, damage)
             EventBus.Emit("player_normal_hit", player, nearest)
 
@@ -968,15 +891,23 @@ function CombatSystem.AutoAttack(dt)
                 -- HitResolver: TrueDamage + noEvent（player_heavy_hit 是独立事件）
                 local heavyCrit, heavyTianzhu
                 heavyDmg, heavyCrit, heavyTianzhu = HitResolver.Hit(player, nearest, heavyDmg, { skipCalcDamage = true, skipCrit = false, noEvent = true })
+                local heavyCriticality = heavyTianzhu and "tianzhu" or (heavyCrit and "crit" or "normal")
                 local heavyPrefix = heavyTianzhu and "天诛重击 " or (heavyCrit and "重击暴击 " or "重击 ")
                 local heavyColor = heavyTianzhu and FT_TIANZHU or (heavyCrit and FT_CRIT_YELLOW or FT_HEAVY_ORANGE)
-                CombatSystem.AddFloatingText(
-                    nearest.x, nearest.y - 0.6,
-                    heavyPrefix .. heavyDmg,
-                    heavyColor,
-                    1.5,
-                    heavyTianzhu and 1.6 or nil
-                )
+                CombatSystem.EmitDamageFeedback(player, nearest, heavyDmg, {
+                    sourceType = "passive",
+                    sourceId = "heavy_hit",
+                    sourceName = "重击",
+                    damageTag = "heavy",
+                    impact = "heavy",
+                    criticality = heavyCriticality,
+                    castId = attackCastId,
+                    y = nearest.y - 0.6,
+                }, {
+                    x = nearest.x, y = nearest.y - 0.6,
+                    text = heavyPrefix .. heavyDmg, color = heavyColor,
+                    lifetime = 1.5, baseScale = heavyTianzhu and 1.6 or nil,
+                })
                 print("[Combat] HEAVY HIT! " .. heavyDmg .. (heavyCrit and " (CRIT)" or ""))
                 EventBus.Emit("player_heavy_hit", player, nearest)
             end
@@ -1032,17 +963,24 @@ function CombatSystem.TryHeavyStrike(player, monster)
         if heavyDmgBonus > 0 then
             heavyDmg = math_floor(heavyDmg * (1 + heavyDmgBonus))
         end
-        local heavyCrit
-        heavyDmg, heavyCrit = player:ApplyCrit(heavyDmg)
+        local heavyCrit, heavyTianzhu
+        heavyDmg, heavyCrit, heavyTianzhu = player:ApplyCrit(heavyDmg)
         heavyDmg = monster:TakeDamage(heavyDmg, player)
-        local prefix = heavyCrit and "裂地暴击 " or "裂地 "
-        local color = heavyCrit and FT_HEAVY_CRIT or FT_HEAVY_NORMAL
-        CombatSystem.AddFloatingText(
-            monster.x, monster.y - 0.7,
-            prefix .. heavyDmg,
-            color,
-            1.5
-        )
+        local criticality = heavyTianzhu and "tianzhu" or (heavyCrit and "crit" or "normal")
+        local prefix = heavyTianzhu and "天诛裂地 " or (heavyCrit and "裂地暴击 " or "裂地 ")
+        local color = heavyTianzhu and FT_TIANZHU or (heavyCrit and FT_HEAVY_CRIT or FT_HEAVY_NORMAL)
+        CombatSystem.EmitDamageFeedback(player, monster, heavyDmg, {
+            sourceType = "equipment",
+            sourceId = "heavy_strike",
+            sourceName = "裂地",
+            damageTag = "heavy",
+            impact = "heavy",
+            criticality = criticality,
+            y = monster.y - 0.7,
+        }, {
+            x = monster.x, y = monster.y - 0.7,
+            text = prefix .. heavyDmg, color = color, lifetime = 1.5,
+        })
         print("[Combat] 裂地 HEAVY STRIKE! " .. heavyDmg .. (heavyCrit and " (CRIT)" or ""))
         EventBus.Emit("player_heavy_hit", player, monster)
     end
